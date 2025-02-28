@@ -6,7 +6,9 @@
       "sharedGlobals"
     ],
     "production": [
-      "default"
+      "default",
+      "!{projectRoot}/.eslintrc.json",
+      "!{projectRoot}/eslint.config.mjs"
     ],
     "sharedGlobals": []
   },
@@ -24,6 +26,60 @@
           "watchDepsName": "watch-deps"
         }
       }
+    },
+    {
+      "plugin": "@nx/eslint/plugin",
+      "options": {
+        "targetName": "lint"
+      }
     }
-  ]
+  ],
+  "targetDefaults": {
+    "@nx/esbuild:esbuild": {
+      "options": {
+        "outputPath": "packages/{projectName}/dist",
+        "main": "{projectRoot}/src/index.ts",
+        "tsConfig": "{projectRoot}/tsconfig.lib.json",
+        "format": [
+          "esm"
+        ],
+        "declarationRootDir": "{projectRoot}/src",
+        "deleteOutputPath": false,
+        "minify": false,
+        "sourcemap": true
+      },
+      "cache": true,
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "production",
+        "^production"
+      ]
+    }
+  },
+  "release": {    "conventionalCommits": {
+      "types": {
+        "chore": {
+          "changelog": {
+            "hidden": true
+          }
+        },
+        "refactor": {
+          "semverBump": "patch"
+        }
+      }
+    },
+    "changelog": {
+      "workspaceChangelog": {
+        "file": false
+      }
+    },
+    "releaseTagPattern": "release/{version}",
+    "version": {
+      "preVersionCommand": "npx nx run-many -t build",
+      "conventionalCommits": true
+
+    }
+  }
 }

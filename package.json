@@ -2,19 +2,45 @@
   "name": "@lace/source",
   "version": "0.0.0",
   "license": "MIT",
+  "type": "module",
   "scripts": {},
   "private": true,
   "dependencies": {},
   "devDependencies": {
+    "@eslint/js": "^9.8.0",
+    "@nx/esbuild": "20.4.6",
+    "@nx/eslint": "20.4.6",
+    "@nx/eslint-plugin": "20.4.6",
     "@nx/js": "20.4.6",
     "@swc-node/register": "~1.9.1",
     "@swc/core": "~1.5.7",
     "@swc/helpers": "~0.5.11",
+    "@types/node": "18.16.9",
+    "esbuild": "^0.19.2",
+    "eslint": "^9.8.0",
+    "eslint-config-prettier": "^9.0.0",
     "nx": "20.4.6",
+    "prettier": "^3.5.2",
     "tslib": "^2.3.0",
-    "typescript": "~5.7.2"
+    "typescript": "~5.7.2",
+    "typescript-eslint": "^8.19.0",
+    "verdaccio": "^5.0.4"
   },
   "workspaces": [
-    "packages/*"
-  ]
+    "packages/*",
+    "packages"
+  ],
+  "nx": {
+    "includedScripts": [],
+    "targets": {
+      "local-registry": {
+        "executor": "@nx/js:verdaccio",
+        "options": {
+          "port": 4873,
+          "config": ".verdaccio/config.yml",
+          "storage": "tmp/local-registry/storage"
+        }
+      }
+    }
+  }
 }
