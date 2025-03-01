@@ -4,7 +4,7 @@ import type { ComponentsObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 import ts from 'typescript';
 
-import { TypeDeriver, getProgram, isCallExpression } from '@lace/core';
+import { TypeDeriver, getProgram, isCallExpression } from '@sdk-it/core';
 
 import {
   type Method,

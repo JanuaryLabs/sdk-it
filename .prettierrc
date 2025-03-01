@@ -2,7 +2,7 @@
   "singleQuote": true,
   "importOrder": [
     "<THIRD_PARTY_MODULES>",
-    "^@lace/(.*)$",
+    "^@sdk-it/(.*)$",
     "^[./]"
   ],
   "plugins": ["@trivago/prettier-plugin-sort-imports"],

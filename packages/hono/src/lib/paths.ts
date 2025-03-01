@@ -7,7 +7,7 @@ import type {
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { $types } from '@lace/core';
+import { $types } from '@sdk-it/core';
 
 export type SemanticSource =
   | 'query'

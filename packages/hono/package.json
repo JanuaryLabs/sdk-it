@@ -5,6 +5,9 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     "./package.json": "./package.json",
     ".": {
@@ -18,7 +21,7 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "@lace/core": "*",
+    "@sdk-it/core": "*",
     "debug": "^4.4.0",
     "openapi3-ts": "^4.4.0",
     "stringcase": "^4.3.1",
