@@ -1,1 +1,2 @@
-export * from './lib/core.js';
+export * from './lib/deriver.ts';
+export * from './lib/program.ts';

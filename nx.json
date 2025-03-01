@@ -1,10 +1,7 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
   "namedInputs": {
-    "default": [
-      "{projectRoot}/**/*",
-      "sharedGlobals"
-    ],
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "production": [
       "default",
       "!{projectRoot}/.eslintrc.json",
@@ -37,28 +34,22 @@
   "targetDefaults": {
     "@nx/esbuild:esbuild": {
       "options": {
-        "outputPath": "packages/{projectName}/dist",
+        "outputPath": "{projectRoot}/dist",
         "main": "{projectRoot}/src/index.ts",
         "tsConfig": "{projectRoot}/tsconfig.lib.json",
-        "format": [
-          "esm"
-        ],
+        "format": ["esm"],
         "declarationRootDir": "{projectRoot}/src",
         "deleteOutputPath": false,
         "minify": false,
         "sourcemap": true
       },
       "cache": true,
-      "dependsOn": [
-        "^build"
-      ],
-      "inputs": [
-        "production",
-        "^production"
-      ]
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"]
     }
   },
-  "release": {    "conventionalCommits": {
+  "release": {
+    "conventionalCommits": {
       "types": {
         "chore": {
           "changelog": {
@@ -75,11 +66,8 @@
         "file": false
       }
     },
-    "releaseTagPattern": "release/{version}",
     "version": {
-      "preVersionCommand": "npx nx run-many -t build",
-      "conventionalCommits": true
-
+      "preVersionCommand": "npx nx run-many -t build"
     }
   }
 }

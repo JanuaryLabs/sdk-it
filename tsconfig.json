@@ -7,10 +7,7 @@
       "path": "./packages/core"
     },
     {
-      "path": "./packages"
-    },
-    {
-      "path": "./packages/core"
+      "path": "./packages/hono"
     }
   ]
 }

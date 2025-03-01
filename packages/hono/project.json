@@ -1,10 +1,7 @@
 {
-  "name": "@lace/core",
-  "metadata": {
-    "name": "coresss"
-  },
+  "name": "@lace/hono",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "packages/core/src",
+  "sourceRoot": "packages/hono/src",
   "projectType": "library",
   "tags": [],
   "targets": {

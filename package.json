@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {},
   "private": true,
-  "dependencies": {},
   "devDependencies": {
+    "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@eslint/js": "^9.8.0",
     "@nx/esbuild": "20.4.6",
     "@nx/eslint": "20.4.6",
@@ -27,8 +27,7 @@
     "verdaccio": "^5.0.4"
   },
   "workspaces": [
-    "packages/*",
-    "packages"
+    "packages/*"
   ],
   "nx": {
     "includedScripts": [],
