@@ -1,4 +1,4 @@
-import ts, { TypeFlags, couldStartTrivia } from 'typescript';
+import ts, { TypeFlags } from 'typescript';
 
 type Collector = Record<string, any>;
 export const deriveSymbol = Symbol.for('serialize');
@@ -19,19 +19,28 @@ export class TypeDeriver {
         [$types]: [],
       };
     }
-    if (type.flags & TypeFlags.Object) {
-      const declaration =
-        type.symbol.valueDeclaration ?? type.symbol.declarations?.[0];
-      if (!declaration) {
-        return {
-          [deriveSymbol]: true,
-          optional: false,
-          [$types]: [type.symbol.getName()],
-        };
+
+    if (type.isIntersection()) {
+      let optional: boolean | undefined;
+      const types: any[] = [];
+      for (const unionType of type.types) {
+        if (optional === undefined) {
+          optional = (unionType.flags & ts.TypeFlags.Undefined) !== 0;
+          if (optional) {
+            continue;
+          }
+        }
+
+        types.push(this.serializeType(unionType));
       }
-      return this.serializeNode(declaration);
+      return {
+        [deriveSymbol]: true,
+        kind: 'intersection',
+        optional,
+        [$types]: types,
+      };
     }
-    if (type.isUnion() || type.isIntersection()) {
+    if (type.isUnion()) {
       let optional: boolean | undefined;
       const types: any[] = [];
       for (const unionType of type.types) {
@@ -139,17 +148,46 @@ export class TypeDeriver {
       }
       return this.serializeNode(valueDeclaration);
     }
-    // if (type.isLiteral()) {
-    // 	const baseType = this.checker.getBaseTypeOfLiteralType(type);
-    // 	return {
-    // 		optional: false,
-    // 		[typesSymbol]: [checker.typeToString(baseType)],
-    // 	};
-    // }
+    if (type.flags & TypeFlags.Object) {
+      const properties = this.checker.getPropertiesOfType(type);
+      if (properties.length > 0) {
+        const serializedProps = properties.reduce<Record<string, any>>(
+          (acc, prop) => {
+            const propType = this.checker.getTypeOfSymbol(prop);
+            acc[prop.name] = this.serializeType(propType);
+            return acc;
+          },
+          {},
+        );
+        return {
+          [deriveSymbol]: true,
+          kind: 'object',
+          optional: false,
+          [$types]: [serializedProps],
+        };
+      }
+      const declaration =
+        type.symbol.valueDeclaration ?? type.symbol.declarations?.[0];
+      if (!declaration) {
+        return {
+          [deriveSymbol]: true,
+          optional: false,
+          [$types]: [type.symbol.getName()],
+        };
+      }
+      return this.serializeNode(declaration);
+    }
+
     return {
       [deriveSymbol]: true,
       optional: false,
-      [$types]: [this.checker.typeToString(type)],
+      [$types]: [
+        this.checker.typeToString(
+          type,
+          undefined,
+          ts.TypeFormatFlags.NoTruncation,
+        ),
+      ],
     };
   }
 
@@ -162,6 +200,15 @@ export class TypeDeriver {
         props[symbol.name] = this.serializeType(type);
       }
       return props;
+    }
+    if (ts.isPropertyAccessExpression(node)) {
+      const symbol = this.checker.getSymbolAtLocation(node.name);
+      if (!symbol) {
+        console.warn(`No symbol found for ${node.name.getText()}`);
+        return null;
+      }
+      const type = this.checker.getTypeOfSymbol(symbol);
+      return this.serializeType(type);
     }
     if (ts.isPropertySignature(node)) {
       const symbol = this.checker.getSymbolAtLocation(node.name);
@@ -245,7 +292,7 @@ export class TypeDeriver {
     if (ts.isIdentifier(node)) {
       const symbol = this.checker.getSymbolAtLocation(node);
       if (!symbol) {
-        console.warn(`No symbol found for ${node.getText()}`);
+        console.warn(`Identifer: No symbol found for ${node.getText()}`);
         return null;
       }
       const type = this.checker.getTypeAtLocation(node);
@@ -263,6 +310,19 @@ export class TypeDeriver {
       const type = this.checker.getTypeAtLocation(node);
       return this.serializeType(type);
     }
+    if (ts.isTypeLiteralNode(node)) {
+      const symbolType = this.checker.getTypeAtLocation(node);
+      const props: Record<string, unknown> = {};
+      for (const symbol of symbolType.getProperties()) {
+        const type = this.checker.getTypeOfSymbol(symbol);
+        props[symbol.name] = this.serializeType(type);
+      }
+      return {
+        [deriveSymbol]: true,
+        optional: false,
+        [$types]: [props],
+      };
+    }
 
     if (node.kind === ts.SyntaxKind.NullKeyword) {
       return {
@@ -271,28 +331,7 @@ export class TypeDeriver {
         [$types]: ['null'],
       };
     }
-    if (ts.isTypeLiteralNode(node)) {
-      const symbolType = this.checker.getTypeAtLocation(node);
-      const props: Record<string, any> = {};
-      for (const symbol of symbolType.getProperties()) {
-        const type = this.checker.getTypeOfSymbol(symbol);
-        props[symbol.name] = this.serializeType(type);
-      }
-      return props;
-    }
-
-    // if (ts.isNewExpression(node)) {
-    //   // check if name is Pagination
-    //   if(ts.isIdentifier(node.expression) && node.expression.text === 'Pagination') {
-    //     // hint for pagination
-    //     return {
-    //       [serializeSymbol]: true,
-    //       optional: false,
-    //       [typesSymbol]: ['Pagination'],
-    //     }
-    //   }
-    // }
-    console.log(`Unhandled node: ${ts.SyntaxKind[node.kind]}`);
+    console.warn(`Unhandled node: ${ts.SyntaxKind[node.kind]} ${node.flags}`);
     return {
       [deriveSymbol]: true,
       optional: false,

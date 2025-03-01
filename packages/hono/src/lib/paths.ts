@@ -80,13 +80,15 @@ export class Paths {
                 ? { schema: { type: 'string', format: 'binary' } }
                 : { schema },
           },
-          headers: item.headers.reduce(
-            (acc, header) => ({
-              ...acc,
-              [header]: { schema: { type: 'string' } },
-            }),
-            {},
-          ),
+          headers: item.headers.length
+            ? item.headers.reduce(
+                (acc, header) => ({
+                  ...acc,
+                  [header]: { schema: { type: 'string' } },
+                }),
+                {},
+              )
+            : undefined,
         } satisfies ResponseObject;
       } else {
         if (!responsesObject[item.statusCode].content[ct]) {
@@ -208,6 +210,8 @@ export function toSchema(data: DateType | string | null | undefined): any {
     return { type: 'array', items: data[$types].length ? items[0] : {} };
   } else if (data.kind === 'union') {
     return { oneOf: data[$types].map(toSchema) };
+  } else if (data.kind === 'intersection') {
+    return { allOf: data[$types].map(toSchema) };
   } else if ($types in data) {
     return data[$types].map(toSchema)[0] ?? {};
   } else {
