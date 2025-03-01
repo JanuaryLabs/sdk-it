@@ -271,7 +271,7 @@ export class TypeDeriver {
         [$types]: ['null'],
       };
     }
-   if (ts.isTypeLiteralNode(node)) {
+    if (ts.isTypeLiteralNode(node)) {
       const symbolType = this.checker.getTypeAtLocation(node);
       const props: Record<string, any> = {};
       for (const symbol of symbolType.getProperties()) {

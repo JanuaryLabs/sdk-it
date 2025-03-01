@@ -9,6 +9,7 @@ import { TypeDeriver, getProgram, isCallExpression } from '@lace/core';
 import {
   type Method,
   Paths,
+  type ResponseItem,
   type Selector,
   type SemanticSource,
   toSchema,
@@ -17,7 +18,12 @@ import {
 const logger = debug('connect:client');
 
 const visitor: (
-  on: (node: ts.Node, statusCode?: ts.Node) => void,
+  on: (
+    node: ts.Node,
+    statusCode: ts.Node | undefined,
+    headers: ts.Node | undefined,
+    contentType: string,
+  ) => void,
   contextVarName: string,
 ) => ts.Visitor = (callback, contextVarName) => {
   return (node: ts.Node) => {
@@ -32,11 +38,13 @@ const visitor: (
           ts.isIdentifier(propAccess.expression) &&
           propAccess.expression.text === contextVarName
         ) {
-          if (node.expression.arguments.length > 2) {
-            throw new Error('Too many arguments');
+          let contentType = 'application/json';
+          const callerMethod = propAccess.name.text;
+          if (callerMethod === 'body') {
+            contentType = 'application/octet-stream';
           }
           const [body, statusCode, headers] = node.expression.arguments;
-          callback(body, statusCode);
+          callback(body, statusCode, headers, contentType);
         }
       }
     }
@@ -136,9 +144,11 @@ function analyze(
       }
 
       const contextVarName = handlerMiddleware.parameters[0].name.getText();
-      const responsesList: Array<{ statusCode: string; response: any }> = [];
-      const visit = visitor((node, statusCode) => {
+      const responsesList: ResponseItem[] = [];
+      const visit = visitor((node, statusCode, headers, contentType) => {
         responsesList.push({
+          headers: headers ? Object.keys(deriver.serializeNode(headers)) : [],
+          contentType,
           statusCode: statusCode ? resolveStatusCode(statusCode) : '200',
           response: deriver.serializeNode(node),
         });

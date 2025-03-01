@@ -2,6 +2,7 @@ import type {
   OperationObject,
   ParameterObject,
   PathsObject,
+  ResponseObject,
   ResponsesObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
@@ -31,10 +32,11 @@ export interface Selector {
 }
 export type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
-interface ResponseItem {
+export interface ResponseItem {
   statusCode: string;
   response: DateType;
-  contentType?: string;
+  contentType: string;
+  headers: string[];
 }
 
 export class Paths {
@@ -67,13 +69,25 @@ export class Paths {
   #responseItemToResponses(responses: ResponseItem[]): ResponsesObject {
     const responsesObject: ResponsesObject = {};
     for (const item of responses) {
-      const ct = item.contentType || 'application/json';
+      const ct = item.contentType;
       const schema = toSchema(item.response);
       if (!responsesObject[item.statusCode]) {
         responsesObject[item.statusCode] = {
           description: `Response for ${item.statusCode}`,
-          content: { [ct]: { schema } },
-        };
+          content: {
+            [ct]:
+              ct === 'application/octet-stream'
+                ? { schema: { type: 'string', format: 'binary' } }
+                : { schema },
+          },
+          headers: item.headers.reduce(
+            (acc, header) => ({
+              ...acc,
+              [header]: { schema: { type: 'string' } },
+            }),
+            {},
+          ),
+        } satisfies ResponseObject;
       } else {
         if (!responsesObject[item.statusCode].content[ct]) {
           responsesObject[item.statusCode].content[ct] = { schema };
