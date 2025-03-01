@@ -1,5 +1,5 @@
 {
-  "name": "@lace/core",
+  "name": "@sdk-it/core",
   "version": "0.0.2",
   "type": "module",
   "main": "./dist/index.js",
@@ -19,8 +19,6 @@
   ],
   "dependencies": {
     "debug": "^4.4.0",
-    "openapi3-ts": "^4.4.0",
-    "stringcase": "^4.3.1",
     "typescript": "~5.7.2"
   },
   "devDependencies": {
