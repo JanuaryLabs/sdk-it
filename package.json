@@ -6,7 +6,6 @@
   "scripts": {},
   "private": true,
   "devDependencies": {
-    "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@eslint/js": "^9.8.0",
     "@nx/esbuild": "20.4.6",
     "@nx/eslint": "20.4.6",
@@ -15,6 +14,7 @@
     "@swc-node/register": "~1.9.1",
     "@swc/core": "~1.5.7",
     "@swc/helpers": "~0.5.11",
+    "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@types/node": "18.16.9",
     "esbuild": "^0.19.2",
     "eslint": "^9.8.0",
@@ -41,5 +41,10 @@
         }
       }
     }
+  },
+  "dependencies": {
+    "@types/lodash-es": "^4.17.12",
+    "lodash-es": "^4.17.21",
+    "stringcase": "^4.3.1"
   }
 }

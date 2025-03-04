@@ -1,0 +1,20 @@
+{
+  "name": "@sdk-it/typescript",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/typescript/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "esbuildOptions": {
+          "loader": {
+            ".txt": "text"
+          }
+        }
+      }
+    }
+  }
+}
