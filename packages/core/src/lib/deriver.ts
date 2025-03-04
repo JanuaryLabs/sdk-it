@@ -26,7 +26,13 @@ export class TypeDeriver {
         [$types]: [],
       };
     }
-
+    if (type.flags & ts.TypeFlags.Boolean) {
+      return {
+        [deriveSymbol]: true,
+        optional: false,
+        [$types]: ['boolean'],
+      };
+    }
     if (type.isIntersection()) {
       let optional: boolean | undefined;
       const types: any[] = [];
@@ -249,6 +255,7 @@ export class TypeDeriver {
       if (!node.name?.text) {
         throw new Error('Interface has no name');
       }
+      console.log(node.name.text);
       if (defaults[node.name.text]) {
         return {
           [deriveSymbol]: true,
@@ -344,7 +351,6 @@ export class TypeDeriver {
         [$types]: [props],
       };
     }
-
     if (node.kind === ts.SyntaxKind.NullKeyword) {
       return {
         [deriveSymbol]: true,
@@ -352,6 +358,24 @@ export class TypeDeriver {
         [$types]: ['null'],
       };
     }
+    if (node.kind === ts.SyntaxKind.BooleanKeyword) {
+      return {
+        [deriveSymbol]: true,
+        optional: false,
+        [$types]: ['boolean'],
+      };
+    }
+    if (
+      node.kind === ts.SyntaxKind.TrueKeyword ||
+      node.kind === ts.SyntaxKind.FalseKeyword
+    ) {
+      return {
+        [deriveSymbol]: true,
+        optional: false,
+        [$types]: ['boolean'],
+      };
+    }
+
     console.warn(`Unhandled node: ${ts.SyntaxKind[node.kind]} ${node.flags}`);
     return {
       [deriveSymbol]: true,
