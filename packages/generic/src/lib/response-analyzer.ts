@@ -42,7 +42,7 @@ function toResponses(handler: ts.ArrowFunction, deriver: TypeDeriver) {
       headers: headers ? Object.keys(deriver.serializeNode(headers)) : [],
       contentType,
       statusCode: statusCode ? resolveStatusCode(statusCode) : '200',
-      response: deriver.serializeNode(node),
+      response: node ? deriver.serializeNode(node) : undefined,
     });
   });
   visit(handler.body);
@@ -60,5 +60,10 @@ export function responseAnalyzer(
   handler: ts.ArrowFunction,
   deriver: TypeDeriver,
 ) {
-  return toResponses(handler, deriver);
+  try {
+    return toResponses(handler, deriver);
+  } catch (error) {
+    console.error('Error analyzing response\n', handler.getText());
+    throw error;
+  }
 }

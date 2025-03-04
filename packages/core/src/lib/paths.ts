@@ -35,19 +35,24 @@ export interface Selector {
 
 export interface ResponseItem {
   statusCode: string;
-  response: DateType;
+  response?: DateType;
   contentType: string;
   headers: string[];
 }
 
 export class Paths {
-  private operations: Array<{
+  #commonZodImport: string;
+  #operations: Array<{
     name: string;
     path: string;
     method: Method;
     selectors: Selector[];
     responses: ResponsesObject;
   }> = [];
+
+  constructor(config: { commonZodImport: string }) {
+    this.#commonZodImport = config.commonZodImport;
+  }
 
   addPath(
     name: string,
@@ -57,7 +62,7 @@ export class Paths {
     responses: ResponseItem[],
   ) {
     const responsesObject = this.#responseItemToResponses(responses);
-    this.operations.push({
+    this.#operations.push({
       name,
       path,
       method,
@@ -71,7 +76,7 @@ export class Paths {
     const responsesObject: ResponsesObject = {};
     for (const item of responses) {
       const ct = item.contentType;
-      const schema = toSchema(item.response);
+      const schema = item.response ? toSchema(item.response) : {};
       if (!responsesObject[item.statusCode]) {
         responsesObject[item.statusCode] = {
           description: `Response for ${item.statusCode}`,
@@ -121,14 +126,18 @@ export class Paths {
     const bodySchemaProps: Record<string, SchemaObject> = {};
     for (const selector of selectors) {
       if (selector.source === 'body') {
-        bodySchemaProps[selector.name] = await evalZod(selector.against);
+        bodySchemaProps[selector.name] = await evalZod(
+          selector.against,
+          this.#commonZodImport,
+        );
         continue;
       }
+
       const parameter: ParameterObject = {
         in: semanticSourceToOpenAPI[selector.source],
         name: selector.name,
         required: selector.required,
-        schema: await evalZod(selector.against),
+        schema: await evalZod(selector.against, this.#commonZodImport),
       };
       parameters.push(parameter);
     }
@@ -137,7 +146,7 @@ export class Paths {
 
   async getPaths() {
     const operations: PathsObject = {};
-    for (const operation of this.operations) {
+    for (const operation of this.#operations) {
       const { name, path, method, selectors } = operation;
       const { parameters, bodySchemaProps } =
         await this.#selectosToParameters(selectors);
@@ -167,9 +176,10 @@ export class Paths {
   }
 }
 
-async function evalZod(schema: string) {
+async function evalZod(schema: string, commonZodImport?: string) {
   const lines = [
     `import { z } from 'zod';`,
+    commonZodImport ? `import * as commonZod from '${commonZodImport}'` : '',
     `import { zodToJsonSchema } from 'zod-to-json-schema';`,
     `const schema = ${schema.replace('.optional()', '')};`,
     `const jsonSchema = zodToJsonSchema(schema, {

@@ -1,5 +1,5 @@
 import debug from 'debug';
-import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import type { ComponentsObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 import ts from 'typescript';
@@ -115,6 +115,10 @@ function toSelectors(props: ts.PropertyAssignment[]) {
 export async function analyze(
   tsconfigPath: string,
   config: {
+    /**
+     * Additional code to inject before resolving zod schemas
+     */
+    commonZodImport?: string;
     responseAnalyzer: (
       handler: ts.ArrowFunction,
       deriver: TypeDeriver,
@@ -127,7 +131,11 @@ export async function analyze(
   const typeChecker = program.getTypeChecker();
   logger(`Type checker created`);
   const typeDeriver = new TypeDeriver(typeChecker);
-  const paths = new Paths();
+  const paths = new Paths({
+    commonZodImport: config.commonZodImport
+      ? await readFile(config.commonZodImport, 'utf-8')
+      : '',
+  });
   for (const sourceFile of program.getSourceFiles()) {
     if (!sourceFile.isDeclarationFile) {
       logger(`Visiting ${sourceFile.fileName}`);
