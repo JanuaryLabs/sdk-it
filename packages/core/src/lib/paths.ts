@@ -41,16 +41,18 @@ export interface ResponseItem {
 }
 
 export class Paths {
-  #commonZodImport: string;
+  #commonZodImport?: string;
   #operations: Array<{
     name: string;
     path: string;
     method: Method;
     selectors: Selector[];
     responses: ResponsesObject;
+    tags?: string[];
+    description?: string;
   }> = [];
 
-  constructor(config: { commonZodImport: string }) {
+  constructor(config: { commonZodImport?: string }) {
     this.#commonZodImport = config.commonZodImport;
   }
 
@@ -60,6 +62,8 @@ export class Paths {
     method: Method,
     selectors: Selector[],
     responses: ResponseItem[],
+    tags?: string[],
+    description?: string,
   ) {
     const responsesObject = this.#responseItemToResponses(responses);
     this.#operations.push({
@@ -68,6 +72,8 @@ export class Paths {
       method,
       selectors,
       responses: responsesObject,
+      tags,
+      description,
     });
     return this;
   }
@@ -147,12 +153,14 @@ export class Paths {
   async getPaths() {
     const operations: PathsObject = {};
     for (const operation of this.#operations) {
-      const { name, path, method, selectors } = operation;
+      const { path, method, selectors } = operation;
       const { parameters, bodySchemaProps } =
         await this.#selectosToParameters(selectors);
       const operationObject: OperationObject = {
-        operationId: name,
+        operationId: operation.name,
         parameters,
+        tags: operation.tags,
+        description: operation.description,
         requestBody: Object.keys(bodySchemaProps).length
           ? {
               content: {

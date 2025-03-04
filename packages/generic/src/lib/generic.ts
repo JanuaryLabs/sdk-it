@@ -18,6 +18,37 @@ import {
 
 const logger = debug('@sdk-it/generic');
 
+const jsDocsTags = ['openapi', 'tags', 'description'];
+
+function parseJSDocComment(node: ts.Node) {
+  let tags: string[] = [];
+  let name = '';
+  let description = '';
+  for (const tag of ts.getAllJSDocTags(node, (tag): tag is ts.JSDocTag =>
+    jsDocsTags.includes(tag.tagName.text),
+  )) {
+    if (typeof tag.comment !== 'string') {
+      continue;
+    }
+    switch (tag.tagName.text) {
+      case 'openapi':
+        name = tag.comment;
+        break;
+      case 'tags':
+        tags = tag.comment.split(',').map((tag) => tag.trim());
+        break;
+      case 'description':
+        description = tag.comment;
+        break;
+    }
+  }
+  return {
+    name,
+    tags,
+    description,
+  };
+}
+
 function visit(
   node: ts.Node,
   responseAnalyzer: (handler: ts.ArrowFunction) => ResponseItem[],
@@ -50,9 +81,11 @@ function visit(
   if (!handler || !ts.isArrowFunction(handler)) {
     return moveOn();
   }
-  const operationName = camelcase(
-    `${method} ${path.replace(/[^a-zA-Z0-9]/g, '')}`,
-  );
+
+  const metadata = parseJSDocComment(node.parent);
+  const operationName =
+    metadata.name ||
+    camelcase(`${method} ${path.replace(/[^a-zA-Z0-9]/g, '')}`);
   const selector = validate.arguments.find((arg) => ts.isArrowFunction(arg));
   if (
     !selector ||
@@ -71,6 +104,8 @@ function visit(
     method,
     toSelectors(props),
     responseAnalyzer(handler),
+    metadata.tags,
+    metadata.description,
   );
 
   function moveOn() {
@@ -132,9 +167,7 @@ export async function analyze(
   logger(`Type checker created`);
   const typeDeriver = new TypeDeriver(typeChecker);
   const paths = new Paths({
-    commonZodImport: config.commonZodImport
-      ? await readFile(config.commonZodImport, 'utf-8')
-      : '',
+    commonZodImport: config.commonZodImport,
   });
   for (const sourceFile of program.getSourceFiles()) {
     if (!sourceFile.isDeclarationFile) {
