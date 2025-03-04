@@ -21,6 +21,10 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.3.0"
+    "@sdk-it/core": "*",
+    "stringcase": "^4.3.1",
+    "typescript": "^5.7.2",
+    "debug": "^4.4.0",
+    "openapi3-ts": "^4.4.0"
   }
 }
