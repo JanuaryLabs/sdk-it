@@ -1,9 +1,16 @@
-import ts, { TypeFlags } from 'typescript';
+import ts, { TypeFlags, symbolName } from 'typescript';
 
 type Collector = Record<string, any>;
 export const deriveSymbol = Symbol.for('serialize');
 export const $types = Symbol.for('types');
-
+const defaults: Record<string, string> = {
+  ReadableStream: 'any',
+  DateConstructor: 'string',
+  ArrayBufferConstructor: 'any',
+  SharedArrayBufferConstructor: 'any',
+  Int8ArrayConstructor: 'any',
+  Uint8Array: 'any',
+};
 export class TypeDeriver {
   public readonly collector: Collector = {};
   public readonly checker: ts.TypeChecker;
@@ -149,16 +156,26 @@ export class TypeDeriver {
       return this.serializeNode(valueDeclaration);
     }
     if (type.flags & TypeFlags.Object) {
+      if (defaults[symbolName(type.symbol)]) {
+        return {
+          [deriveSymbol]: true,
+          optional: false,
+          [$types]: [defaults[type.symbol.name]],
+        };
+      }
       const properties = this.checker.getPropertiesOfType(type);
       if (properties.length > 0) {
-        const serializedProps = properties.reduce<Record<string, any>>(
-          (acc, prop) => {
+        const serializedProps: Record<string, any> = {};
+        for (const prop of properties) {
+          if (
+            (prop.getDeclarations() ?? []).some((it) =>
+              ts.isPropertySignature(it),
+            )
+          ) {
             const propType = this.checker.getTypeOfSymbol(prop);
-            acc[prop.name] = this.serializeType(propType);
-            return acc;
-          },
-          {},
-        );
+            serializedProps[prop.name] = this.serializeType(propType);
+          }
+        }
         return {
           [deriveSymbol]: true,
           kind: 'object',
@@ -232,15 +249,11 @@ export class TypeDeriver {
       if (!node.name?.text) {
         throw new Error('Interface has no name');
       }
-      const defaults: Record<string, string> = {
-        ReadableStream: 'ReadableStream',
-        DateConstructor: 'Date',
-      };
       if (defaults[node.name.text]) {
         return {
           [deriveSymbol]: true,
           optional: false,
-          [$types]: [`#/components/schemas/${node.name.text}`],
+          [$types]: [defaults[node.name.text]],
         };
       }
       if (!this.collector[node.name.text]) {
@@ -261,9 +274,17 @@ export class TypeDeriver {
       if (!node.name?.text) {
         throw new Error('Class has no name');
       }
+      if (defaults[node.name.text]) {
+        return {
+          [deriveSymbol]: true,
+          optional: false,
+          [$types]: [defaults[node.name.text]],
+        };
+      }
+
       if (!this.collector[node.name.text]) {
         this.collector[node.name.text] = {};
-        const members: Record<string, any> = {};
+        const members: Record<string, unknown> = {};
         for (const member of node.members.filter(ts.isPropertyDeclaration)) {
           members[member.name!.getText()] = this.serializeNode(member);
         }
@@ -272,7 +293,7 @@ export class TypeDeriver {
       return {
         [deriveSymbol]: true,
         optional: false,
-        [$types]: [node.name.text],
+        [$types]: [`#/components/schemas/${node.name.text}`],
         $ref: `#/components/schemas/${node.name.text}`,
       };
     }
