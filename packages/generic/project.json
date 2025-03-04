@@ -1,7 +1,7 @@
 {
-  "name": "@sdk-it/hono",
+  "name": "@sdk-it/generic",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "packages/hono/src",
+  "sourceRoot": "packages/generic/src",
   "projectType": "library",
   "tags": [],
   "targets": {

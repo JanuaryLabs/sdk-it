@@ -7,7 +7,9 @@ import type {
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { $types } from '@sdk-it/core';
+import { $types } from './deriver.ts';
+
+export type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
 export type SemanticSource =
   | 'query'
@@ -30,7 +32,6 @@ export interface Selector {
   nullable: boolean;
   required: boolean;
 }
-export type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
 export interface ResponseItem {
   statusCode: string;
@@ -225,4 +226,8 @@ export function toSchema(data: DateType | string | null | undefined): any {
       additionalProperties: false,
     };
   }
+}
+
+export function isHttpMethod(name: string): name is Method {
+  return ['get', 'post', 'put', 'delete', 'patch'].includes(name);
 }
