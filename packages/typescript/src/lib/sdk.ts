@@ -2,11 +2,7 @@ import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
 import { removeDuplicates, toLitObject } from '@sdk-it/core';
 
-import backend from './backend.ts';
-import clientTxt from './client.txt';
-import parserTxt from './parser.txt';
-import requestTxt from './request.txt';
-import responseTxt from './response.txt';
+import backend from './client.ts';
 
 export interface Import {
   isTypeOnly: boolean;
@@ -24,9 +20,9 @@ export interface NamedImport {
 class SchemaEndpoint {
   #imports: string[] = [
     `import z from 'zod';`,
-    'import type { Endpoints } from "./endpoints";',
-    `import { toRequest, json, urlencoded, formdata, createUrl } from './request';`,
-    `import type { ParseError } from './parser';`,
+    'import type { Endpoints } from "./endpoints.ts";',
+    `import { toRequest, json, urlencoded, formdata, createUrl } from './http/request.ts';`,
+    `import type { ParseError } from './http/parser.ts';`,
   ];
   #endpoints: string[] = [];
   addEndpoint(endpoint: string, operation: any) {
@@ -42,7 +38,7 @@ class SchemaEndpoint {
 class Emitter {
   protected imports: string[] = [
     `import z from 'zod';`,
-    `import type { ParseError } from './parser';`,
+    `import type { ParseError } from './http/parser.ts';`,
   ];
   protected endpoints: string[] = [];
   addEndpoint(endpoint: string, operation: any) {
@@ -126,13 +122,13 @@ export function generateClientSdk(spec: Spec) {
     const featureSchemaFileName = camelcase(name);
     schemas[featureSchemaFileName] = [`import z from 'zod';`];
     emitter.addImport(
-      `import * as ${featureSchemaFileName} from './inputs/${featureSchemaFileName}';`,
+      `import * as ${featureSchemaFileName} from './inputs/${featureSchemaFileName}.ts';`,
     );
     streamEmitter.addImport(
-      `import * as ${featureSchemaFileName} from './inputs/${featureSchemaFileName}';`,
+      `import * as ${featureSchemaFileName} from './inputs/${featureSchemaFileName}.ts';`,
     );
     schemaEndpoint.addImport(
-      `import * as ${featureSchemaFileName} from './inputs/${featureSchemaFileName}';`,
+      `import * as ${featureSchemaFileName} from './inputs/${featureSchemaFileName}.ts';`,
     );
     for (const operation of operations) {
       const schemaName = camelcase(`${operation.name} schema`);
@@ -240,7 +236,7 @@ export function generateClientSdk(spec: Spec) {
   }
 
   emitter.addImport(
-    `import type { ${removeDuplicates(errors, (it) => it).join(', ')} } from './response';`,
+    `import type { ${removeDuplicates(errors, (it) => it).join(', ')} } from './http/response.ts';`,
   );
   return {
     ...Object.fromEntries(
@@ -250,7 +246,7 @@ export function generateClientSdk(spec: Spec) {
           schemasImports.length
             ? `import {${removeDuplicates(schemasImports, (it) => it)}} from '../zod';`
             : '',
-          spec.commonZod ? 'import * as commonZod from "../zod";' : '',
+          spec.commonZod ? 'import * as commonZod from "../zod.ts";' : '',
           ...value,
         ]
           .map((it) => it.trim())
@@ -259,11 +255,7 @@ export function generateClientSdk(spec: Spec) {
       ]),
     ),
     'backend.ts': backend(spec),
-    'parser.ts': parserTxt,
-    'client.ts': clientTxt,
-    'request.ts': requestTxt,
     'schemas.ts': schemaEndpoint.complete(),
     'endpoints.ts': emitter.complete(),
-    'response.ts': responseTxt,
   };
 }

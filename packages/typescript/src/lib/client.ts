@@ -8,8 +8,7 @@ export default (spec: Spec) => {
   const specOptions: Record<string, { schema: string }> = {
     ...(spec.options ?? {}),
     fetch: {
-      schema:
-        'z.function().args(z.instanceof(Request)).returns(z.promise(z.instanceof(Response))).optional()',
+      schema: 'fetchType',
     },
     baseUrl: {
       schema: `z.enum(servers).default(servers[0])`,
@@ -23,12 +22,10 @@ export default (spec: Spec) => {
     : `{}`;
 
   return `
-
+import { fetchType, sendRequest } from './http/send-request.ts';
 import z from 'zod';
-import type { Endpoints } from './endpoints';
-import schemas from './schemas';
-import { parse } from './parser';
-import { handleError, parseResponse } from './client';
+import type { Endpoints } from './endpoints.ts';
+import schemas from './schemas.ts';
 
       const servers = ${JSON.stringify(spec.servers || [], null, 2)} as const;
       const optionsSchema = z.object(${toLitObject(specOptions, (x) => x.schema)});
@@ -42,24 +39,11 @@ import { handleError, parseResponse } from './client';
     input: Endpoints[E]['input'],
   ): Promise<readonly [Endpoints[E]['output'], Endpoints[E]['error'] | null]> {
       const route = schemas[endpoint];
-      const [parsedInput, parseError] = parse(route.schema, input);
-      if (parseError) {
-        return [
-          null as never,
-          { ...parseError, kind: 'parse' } as never,
-        ] as const;
-      }
-      const request = route.toRequest(parsedInput as never, {
-        headers: this.defaultHeaders,
+      return sendRequest(input, route, {
         baseUrl: this.options.baseUrl,
+        fetch: this.options.fetch,
+        headers: this.defaultHeaders,
       });
-      const response = await (this.options.fetch ?? fetch)(request);
-      if (response.ok) {
-        const data = await parseResponse(response);
-        return [data as Endpoints[E]['output'], null] as const;
-      }
-      const error = await handleError(response);
-      return [null as never, { ...error, kind: 'response' }] as const;
   }
 
       get defaultHeaders() {

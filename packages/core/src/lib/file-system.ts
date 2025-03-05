@@ -45,11 +45,7 @@ export async function writeFiles(
   );
 }
 
-export async function getFolderExports(
-  folder: string,
-  extensions = ['ts'],
-  keepExtensions = false,
-) {
+export async function getFolderExports(folder: string, extensions = ['ts']) {
   const files = await readdir(folder, { withFileTypes: true });
   const exports: string[] = [];
   for (const file of files) {
@@ -59,13 +55,7 @@ export async function getFolderExports(
       file.name !== 'index.ts' &&
       extensions.includes(getExt(file.name))
     ) {
-      if (keepExtensions) {
-        exports.push(`export * from './${file.name}';`);
-      } else {
-        exports.push(
-          `export * from './${file.name.replace(`.${getExt(file.name)}`, '')}';`,
-        );
-      }
+      exports.push(`export * from './${file.name}';`);
     }
   }
   return exports.join('\n');

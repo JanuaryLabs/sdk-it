@@ -1,20 +1,5 @@
 import { parse } from 'fast-content-type-parse';
 
-import type { Endpoints } from './endpoints';
-
-export interface RequestInterface<D extends object = object> {
-  /**
-   * Sends a request based on endpoint options
-   *
-   * @param {string} route Request method + URL. Example: 'GET /orgs/{org}'
-   * @param {object} [parameters] URL, query or body parameters, as well as headers, mediaType.{format|previews}, request, or baseUrl.
-   */
-  <R extends keyof Endpoints>(
-    route: R,
-    options?: Endpoints[R]['input'],
-  ): Promise<Endpoints[R]['output']>;
-}
-
 export async function handleError(response: Response) {
   try {
     if (response.status >= 400 && response.status < 500) {
@@ -90,9 +75,10 @@ export async function parseResponse(response: Response) {
     case 'text/xml':
     case 'application/xml':
       return response.text();
-    case 'application/x-www-form-urlencoded':
+    case 'application/x-www-form-urlencoded': {
       const text = await response.text();
       return Object.fromEntries(new URLSearchParams(text));
+    }
     case 'multipart/form-data':
       return response.formData();
     default:
