@@ -92,19 +92,19 @@ export class TypeDeriver {
         console.warn(
           `No symbol found for array type ${this.checker.typeToString(argType)}`,
         );
-        const typeString = this.checker.typeToString(argType);
         return {
           [deriveSymbol]: true,
           optional: false,
           kind: 'array',
-          [$types]: typeString === 'undefined' ? [] : [typeString],
+          [$types]: [this.serializeType(argType)],
         };
       }
 
       if (typeSymbol.valueDeclaration) {
         return {
           kind: 'array',
-          ...this.serializeNode(typeSymbol.valueDeclaration),
+          [deriveSymbol]: true,
+          [$types]: [this.serializeNode(typeSymbol.valueDeclaration)],
         };
       }
       const maybeDeclaration = typeSymbol.declarations?.[0];
@@ -161,6 +161,13 @@ export class TypeDeriver {
       }
       return this.serializeNode(valueDeclaration);
     }
+    if (type.flags & TypeFlags.Null) {
+      return {
+        [deriveSymbol]: true,
+        optional: true,
+        [$types]: ['null'],
+      };
+    }
     if (type.flags & TypeFlags.Object) {
       if (defaults[symbolName(type.symbol)]) {
         return {
@@ -174,8 +181,8 @@ export class TypeDeriver {
         const serializedProps: Record<string, any> = {};
         for (const prop of properties) {
           if (
-            (prop.getDeclarations() ?? []).some((it) =>
-              ts.isPropertySignature(it),
+            (prop.getDeclarations() ?? []).some(
+              (it) => ts.isPropertySignature(it) || ts.isPropertyAssignment(it),
             )
           ) {
             const propType = this.checker.getTypeOfSymbol(prop);
@@ -374,6 +381,10 @@ export class TypeDeriver {
         optional: false,
         [$types]: ['boolean'],
       };
+    }
+    if (ts.isArrayLiteralExpression(node)) {
+      const type = this.checker.getTypeAtLocation(node);
+      return this.serializeType(type);
     }
 
     console.warn(`Unhandled node: ${ts.SyntaxKind[node.kind]} ${node.flags}`);

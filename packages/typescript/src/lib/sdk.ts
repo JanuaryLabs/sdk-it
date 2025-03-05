@@ -26,7 +26,6 @@ class SchemaEndpoint {
   #imports: string[] = [
     `import z from 'zod';`,
     'import type { Endpoints } from "./endpoints";',
-    'import type { StreamEndpoints } from "./stream-endpoints";',
     `import { toRequest, json, urlencoded, formdata, createUrl } from './request';`,
     `import type { ParseError } from './parser';`,
   ];
@@ -265,7 +264,6 @@ export function generateClientSdk(spec: Spec) {
     'request.ts': requestTxt,
     'schemas.ts': schemaEndpoint.complete(),
     'endpoints.ts': emitter.complete(),
-    'stream-endpoints.ts': streamEmitter.complete(),
     'response.ts': responseTxt,
   };
 }

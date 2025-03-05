@@ -221,9 +221,7 @@ export function toSchema(data: DateType | string | null | undefined): any {
     if (isRef) {
       return { $ref: data };
     }
-    return {
-      type: `${typeMappings[data] || data}`,
-    };
+    return { type: data };
   } else if (data.kind === 'array') {
     const items = data[$types].map(toSchema);
     return { type: 'array', items: data[$types].length ? items[0] : {} };

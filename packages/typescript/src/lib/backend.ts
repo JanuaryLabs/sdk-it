@@ -24,7 +24,6 @@ export default (spec: Spec) => {
 
 import z from 'zod';
 import type { Endpoints } from './endpoints';
-import type { StreamEndpoints } from './stream-endpoints';
 import schemas from './schemas';
 import { parse } from './parser';
 import { handleError, parseResponse } from './client';
