@@ -12,6 +12,12 @@ import type {
 function cleanRef(ref: string) {
   return ref.replace(/^#\//, '');
 }
+
+function parseRef(ref: string) {
+  const parts = ref.split(ref);
+  const [model] = parts.splice(-1);
+  return { model, path: parts.join('/') };
+}
 export function followRef(
   spec: OpenAPIObject,
   ref: string,
@@ -37,18 +43,18 @@ export function jsonSchemaToZod(
   schema: SchemaObject | ReferenceObject,
   required = false,
   onRef: OnRefCallback,
-  refProcessingStack = new Set<string>(), // Add as optional parameter with default value
+  circularRefTracker = new Set<string>(), // Add as optional parameter with default value
 ): string {
   // If it's a reference, resolve and recurse
   if ('$ref' in schema) {
     const schemaName = cleanRef(schema.$ref).split('/').pop()!;
 
     // Check for circular references
-    if (refProcessingStack.has(schemaName)) {
+    if (circularRefTracker.has(schemaName)) {
       return schemaName;
     }
 
-    refProcessingStack.add(schemaName);
+    circularRefTracker.add(schemaName);
     onRef(
       schemaName,
       jsonSchemaToZod(
@@ -56,10 +62,10 @@ export function jsonSchemaToZod(
         followRef(spec, schema.$ref),
         required,
         onRef,
-        refProcessingStack,
+        circularRefTracker,
       ),
     );
-    refProcessingStack.delete(schemaName);
+    circularRefTracker.delete(schemaName);
 
     return schemaName;
   }
@@ -67,31 +73,39 @@ export function jsonSchemaToZod(
   // Handle allOf → intersection
   if (schema.allOf && Array.isArray(schema.allOf)) {
     const allOfSchemas = schema.allOf.map((sub) =>
-      jsonSchemaToZod(spec, sub, true, onRef, refProcessingStack),
+      jsonSchemaToZod(spec, sub, true, onRef, circularRefTracker),
     );
-    return `z.intersection(${allOfSchemas.join(', ')})`;
+    return allOfSchemas.length
+      ? `z.intersection(${allOfSchemas.join(', ')})`
+      : allOfSchemas[0];
   }
 
   // anyOf → union
   if (schema.anyOf && Array.isArray(schema.anyOf)) {
     const anyOfSchemas = schema.anyOf.map((sub) =>
-      jsonSchemaToZod(spec, sub, false, onRef, refProcessingStack),
+      jsonSchemaToZod(spec, sub, false, onRef, circularRefTracker),
     );
-    return `z.union([${anyOfSchemas.join(', ')}])${appendOptional(required)}`;
+    return anyOfSchemas.length > 1
+      ? `z.union([${anyOfSchemas.join(', ')}])${appendOptional(required)}`
+      : // Handle an invalid anyOf with one schema
+        anyOfSchemas[0];
   }
 
   // oneOf → union
   if (schema.oneOf && Array.isArray(schema.oneOf)) {
     const oneOfSchemas = schema.oneOf.map((sub) => {
       if ('$ref' in sub) {
-        const refName = cleanRef(sub.$ref).split('/').pop()!;
-        if (refProcessingStack.has(refName)) {
-          return refName;
+        const { model } = parseRef(sub.$ref);
+        if (circularRefTracker.has(model)) {
+          return model;
         }
       }
-      return jsonSchemaToZod(spec, sub, false, onRef, refProcessingStack);
+      return jsonSchemaToZod(spec, sub, false, onRef, circularRefTracker);
     });
-    return `z.union([${oneOfSchemas.join(', ')}])${appendOptional(required)}`;
+    return oneOfSchemas.length > 1
+      ? `z.union([${oneOfSchemas.join(', ')}])${appendOptional(required)}`
+      : // Handle an invalid oneOf with one schema
+        oneOfSchemas[0];
   }
 
   // enum
@@ -126,13 +140,13 @@ export function jsonSchemaToZod(
         spec,
         false,
         onRef,
-        refProcessingStack,
+        circularRefTracker,
       );
       return `${typeZod}.nullable()${appendOptional(required)}`;
     }
     // If multiple different types, build a union
     const subSchemas = types.map((t) =>
-      basicTypeToZod(t, schema, spec, false, onRef, refProcessingStack),
+      basicTypeToZod(t, schema, spec, false, onRef, circularRefTracker),
     );
     return `z.union([${subSchemas.join(', ')}])${appendOptional(required)}`;
   }
@@ -144,7 +158,7 @@ export function jsonSchemaToZod(
     spec,
     required,
     onRef,
-    refProcessingStack,
+    circularRefTracker,
   );
 }
 
