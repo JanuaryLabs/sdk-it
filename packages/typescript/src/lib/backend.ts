@@ -11,7 +11,9 @@ export default (spec: Spec) => {
       schema:
         'z.function().args(z.instanceof(Request)).returns(z.promise(z.instanceof(Response))).optional()',
     },
-    baseUrl: { schema: 'z.string().url()' },
+    baseUrl: {
+      schema: `z.enum(servers).default(servers[0])`,
+    },
   };
   if (spec.securityScheme) {
     specOptions['token'] = { schema: 'z.string().optional()' };
@@ -28,6 +30,7 @@ import schemas from './schemas';
 import { parse } from './parser';
 import { handleError, parseResponse } from './client';
 
+      const servers = ${JSON.stringify(spec.servers || [], null, 2)} as const;
       const optionsSchema = z.object(${toLitObject(specOptions, (x) => x.schema)});
       type ${spec.name}Options = z.infer<typeof optionsSchema>;
     export class ${spec.name} {

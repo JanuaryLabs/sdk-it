@@ -1,5 +1,4 @@
-import { camelcase } from 'stringcase';
-import { pascalcase, spinalcase } from 'stringcase';
+import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
 import { removeDuplicates, toLitObject } from '@sdk-it/core';
 
@@ -87,7 +86,7 @@ export interface SdkConfig {
 export interface Spec {
   groups: Record<string, Operation[]>;
   commonZod?: string;
-  name?: string;
+  name: string;
   options?: Record<
     string,
     {
@@ -96,6 +95,7 @@ export interface Spec {
     }
   >;
   securityScheme?: SecurityScheme;
+  servers?: string[];
 }
 
 export interface OperationInput {
