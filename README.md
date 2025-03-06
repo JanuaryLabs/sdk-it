@@ -153,7 +153,6 @@ You can analyze existing TypeScript code to generate an OpenAPI specification:
 
 ```typescript
 import { join } from 'node:path';
-import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
@@ -174,7 +173,7 @@ await generate(
     paths,
     components,
   },
-  { output: join(process.cwd(), 'openapi.json') },
+  { output: join(process.cwd(), './client') },
 );
 ```
 
