@@ -209,17 +209,55 @@ SDK-IT is evolving to support more languages and frameworks. Here's our current 
 
 We welcome contributions to help us expand language and framework support!
 
+## Third-Party API Integration
+
+Generate type-safe client SDKs for third-party services that provide OpenAPI specifications.
+
+```typescript
+import { join } from 'node:path';
+
+import { generate } from '@sdk-it/typescript';
+
+// Fetch the OpenAPI specification from a third-party service
+const spec = await fetch('https://api.openstatus.dev/v1/openapi').then((res) =>
+  res.json(),
+);
+
+// Pass it to the generate fn and specify where do you want to save the code
+await generate(spec, {
+  output: join(process.cwd(), './client'),
+});
+```
+
+Then use the generated client in your application:
+
+```typescript
+import { Client } from './client';
+
+const client = new Client({
+  baseUrl: 'https://api.openstatus.dev/v1/',
+});
+
+const [result, error] = await client.request('GET /status_report', {});
+```
+
+Violla!
+
+![demo](./demo.png)
+
 ## Contributing
 
 SDK-IT is organized as a monorepo with multiple packages:
 
 ```
+
 .
-├── packages/             # Core packages of the SDK-IT toolkit
-│   ├── core/             # Core functionality and utilities
-│   ├── generic/          # Generic OpenAPI processing
-│   ├── hono/             # Hono framework integration
-│   └── typescript/       # TypeScript code generation
+├── packages/ # Core packages of the SDK-IT toolkit
+│ ├── core/ # Core functionality and utilities
+│ ├── generic/ # Generic OpenAPI processing
+│ ├── hono/ # Hono framework integration
+│ └── typescript/ # TypeScript code generation
+
 ```
 
 Each package serves a specific purpose:
