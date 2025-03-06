@@ -23,7 +23,9 @@
   "dependencies": {
     "@sdk-it/core": "0.4.0",
     "debug": "^4.4.0",
-    "typescript": "^5.7.2"
+    "hono": "^4.7.4",
+    "typescript": "^5.7.2",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/debug": "^4.1.12"

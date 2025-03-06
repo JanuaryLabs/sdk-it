@@ -13,7 +13,7 @@ SDK-IT is a TypeScript toolkit for working with OpenAPI specifications. It provi
 Generate client SDKs from existing OpenAPI specifications with:
 
 - **Type Safety**: TypeScript support with accurate type definitions that match your API contracts.
-- **Isomorphic Design**: Generate SDKs for Node.js, browsers, and any runtime that runs JavaScript.
+- **Isomorphic Design**: Generate SDKs for Node.js, browsers, and any JavaScript runtime.
 - **Customizable Output**: Control the structure, style, and formatting of generated code.
 
 ### 2. OpenAPI Generation from TypeScript
@@ -92,28 +92,33 @@ generate(spec, {
 
 ## OpenAPI Generation
 
-SDK-IT relies on specifc primitives and specific jsdocs tags to be able to correctely infer each route. take the folowing example
+SDK-IT relies on specific primitives and JSDoc tags to correctly infer each route. Consider the following example:
 
-```ts
+```typescript
 import { validate } from '@sdk-it/hono';
+
 const app = new Hono();
 
 /**
  * @openapi listBooks
  * @tags books
  */
-app.get('/books', validate(payload=>({
-  author:{
-    select: payload.query.author,
-    against: z.string()
-  }
-})), await (c)=>{
-  const books = [{name: 'OpenAPI'}];
-  return c.json(books)
-});
+app.get(
+  '/books',
+  validate((payload) => ({
+    author: {
+      select: payload.query.author,
+      against: z.string(),
+    },
+  })),
+  async (c) => {
+    const books = [{ name: 'OpenAPI' }];
+    return c.json(books);
+  },
+);
 ```
 
-This route will be correctely infered given it uses the validate middleware.
+This route will be correctly inferred because it uses the validate middleware.
 
 ### Analyzing TypeScript Code to Generate an OpenAPI Specification
 
@@ -125,13 +130,25 @@ import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
-// notice here
-// Store the spec in a file or generate sdk from it.
 import { generate } from '@sdk-it/typescript';
 
 const { paths, components } = await analyze('apps/backend/tsconfig.app.json', {
   responseAnalyzer,
 });
+
+// Now you can use the generated specification to create an SDK or save it to a file
+
+await generate(
+  {
+    info: {
+      title: 'My API',
+      version: '1.0.0',
+    },
+    paths,
+    components,
+  },
+  { output: join(process.cwd(), 'openapi.json') },
+);
 ```
 
 ## Roadmap
@@ -154,12 +171,12 @@ SDK-IT is evolving to support more languages and frameworks. Here's our current 
 
 - [x] Generic HTTP clients
 - [x] Hono
-- [ ] express
-- [ ] fastify
-- [ ] koa.js
+- [ ] Express
+- [ ] Fastify
+- [ ] Koa.js
 - [ ] Next.js
 
-### Frontend Framework integration
+### Frontend Framework Integration
 
 - [x] React Query
 - [ ] Angular Signals
