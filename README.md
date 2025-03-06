@@ -26,7 +26,7 @@ SDK-IT analyzes TypeScript code to generate OpenAPI specifications. The parser e
 # For SDK generation from OpenAPI
 npm install @sdk-it/typescript
 
-# For framework-specific SDK generation
+# For framework-specific OpenAPI generation
 npm install @sdk-it/hono
 
 # For OpenAPI generation from TypeScript code
@@ -92,70 +92,46 @@ generate(spec, {
 
 ## OpenAPI Generation
 
+SDK-IT relies on specifc primitives and specific jsdocs tags to be able to correctely infer each route. take the folowing example
+
+```ts
+import { validate } from '@sdk-it/hono';
+const app = new Hono();
+
+/**
+ * @openapi listBooks
+ * @tags books
+ */
+app.get('/books', validate(payload=>({
+  author:{
+    select: payload.query.author,
+    against: z.string()
+  }
+})), await (c)=>{
+  const books = [{name: 'OpenAPI'}];
+  return c.json(books)
+});
+```
+
+This route will be correctely infered given it uses the validate middleware.
+
 ### Analyzing TypeScript Code to Generate an OpenAPI Specification
 
 You can analyze existing TypeScript code to generate an OpenAPI specification:
 
 ```typescript
-import { writeFileSync } from 'fs';
+import { join } from 'node:path';
+import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
-import { Paths, getProgram } from '@sdk-it/core';
-import { analyzeResponses } from '@sdk-it/generic';
+import { analyze } from '@sdk-it/generic';
+import { responseAnalyzer } from '@sdk-it/hono';
+// notice here
+// Store the spec in a file or generate sdk from it.
+import { generate } from '@sdk-it/typescript';
 
-// Create a TypeScript program from your source files
-const program = getProgram('./src');
-const paths = new Paths();
-
-// Analyze the responses in your code
-const responses = analyzeResponses(program, paths);
-
-// Convert responses to OpenAPI format
-const openApiSpec = {
-  openapi: '3.0.0',
-  info: {
-    title: 'My API',
-    version: '1.0.0',
-  },
-  paths: responses.toPaths(),
-  components: {
-    schemas: responses.toSchemas(),
-  },
-};
-
-// Write the OpenAPI specification to a file
-writeFileSync('openapi.json', JSON.stringify(openApiSpec, null, 2));
-```
-
-### Framework-Specific Analysis: Hono
-
-If you're using the Hono web framework, you can use the Hono-specific analyzer:
-
-```typescript
-import { writeFileSync } from 'fs';
-
-import { Paths, getProgram } from '@sdk-it/core';
-import { analyzeHonoResponses } from '@sdk-it/hono';
-
-// Analyze Hono-specific response patterns
-const program = getProgram('./src');
-const paths = new Paths();
-const responses = analyzeHonoResponses(program, paths);
-
-// Generate an OpenAPI specification
-const spec = {
-  openapi: '3.0.0',
-  info: {
-    title: 'Hono API',
-    version: '1.0.0',
-  },
-  paths: responses.toPaths(),
-  components: {
-    schemas: responses.toSchemas(),
-  },
-};
-
-// Write the OpenAPI specification to a file
-writeFileSync('hono-api.json', JSON.stringify(spec, null, 2));
+const { paths, components } = await analyze('apps/backend/tsconfig.app.json', {
+  responseAnalyzer,
+});
 ```
 
 ## Roadmap
