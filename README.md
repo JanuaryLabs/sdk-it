@@ -1,12 +1,52 @@
 # SDK-IT
 
-SDK-IT is a TypeScript toolkit for working with OpenAPI specifications. It provides three main capabilities:
+SDK-IT generates type-safe client SDKs from OpenAPI specifications and creates OpenAPI specs from TypeScript code.
+
+## Quick Start
+
+```typescript
+import { generate } from '@sdk-it/typescript';
+
+import spec from './openapi.json';
+
+await generate(spec, {
+  output: './client',
+  name: 'MyAPI',
+});
+```
+
+Use the generated SDK
+
+```typescript
+import { MyAPI } from './client';
+
+const client = new MyAPI({
+  baseUrl: 'https://api.example.com/v1',
+});
+
+const [result, error] = await client.request('GET /books', {
+  authors: [1, 10],
+});
+```
+
+## Installation
+
+```bash
+# For SDK generation from OpenAPI
+npm install @sdk-it/typescript
+
+# For framework-specific OpenAPI generation
+npm install @sdk-it/hono
+
+# For any sdk-it powered framework
+npm install @sdk-it/generic
+```
+
+## Core Capabilities
 
 1. **Generating type-safe client SDKs from OpenAPI specifications**
 2. **Generating OpenAPI specifications from TypeScript code**
-3. **RPC Client via OpenAPI specifications** (WIP)
-
-## Core Capabilities
+3. **TypeScript RPC Client From OpenAPI specifications.** (WIP)
 
 ### 1. SDK Generation from OpenAPI
 
@@ -19,19 +59,6 @@ Generate client SDKs from existing OpenAPI specifications with:
 ### 2. OpenAPI Generation from TypeScript
 
 SDK-IT analyzes TypeScript code to generate OpenAPI specifications. The parser examines code structure, detects framework patterns, and extracts type definitions to create API documentation. Type inference ensures API types are reflected in the generated OpenAPI schema, while response analysis creates schema definitions that match API outputs. The system works with JSDoc comments, allowing you to add OpenAPI metadata in your source code.
-
-## Installation
-
-```bash
-# For SDK generation from OpenAPI
-npm install @sdk-it/typescript
-
-# For framework-specific OpenAPI generation
-npm install @sdk-it/hono
-
-# For OpenAPI generation from TypeScript code
-npm install @sdk-it/generic
-```
 
 ## SDK Generation
 
