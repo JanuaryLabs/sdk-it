@@ -75,7 +75,7 @@ import spec from './openapi.json';
 // Generate the SDK
 await generate(spec, {
   output: './client',
-  name: 'MyAPI',
+  name: 'Client',
 });
 ```
 
@@ -84,36 +84,16 @@ await generate(spec, {
 Once generated, you can use the SDK in your application:
 
 ```typescript
-import { MyAPI } from './client';
+import { Client } from './client';
 
 // Create a client instance
-const client = new MyAPI({
+const client = new Client({
   baseUrl: 'https://api.example.com/v1',
 });
 
 // Call API methods with type safety
 const [result, error] = await client.request('GET /books', {
   authors: [1, 10],
-});
-```
-
-### Framework-Specific SDK Generation: Hono
-
-If you're generating an SDK for a Hono-based API:
-
-```typescript
-import { readFileSync } from 'fs';
-
-import { generate } from '@sdk-it/typescript';
-
-// Load your Hono-specific OpenAPI specification
-const spec = JSON.parse(readFileSync('hono-api.json', 'utf-8'));
-
-// Generate a TypeScript SDK optimized for Hono
-generate(spec, {
-  output: './hono-sdk',
-  name: 'HonoAPI',
-  framework: 'hono',
 });
 ```
 
@@ -163,18 +143,17 @@ const { paths, components } = await analyze('apps/backend/tsconfig.app.json', {
 });
 
 // Now you can use the generated specification to create an SDK or save it to a file
-
-await generate(
-  {
-    info: {
-      title: 'My API',
-      version: '1.0.0',
-    },
-    paths,
-    components,
+const spec = {
+  info: {
+    title: 'My API',
+    version: '1.0.0',
   },
-  { output: join(process.cwd(), './client') },
-);
+  paths,
+  components,
+};
+await generate(spec, {
+  output: join(process.cwd(), './client'),
+});
 ```
 
 ## Roadmap
@@ -250,14 +229,12 @@ Violla!
 SDK-IT is organized as a monorepo with multiple packages:
 
 ```
-
 .
-├── packages/ # Core packages of the SDK-IT toolkit
-│ ├── core/ # Core functionality and utilities
-│ ├── generic/ # Generic OpenAPI processing
-│ ├── hono/ # Hono framework integration
-│ └── typescript/ # TypeScript code generation
-
+├── packages/
+│   ├── core/             # Core functionality and utilities
+│   ├── generic/          # Generic OpenAPI generation
+│   ├── hono/             # Hono OpenAPI generation
+│   └── typescript/       # TypeScript code generation
 ```
 
 Each package serves a specific purpose:
