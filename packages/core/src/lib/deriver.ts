@@ -259,7 +259,6 @@ export class TypeDeriver {
       if (!node.name?.text) {
         throw new Error('Interface has no name');
       }
-      console.log(node.name.text);
       if (defaults[node.name.text]) {
         return {
           [deriveSymbol]: true,
