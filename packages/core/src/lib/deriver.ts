@@ -89,9 +89,6 @@ export class TypeDeriver {
       }
       const typeSymbol = argType.getSymbol();
       if (!typeSymbol) {
-        console.warn(
-          `No symbol found for array type ${this.checker.typeToString(argType)}`,
-        );
         return {
           [deriveSymbol]: true,
           optional: false,

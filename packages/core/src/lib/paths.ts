@@ -200,27 +200,26 @@ export class Paths {
 }
 
 async function evalZod(schema: string, commonZodImport?: string) {
+  // https://github.com/nodejs/node/issues/51956
   const lines = [
-    `import { z } from 'zod';`,
-    commonZodImport ? `import * as commonZod from '${commonZodImport}'` : '',
-    `import { zodToJsonSchema } from 'zod-to-json-schema';`,
+    `import { createRequire } from "node:module";`,
+    `const filename = "${import.meta.url}";`,
+    `const require = createRequire(filename);`,
+    `const z = require("zod");`,
+    commonZodImport ? `import * as commonZod from '${commonZodImport}';` : '',
+    `const {zodToJsonSchema} = require('zod-to-json-schema');`,
     `const schema = ${schema.replace('.optional()', '')};`,
     `const jsonSchema = zodToJsonSchema(schema, {
-			$refStrategy: 'root',
-			basePath: ['#', 'components', 'schemas']
-		});`,
+    	$refStrategy: 'root',
+    	basePath: ['#', 'components', 'schemas']
+    });`,
     `export default jsonSchema;`,
   ];
-  const base64Code = Buffer.from(lines.join('\n')).toString('base64');
-  const dataUrl = `data:text/javascript;base64,${base64Code}`;
-  return import(dataUrl)
+  const base64 = Buffer.from(lines.join('\n')).toString('base64');
+  return import(`data:text/javascript;base64,${base64}`)
     .then((mod) => mod.default)
     .then(({ $schema, ...result }) => result);
 }
-
-const typeMappings: Record<string, string> = {
-  DateConstructor: 'Date',
-};
 
 interface DateType {
   [$types]: any[];
