@@ -21,7 +21,7 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "@sdk-it/core": "*",
+    "@sdk-it/core": "0.7.0",
     "stringcase": "^4.3.1",
     "typescript": "^5.7.2",
     "debug": "^4.4.0",
