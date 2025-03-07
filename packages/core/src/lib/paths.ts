@@ -9,8 +9,23 @@ import type {
 
 import { $types } from './deriver.ts';
 
-export type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
-
+export type Method =
+  | 'get'
+  | 'post'
+  | 'put'
+  | 'patch'
+  | 'delete'
+  | 'trace'
+  | 'head';
+export const methods = [
+  'get',
+  'post',
+  'put',
+  'patch',
+  'delete',
+  'trace',
+  'head',
+] as const;
 export type SemanticSource =
   | 'query'
   | 'queries'

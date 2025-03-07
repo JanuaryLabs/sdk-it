@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
-import { getFolderExports, writeFiles } from '@sdk-it/core';
+import { getFolderExports, methods, writeFiles } from '@sdk-it/core';
 
 import { generateCode } from './generator.ts';
 import clientTxt from './http/client.txt';
@@ -9,8 +9,31 @@ import parserTxt from './http/parser.txt';
 import requestTxt from './http/request.txt';
 import responseTxt from './http/response.txt';
 import sendRequest from './http/send-request.txt';
-import { generateReadme } from './readme-generator.ts';
 import { generateClientSdk } from './sdk.ts';
+import { securityToOptions } from './utils.ts';
+
+function security(spec: OpenAPIObject) {
+  const security = spec.security || [];
+  const components = spec.components || {};
+  const securitySchemas = components.securitySchemes || {};
+  const paths = Object.values(spec.paths ?? {});
+
+  const options = securityToOptions(security, securitySchemas);
+
+  for (const it of paths) {
+    for (const method of methods) {
+      const operation = it[method];
+      if (!operation) {
+        continue;
+      }
+      Object.assign(
+        options,
+        securityToOptions(operation.security || [], securitySchemas, 'input'),
+      );
+    }
+  }
+  return options;
+}
 
 export async function generate(
   spec: OpenAPIObject,
@@ -25,10 +48,13 @@ export async function generate(
     target: 'javascript',
   });
 
+  const options = security(spec);
+
   const clientFiles = generateClientSdk({
     name: settings.name || 'Client',
-    groups: groups,
+    operations: groups,
     servers: spec.servers?.map((server) => server.url) || [],
+    options: options,
   });
 
   // const readme = generateReadme(spec, {

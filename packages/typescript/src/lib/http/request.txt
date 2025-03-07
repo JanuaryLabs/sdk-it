@@ -38,7 +38,7 @@ interface ToRequest {
     },
     defaults: {
       baseUrl: string;
-      headers?: Record<string, string>;
+      headers?: Partial<Record<string, string>>;
     },
   ): Request;
   urlencoded: <T extends Endpoint>(
@@ -52,7 +52,7 @@ interface ToRequest {
     },
     defaults: {
       baseUrl: string;
-      headers?: Record<string, string>;
+      headers?: Partial<Record<string, string>>;
     },
   ) => Request;
 }
@@ -111,7 +111,7 @@ abstract class Serializer {
     protected props: Props,
   ) {}
   abstract getBody(): BodyInit | null;
-  abstract getHeaders(): Record<string, string>;
+  abstract getHeaders(): Partial<Record<string, string>>;
   serialize(): Serialized {
     const headers = new Headers({});
     for (const header of this.props.inputHeaders) {
@@ -147,7 +147,7 @@ interface Serialized {
   body: BodyInit | null;
   query: URLSearchParams;
   params: Record<string, any>;
-  headers: Record<string, string>;
+  headers: Partial<Record<string, string>>;
 }
 
 class JsonSerializer extends Serializer {
@@ -247,7 +247,7 @@ export function toRequest<T extends Endpoint>(
   input: Serialized,
   defaults: {
     baseUrl: string;
-    headers?: Record<string, string>;
+    headers?: Partial<Record<string, string>>;
   },
 ): Request {
   const [method, path] = endpoint.split(' ');

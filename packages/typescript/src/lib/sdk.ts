@@ -57,14 +57,6 @@ class StreamEmitter extends Emitter {
   }
 }
 
-export interface SecurityScheme {
-  bearerAuth: {
-    type: 'http';
-    scheme: 'bearer';
-    bearerFormat: 'JWT';
-  };
-}
-
 export interface SdkConfig {
   /**
    * The name of the sdk client
@@ -74,28 +66,32 @@ export interface SdkConfig {
   options?: Record<string, any>;
   emptyBodyAsNull?: boolean;
   stripBodyFromGetAndHead?: boolean;
-  securityScheme?: SecurityScheme;
   output: string;
+
+  /**
+   * @todo replace it with function and let the user specify the command that will format with npm-env-path as parameter
+   */
   formatGeneratedCode?: boolean;
 }
 
+export type Options = Record<
+  string,
+  {
+    in: string;
+    schema: string;
+    optionName?: string;
+  }
+>;
 export interface Spec {
-  groups: Record<string, Operation[]>;
+  operations: Record<string, Operation[]>;
   commonZod?: string;
   name: string;
-  options?: Record<
-    string,
-    {
-      in: 'header';
-      schema: string;
-    }
-  >;
-  securityScheme?: SecurityScheme;
-  servers?: string[];
+  options: Options;
+  servers: string[];
 }
 
 export interface OperationInput {
-  source: string;
+  in: string;
   schema: string;
 }
 export interface Operation {
@@ -118,7 +114,7 @@ export function generateClientSdk(spec: Spec) {
   const schemasImports: string[] = [];
   const schemaEndpoint = new SchemaEndpoint();
   const errors: string[] = [];
-  for (const [name, operations] of Object.entries(spec.groups)) {
+  for (const [name, operations] of Object.entries(spec.operations)) {
     const featureSchemaFileName = camelcase(name);
     schemas[featureSchemaFileName] = [`import z from 'zod';`];
     emitter.addImport(
@@ -152,20 +148,20 @@ export function generateClientSdk(spec: Spec) {
       const inputBody: string[] = [];
       const inputParams: string[] = [];
       for (const [name, prop] of Object.entries(operation.inputs)) {
-        if (prop.source === 'headers' || prop.source === 'header') {
+        if (prop.in === 'headers' || prop.in === 'header') {
           inputHeaders.push(`"${name}"`);
-        } else if (prop.source === 'query') {
+        } else if (prop.in === 'query') {
           inputQuery.push(`"${name}"`);
-        } else if (prop.source === 'body') {
+        } else if (prop.in === 'body') {
           inputBody.push(`"${name}"`);
-        } else if (prop.source === 'path') {
+        } else if (prop.in === 'path') {
           inputParams.push(`"${name}"`);
-        } else if (prop.source === 'internal') {
+        } else if (prop.in === 'internal') {
           // ignore internal sources
           continue;
         } else {
           throw new Error(
-            `Unknown source ${prop.source} in ${name} ${JSON.stringify(
+            `Unknown source ${prop.in} in ${name} ${JSON.stringify(
               prop,
             )} in ${operation.name}`,
           );
@@ -185,7 +181,7 @@ export function generateClientSdk(spec: Spec) {
           endpoint,
           `{
         schema: ${schemaRef},
-        toRequest(input: StreamEndpoints['${endpoint}']['input'], init: {baseUrl:string; headers?: Record<string, string>}) {
+        toRequest(input: StreamEndpoints['${endpoint}']['input'], init: {baseUrl:string; headers?: Partial<Record<string, string>>}) {
           const endpoint = '${endpoint}';
             return toRequest(endpoint, json(input, {
             inputHeaders: [${inputHeaders}],
@@ -219,7 +215,7 @@ export function generateClientSdk(spec: Spec) {
             endpoint,
             `{
           schema: ${schemaRef}${addTypeParser ? `.${type}` : ''},
-          toRequest(input: Endpoints['${endpoint}']['input'], init: {baseUrl:string; headers?: Record<string, string>}) {
+          toRequest(input: Endpoints['${endpoint}']['input'], init: {baseUrl:string; headers?: Partial<Record<string, string>>}) {
             const endpoint = '${endpoint}';
               return toRequest(endpoint, ${operation.contentType || 'json'}(input, {
               inputHeaders: [${inputHeaders}],
@@ -254,7 +250,7 @@ export function generateClientSdk(spec: Spec) {
           .join('\n') + '\n', // add a newline at the end
       ]),
     ),
-    'backend.ts': backend(spec),
+    'client.ts': backend(spec),
     'schemas.ts': schemaEndpoint.complete(),
     'endpoints.ts': emitter.complete(),
   };

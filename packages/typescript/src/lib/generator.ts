@@ -3,7 +3,8 @@ import type {
   ContentObject,
   OpenAPIObject,
   OperationObject,
-  ReferenceObject,
+  ParameterLocation,
+  ParameterObject,
   ResponseObject,
 } from 'openapi3-ts/oas31';
 import { camelcase, pascalcase, spinalcase } from 'stringcase';
@@ -12,6 +13,7 @@ import { removeDuplicates } from '@sdk-it/core';
 
 import { followRef, jsonSchemaToZod } from './json-zod.ts';
 import { type Operation, type Spec } from './sdk.ts';
+import { isRef, securityToOptions } from './utils.ts';
 
 export interface NamedImport {
   name: string;
@@ -24,9 +26,6 @@ export interface Import {
   defaultImport: string | undefined;
   namedImports: NamedImport[];
   namespaceImport: string | undefined;
-}
-function isRef(obj: any): obj is ReferenceObject {
-  return '$ref' in obj;
 }
 
 const responses: Record<string, string> = {
@@ -80,7 +79,7 @@ export const defaults: Partial<GenerateSdkConfig> &
 };
 
 export function generateCode(config: GenerateSdkConfig) {
-  const groups: Spec['groups'] = {};
+  const groups: Spec['operations'] = {};
   const commonSchemas: Record<string, string> = {};
   const outputs: Record<string, string> = {};
 
@@ -98,7 +97,7 @@ export function generateCode(config: GenerateSdkConfig) {
       const inputs: Operation['inputs'] = {};
       const imports: Import[] = [];
 
-      const additionalProperties = [];
+      const additionalProperties: ParameterObject[] = [];
       for (const param of operation.parameters ?? []) {
         if (isRef(param)) {
           throw new Error(`Found reference in parameter ${param.$ref}`);
@@ -107,11 +106,32 @@ export function generateCode(config: GenerateSdkConfig) {
           throw new Error(`Schema not found for parameter ${param.name}`);
         }
         inputs[param.name] = {
-          source: param.in,
+          in: param.in,
           schema: '',
         };
         additionalProperties.push(param);
       }
+
+      const security = operation.security ?? [];
+      const securitySchemas = config.spec.components?.securitySchemes ?? {};
+
+      const securityOptions = securityToOptions(security, securitySchemas);
+
+      Object.assign(inputs, securityOptions);
+
+      additionalProperties.push(
+        ...Object.entries(securityOptions).map(
+          ([name, value]) =>
+            ({
+              name: name,
+              required: false,
+              schema: {
+                type: 'string',
+              },
+              in: value.in as ParameterLocation,
+            }) satisfies ParameterObject,
+        ),
+      );
 
       const types: Record<string, string> = {};
       const shortContenTypeMap: Record<string, string> = {

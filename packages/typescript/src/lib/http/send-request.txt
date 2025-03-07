@@ -7,7 +7,7 @@ export interface RequestSchema {
   schema: z.ZodType;
   toRequest: (
     input: any,
-    init: { baseUrl: string; headers?: Record<string, string> },
+    init: { baseUrl: string; headers?: Partial<Record<string, string>> },
   ) => any;
 }
 
@@ -23,7 +23,7 @@ export async function sendRequest(
   options: {
     baseUrl: string;
     fetch?: z.infer<typeof fetchType>;
-    headers?: Record<string, string>;
+    headers?: Partial<Record<string, string>>;
   },
 ) {
   const [parsedInput, parseError] = parse(route.schema, input);
