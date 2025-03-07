@@ -193,7 +193,7 @@ SDK-IT is evolving to support more languages and frameworks. Here's our current 
 
 ### Frontend Framework Integration
 
-- [x] React Query
+- [x] [React Query](./docs/react-query.md)
 - [ ] Angular Signals
 
 We welcome contributions to help us expand language and framework support!
