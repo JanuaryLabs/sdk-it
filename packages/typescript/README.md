@@ -12,7 +12,7 @@ This package transforms OpenAPI specifications into fully-typed TypeScript clien
 npm install @sdk-it/typescript
 ```
 
-## Usage Examples
+## Usage
 
 ### Basic SDK Generation
 
@@ -41,5 +41,25 @@ const spec = await fetch('https://petstore.swagger.io/v2/swagger.json').then(
 await generate(spec, {
   output: './client',
   name: 'PetStore',
+});
+```
+
+### Format Generated Code
+
+You can format the generated code using the `formatCode` option. This is especially useful if you include the generated code in source control.
+
+```typescript
+import { generate } from '@sdk-it/typescript';
+
+const spec = await fetch('https://petstore.swagger.io/v2/swagger.json').then(
+  (res) => res.json(),
+);
+
+// Format generated code using Prettier
+await generate(spec, {
+  output: join(process.cwd(), 'node_modules/.sdk-it/client'),
+  formatCode: ({ output, env }) => {
+    execFile('prettier', [output, '--write'], { env: env });
+  },
 });
 ```

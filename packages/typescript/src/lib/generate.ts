@@ -41,6 +41,10 @@ export async function generate(
   settings: {
     output: string;
     name?: string;
+    /**
+     * full: generate a full project including. useful for monorepo/workspaces
+     * minimal: generate only the client sdk
+     */
     mode?: 'full' | 'minimal';
     formatCode?: (options: {
       output: string;
@@ -53,6 +57,8 @@ export async function generate(
     style: 'github',
     target: 'javascript',
   });
+  const output =
+    settings.mode === 'full' ? join(settings.output, 'src') : settings.output;
 
   const options = security(spec);
 
@@ -67,13 +73,13 @@ export async function generate(
   //   name: settings.name || 'Client',
   // });
 
-  await writeFiles(settings.output, {
+  await writeFiles(output, {
     'outputs/index.ts': '',
     'inputs/index.ts': '',
     // 'README.md': readme,
   });
 
-  await writeFiles(join(settings.output, 'http'), {
+  await writeFiles(join(output, 'http'), {
     'parse-response.ts': clientTxt,
     'send-request.ts': sendRequest,
     'response.ts': responseTxt,
@@ -81,9 +87,9 @@ export async function generate(
     'request.ts': requestTxt,
   });
 
-  await writeFiles(join(settings.output, 'outputs'), outputs);
+  await writeFiles(join(output, 'outputs'), outputs);
 
-  await writeFiles(settings.output, {
+  await writeFiles(output, {
     ...clientFiles,
     'zod.ts': `import z from 'zod';\n${Object.entries(commonSchemas)
       .map(([name, schema]) => `export const ${name} = ${schema};`)
@@ -91,21 +97,28 @@ export async function generate(
   });
 
   const [index, outputIndex, inputsIndex, httpIndex] = await Promise.all([
-    getFolderExports(settings.output),
-    getFolderExports(join(settings.output, 'outputs')),
-    getFolderExports(join(settings.output, 'inputs')),
-    getFolderExports(join(settings.output, 'http')),
+    getFolderExports(output),
+    getFolderExports(join(output, 'outputs')),
+    getFolderExports(join(output, 'inputs')),
+    getFolderExports(join(output, 'http')),
   ]);
-
-  await writeFiles(settings.output, {
+  await writeFiles(output, {
     'index.ts': index,
     'outputs/index.ts': outputIndex,
     'inputs/index.ts': inputsIndex,
     'http/index.ts': httpIndex,
   });
+  if (settings.mode === 'full') {
+    await writeFiles(settings.output, {
+      'package.json': {
+        ignoreIfExists: true,
+        content: `{"type":"module","main":"./src/index.ts","dependencies":{"fast-content-type-parse":"^2.0.1"}}`,
+      },
+    });
+  }
 
   await settings.formatCode?.({
-    output: settings.output,
+    output: output,
     env: npmRunPathEnv(),
   });
 }

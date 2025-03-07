@@ -21,11 +21,12 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.6.0",
+    "@sdk-it/core": "0.5.2",
     "openapi3-ts": "^4.4.0",
     "stringcase": "^4.3.1",
     "lodash-es": "^4.17.21",
     "npm-run-path": "6.0.0",
-    "lodash": "4.17.21"
+    "lodash": "4.17.21",
+    "rxjs": "^7.8.2"
   }
 }

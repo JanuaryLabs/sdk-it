@@ -21,7 +21,7 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.6.0",
+    "@sdk-it/core": "0.5.2",
     "debug": "^4.4.0",
     "hono": "^4.7.4",
     "typescript": "^5.7.2",
