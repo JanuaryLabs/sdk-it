@@ -252,10 +252,12 @@ export function toRequest<T extends Endpoint>(
 ): Request {
   const [method, path] = endpoint.split(' ');
 
-  const headers = new Headers({
-    ...defaults?.headers,
-    ...input.headers,
-  });
+  const headers = new Headers(
+    Object.entries({
+      ...defaults?.headers,
+      ...input.headers,
+    }).filter(truthyEntry),
+  );
   const pathVariable = template(path, input.params);
 
   const url = createUrl(defaults.baseUrl, pathVariable, input.query);
@@ -264,4 +266,8 @@ export function toRequest<T extends Endpoint>(
     headers: headers,
     body: method === 'GET' ? undefined : input.body,
   });
+}
+
+function truthyEntry(entry: [string, unknown]): entry is [string, string] {
+  return entry[1] !== undefined;
 }

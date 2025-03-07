@@ -67,11 +67,6 @@ export interface SdkConfig {
   emptyBodyAsNull?: boolean;
   stripBodyFromGetAndHead?: boolean;
   output: string;
-
-  /**
-   * @todo replace it with function and let the user specify the command that will format with npm-env-path as parameter
-   */
-  formatGeneratedCode?: boolean;
 }
 
 export type Options = Record<

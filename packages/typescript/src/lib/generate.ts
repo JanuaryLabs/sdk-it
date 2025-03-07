@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { npmRunPathEnv } from 'npm-run-path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { getFolderExports, methods, writeFiles } from '@sdk-it/core';
@@ -40,6 +41,11 @@ export async function generate(
   settings: {
     output: string;
     name?: string;
+    mode?: 'full' | 'minimal';
+    formatCode?: (options: {
+      output: string;
+      env: ReturnType<typeof npmRunPathEnv>;
+    }) => void | Promise<void>;
   },
 ) {
   const { commonSchemas, groups, outputs } = generateCode({
@@ -76,6 +82,7 @@ export async function generate(
   });
 
   await writeFiles(join(settings.output, 'outputs'), outputs);
+
   await writeFiles(settings.output, {
     ...clientFiles,
     'zod.ts': `import z from 'zod';\n${Object.entries(commonSchemas)
@@ -95,5 +102,10 @@ export async function generate(
     'outputs/index.ts': outputIndex,
     'inputs/index.ts': inputsIndex,
     'http/index.ts': httpIndex,
+  });
+
+  await settings.formatCode?.({
+    output: settings.output,
+    env: npmRunPathEnv(),
   });
 }

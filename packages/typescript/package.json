@@ -22,10 +22,10 @@
   ],
   "dependencies": {
     "@sdk-it/core": "0.5.2",
-    "debug": "^4.4.0",
     "openapi3-ts": "^4.4.0",
     "stringcase": "^4.3.1",
-    "typescript": "^5.7.2",
-    "lodash-es": "^4.17.21"
+    "lodash-es": "^4.17.21",
+    "lodash": "4.17.21",
+    "npm-run-path": "^6.0.0"
   }
 }
