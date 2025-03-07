@@ -55,9 +55,17 @@ export interface ResponseItem {
   headers: string[];
 }
 
+export type OnOperation = (
+  sourceFile: string,
+  method: Method,
+  path: string,
+  operation: OperationObject,
+) => PathsObject;
 export class Paths {
   #commonZodImport?: string;
+  #onOperation?: OnOperation;
   #operations: Array<{
+    sourceFile: string;
     name: string;
     path: string;
     method: Method;
@@ -67,8 +75,9 @@ export class Paths {
     description?: string;
   }> = [];
 
-  constructor(config: { commonZodImport?: string }) {
+  constructor(config: { commonZodImport?: string; onOperation?: OnOperation }) {
     this.#commonZodImport = config.commonZodImport;
+    this.#onOperation = config.onOperation;
   }
 
   addPath(
@@ -77,6 +86,7 @@ export class Paths {
     method: Method,
     selectors: Selector[],
     responses: ResponseItem[],
+    sourceFile: string,
     tags?: string[],
     description?: string,
   ) {
@@ -84,6 +94,7 @@ export class Paths {
     this.#operations.push({
       name,
       path,
+      sourceFile,
       method,
       selectors,
       responses: responsesObject,
@@ -194,6 +205,15 @@ export class Paths {
         operations[path] = {};
       }
       operations[path][method] = operationObject;
+      if (this.#onOperation) {
+        const operations = this.#onOperation?.(
+          operation.sourceFile,
+          method,
+          path,
+          operationObject,
+        );
+        Object.assign(operations, operations ?? {});
+      }
     }
     return operations;
   }

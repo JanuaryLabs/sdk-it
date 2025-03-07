@@ -1,10 +1,10 @@
 import debug from 'debug';
-import { readFile } from 'node:fs/promises';
 import type { ComponentsObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 import ts from 'typescript';
 
 import {
+  type OnOperation,
   Paths,
   type ResponseItem,
   type Selector,
@@ -98,12 +98,14 @@ function visit(
     ts.isPropertyAssignment,
   );
 
+  const sourceFile = node.getSourceFile();
   paths.addPath(
     operationName,
     path,
     method,
     toSelectors(props),
     responseAnalyzer(handler),
+    sourceFile.fileName,
     metadata.tags,
     metadata.description,
   );
@@ -158,6 +160,7 @@ export async function analyze(
       handler: ts.ArrowFunction,
       deriver: TypeDeriver,
     ) => ResponseItem[];
+    onOperation?: OnOperation;
   },
 ) {
   logger(`Parsing tsconfig`);
@@ -168,6 +171,7 @@ export async function analyze(
   const typeDeriver = new TypeDeriver(typeChecker);
   const paths = new Paths({
     commonZodImport: config.commonZodImport,
+    onOperation: config.onOperation,
   });
   for (const sourceFile of program.getSourceFiles()) {
     if (!sourceFile.isDeclarationFile) {

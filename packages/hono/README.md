@@ -2,9 +2,9 @@
 
 Hono framework integration for SDK-IT that provides type-safe request validation and standardized response handling.
 
-These primitives assist in openapi spec generation.
-
 To learn more about SDK code generation, see the [TypeScript Doc](../typescript/readme.md)
+
+## Installation
 
 ```bash
 npm install @sdk-it/{hono,generic}
@@ -111,9 +111,11 @@ output.ok({ data: 'success' }, { 'Cache-Control': 'max-age=3600' });
 
 ## OpenAPI Generation
 
-SDK-IT relies on specific primitives and JSDoc tags to correctly infer each route. Consider the following example:
+SDK-IT relies on the aforementioned primitives and JSDoc tags to correctly infer each route specification.
 
-- Create hono routes with the `@openapi` tag and validate middleware to generate OpenAPI documentation.
+Consider the following example:
+
+- Create hono routes with the `@openapi` tag and validate middleware.
 
 ```typescript
 import z from 'zod';
@@ -175,6 +177,9 @@ await generate(spec, {
   output: join(process.cwd(), './client'),
 });
 ```
+
+> [!TIP]
+> See [typescript](../typescript/README.md) for more info.
 
 - Use the client
 
