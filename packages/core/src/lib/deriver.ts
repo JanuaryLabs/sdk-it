@@ -35,6 +35,31 @@ export class TypeDeriver {
         [$types]: [],
       };
     }
+    if (type.isStringLiteral()) {
+      return {
+        [deriveSymbol]: true,
+        optional: false,
+        kind: 'literal',
+        value: type.value,
+        [$types]: ['string'],
+      };
+    }
+    if (type.isNumberLiteral()) {
+      return {
+        [deriveSymbol]: true,
+        optional: false,
+        kind: 'literal',
+        value: type.value,
+        [$types]: ['number'],
+      };
+    }
+    if (type.flags & TypeFlags.TemplateLiteral) {
+      return {
+        [deriveSymbol]: true,
+        optional: false,
+        [$types]: ['string'],
+      };
+    }
     if (type.flags & TypeFlags.String) {
       return {
         [deriveSymbol]: true,
@@ -88,6 +113,7 @@ export class TypeDeriver {
       const types: any[] = [];
       for (const unionType of type.types) {
         if (optional === undefined) {
+          // ignore undefined
           optional = (unionType.flags & ts.TypeFlags.Undefined) !== 0;
           if (optional) {
             continue;
@@ -227,6 +253,8 @@ export class TypeDeriver {
       }
       return this.serializeNode(declaration);
     }
+    console.warn(`Unhandled type: ${type.flags} ${ts.TypeFlags[type.flags]}`);
+
     return {
       [deriveSymbol]: true,
       optional: false,
@@ -390,13 +418,21 @@ export class TypeDeriver {
         [$types]: ['boolean'],
       };
     }
-    if (
-      node.kind === ts.SyntaxKind.TrueKeyword ||
-      node.kind === ts.SyntaxKind.FalseKeyword
-    ) {
+    if (node.kind === ts.SyntaxKind.TrueKeyword) {
       return {
         [deriveSymbol]: true,
         optional: false,
+        kind: 'literal',
+        value: true,
+        [$types]: ['boolean'],
+      };
+    }
+    if (node.kind === ts.SyntaxKind.FalseKeyword) {
+      return {
+        [deriveSymbol]: true,
+        optional: false,
+        kind: 'literal',
+        value: false,
         [$types]: ['boolean'],
       };
     }

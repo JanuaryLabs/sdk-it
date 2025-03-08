@@ -249,6 +249,7 @@ interface DateType {
   [$types]: any[];
   kind: string;
   optional: boolean;
+  value?: string;
 }
 
 export function toSchema(data: DateType | string | null | undefined): any {
@@ -260,6 +261,8 @@ export function toSchema(data: DateType | string | null | undefined): any {
       return { $ref: data };
     }
     return { type: data };
+  } else if (data.kind === 'literal') {
+    return { enum: [data.value], type: data[$types][0] };
   } else if (data.kind === 'record') {
     return { type: 'object', additionalProperties: toSchema(data[$types][0]) };
   } else if (data.kind === 'array') {
