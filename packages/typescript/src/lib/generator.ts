@@ -11,7 +11,7 @@ import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
 import { removeDuplicates } from '@sdk-it/core';
 
-import { followRef, jsonSchemaToZod } from './json-zod.ts';
+import { followRef, jsonSchemaToZod } from './emitters/zod.ts';
 import { type Operation, type Spec } from './sdk.ts';
 import { isRef, securityToOptions } from './utils.ts';
 

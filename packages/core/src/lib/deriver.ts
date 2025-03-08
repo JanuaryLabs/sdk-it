@@ -19,6 +19,15 @@ export class TypeDeriver {
   }
 
   serializeType(type: ts.Type): any {
+    const indexType = type.getStringIndexType();
+    if (indexType) {
+      return {
+        [deriveSymbol]: true,
+        kind: 'record',
+        optional: false,
+        [$types]: [this.serializeType(indexType)],
+      };
+    }
     if (type.flags & TypeFlags.Any) {
       return {
         [deriveSymbol]: true,
@@ -26,11 +35,32 @@ export class TypeDeriver {
         [$types]: [],
       };
     }
+    if (type.flags & TypeFlags.String) {
+      return {
+        [deriveSymbol]: true,
+        optional: false,
+        [$types]: ['string'],
+      };
+    }
+    if (type.flags & TypeFlags.Number) {
+      return {
+        [deriveSymbol]: true,
+        optional: false,
+        [$types]: ['number'],
+      };
+    }
     if (type.flags & ts.TypeFlags.Boolean) {
       return {
         [deriveSymbol]: true,
         optional: false,
         [$types]: ['boolean'],
+      };
+    }
+    if (type.flags & TypeFlags.Null) {
+      return {
+        [deriveSymbol]: true,
+        optional: true,
+        [$types]: ['null'],
       };
     }
     if (type.isIntersection()) {
@@ -158,13 +188,6 @@ export class TypeDeriver {
       }
       return this.serializeNode(valueDeclaration);
     }
-    if (type.flags & TypeFlags.Null) {
-      return {
-        [deriveSymbol]: true,
-        optional: true,
-        [$types]: ['null'],
-      };
-    }
     if (type.flags & TypeFlags.Object) {
       if (defaults[symbolName(type.symbol)]) {
         return {
@@ -204,7 +227,6 @@ export class TypeDeriver {
       }
       return this.serializeNode(declaration);
     }
-
     return {
       [deriveSymbol]: true,
       optional: false,

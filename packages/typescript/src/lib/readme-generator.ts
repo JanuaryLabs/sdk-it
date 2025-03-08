@@ -8,14 +8,13 @@ import type {
   RequestBodyObject,
   ResponseObject,
   SchemaObject,
-  Server,
   ServerObject,
 } from 'openapi3-ts/oas31';
 import { pascalcase } from 'stringcase';
 
 import { type Method } from '@sdk-it/core';
 
-import { followRef } from './json-zod.ts';
+import { followRef } from './emitters/zod.ts';
 
 /**
  * Generate README.md documentation directly from OpenAPI spec

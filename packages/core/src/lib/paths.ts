@@ -1,3 +1,4 @@
+import { isEmpty } from 'lodash-es';
 import type {
   OperationObject,
   ParameterObject,
@@ -199,7 +200,10 @@ export class Paths {
               },
             }
           : undefined,
-        responses: operation.responses,
+        responses:
+          Object.keys(operation.responses).length === 0
+            ? undefined
+            : operation.responses,
       };
       if (!operations[path]) {
         operations[path] = {};
@@ -256,11 +260,13 @@ export function toSchema(data: DateType | string | null | undefined): any {
       return { $ref: data };
     }
     return { type: data };
+  } else if (data.kind === 'record') {
+    return { type: 'object', additionalProperties: toSchema(data[$types][0]) };
   } else if (data.kind === 'array') {
     const items = data[$types].map(toSchema);
     return { type: 'array', items: data[$types].length ? items[0] : {} };
   } else if (data.kind === 'union') {
-    return { oneOf: data[$types].map(toSchema) };
+    return { anyOf: data[$types].map(toSchema) };
   } else if (data.kind === 'intersection') {
     return { allOf: data[$types].map(toSchema) };
   } else if ($types in data) {
