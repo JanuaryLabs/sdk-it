@@ -11,7 +11,7 @@ import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
 import { removeDuplicates } from '@sdk-it/core';
 
-import { followRef, jsonSchemaToZod } from './emitters/zod.ts';
+import { ZodDeserialzer, followRef } from './emitters/zod.ts';
 import { type Operation, type Spec } from './sdk.ts';
 import { isRef, securityToOptions } from './utils.ts';
 
@@ -79,6 +79,17 @@ export const defaults: Partial<GenerateSdkConfig> &
 };
 
 export function generateCode(config: GenerateSdkConfig) {
+  const imports: Import[] = [];
+  const serializer = new ZodDeserialzer(config.spec, (schemaName, zod) => {
+    commonSchemas[schemaName] = zod;
+    imports.push({
+      defaultImport: undefined,
+      isTypeOnly: false,
+      moduleSpecifier: `../models/${schemaName}.ts`,
+      namedImports: [{ isTypeOnly: false, name: schemaName }],
+      namespaceImport: undefined,
+    });
+  });
   const groups: Spec['operations'] = {};
   const commonSchemas: Record<string, string> = {};
   const outputs: Record<string, string> = {};
@@ -95,7 +106,6 @@ export function generateCode(config: GenerateSdkConfig) {
       const groupName = (operation.tags ?? ['unknown'])[0];
       groups[groupName] ??= [];
       const inputs: Operation['inputs'] = {};
-      const imports: Import[] = [];
 
       const additionalProperties: ParameterObject[] = [];
       for (const param of operation.parameters ?? []) {
@@ -152,13 +162,12 @@ export function generateCode(config: GenerateSdkConfig) {
             ? followRef(config.spec, content[type].schema.$ref)
             : content[type].schema;
 
-          types[shortContenTypeMap[type]] = jsonSchemaToZod(
-            config.spec,
+          types[shortContenTypeMap[type]] = serializer.handle(
             merge(schema, {
               required: additionalProperties
                 .filter((p) => p.required)
                 .map((p) => p.name),
-              properties: additionalProperties.reduce<Record<string, any>>(
+              properties: additionalProperties.reduce<Record<string, unknown>>(
                 (acc, p) => ({
                   ...acc,
                   [p.name]: p.schema,
@@ -167,16 +176,6 @@ export function generateCode(config: GenerateSdkConfig) {
               ),
             }),
             true,
-            (schemaName, zod) => {
-              commonSchemas[schemaName] = zod;
-              imports.push({
-                defaultImport: undefined,
-                isTypeOnly: false,
-                moduleSpecifier: '../zod',
-                namedImports: [{ isTypeOnly: false, name: schemaName }],
-                namespaceImport: undefined,
-              });
-            },
           );
         }
 
@@ -190,32 +189,22 @@ export function generateCode(config: GenerateSdkConfig) {
           contentType = 'json';
         }
       } else {
-        types[shortContenTypeMap['application/json']] = jsonSchemaToZod(
-          config.spec,
+        const properties = additionalProperties.reduce<Record<string, any>>(
+          (acc, p) => ({
+            ...acc,
+            [p.name]: p.schema,
+          }),
+          {},
+        );
+        types[shortContenTypeMap['application/json']] = serializer.handle(
           {
             type: 'object',
             required: additionalProperties
               .filter((p) => p.required)
               .map((p) => p.name),
-            properties: additionalProperties.reduce<Record<string, any>>(
-              (acc, p) => ({
-                ...acc,
-                [p.name]: p.schema,
-              }),
-              {},
-            ),
+            properties,
           },
           true,
-          (schemaName, zod) => {
-            commonSchemas[schemaName] = zod;
-            imports.push({
-              defaultImport: undefined,
-              isTypeOnly: false,
-              moduleSpecifier: './zod',
-              namedImports: [{ isTypeOnly: false, name: schemaName }],
-              namespaceImport: undefined,
-            });
-          },
         );
       }
 
@@ -236,23 +225,11 @@ export function generateCode(config: GenerateSdkConfig) {
           const isJson = responseContent && responseContent['application/json'];
           // TODO: how the user is going to handle multiple response types
           const responseSchema = isJson
-            ? jsonSchemaToZod(
-                config.spec,
+            ? serializer.handle(
                 responseContent['application/json'].schema!,
                 true,
-                (schemaName, zod) => {
-                  commonSchemas[schemaName] = zod;
-                  imports.push({
-                    defaultImport: undefined,
-                    isTypeOnly: false,
-                    moduleSpecifier: '../zod',
-                    namedImports: [{ isTypeOnly: false, name: schemaName }],
-                    namespaceImport: undefined,
-                  });
-                },
               )
             : 'z.instanceof(ReadableStream)'; // non-json response treated as stream
-
           output.push(
             importsToString(mergeImports(Object.values(imports).flat())).join(
               '\n',
