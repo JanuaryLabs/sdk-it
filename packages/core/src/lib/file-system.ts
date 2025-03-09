@@ -50,7 +50,7 @@ export async function getFolderExports(folder: string, extensions = ['ts']) {
   const exports: string[] = [];
   for (const file of files) {
     if (file.isDirectory()) {
-      exports.push(`export * from './${file.name}';`);
+      exports.push(`export * from './${file.name}/index.ts';`);
     } else if (
       file.name !== 'index.ts' &&
       extensions.includes(getExt(file.name))

@@ -113,12 +113,15 @@ export class Paths {
       if (!responsesObject[item.statusCode]) {
         responsesObject[item.statusCode] = {
           description: `Response for ${item.statusCode}`,
-          content: {
-            [ct]:
-              ct === 'application/octet-stream'
-                ? { schema: { type: 'string', format: 'binary' } }
-                : { schema },
-          },
+          content:
+            ct !== 'empty'
+              ? {
+                  [ct]:
+                    ct === 'application/octet-stream'
+                      ? { schema: { type: 'string', format: 'binary' } }
+                      : { schema },
+                }
+              : undefined,
           headers: item.headers.length
             ? item.headers.reduce(
                 (acc, header) => ({

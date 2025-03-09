@@ -23,10 +23,13 @@ const visitor: (
         ) {
           let contentType = 'application/json';
           const callerMethod = propAccess.name.text;
+          const [body, statusCode, headers] = node.expression.arguments;
           if (callerMethod === 'attachment') {
             contentType = 'application/octet-stream';
           }
-          const [body, statusCode, headers] = node.expression.arguments;
+          if (!body) {
+            contentType = 'empty';
+          }
           callback(body, statusCode, headers, contentType);
         }
       }

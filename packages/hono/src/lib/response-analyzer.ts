@@ -25,12 +25,15 @@ const handlerVisitor: (
           ts.isIdentifier(propAccess.expression) &&
           propAccess.expression.text === contextVarName
         ) {
+          const [body, statusCode, headers] = node.expression.arguments;
           let contentType = 'application/json';
           const callerMethod = propAccess.name.text;
           if (callerMethod === 'body') {
             contentType = 'application/octet-stream';
           }
-          const [body, statusCode, headers] = node.expression.arguments;
+          if (!body) {
+            contentType = 'empty';
+          }
           callback(body, statusCode, headers, contentType);
         }
       }
@@ -47,7 +50,7 @@ function toResponses(handler: ts.ArrowFunction, deriver: TypeDeriver) {
       headers: headers ? Object.keys(deriver.serializeNode(headers)) : [],
       contentType,
       statusCode: statusCode ? resolveStatusCode(statusCode) : '200',
-      response: deriver.serializeNode(node),
+      response: node ? deriver.serializeNode(node) : undefined,
     });
   }, contextVarName);
   visit(handler.body);
