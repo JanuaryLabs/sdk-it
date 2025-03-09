@@ -1,4 +1,3 @@
-import { isEmpty } from 'lodash-es';
 import type {
   OperationObject,
   ParameterObject,
@@ -159,13 +158,16 @@ export class Paths {
 
   async #selectosToParameters(selectors: Selector[]) {
     const parameters: ParameterObject[] = [];
-    const bodySchemaProps: Record<string, SchemaObject> = {};
+    const bodySchemaProps: Record<
+      string,
+      { required: boolean; schema: SchemaObject }
+    > = {};
     for (const selector of selectors) {
       if (selector.source === 'body') {
-        bodySchemaProps[selector.name] = await evalZod(
-          selector.against,
-          this.#commonZodImport,
-        );
+        bodySchemaProps[selector.name] = {
+          required: selector.required,
+          schema: await evalZod(selector.against, this.#commonZodImport),
+        };
         continue;
       }
 
@@ -186,18 +188,27 @@ export class Paths {
       const { path, method, selectors } = operation;
       const { parameters, bodySchemaProps } =
         await this.#selectosToParameters(selectors);
+      const bodySchema: Record<string, SchemaObject> = {};
+      const required: string[] = [];
+      for (const [key, value] of Object.entries(bodySchemaProps)) {
+        if (value.required) {
+          required.push(key);
+        }
+        bodySchema[key] = value.schema;
+      }
       const operationObject: OperationObject = {
         operationId: operation.name,
         parameters,
         tags: operation.tags,
         description: operation.description,
-        requestBody: Object.keys(bodySchemaProps).length
+        requestBody: Object.keys(bodySchema).length
           ? {
               content: {
                 'application/json': {
                   schema: {
+                    required: required.length ? required : undefined,
                     type: 'object',
-                    properties: bodySchemaProps,
+                    properties: bodySchema,
                   },
                 },
               },
@@ -267,7 +278,10 @@ export function toSchema(data: DateType | string | null | undefined): any {
   } else if (data.kind === 'literal') {
     return { enum: [data.value], type: data[$types][0] };
   } else if (data.kind === 'record') {
-    return { type: 'object', additionalProperties: toSchema(data[$types][0]) };
+    return {
+      type: 'object',
+      additionalProperties: toSchema(data[$types][0]),
+    };
   } else if (data.kind === 'array') {
     const items = data[$types].map(toSchema);
     return { type: 'array', items: data[$types].length ? items[0] : {} };
@@ -279,12 +293,17 @@ export function toSchema(data: DateType | string | null | undefined): any {
     return data[$types].map(toSchema)[0] ?? {};
   } else {
     const props: Record<string, unknown> = {};
+    const required: string[] = [];
     for (const [key, value] of Object.entries(data)) {
       props[key] = toSchema(value as any);
+      if (!(value as any).optional) {
+        required.push(key);
+      }
     }
     return {
       type: 'object',
       properties: props,
+      required,
       additionalProperties: false,
     };
   }
