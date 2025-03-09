@@ -7,7 +7,7 @@ const logger = debug('@sdk-it/hono');
 
 const handlerVisitor: (
   on: (
-    node: ts.Node,
+    node: ts.Node | undefined,
     statusCode: ts.Node | undefined,
     headers: ts.Node | undefined,
     contentType: string,
@@ -16,26 +16,31 @@ const handlerVisitor: (
 ) => ts.Visitor = (callback, contextVarName) => {
   return (node: ts.Node) => {
     if (ts.isReturnStatement(node) && node.expression) {
-      if (
-        ts.isCallExpression(node.expression) &&
-        ts.isPropertyAccessExpression(node.expression.expression)
-      ) {
-        const propAccess = node.expression.expression;
-        if (
-          ts.isIdentifier(propAccess.expression) &&
-          propAccess.expression.text === contextVarName
-        ) {
-          const [body, statusCode, headers] = node.expression.arguments;
-          let contentType = 'application/json';
-          const callerMethod = propAccess.name.text;
-          if (callerMethod === 'body') {
-            contentType = 'application/octet-stream';
+      if (ts.isCallExpression(node.expression)) {
+        if (ts.isPropertyAccessExpression(node.expression.expression)) {
+          const propAccess = node.expression.expression;
+          if (
+            ts.isIdentifier(propAccess.expression) &&
+            propAccess.expression.text === contextVarName
+          ) {
+            const [body, statusCode, headers] = node.expression.arguments;
+            let contentType = 'application/json';
+            const callerMethod = propAccess.name.text;
+            if (callerMethod === 'body') {
+              contentType = 'application/octet-stream';
+            }
+            if (!body) {
+              contentType = 'empty';
+            }
+            callback(body, statusCode, headers, contentType);
           }
-          if (!body) {
-            contentType = 'empty';
-          }
-          callback(body, statusCode, headers, contentType);
         }
+        // if (ts.isIdentifier(node.expression.expression)) {
+        //   console.log('streamText');
+        //   if (node.expression.expression.text === 'streamText') {
+        //     callback(undefined, undefined, undefined, 'text/plain');
+        //   }
+        // }
       }
     }
     return ts.forEachChild(node, handlerVisitor(callback, contextVarName));

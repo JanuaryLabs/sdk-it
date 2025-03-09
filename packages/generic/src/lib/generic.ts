@@ -148,6 +148,12 @@ function toSelectors(props: ts.PropertyAssignment[]) {
   }
   return selectors;
 }
+type NaunceResponseAnalyzer = Record<string, ts.Node>;
+
+type ResponseAnalyzer = (
+  handler: ts.ArrowFunction,
+  deriver: TypeDeriver,
+) => ResponseItem[];
 
 export async function analyze(
   tsconfigPath: string,
@@ -156,10 +162,7 @@ export async function analyze(
      * Additional code to inject before resolving zod schemas
      */
     commonZodImport?: string;
-    responseAnalyzer: (
-      handler: ts.ArrowFunction,
-      deriver: TypeDeriver,
-    ) => ResponseItem[];
+    responseAnalyzer: ResponseAnalyzer | NaunceResponseAnalyzer;
     onOperation?: OnOperation;
   },
 ) {
@@ -173,12 +176,19 @@ export async function analyze(
     commonZodImport: config.commonZodImport,
     onOperation: config.onOperation,
   });
+  const responseAnalyzer = config.responseAnalyzer;
+  if (typeof responseAnalyzer !== 'function') {
+    throw new Error(
+      `responseAnalyzer must be a function, got ${typeof config.responseAnalyzer}`,
+    );
+  }
   for (const sourceFile of program.getSourceFiles()) {
+    logger(`Analyzing ${sourceFile.fileName}`);
     if (!sourceFile.isDeclarationFile) {
       logger(`Visiting ${sourceFile.fileName}`);
       visit(
         sourceFile,
-        (handler) => config.responseAnalyzer(handler, typeDeriver),
+        (handler) => responseAnalyzer(handler, typeDeriver),
         paths,
       );
     }

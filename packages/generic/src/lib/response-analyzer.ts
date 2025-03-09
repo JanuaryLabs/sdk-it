@@ -2,9 +2,9 @@ import ts from 'typescript';
 
 import type { ResponseItem, TypeDeriver } from '@sdk-it/core';
 
-const visitor: (
+const handlerVisitor: (
   on: (
-    node: ts.Node,
+    node: ts.Node | undefined,
     statusCode: ts.Node | undefined,
     headers: ts.Node | undefined,
     contentType: string,
@@ -34,13 +34,13 @@ const visitor: (
         }
       }
     }
-    return ts.forEachChild(node, visitor(callback));
+    return ts.forEachChild(node, handlerVisitor(callback));
   };
 };
 
 function toResponses(handler: ts.ArrowFunction, deriver: TypeDeriver) {
   const responsesList: ResponseItem[] = [];
-  const visit = visitor((node, statusCode, headers, contentType) => {
+  const visit = handlerVisitor((node, statusCode, headers, contentType) => {
     responsesList.push({
       headers: headers ? Object.keys(deriver.serializeNode(headers)) : [],
       contentType,

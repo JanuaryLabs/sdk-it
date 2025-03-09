@@ -224,13 +224,13 @@ export class Paths {
       }
       operations[path][method] = operationObject;
       if (this.#onOperation) {
-        const operations = this.#onOperation?.(
+        const paths = this.#onOperation?.(
           operation.sourceFile,
           method,
           path,
           operationObject,
         );
-        Object.assign(operations, operations ?? {});
+        Object.assign(operations, paths ?? {});
       }
     }
     return operations;
