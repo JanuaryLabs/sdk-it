@@ -39,8 +39,9 @@ import { fetchType, sendRequest } from './http/send-request.ts';
 import z from 'zod';
 import type { Endpoints } from './endpoints.ts';
 import schemas from './schemas.ts';
-${spec.servers.length ? `const servers = ${JSON.stringify(spec.servers, null, 2)} as const` : ''}
+${spec.servers.length ? `export const servers = ${JSON.stringify(spec.servers, null, 2)} as const` : ''}
 const optionsSchema = z.object(${toLitObject(specOptions, (x) => x.schema)});
+${spec.servers.length ? `export type Servers = typeof servers[number];` : ''}
 
 type ${spec.name}Options = z.infer<typeof optionsSchema>;
 
