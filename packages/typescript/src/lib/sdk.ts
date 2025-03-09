@@ -166,7 +166,7 @@ export function generateClientSdk(spec: Spec) {
         const input = `z.infer<typeof ${schemaRef}>`;
         const endpoint = `${operation.trigger.method.toUpperCase()} ${operation.trigger.path}`;
         streamEmitter.addImport(
-          `import type {${pascalcase(operation.name)}} from './outputs/${spinalcase(operation.name)}';`,
+          `import type {${pascalcase(operation.name)}} from './outputs/${spinalcase(operation.name)}.ts';`,
         );
         streamEmitter.addEndpoint(
           endpoint,
@@ -189,7 +189,7 @@ export function generateClientSdk(spec: Spec) {
         );
       } else {
         emitter.addImport(
-          `import type {${output.import}} from './outputs/${spinalcase(operation.name)}';`,
+          `import type {${output.import}} from './outputs/${spinalcase(operation.name)}.ts';`,
         );
         errors.push(...(operation.errors ?? []));
 
@@ -234,9 +234,9 @@ export function generateClientSdk(spec: Spec) {
       Object.entries(schemas).map(([key, value]) => [
         `inputs/${key}.ts`,
         [
-          schemasImports.length
-            ? `import {${removeDuplicates(schemasImports, (it) => it)}} from '../zod';`
-            : '',
+          // schemasImports.length
+          //   ? `import {${removeDuplicates(schemasImports, (it) => it)}} from '../zod';`
+          //   : '',
           spec.commonZod ? 'import * as commonZod from "../zod.ts";' : '',
           ...value,
         ]

@@ -89,24 +89,37 @@ export async function generate(
 
   await writeFiles(join(output, 'outputs'), outputs);
 
+  const imports = Object.entries(commonSchemas).map(([name]) => name);
   await writeFiles(output, {
     ...clientFiles,
-    'zod.ts': `import z from 'zod';\n${Object.entries(commonSchemas)
-      .map(([name, schema]) => `export const ${name} = ${schema};`)
-      .join('\n')}`,
+    ...Object.fromEntries(
+      Object.entries(commonSchemas).map(([name, schema]) => [
+        `models/${name}.ts`,
+        [
+          `import { z } from 'zod';`,
+          ...exclude(imports, [name]).map(
+            (it) => `import type { ${it} } from './${it}.ts';`,
+          ),
+          `export type ${name} = ${schema};`,
+        ].join('\n'),
+      ]),
+    ),
   });
 
-  const [index, outputIndex, inputsIndex, httpIndex] = await Promise.all([
-    getFolderExports(output),
-    getFolderExports(join(output, 'outputs')),
-    getFolderExports(join(output, 'inputs')),
-    getFolderExports(join(output, 'http')),
-  ]);
+  const [index, outputIndex, inputsIndex, httpIndex, modelsIndex] =
+    await Promise.all([
+      getFolderExports(output),
+      getFolderExports(join(output, 'outputs')),
+      getFolderExports(join(output, 'inputs')),
+      getFolderExports(join(output, 'http')),
+      getFolderExports(join(output, 'models')),
+    ]);
   await writeFiles(output, {
     'index.ts': index,
     'outputs/index.ts': outputIndex,
     'inputs/index.ts': inputsIndex,
     'http/index.ts': httpIndex,
+    'models/index.ts': modelsIndex,
   });
   if (settings.mode === 'full') {
     await writeFiles(settings.output, {
@@ -121,4 +134,8 @@ export async function generate(
     output: output,
     env: npmRunPathEnv(),
   });
+}
+
+function exclude<T>(list: T[], exclude: T[]): T[] {
+  return list.filter((it) => !exclude.includes(it));
 }

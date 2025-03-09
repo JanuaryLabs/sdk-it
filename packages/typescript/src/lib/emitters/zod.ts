@@ -1,33 +1,10 @@
-import { get } from 'lodash-es';
 import type {
   OpenAPIObject,
   ReferenceObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { isRef } from '../utils.ts';
-
-function cleanRef(ref: string) {
-  return ref.replace(/^#\//, '');
-}
-
-function parseRef(ref: string) {
-  const parts = ref.split('/');
-  const [model] = parts.splice(-1);
-  return { model, path: parts.join('/') };
-}
-
-export function followRef(
-  spec: OpenAPIObject,
-  ref: string,
-): SchemaObject | ReferenceObject {
-  const pathParts = cleanRef(ref).split('/');
-  const entry = get(spec, pathParts) as SchemaObject | ReferenceObject;
-  if (entry && '$ref' in entry) {
-    return followRef(spec, entry.$ref);
-  }
-  return entry;
-}
+import { cleanRef, followRef, isRef, parseRef } from '../utils.ts';
 
 type OnRefCallback = (ref: string, zod: string) => void;
 

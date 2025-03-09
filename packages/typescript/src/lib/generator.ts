@@ -11,9 +11,10 @@ import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
 import { removeDuplicates } from '@sdk-it/core';
 
-import { ZodDeserialzer, followRef } from './emitters/zod.ts';
+import { TypeScriptDeserialzer } from './emitters/interface.ts';
+import { ZodDeserialzer } from './emitters/zod.ts';
 import { type Operation, type Spec } from './sdk.ts';
-import { isRef, securityToOptions } from './utils.ts';
+import { followRef, isRef, securityToOptions } from './utils.ts';
 
 export interface NamedImport {
   name: string;
@@ -80,7 +81,7 @@ export const defaults: Partial<GenerateSdkConfig> &
 
 export function generateCode(config: GenerateSdkConfig) {
   const imports: Import[] = [];
-  const serializer = new ZodDeserialzer(config.spec, (schemaName, zod) => {
+  const zodDeserialzer = new ZodDeserialzer(config.spec, (schemaName, zod) => {
     commonSchemas[schemaName] = zod;
     imports.push({
       defaultImport: undefined,
@@ -90,6 +91,19 @@ export function generateCode(config: GenerateSdkConfig) {
       namespaceImport: undefined,
     });
   });
+  const typeScriptDeserialzer = new TypeScriptDeserialzer(
+    config.spec,
+    (schemaName, zod) => {
+      commonSchemas[schemaName] = zod;
+      imports.push({
+        defaultImport: undefined,
+        isTypeOnly: true,
+        moduleSpecifier: `../models/${schemaName}.ts`,
+        namedImports: [{ isTypeOnly: true, name: schemaName }],
+        namespaceImport: undefined,
+      });
+    },
+  );
   const groups: Spec['operations'] = {};
   const commonSchemas: Record<string, string> = {};
   const outputs: Record<string, string> = {};
@@ -162,7 +176,7 @@ export function generateCode(config: GenerateSdkConfig) {
             ? followRef(config.spec, content[type].schema.$ref)
             : content[type].schema;
 
-          types[shortContenTypeMap[type]] = serializer.handle(
+          types[shortContenTypeMap[type]] = zodDeserialzer.handle(
             merge(schema, {
               required: additionalProperties
                 .filter((p) => p.required)
@@ -196,7 +210,7 @@ export function generateCode(config: GenerateSdkConfig) {
           }),
           {},
         );
-        types[shortContenTypeMap['application/json']] = serializer.handle(
+        types[shortContenTypeMap['application/json']] = zodDeserialzer.handle(
           {
             type: 'object',
             required: additionalProperties
@@ -225,25 +239,25 @@ export function generateCode(config: GenerateSdkConfig) {
           const isJson = responseContent && responseContent['application/json'];
           // TODO: how the user is going to handle multiple response types
           const responseSchema = isJson
-            ? serializer.handle(
+            ? typeScriptDeserialzer.handle(
                 responseContent['application/json'].schema!,
                 true,
               )
-            : 'z.instanceof(ReadableStream)'; // non-json response treated as stream
+            : 'ReadableStream'; // non-json response treated as stream
           output.push(
             importsToString(mergeImports(Object.values(imports).flat())).join(
               '\n',
             ),
           );
           output.push(
-            `export const ${pascalcase(operationName + ' output')} = ${responseSchema}`,
+            `export type ${pascalcase(operationName + ' output')} = ${responseSchema}`,
           );
         }
       }
 
       if (!foundResponse) {
         output.push(
-          `export const ${pascalcase(operationName + ' output')} = z.void()`,
+          `export type ${pascalcase(operationName + ' output')} = void`,
         );
       }
       outputs[`${spinalcase(operationName)}.ts`] = output.join('\n');
@@ -257,7 +271,7 @@ export function generateCode(config: GenerateSdkConfig) {
         schemas: types,
         formatOutput: () => ({
           import: pascalcase(operationName + ' output'),
-          use: `z.infer<typeof ${pascalcase(operationName + ' output')}>`,
+          use: pascalcase(operationName + ' output'),
         }),
         trigger: {
           path,
@@ -304,18 +318,18 @@ function mergeImports(imports: Import[]) {
 }
 
 function importsToString(imports: Import[]) {
-  return imports.map((i) => {
-    if (i.defaultImport) {
-      return `import ${i.defaultImport} from '${i.moduleSpecifier}'`;
+  return imports.map((it) => {
+    if (it.defaultImport) {
+      return `import ${it.defaultImport} from '${it.moduleSpecifier}'`;
     }
-    if (i.namespaceImport) {
-      return `import * as ${i.namespaceImport} from '${i.moduleSpecifier}'`;
+    if (it.namespaceImport) {
+      return `import * as ${it.namespaceImport} from '${it.moduleSpecifier}'`;
     }
-    if (i.namedImports) {
-      return `import {${removeDuplicates(i.namedImports, (it) => it.name)
-        .map((n) => n.name)
-        .join(', ')}} from '${i.moduleSpecifier}'`;
+    if (it.namedImports) {
+      return `import {${removeDuplicates(it.namedImports, (it) => it.name)
+        .map((n) => `${n.isTypeOnly ? 'type' : ''} ${n.name}`)
+        .join(', ')}} from '${it.moduleSpecifier}'`;
     }
-    throw new Error(`Invalid import ${JSON.stringify(i)}`);
+    throw new Error(`Invalid import ${JSON.stringify(it)}`);
   });
 }

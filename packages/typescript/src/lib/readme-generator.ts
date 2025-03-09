@@ -14,7 +14,7 @@ import { pascalcase } from 'stringcase';
 
 import { type Method } from '@sdk-it/core';
 
-import { followRef } from './emitters/zod.ts';
+import { followRef } from './utils.ts';
 
 /**
  * Generate README.md documentation directly from OpenAPI spec

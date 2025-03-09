@@ -1,6 +1,9 @@
+import { get } from 'lodash-es';
 import type {
   ComponentsObject,
+  OpenAPIObject,
   ReferenceObject,
+  SchemaObject,
   SecurityRequirementObject,
 } from 'openapi3-ts/oas31';
 
@@ -8,6 +11,27 @@ import { type Options } from './sdk.ts';
 
 export function isRef(obj: any): obj is ReferenceObject {
   return '$ref' in obj;
+}
+
+export function cleanRef(ref: string) {
+  return ref.replace(/^#\//, '');
+}
+
+export function parseRef(ref: string) {
+  const parts = ref.split('/');
+  const [model] = parts.splice(-1);
+  return { model, path: parts.join('/') };
+}
+export function followRef(
+  spec: OpenAPIObject,
+  ref: string,
+): SchemaObject | ReferenceObject {
+  const pathParts = cleanRef(ref).split('/');
+  const entry = get(spec, pathParts) as SchemaObject | ReferenceObject;
+  if (entry && '$ref' in entry) {
+    return followRef(spec, entry.$ref);
+  }
+  return entry;
 }
 export function securityToOptions(
   security: SecurityRequirementObject[],
