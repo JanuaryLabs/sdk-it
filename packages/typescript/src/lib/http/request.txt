@@ -1,6 +1,16 @@
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type ContentType = 'xml' | 'json' | 'urlencoded' | 'multipart';
 type Endpoint = `${ContentType} ${Method} ${string}` | `${Method} ${string}`;
+export type BodyInit =
+  | ArrayBuffer
+  | AsyncIterable<Uint8Array>
+  | Blob
+  | FormData
+  | Iterable<Uint8Array>
+  | NodeJS.ArrayBufferView
+  | URLSearchParams
+  | null
+  | string;
 
 export function createUrl(base: string, path: string, query: URLSearchParams) {
   const url = new URL(path, base);

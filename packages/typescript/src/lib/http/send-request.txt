@@ -37,7 +37,7 @@ export async function sendRequest(
   const response = await (options.fetch ?? fetch)(request);
   if (response.ok) {
     const data = await parseResponse(response);
-    return [data, null] as const;
+    return [data as never, null] as const;
   }
   const error = await handleError(response);
   return [null as never, { ...error, kind: 'response' }] as const;

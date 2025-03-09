@@ -15,9 +15,9 @@ type OnRefCallback = (ref: string, zod: string) => void;
 export class ZodDeserialzer {
   circularRefTracker = new Set<string>();
   #spec: OpenAPIObject;
-  #onRef: OnRefCallback;
+  #onRef?: OnRefCallback;
 
-  constructor(spec: OpenAPIObject, onRef: OnRefCallback) {
+  constructor(spec: OpenAPIObject, onRef?: OnRefCallback) {
     this.#spec = spec;
     this.#onRef = onRef;
   }
@@ -120,7 +120,7 @@ export class ZodDeserialzer {
     }
 
     this.circularRefTracker.add(schemaName);
-    this.#onRef(schemaName, this.handle(followRef(this.#spec, $ref), required));
+    this.#onRef?.(schemaName, this.handle(followRef(this.#spec, $ref), required));
     this.circularRefTracker.delete(schemaName);
 
     return schemaName;
