@@ -9,12 +9,16 @@ import type {
 } from 'openapi3-ts/oas31';
 import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
-import { removeDuplicates } from '@sdk-it/core';
-
 import { TypeScriptDeserialzer } from './emitters/interface.ts';
 import { ZodDeserialzer } from './emitters/zod.ts';
 import { type Operation, type Spec } from './sdk.ts';
-import { followRef, isRef, securityToOptions } from './utils.ts';
+import {
+  followRef,
+  importsToString,
+  isRef,
+  mergeImports,
+  securityToOptions,
+} from './utils.ts';
 
 export interface NamedImport {
   name: string;
@@ -81,31 +85,10 @@ export const defaults: Partial<GenerateSdkConfig> &
 
 export function generateCode(config: GenerateSdkConfig) {
   const imports: Import[] = [];
-  const zodDeserialzer = new ZodDeserialzer(config.spec, (schemaName, zod) => {
-    commonSchemas[schemaName] = zod;
-    imports.push({
-      defaultImport: undefined,
-      isTypeOnly: false,
-      moduleSpecifier: `../models/${schemaName}.ts`,
-      namedImports: [{ isTypeOnly: false, name: schemaName }],
-      namespaceImport: undefined,
-    });
-  });
-  const typeScriptDeserialzer = new TypeScriptDeserialzer(
-    config.spec,
-    (schemaName, zod) => {
-      commonSchemas[schemaName] = zod;
-      imports.push({
-        defaultImport: undefined,
-        isTypeOnly: true,
-        moduleSpecifier: `../models/${schemaName}.ts`,
-        namedImports: [{ isTypeOnly: true, name: schemaName }],
-        namespaceImport: undefined,
-      });
-    },
-  );
-  const groups: Spec['operations'] = {};
   const commonSchemas: Record<string, string> = {};
+  const zodDeserialzer = new ZodDeserialzer(config.spec);
+
+  const groups: Spec['operations'] = {};
   const outputs: Record<string, string> = {};
 
   for (const [path, methods] of Object.entries(config.spec.paths ?? {})) {
@@ -172,25 +155,22 @@ export function generateCode(config: GenerateSdkConfig) {
           : operation.requestBody.content;
 
         for (const type in content) {
-          const schema = isRef(content[type].schema)
+          const ctSchema = isRef(content[type].schema)
             ? followRef(config.spec, content[type].schema.$ref)
             : content[type].schema;
-
-          types[shortContenTypeMap[type]] = zodDeserialzer.handle(
-            merge(schema, {
-              required: additionalProperties
-                .filter((p) => p.required)
-                .map((p) => p.name),
-              properties: additionalProperties.reduce<Record<string, unknown>>(
-                (acc, p) => ({
-                  ...acc,
-                  [p.name]: p.schema,
-                }),
-                {},
-              ),
-            }),
-            true,
-          );
+          const schema = merge(ctSchema, {
+            required: additionalProperties
+              .filter((p) => p.required)
+              .map((p) => p.name),
+            properties: additionalProperties.reduce<Record<string, unknown>>(
+              (acc, p) => ({
+                ...acc,
+                [p.name]: p.schema,
+              }),
+              {},
+            ),
+          });
+          types[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
         }
 
         if (content['application/json']) {
@@ -238,17 +218,38 @@ export function generateCode(config: GenerateSdkConfig) {
           const responseContent = get(response, ['content']);
           const isJson = responseContent && responseContent['application/json'];
           // TODO: how the user is going to handle multiple response types
+          const imports: Import[] = [];
+          const typeScriptDeserialzer = new TypeScriptDeserialzer(
+            config.spec,
+            (schemaName, zod) => {
+              commonSchemas[schemaName] = zod;
+              imports.push({
+                defaultImport: undefined,
+                isTypeOnly: true,
+                moduleSpecifier: `../models/${schemaName}.ts`,
+                namedImports: [{ isTypeOnly: true, name: schemaName }],
+                namespaceImport: undefined,
+              });
+            },
+          );
           const responseSchema = isJson
             ? typeScriptDeserialzer.handle(
                 responseContent['application/json'].schema!,
                 true,
               )
             : 'ReadableStream'; // non-json response treated as stream
-          output.push(
-            importsToString(mergeImports(Object.values(imports).flat())).join(
-              '\n',
-            ),
-          );
+          for (const it of mergeImports(imports)) {
+            const singleImport = it.defaultImport ?? it.namespaceImport;
+            if (singleImport && responseSchema.includes(singleImport)) {
+              output.push(importsToString(it).join('\n'));
+            } else if (it.namedImports.length) {
+              for (const namedImport of it.namedImports) {
+                if (responseSchema.includes(namedImport.name)) {
+                  output.push(importsToString(it).join('\n'));
+                }
+              }
+            }
+          }
           output.push(
             `export type ${pascalcase(operationName + ' output')} = ${responseSchema}`,
           );
@@ -264,7 +265,6 @@ export function generateCode(config: GenerateSdkConfig) {
       groups[groupName].push({
         name: operationName,
         type: 'http',
-        imports: mergeImports(Object.values(imports).flat()),
         inputs,
         errors: errors.length ? errors : ['ServerError'],
         contentType,
@@ -298,38 +298,3 @@ export function generateCode(config: GenerateSdkConfig) {
 // 7. application/octet-stream // done
 // 7. chunked response // done
 // we need to remove the stream fn in the backend
-
-function mergeImports(imports: Import[]) {
-  const merged: Record<string, Import> = {};
-
-  for (const i of imports) {
-    merged[i.moduleSpecifier] = merged[i.moduleSpecifier] ?? {
-      moduleSpecifier: i.moduleSpecifier,
-      defaultImport: i.defaultImport,
-      namespaceImport: i.namespaceImport,
-      namedImports: [],
-    };
-    if (i.namedImports) {
-      merged[i.moduleSpecifier].namedImports.push(...i.namedImports);
-    }
-  }
-
-  return Object.values(merged);
-}
-
-function importsToString(imports: Import[]) {
-  return imports.map((it) => {
-    if (it.defaultImport) {
-      return `import ${it.defaultImport} from '${it.moduleSpecifier}'`;
-    }
-    if (it.namespaceImport) {
-      return `import * as ${it.namespaceImport} from '${it.moduleSpecifier}'`;
-    }
-    if (it.namedImports) {
-      return `import {${removeDuplicates(it.namedImports, (it) => it.name)
-        .map((n) => `${n.isTypeOnly ? 'type' : ''} ${n.name}`)
-        .join(', ')}} from '${it.moduleSpecifier}'`;
-    }
-    throw new Error(`Invalid import ${JSON.stringify(it)}`);
-  });
-}

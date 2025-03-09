@@ -7,6 +7,8 @@ import type {
   SecurityRequirementObject,
 } from 'openapi3-ts/oas31';
 
+import { removeDuplicates } from '@sdk-it/core';
+
 import { type Options } from './sdk.ts';
 
 export function isRef(obj: any): obj is ReferenceObject {
@@ -70,3 +72,52 @@ export function securityToOptions(
   }
   return options;
 }
+
+export function mergeImports(imports: Import[]) {
+  const merged: Record<string, Import> = {};
+
+  for (const i of imports) {
+    merged[i.moduleSpecifier] = merged[i.moduleSpecifier] ?? {
+      moduleSpecifier: i.moduleSpecifier,
+      defaultImport: i.defaultImport,
+      namespaceImport: i.namespaceImport,
+      namedImports: [],
+    };
+    if (i.namedImports) {
+      merged[i.moduleSpecifier].namedImports.push(...i.namedImports);
+    }
+  }
+
+  return Object.values(merged);
+}
+export interface Import {
+  isTypeOnly: boolean;
+  moduleSpecifier: string;
+  defaultImport: string | undefined;
+  namedImports: NamedImport[];
+  namespaceImport: string | undefined;
+}
+export interface NamedImport {
+  name: string;
+  alias?: string;
+  isTypeOnly: boolean;
+}
+
+export function importsToString(...imports: Import[]) {
+  return imports.map((it) => {
+    if (it.defaultImport) {
+      return `import ${it.defaultImport} from '${it.moduleSpecifier}'`;
+    }
+    if (it.namespaceImport) {
+      return `import * as ${it.namespaceImport} from '${it.moduleSpecifier}'`;
+    }
+    if (it.namedImports) {
+      return `import {${removeDuplicates(it.namedImports, (it) => it.name)
+        .map((n) => `${n.isTypeOnly ? 'type' : ''} ${n.name}`)
+        .join(', ')}} from '${it.moduleSpecifier}'`;
+    }
+    throw new Error(`Invalid import ${JSON.stringify(it)}`);
+  });
+}
+
+ 

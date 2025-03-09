@@ -4,18 +4,6 @@ import { removeDuplicates, toLitObject } from '@sdk-it/core';
 
 import backend from './client.ts';
 
-export interface Import {
-  isTypeOnly: boolean;
-  moduleSpecifier: string;
-  defaultImport: string | undefined;
-  namedImports: NamedImport[];
-  namespaceImport: string | undefined;
-}
-export interface NamedImport {
-  name: string;
-  alias?: string;
-  isTypeOnly: boolean;
-}
 
 class SchemaEndpoint {
   #imports: string[] = [
@@ -93,7 +81,6 @@ export interface Operation {
   name: string;
   errors: string[];
   type: string;
-  imports: Import[];
   trigger: Record<string, any>;
   contentType?: string;
   schemas: Record<string, string>;
@@ -106,7 +93,6 @@ export function generateClientSdk(spec: Spec) {
   const emitter = new Emitter();
   const streamEmitter = new StreamEmitter();
   const schemas: Record<string, string[]> = {};
-  const schemasImports: string[] = [];
   const schemaEndpoint = new SchemaEndpoint();
   const errors: string[] = [];
   for (const [name, operations] of Object.entries(spec.operations)) {
@@ -131,11 +117,6 @@ export function generateClientSdk(spec: Spec) {
       };`;
 
       schemas[featureSchemaFileName].push(schema);
-      schemasImports.push(
-        ...operation.imports
-          .map((it) => (it.namedImports ?? []).map((it) => it.name))
-          .flat(),
-      );
       const schemaRef = `${featureSchemaFileName}.${schemaName}`;
       const output = operation.formatOutput();
       const inputHeaders: string[] = [];
