@@ -8,9 +8,13 @@ SDK-IT generates type-safe client SDKs from OpenAPI specifications and creates O
 
 ## Features
 
-1. **Generating type-safe client SDKs from OpenAPI specifications that work in Node.js, browsers, and other JavaScript runtimes**
-2. **Generating OpenAPI specifications from TypeScript code**
-3. **TypeScript RPC Client From OpenAPI specifications.** (WIP)
+1. **Generating type-safe client SDKs from OpenAPI specifications to different languages**
+
+Also
+
+2. Generating OpenAPI specifications from TypeScript code
+
+3. TypeScript RPC Client From OpenAPI specifications. (WIP)
 
 ## Installation
 
@@ -27,6 +31,10 @@ npm install @sdk-it/generic
 
 ## Quick Start
 
+- Generate an SDK from an OpenAPI specification
+
+<small>filename: openapi.ts</small>
+
 ```typescript
 import { generate } from '@sdk-it/typescript';
 
@@ -38,7 +46,20 @@ await generate(spec, {
 });
 ```
 
-Use the generated SDK
+- Run the script
+
+```bash
+# using recent versions of node
+node --experimental-strip-types ./openapi.ts
+
+# using node < 22
+npx tsx ./openapi.ts
+
+# using bun
+node --experimental-strip-types ./openapi.ts
+```
+
+- Use the generated SDK
 
 ```typescript
 import { MyAPI } from './client';
@@ -51,24 +72,6 @@ const [result, error] = await client.request('GET /books', {
   authors: [1, 10],
 });
 ```
-
-### 1. SDK Generation from OpenAPI
-
-Generate client SDKs from existing OpenAPI specifications with:
-
-- **Type Safety**: TypeScript support with accurate type definitions that match your API contracts.
-- **Isomorphic Design**: Generate SDKs for Node.js, browsers, and any JavaScript runtime.
-- **Customizable Output**: Control the structure, style, and formatting of generated code.
-
-### 2. OpenAPI Generation from TypeScript
-
-With the right framework integration, SDK-IT can statically examine your codebase and generate OpenAPI specifications with minimal input required.
-
-- Extracts TypeScript types for request/response schemas
-- Uses framework-specific adapters to detect API patterns
-- Requires little to no additional configuration or annotations; depends on your code structure and naming conventions
-
-The result is accurate OpenAPI documentation that stays in sync with your code.
 
 ## SDK Generation
 
@@ -109,7 +112,17 @@ const [result, error] = await client.request('GET /books', {
 
 ## OpenAPI Generation
 
-SDK-IT relies on specific primitives and JSDoc tags to correctly infer each route. Consider the following example:
+### 2. OpenAPI Generation from TypeScript
+
+With the right framework integration, SDK-IT can statically examine your codebase and generate OpenAPI specifications with minimal input required.
+
+- Extracts TypeScript types for request/response schemas
+- Uses framework-specific adapters to detect API patterns
+- Requires little to no additional configuration or annotations; depends on your code structure and naming conventions
+
+The result is accurate OpenAPI documentation that stays in sync with your code.
+
+- API Routes
 
 ```typescript
 import { validate } from '@sdk-it/hono/runtime';
@@ -137,9 +150,7 @@ app.get(
 
 This route will be correctly inferred because it uses the validate middleware.
 
-### Analyzing TypeScript Code to Generate an OpenAPI Specification
-
-You can analyze existing TypeScript code to generate an OpenAPI specification:
+- Analyze adapter
 
 ```typescript
 import { join } from 'node:path';
@@ -184,8 +195,8 @@ SDK-IT is evolving to support more languages and frameworks. Here's our current 
 
 ### OpenAPI Generation Framework Support
 
-- [x] Generic HTTP clients
-- [x] Hono
+- [x] [Generic HTTP clients](./packages/generic/README.md)
+- [x] [Hono](./packages/hono/README.md)
 - [ ] Express
 - [ ] Fastify
 - [ ] Koa.js
@@ -251,7 +262,7 @@ Each package serves a specific purpose:
 
 - **core**: Provides fundamental utilities and services used by all other packages
 - **typescript**: Focuses on generating TypeScript code from OpenAPI specifications (primary use case)
-- **generic**: Handles generic OpenAPI schema analysis and generation from TypeScript code
-- **hono**: Specializes in Hono framework integration for both SDK generation and OpenAPI generation
+- **generic**: OpenAPI generation using `output` and `validate` constructs.
+- **hono**: OpenAPI generation for the Hono framework
 
 For more detailed information about the codebase structure and development process, see the [contributing guide](CONTRIBUTING.md).

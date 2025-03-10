@@ -152,7 +152,7 @@ app.get(
 
 - Use the generate fn to create an OpenAPI spec from your routes.
 
-<small>openapi.ts</small>
+<small>filename: openapi.ts</small>
 
 ```typescript
 import { join } from 'node:path';
@@ -186,6 +186,8 @@ await generate(spec, {
   output: join(process.cwd(), './client'),
 });
 ```
+
+- Run the script
 
 ```bash
 # using recent versions of node

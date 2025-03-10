@@ -4,7 +4,11 @@
 
 ## Description
 
-This package transforms OpenAPI specifications into fully-typed TypeScript client libraries. It focuses on generating clean, organized code that works in any JavaScript environment.
+This package transforms OpenAPI specifications into
+
+- fully-typed TypeScript client.
+- that works in Node.js, browsers, and any JavaScript runtime.
+- with ability to control the structure, style, and formatting of generated code.
 
 ## Installation
 
