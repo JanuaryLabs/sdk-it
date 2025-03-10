@@ -112,7 +112,7 @@ const [result, error] = await client.request('GET /books', {
 SDK-IT relies on specific primitives and JSDoc tags to correctly infer each route. Consider the following example:
 
 ```typescript
-import { validate } from '@sdk-it/hono';
+import { validate } from '@sdk-it/hono/runtime';
 
 const app = new Hono();
 

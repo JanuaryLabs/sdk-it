@@ -1,6 +1,6 @@
 # @sdk-it/hono
 
-Hono framework integration for SDK-IT that provides type-safe request validation and standardized response handling.
+Hono framework integration for SDK-IT that provides type-safe request validation and semantic response handling.
 
 To learn more about SDK code generation, see the [TypeScript Doc](../typescript/readme.md)
 
@@ -22,7 +22,7 @@ The validator middleware offers type-safe request validation using [Zod](https:/
 > For openapi generation to work correctly, you must use the `validate` middleware for each route.
 
 ```typescript
-import { validate } from '@sdk-it/hono';
+import { validate } from '@sdk-it/hono/runtime';
 
 app.post(
   '/books',
@@ -82,36 +82,40 @@ app.post(
 
 ### Response Helper
 
-The output function provides a clean API for sending HTTP responses with proper status codes and content types. It automatically handles JSON serialization and content type headers.
+The output function provides a clean API for sending HTTP responses with proper status codes and content types.
+
+The `output` utility builds on hono's `context.body`.
 
 > ![NOTE]
 > You don't necessarily need to use this function for OpenAPI generation, but it provides a clean and consistent way to send responses.
 
 ```typescript
-import { createOutput } from '@sdk-it/hono';
+import { createOutput } from '@sdk-it/hono/runtime';
 
-const output = createOutput(() => c);
+app.post('/users', (c) => {
+  const output = createOutput(() => c);
 
-// Success responses
-output.ok({ data: 'success' });
-output.accepted({ status: 'processing' });
+  // Success responses
+  return output.ok({ data: 'success' });
+  return output.accepted({ status: 'processing' });
 
-// Error responses
-output.badRequest({ error: 'Invalid input' });
-output.unauthorized({ error: 'Not authenticated' });
-output.forbidden({ error: 'Not authorized' });
-output.notImplemented({ error: 'Coming soon' });
+  // Error responses
+  return output.badRequest({ error: 'Invalid input' });
+  return output.unauthorized({ error: 'Not authenticated' });
+  return output.forbidden({ error: 'Not authorized' });
+  return output.notImplemented({ error: 'Coming soon' });
 
-// Redirects
-output.redirect('/new-location');
+  // Redirects
+  return output.redirect('/new-location');
 
-// Custom headers
-output.ok({ data: 'success' }, { 'Cache-Control': 'max-age=3600' });
+  // Custom headers
+  return output.ok({ data: 'success' }, { 'Cache-Control': 'max-age=3600' });
+});
 ```
 
 ## OpenAPI Generation
 
-SDK-IT relies on the aforementioned primitives and JSDoc tags to correctly infer each route specification.
+SDK-IT relies on the `validator` middleware and JSDoc to correctly infer each route specification.
 
 Consider the following example:
 
@@ -120,7 +124,7 @@ Consider the following example:
 ```typescript
 import z from 'zod';
 
-import { validate } from '@sdk-it/hono';
+import { validate } from '@sdk-it/hono/runtime';
 
 const app = new Hono();
 
@@ -143,7 +147,12 @@ app.get(
 );
 ```
 
+> ![TIP]
+> Instead of using `createOutput` fn, you can use [context-storage](https://hono.dev/docs/middleware/builtin/context-storage) middleware and then import the global `output` object from `@sdk-it/generic`.
+
 - Use the generate fn to create an OpenAPI spec from your routes.
+
+<small>openapi.ts</small>
 
 ```typescript
 import { join } from 'node:path';
@@ -176,6 +185,17 @@ const spec = {
 await generate(spec, {
   output: join(process.cwd(), './client'),
 });
+```
+
+```bash
+# using recent versions of node
+node --experimental-strip-types ./openapi.ts
+
+# using node < 22
+npx tsx ./openapi.ts
+
+# using bun
+node --experimental-strip-types ./openapi.ts
 ```
 
 > [!TIP]
