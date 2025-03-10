@@ -1,4 +1,5 @@
 import type {
+  HeadersObject,
   OperationObject,
   ParameterObject,
   PathsObject,
@@ -52,7 +53,7 @@ export interface ResponseItem {
   statusCode: string;
   response?: DateType;
   contentType: string;
-  headers: string[];
+  headers: (string | Record<string, string[]>)[];
 }
 
 export type OnOperation = (
@@ -123,13 +124,24 @@ export class Paths {
                 }
               : undefined,
           headers: item.headers.length
-            ? item.headers.reduce(
-                (acc, header) => ({
-                  ...acc,
-                  [header]: { schema: { type: 'string' } },
-                }),
-                {},
-              )
+            ? item.headers.reduce<HeadersObject>((acc, current) => {
+                const headers =
+                  typeof current === 'string' ? { [current]: [] } : current;
+                return Object.entries(headers).reduce<HeadersObject>(
+                  (subAcc, [key, value]) => {
+                    const header: HeadersObject = {
+                      [key]: {
+                        schema: {
+                          type: 'string',
+                          enum: value.length ? value : undefined,
+                        },
+                      },
+                    };
+                    return { ...subAcc, ...header };
+                  },
+                  acc,
+                );
+              }, {})
             : undefined,
         } satisfies ResponseObject;
       } else {
