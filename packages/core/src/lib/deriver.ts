@@ -276,6 +276,15 @@ export class TypeDeriver {
         const type = this.checker.getTypeOfSymbol(symbol);
         props[symbol.name] = this.serializeType(type);
       }
+
+      // get literal properties if any
+      for (const prop of node.properties) {
+        if (ts.isPropertyAssignment(prop)) {
+          const type = this.checker.getTypeAtLocation(prop.initializer);
+          props[prop.name.getText()] = this.serializeType(type);
+        }
+      }
+
       return props;
     }
     if (ts.isPropertyAccessExpression(node)) {
