@@ -91,9 +91,10 @@ export class Paths {
     description?: string,
   ) {
     const responsesObject = this.#responseItemToResponses(responses);
+
     this.#operations.push({
       name,
-      path,
+      path: this.#tunePath(path),
       sourceFile,
       method,
       selectors,
@@ -234,6 +235,13 @@ export class Paths {
       }
     }
     return operations;
+  }
+
+  /**
+   * Converts Express/Node.js style path parameters (/path/:param) to OpenAPI style (/path/{param})
+   */
+  #tunePath(path: string): string {
+    return path.replace(/:([^/]+)/g, '{$1}');
   }
 }
 

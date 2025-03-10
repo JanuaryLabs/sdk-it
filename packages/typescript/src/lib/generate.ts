@@ -125,7 +125,7 @@ export async function generate(
     await writeFiles(settings.output, {
       'package.json': {
         ignoreIfExists: true,
-        content: `{"type":"module","main":"./src/index.ts","dependencies":{"fast-content-type-parse":"^2.0.1"}}`,
+        content: `{"type":"module","main":"./src/index.ts","dependencies":{"fast-content-type-parse":"^3.0.0"}}`,
       },
     });
   }
