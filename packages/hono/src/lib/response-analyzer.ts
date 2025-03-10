@@ -1,9 +1,6 @@
-import debug from 'debug';
 import ts from 'typescript';
 
-import type { ResponseItem, TypeDeriver } from '@sdk-it/core';
-
-const logger = debug('@sdk-it/hono');
+import { $types, type ResponseItem, type TypeDeriver } from '@sdk-it/core';
 
 const handlerVisitor: (
   on: (
@@ -69,9 +66,51 @@ function resolveStatusCode(node: ts.Node) {
   throw new Error(`Could not resolve status code`);
 }
 
-export function responseAnalyzer(
+export function defaultResponseAnalyzer(
   handler: ts.ArrowFunction,
   deriver: TypeDeriver,
 ) {
   return toResponses(handler, deriver);
 }
+
+export function streamText(
+  handler: ts.ArrowFunction,
+  deriver: TypeDeriver,
+): ResponseItem[] {
+  return [
+    {
+      contentType: 'text/plain',
+      headers: [{ 'Transfer-Encoding': ['chunked'] }],
+      statusCode: '200',
+      response: {
+        optional: false,
+        kind: 'primitive',
+        [$types]: ['string'],
+      },
+    },
+  ];
+}
+
+export function stream(
+  handler: ts.ArrowFunction,
+  deriver: TypeDeriver,
+): ResponseItem[] {
+  return [
+    {
+      contentType: 'application/octet-stream',
+      headers: [],
+      statusCode: '200',
+      response: {
+        optional: false,
+        kind: 'primitive',
+        [$types]: ['string'],
+      },
+    },
+  ];
+}
+
+export const responseAnalyzer = {
+  default: defaultResponseAnalyzer,
+  streamText,
+  stream,
+};

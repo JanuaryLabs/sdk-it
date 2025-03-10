@@ -59,7 +59,7 @@ function resolveStatusCode(node: ts.Node) {
   throw new Error(`Could not resolve status code`);
 }
 
-export function responseAnalyzer(
+export function defaultResponseAnalyzer(
   handler: ts.ArrowFunction,
   deriver: TypeDeriver,
 ) {
@@ -70,3 +70,7 @@ export function responseAnalyzer(
     throw error;
   }
 }
+
+export const responseAnalyzer = {
+  default: defaultResponseAnalyzer,
+};

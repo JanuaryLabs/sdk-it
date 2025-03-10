@@ -16,6 +16,27 @@ import {
   toSchema,
 } from '@sdk-it/core';
 
+export const returnToken = (node: ts.ArrowFunction) => {
+  let token = '';
+
+  const visitor: ts.Visitor = (node) => {
+    if (ts.isReturnStatement(node) && node.expression) {
+      if (ts.isPropertyAccessExpression(node.expression)) {
+        token = node.expression.getText();
+        return undefined; // Once found, no need to continue visiting
+      }
+      if (ts.isCallExpression(node.expression)) {
+        token = node.expression.expression.getText();
+        return undefined; // Once found, no need to continue visiting
+      }
+    }
+    return ts.forEachChild(node, visitor);
+  };
+
+  ts.forEachChild(node, visitor);
+  return token;
+};
+
 const logger = debug('@sdk-it/generic');
 
 const jsDocsTags = ['openapi', 'tags', 'description'];
@@ -51,7 +72,10 @@ function parseJSDocComment(node: ts.Node) {
 
 function visit(
   node: ts.Node,
-  responseAnalyzer: (handler: ts.ArrowFunction) => ResponseItem[],
+  responseAnalyzer: (
+    handler: ts.ArrowFunction,
+    token: string,
+  ) => ResponseItem[],
   paths: Paths,
 ) {
   if (!ts.isCallExpression(node) || node.arguments.length < 2) {
@@ -99,12 +123,13 @@ function visit(
   );
 
   const sourceFile = node.getSourceFile();
+  const token = returnToken(handler);
   paths.addPath(
     operationName,
     path,
     method,
     toSelectors(props),
-    responseAnalyzer(handler),
+    responseAnalyzer(handler, token),
     sourceFile.fileName,
     metadata.tags,
     metadata.description,
@@ -148,7 +173,7 @@ function toSelectors(props: ts.PropertyAssignment[]) {
   }
   return selectors;
 }
-type NaunceResponseAnalyzer = Record<string, ts.Node>;
+type NaunceResponseAnalyzer = Record<string, ResponseAnalyzer>;
 
 type ResponseAnalyzer = (
   handler: ts.ArrowFunction,
@@ -176,19 +201,25 @@ export async function analyze(
     commonZodImport: config.commonZodImport,
     onOperation: config.onOperation,
   });
-  const responseAnalyzer = config.responseAnalyzer;
-  if (typeof responseAnalyzer !== 'function') {
-    throw new Error(
-      `responseAnalyzer must be a function, got ${typeof config.responseAnalyzer}`,
-    );
-  }
+
   for (const sourceFile of program.getSourceFiles()) {
     logger(`Analyzing ${sourceFile.fileName}`);
     if (!sourceFile.isDeclarationFile) {
       logger(`Visiting ${sourceFile.fileName}`);
       visit(
         sourceFile,
-        (handler) => responseAnalyzer(handler, typeDeriver),
+        (handler, token) => {
+          const responseAnalyzer = config.responseAnalyzer;
+          if (typeof responseAnalyzer !== 'function') {
+            const naunce =
+              responseAnalyzer[token] || responseAnalyzer['default'];
+            if (!naunce) {
+              throw new Error(`No response analyzer for token ${token}`);
+            }
+            return naunce(handler, typeDeriver);
+          }
+          return responseAnalyzer(handler, typeDeriver);
+        },
         paths,
       );
     }
