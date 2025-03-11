@@ -7,7 +7,7 @@ import {
   type NaunceResponseAnalyzer,
   type OnOperation,
   Paths,
-  type ResponseAnalyzer,
+  type ResponseAnalyzerFn,
   type ResponseItem,
   type Selector,
   type SemanticSource,
@@ -192,7 +192,6 @@ function toSelectors(props: ts.PropertyAssignment[]) {
   return selectors;
 }
 
-
 export async function analyze(
   tsconfigPath: string,
   config: {
@@ -200,7 +199,7 @@ export async function analyze(
      * Additional code to inject before resolving zod schemas
      */
     commonZodImport?: string;
-    responseAnalyzer: ResponseAnalyzer | NaunceResponseAnalyzer;
+    responseAnalyzer: ResponseAnalyzerFn | NaunceResponseAnalyzer;
     onOperation?: OnOperation;
   },
 ) {

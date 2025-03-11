@@ -1,6 +1,11 @@
 import ts from 'typescript';
 
-import { $types, type ResponseItem, type TypeDeriver } from '@sdk-it/core';
+import {
+  $types,
+  type NaunceResponseAnalyzerFn,
+  type ResponseItem,
+  type TypeDeriver,
+} from '@sdk-it/core';
 
 const handlerVisitor: (
   on: (
@@ -109,8 +114,45 @@ export function stream(
   ];
 }
 
+export const httpException: NaunceResponseAnalyzerFn = (
+  handler,
+  deriver,
+  node,
+) => {
+  if (ts.isNewExpression(node)) {
+    const [status, options] = node.arguments ?? [];
+    // if (!ts.isObjectLiteralExpression(options)) {
+    //   return [];
+    // }
+    // const properties = options.properties.reduce<Record<string, string>>(
+    //   (acc, prop) => {
+    //     if (ts.isPropertyAssignment(prop)) {
+    //       const key = prop.name.getText();
+    //       if (ts.isLiteralExpression(prop.initializer)) {
+    //         acc[key] = prop.initializer.text;
+    //       } else {
+    //         acc[key] = prop.initializer.getText();
+    //       }
+    //     }
+    //     return acc;
+    //   },
+    //   {},
+    // );
+    return [
+      {
+        contentType: 'application/json',
+        headers: [],
+        statusCode: resolveStatusCode(status),
+        response: options ? deriver.serializeNode(options) : undefined,
+      },
+    ];
+  }
+  return [];
+};
+
 export const responseAnalyzer = {
   default: defaultResponseAnalyzer,
   streamText,
   stream,
+  'throw.new.HTTPException': httpException,
 };

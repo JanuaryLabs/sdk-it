@@ -4,9 +4,9 @@ import type { TypeDeriver } from './lib/deriver.ts';
 import type { ResponseItem } from './lib/paths.ts';
 
 export * from './lib/deriver.ts';
-export * from './lib/program.ts';
-export * from './lib/paths.ts';
 export * from './lib/file-system.ts';
+export * from './lib/paths.ts';
+export * from './lib/program.ts';
 
 export function removeDuplicates<T>(
   data: T[],
@@ -26,16 +26,14 @@ export function toLitObject<T extends Record<string, any>>(
     .join(', ')}}`;
 }
 
-export type NaunceResponseAnalyzer = Record<
-  string,
-  (
-    handler: ts.ArrowFunction,
-    deriver: TypeDeriver,
-    node: ts.Node,
-  ) => ResponseItem[]
->;
+export type NaunceResponseAnalyzerFn = (
+  handler: ts.ArrowFunction,
+  deriver: TypeDeriver,
+  node: ts.Node,
+) => ResponseItem[];
+export type NaunceResponseAnalyzer = Record<string, NaunceResponseAnalyzerFn>;
 
-export type ResponseAnalyzer = (
+export type ResponseAnalyzerFn = (
   handler: ts.ArrowFunction,
   deriver: TypeDeriver,
 ) => ResponseItem[];

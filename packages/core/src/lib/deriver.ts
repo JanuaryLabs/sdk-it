@@ -226,9 +226,19 @@ export class TypeDeriver {
       if (properties.length > 0) {
         const serializedProps: Record<string, any> = {};
         for (const prop of properties) {
+          const propAssingment = (prop.getDeclarations() ?? []).find((it) =>
+            ts.isPropertyAssignment(it),
+          );
+          // get literal properties values if any
+          if (propAssingment) {
+            const type = this.checker.getTypeAtLocation(
+              propAssingment.initializer,
+            );
+            serializedProps[prop.name] = this.serializeType(type);
+          }
           if (
-            (prop.getDeclarations() ?? []).some(
-              (it) => ts.isPropertySignature(it) || ts.isPropertyAssignment(it),
+            (prop.getDeclarations() ?? []).find((it) =>
+              ts.isPropertySignature(it),
             )
           ) {
             const propType = this.checker.getTypeOfSymbol(prop);
@@ -277,7 +287,7 @@ export class TypeDeriver {
         props[symbol.name] = this.serializeType(type);
       }
 
-      // get literal properties if any
+      // get literal properties values if any
       for (const prop of node.properties) {
         if (ts.isPropertyAssignment(prop)) {
           const type = this.checker.getTypeAtLocation(prop.initializer);
