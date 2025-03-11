@@ -51,7 +51,8 @@ export function securityToOptions(
     if (schema.type === 'http') {
       options['authorization'] = {
         in: staticIn ?? 'header',
-        schema: 'z.string().optional()',
+        schema:
+          'z.string().optional().transform((val) => (val ? `Bearer ${val}` : undefined))',
         optionName: 'token',
       };
       continue;
@@ -119,5 +120,3 @@ export function importsToString(...imports: Import[]) {
     throw new Error(`Invalid import ${JSON.stringify(it)}`);
   });
 }
-
- 
