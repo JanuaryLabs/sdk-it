@@ -4,12 +4,11 @@ import { removeDuplicates, toLitObject } from '@sdk-it/core';
 
 import backend from './client.ts';
 
-
 class SchemaEndpoint {
   #imports: string[] = [
     `import z from 'zod';`,
     'import type { Endpoints } from "./endpoints.ts";',
-    `import { toRequest, json, urlencoded, formdata, createUrl } from './http/request.ts';`,
+    `import { toRequest, json, urlencoded, nobody, formdata, createUrl } from './http/request.ts';`,
     `import type { ParseError } from './http/parser.ts';`,
   ];
   #endpoints: string[] = [];
@@ -193,7 +192,7 @@ export function generateClientSdk(spec: Spec) {
           schema: ${schemaRef}${addTypeParser ? `.${type}` : ''},
           toRequest(input: Endpoints['${endpoint}']['input'], init: {baseUrl:string; headers?: Partial<Record<string, string>>}) {
             const endpoint = '${endpoint}';
-              return toRequest(endpoint, ${operation.contentType || 'json'}(input, {
+              return toRequest(endpoint, ${operation.contentType || 'nobody'}(input, {
               inputHeaders: [${inputHeaders}],
               inputQuery: [${inputQuery}],
               inputBody: [${inputBody}],

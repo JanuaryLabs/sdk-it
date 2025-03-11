@@ -189,6 +189,15 @@ class UrlencodedSerializer extends Serializer {
   }
 }
 
+class NoBodySerializer extends Serializer {
+  getBody(): BodyInit | null {
+    return null;
+  }
+  getHeaders(): Record<string, string> {
+    return {};
+  }
+}
+
 class FormDataSerializer extends Serializer {
   getBody(): BodyInit | null {
     const body = new FormData();
@@ -207,6 +216,9 @@ export function json(input: Input, props: Props) {
 }
 export function urlencoded(input: Input, props: Props) {
   return new UrlencodedSerializer(input, props).serialize();
+}
+export function nobody(input: Input, props: Props) {
+  return new NoBodySerializer(input, props).serialize();
 }
 export function formdata(input: Input, props: Props) {
   return new FormDataSerializer(input, props).serialize();
