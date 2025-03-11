@@ -5,7 +5,8 @@ import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { getFolderExports, methods, writeFiles } from '@sdk-it/core';
 
 import { generateCode } from './generator.ts';
-import clientTxt from './http/client.txt';
+import interceptors from './http/interceptors.txt';
+import parseResponse from './http/parse-response.txt';
 import parserTxt from './http/parser.txt';
 import requestTxt from './http/request.txt';
 import responseTxt from './http/response.txt';
@@ -80,7 +81,8 @@ export async function generate(
   });
 
   await writeFiles(join(output, 'http'), {
-    'parse-response.ts': clientTxt,
+    'interceptors.ts': interceptors,
+    'parse-response.ts': parseResponse,
     'send-request.ts': sendRequest,
     'response.ts': responseTxt,
     'parser.ts': parserTxt,

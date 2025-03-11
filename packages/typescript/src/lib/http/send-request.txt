@@ -2,13 +2,11 @@ import z from 'zod';
 
 import { handleError, parseResponse } from './parse-response.ts';
 import { parse } from './parser.ts';
+import type { Interceptor } from './interceptors.ts';
 
 export interface RequestSchema {
   schema: z.ZodType;
-  toRequest: (
-    input: any,
-    init: { baseUrl: string; headers?: Partial<Record<string, string>> },
-  ) => any;
+  toRequest: (input: any) => Request;
 }
 
 export const fetchType = z
@@ -21,24 +19,40 @@ export async function sendRequest(
   input: any,
   route: RequestSchema,
   options: {
-    baseUrl: string;
     fetch?: z.infer<typeof fetchType>;
-    headers?: Partial<Record<string, string>>;
+    interceptors?: Interceptor[];
   },
 ) {
+  const { interceptors = [] } = options;
   const [parsedInput, parseError] = parse(route.schema, input);
   if (parseError) {
     return [null as never, { ...parseError, kind: 'parse' } as never] as const;
   }
-  const request = route.toRequest(parsedInput as never, {
-    headers: options.headers,
-    baseUrl: options.baseUrl,
-  });
-  const response = await (options.fetch ?? fetch)(request);
-  if (response.ok) {
-    const data = await parseResponse(response);
-    return [data as never, null] as const;
+
+  try {
+    let request = route.toRequest(parsedInput as never);
+    for (const interceptor of interceptors) {
+      if (interceptor.before) {
+        request = await interceptor.before(request);
+      }
+    }
+
+    let response = await (options.fetch ?? fetch)(request);
+
+    for (let i = interceptors.length - 1; i >= 0; i--) {
+      const interceptor = interceptors[i];
+      if (interceptor.after) {
+        response = await interceptor.after(response.clone());
+      }
+    }
+
+    if (response.ok) {
+      const data = await parseResponse(response);
+      return [data as never, null] as const;
+    }
+    const error = await handleError(response);
+    return [null as never, { ...error, kind: 'response' }] as const;
+  } catch (error) {
+    return [null as never, { error, kind: 'network' } as never] as const;
   }
-  const error = await handleError(response);
-  return [null as never, { ...error, kind: 'response' }] as const;
 }

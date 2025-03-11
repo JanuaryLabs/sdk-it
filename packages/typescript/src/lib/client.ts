@@ -39,6 +39,11 @@ import { fetchType, sendRequest } from './http/send-request.ts';
 import z from 'zod';
 import type { Endpoints } from './endpoints.ts';
 import schemas from './schemas.ts';
+import {
+  createBaseUrlInterceptor,
+  createDefaultHeadersInterceptor,
+} from './http/interceptors.ts';
+
 ${spec.servers.length ? `export const servers = ${JSON.stringify(spec.servers, null, 2)} as const` : ''}
 const optionsSchema = z.object(${toLitObject(specOptions, (x) => x.schema)});
 ${spec.servers.length ? `export type Servers = typeof servers[number];` : ''}
@@ -55,9 +60,11 @@ export class ${spec.name} {
   ): Promise<readonly [Endpoints[E]['output'], Endpoints[E]['error'] | null]> {
     const route = schemas[endpoint];
     return sendRequest(Object.assign(this.#defaultInputs, input), route, {
-      baseUrl: this.options.baseUrl,
       fetch: this.options.fetch,
-      headers: this.defaultHeaders,
+      interceptors: [
+        createDefaultHeadersInterceptor(() => this.defaultHeaders),
+        createBaseUrlInterceptor(() => this.options.baseUrl),
+      ],
     });
   }
 

@@ -1,6 +1,9 @@
-type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-type ContentType = 'xml' | 'json' | 'urlencoded' | 'multipart';
-type Endpoint = `${ContentType} ${Method} ${string}` | `${Method} ${string}`;
+export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+export type ContentType = 'xml' | 'json' | 'urlencoded' | 'multipart';
+export type Endpoint =
+  | `${ContentType} ${Method} ${string}`
+  | `${Method} ${string}`;
+
 export type BodyInit =
   | ArrayBuffer
   | AsyncIterable<Uint8Array>
@@ -12,11 +15,12 @@ export type BodyInit =
   | null
   | string;
 
-export function createUrl(base: string, path: string, query: URLSearchParams) {
-  const url = new URL(path, base);
+export function createUrl(path: string, query: URLSearchParams) {
+  const url = new URL(path, `local://`);
   url.search = query.toString();
   return url;
 }
+
 function template(
   templateString: string,
   templateVariables: Record<string, any>,
@@ -36,77 +40,6 @@ function template(
   });
 }
 
-interface ToRequest {
-  <T extends Endpoint>(
-    endpoint: T,
-    input: Record<string, any>,
-    props: {
-      inputHeaders: string[];
-      inputQuery: string[];
-      inputBody: string[];
-      inputParams: string[];
-    },
-    defaults: {
-      baseUrl: string;
-      headers?: Partial<Record<string, string>>;
-    },
-  ): Request;
-  urlencoded: <T extends Endpoint>(
-    endpoint: T,
-    input: Record<string, any>,
-    props: {
-      inputHeaders: string[];
-      inputQuery: string[];
-      inputBody: string[];
-      inputParams: string[];
-    },
-    defaults: {
-      baseUrl: string;
-      headers?: Partial<Record<string, string>>;
-    },
-  ) => Request;
-}
-
-function _json(
-  input: Record<string, any>,
-  props: {
-    inputHeaders: string[];
-    inputQuery: string[];
-    inputBody: string[];
-    inputParams: string[];
-  },
-) {
-  const headers = new Headers({});
-  for (const header of props.inputHeaders) {
-    headers.set(header, input[header]);
-  }
-
-  const body: Record<string, any> = {};
-  for (const prop of props.inputBody) {
-    body[prop] = input[prop];
-  }
-
-  const query = new URLSearchParams();
-  for (const key of props.inputQuery) {
-    const value = input[key];
-    if (value !== undefined) {
-      query.set(key, String(value));
-    }
-  }
-
-  const params = props.inputParams.reduce<Record<string, any>>((acc, key) => {
-    acc[key] = input[key];
-    return acc;
-  }, {});
-
-  return {
-    body: JSON.stringify(body),
-    query,
-    params,
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-  };
-}
-
 type Input = Record<string, any>;
 type Props = {
   inputHeaders: string[];
@@ -121,7 +54,7 @@ abstract class Serializer {
     protected props: Props,
   ) {}
   abstract getBody(): BodyInit | null;
-  abstract getHeaders(): Partial<Record<string, string>>;
+  abstract getHeaders(): Record<string, string>;
   serialize(): Serialized {
     const headers = new Headers({});
     for (const header of this.props.inputHeaders) {
@@ -157,7 +90,7 @@ interface Serialized {
   body: BodyInit | null;
   query: URLSearchParams;
   params: Record<string, any>;
-  headers: Partial<Record<string, string>>;
+  headers: Record<string, string>;
 }
 
 class JsonSerializer extends Serializer {
@@ -224,72 +157,17 @@ export function formdata(input: Input, props: Props) {
   return new FormDataSerializer(input, props).serialize();
 }
 
-export function _urlencoded(
-  input: Record<string, any>,
-  props: {
-    inputHeaders: string[];
-    inputQuery: string[];
-    inputBody: string[];
-    inputParams: string[];
-  },
-) {
-  const headers = new Headers({});
-  for (const header of props.inputHeaders) {
-    headers.set(header, input[header]);
-  }
-
-  const body = new URLSearchParams();
-  for (const prop of props.inputBody) {
-    body.set(prop, input[prop]);
-  }
-
-  const query = new URLSearchParams();
-  for (const key of props.inputQuery) {
-    const value = input[key];
-    if (value !== undefined) {
-      query.set(key, String(value));
-    }
-  }
-
-  const params = props.inputParams.reduce<Record<string, any>>((acc, key) => {
-    acc[key] = input[key];
-    return acc;
-  }, {});
-
-  return {
-    body,
-    query,
-    params,
-    headers: {},
-  };
-}
-
 export function toRequest<T extends Endpoint>(
   endpoint: T,
   input: Serialized,
-  defaults: {
-    baseUrl: string;
-    headers?: Partial<Record<string, string>>;
-  },
 ): Request {
   const [method, path] = endpoint.split(' ');
-
-  const headers = new Headers(
-    Object.entries({
-      ...defaults?.headers,
-      ...input.headers,
-    }).filter(truthyEntry),
-  );
   const pathVariable = template(path, input.params);
 
-  const url = createUrl(defaults.baseUrl, pathVariable, input.query);
+  const url = createUrl(pathVariable, input.query);
   return new Request(url, {
     method: method,
-    headers: headers,
+    headers: input.headers,
     body: method === 'GET' ? undefined : input.body,
   });
-}
-
-function truthyEntry(entry: [string, unknown]): entry is [string, string] {
-  return entry[1] !== undefined;
 }

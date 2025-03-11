@@ -156,14 +156,14 @@ export function generateClientSdk(spec: Spec) {
           endpoint,
           `{
         schema: ${schemaRef},
-        toRequest(input: StreamEndpoints['${endpoint}']['input'], init: {baseUrl:string; headers?: Partial<Record<string, string>>}) {
+        toRequest(input: StreamEndpoints['${endpoint}']['input']) {
           const endpoint = '${endpoint}';
             return toRequest(endpoint, json(input, {
             inputHeaders: [${inputHeaders}],
             inputQuery: [${inputQuery}],
             inputBody: [${inputBody}],
             inputParams: [${inputParams}],
-          }), init);
+          }));
           },
         }`,
         );
@@ -190,14 +190,14 @@ export function generateClientSdk(spec: Spec) {
             endpoint,
             `{
           schema: ${schemaRef}${addTypeParser ? `.${type}` : ''},
-          toRequest(input: Endpoints['${endpoint}']['input'], init: {baseUrl:string; headers?: Partial<Record<string, string>>}) {
+          toRequest(input: Endpoints['${endpoint}']['input']) {
             const endpoint = '${endpoint}';
-              return toRequest(endpoint, ${operation.contentType || 'nobody'}(input, {
-              inputHeaders: [${inputHeaders}],
-              inputQuery: [${inputQuery}],
-              inputBody: [${inputBody}],
-              inputParams: [${inputParams}],
-            }), init);
+                return toRequest(endpoint, ${operation.contentType || 'nobody'}(input, {
+                inputHeaders: [${inputHeaders}],
+                inputQuery: [${inputQuery}],
+                inputBody: [${inputBody}],
+                inputParams: [${inputParams}],
+              }));
             },
           }`,
           );
