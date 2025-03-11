@@ -1,8 +1,8 @@
 import z from 'zod';
 
+import type { Interceptor } from './interceptors.ts';
 import { handleError, parseResponse } from './parse-response.ts';
 import { parse } from './parser.ts';
-import type { Interceptor } from './interceptors.ts';
 
 export interface RequestSchema {
   schema: z.ZodType;
@@ -29,30 +29,26 @@ export async function sendRequest(
     return [null as never, { ...parseError, kind: 'parse' } as never] as const;
   }
 
-  try {
-    let request = route.toRequest(parsedInput as never);
-    for (const interceptor of interceptors) {
-      if (interceptor.before) {
-        request = await interceptor.before(request);
-      }
+  let request = route.toRequest(parsedInput as never);
+  for (const interceptor of interceptors) {
+    if (interceptor.before) {
+      request = await interceptor.before(request);
     }
-
-    let response = await (options.fetch ?? fetch)(request);
-
-    for (let i = interceptors.length - 1; i >= 0; i--) {
-      const interceptor = interceptors[i];
-      if (interceptor.after) {
-        response = await interceptor.after(response.clone());
-      }
-    }
-
-    if (response.ok) {
-      const data = await parseResponse(response);
-      return [data as never, null] as const;
-    }
-    const error = await handleError(response);
-    return [null as never, { ...error, kind: 'response' }] as const;
-  } catch (error) {
-    return [null as never, { error, kind: 'network' } as never] as const;
   }
+
+  let response = await (options.fetch ?? fetch)(request);
+
+  for (let i = interceptors.length - 1; i >= 0; i--) {
+    const interceptor = interceptors[i];
+    if (interceptor.after) {
+      response = await interceptor.after(response.clone());
+    }
+  }
+
+  if (response.ok) {
+    const data = await parseResponse(response);
+    return [data as never, null] as const;
+  }
+  const error = await handleError(response);
+  return [null as never, { ...error, kind: 'response' }] as const;
 }

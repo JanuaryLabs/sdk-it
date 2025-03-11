@@ -158,7 +158,11 @@ export function generateCode(config: GenerateSdkConfig) {
           const ctSchema = isRef(content[type].schema)
             ? followRef(config.spec, content[type].schema.$ref)
             : content[type].schema;
-          const schema = merge(ctSchema, {
+          if (!ctSchema) {
+            console.warn(`Schema not found for ${type}`);
+            continue;
+          }
+          const schema = merge({}, ctSchema, {
             required: additionalProperties
               .filter((p) => p.required)
               .map((p) => p.name),
@@ -170,6 +174,12 @@ export function generateCode(config: GenerateSdkConfig) {
               {},
             ),
           });
+          for (const [name] of Object.entries(ctSchema.properties ?? {})) {
+            inputs[name] = {
+              in: 'body',
+              schema: '',
+            };
+          }
           types[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
         }
 

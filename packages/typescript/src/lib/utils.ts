@@ -24,10 +24,7 @@ export function parseRef(ref: string) {
   const [model] = parts.splice(-1);
   return { model, path: parts.join('/') };
 }
-export function followRef(
-  spec: OpenAPIObject,
-  ref: string,
-): SchemaObject | ReferenceObject {
+export function followRef(spec: OpenAPIObject, ref: string): SchemaObject {
   const pathParts = cleanRef(ref).split('/');
   const entry = get(spec, pathParts) as SchemaObject | ReferenceObject;
   if (entry && '$ref' in entry) {
