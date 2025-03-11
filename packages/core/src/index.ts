@@ -1,3 +1,8 @@
+import type ts from 'typescript';
+
+import type { TypeDeriver } from './lib/deriver.ts';
+import type { ResponseItem } from './lib/paths.ts';
+
 export * from './lib/deriver.ts';
 export * from './lib/program.ts';
 export * from './lib/paths.ts';
@@ -20,3 +25,17 @@ export function toLitObject<T extends Record<string, any>>(
     .map((key) => `${key}: ${accessor(obj[key])}`)
     .join(', ')}}`;
 }
+
+export type NaunceResponseAnalyzer = Record<
+  string,
+  (
+    handler: ts.ArrowFunction,
+    deriver: TypeDeriver,
+    node: ts.Node,
+  ) => ResponseItem[]
+>;
+
+export type ResponseAnalyzer = (
+  handler: ts.ArrowFunction,
+  deriver: TypeDeriver,
+) => ResponseItem[];

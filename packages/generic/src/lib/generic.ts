@@ -4,8 +4,10 @@ import { camelcase } from 'stringcase';
 import ts from 'typescript';
 
 import {
+  type NaunceResponseAnalyzer,
   type OnOperation,
   Paths,
+  type ResponseAnalyzer,
   type ResponseItem,
   type Selector,
   type SemanticSource,
@@ -17,24 +19,33 @@ import {
 } from '@sdk-it/core';
 
 export const returnToken = (node: ts.ArrowFunction) => {
-  let token = '';
+  const tokens: { token: string; node: ts.Expression }[] = [];
 
   const visitor: ts.Visitor = (node) => {
-    if (ts.isReturnStatement(node) && node.expression) {
-      if (ts.isPropertyAccessExpression(node.expression)) {
-        token = node.expression.getText();
-        return undefined; // Once found, no need to continue visiting
-      }
-      if (ts.isCallExpression(node.expression)) {
-        token = node.expression.expression.getText();
-        return undefined; // Once found, no need to continue visiting
+    if (ts.isThrowStatement(node)) {
+      if (ts.isNewExpression(node.expression)) {
+        tokens.push({
+          token: `throw.new.${node.expression.expression.getText()}`,
+          node: node.expression,
+        });
       }
     }
+
+    if (ts.isReturnStatement(node) && node.expression) {
+      if (ts.isCallExpression(node.expression)) {
+        tokens.push({
+          token: node.expression.expression.getText(),
+          node: node.expression,
+        });
+      }
+      return undefined;
+    }
+
     return ts.forEachChild(node, visitor);
   };
 
   ts.forEachChild(node, visitor);
-  return token;
+  return tokens;
 };
 
 const logger = debug('@sdk-it/generic');
@@ -75,6 +86,7 @@ function visit(
   responseAnalyzer: (
     handler: ts.ArrowFunction,
     token: string,
+    node: ts.Node,
   ) => ResponseItem[],
   paths: Paths,
 ) {
@@ -123,13 +135,19 @@ function visit(
   );
 
   const sourceFile = node.getSourceFile();
-  const token = returnToken(handler);
+  const tokens = returnToken(handler);
+
+  const responses: ResponseItem[] = [];
+  for (const { token, node } of tokens) {
+    responses.push(...responseAnalyzer(handler, token, node));
+  }
+
   paths.addPath(
     operationName,
     path,
     method,
     toSelectors(props),
-    responseAnalyzer(handler, token),
+    responses,
     sourceFile.fileName,
     metadata.tags,
     metadata.description,
@@ -173,12 +191,7 @@ function toSelectors(props: ts.PropertyAssignment[]) {
   }
   return selectors;
 }
-type NaunceResponseAnalyzer = Record<string, ResponseAnalyzer>;
 
-type ResponseAnalyzer = (
-  handler: ts.ArrowFunction,
-  deriver: TypeDeriver,
-) => ResponseItem[];
 
 export async function analyze(
   tsconfigPath: string,
@@ -208,7 +221,7 @@ export async function analyze(
       logger(`Visiting ${sourceFile.fileName}`);
       visit(
         sourceFile,
-        (handler, token) => {
+        (handler, token, node) => {
           const responseAnalyzer = config.responseAnalyzer;
           if (typeof responseAnalyzer !== 'function') {
             const naunce =
@@ -216,7 +229,7 @@ export async function analyze(
             if (!naunce) {
               throw new Error(`No response analyzer for token ${token}`);
             }
-            return naunce(handler, typeDeriver);
+            return naunce(handler, typeDeriver, node);
           }
           return responseAnalyzer(handler, typeDeriver);
         },

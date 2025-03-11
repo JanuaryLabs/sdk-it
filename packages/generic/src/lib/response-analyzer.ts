@@ -1,6 +1,10 @@
 import ts from 'typescript';
 
-import type { ResponseItem, TypeDeriver } from '@sdk-it/core';
+import type {
+  NaunceResponseAnalyzer,
+  ResponseItem,
+  TypeDeriver,
+} from '@sdk-it/core';
 
 const handlerVisitor: (
   on: (
@@ -71,6 +75,37 @@ export function defaultResponseAnalyzer(
   }
 }
 
-export const responseAnalyzer = {
+export const responseAnalyzer: NaunceResponseAnalyzer = {
+  'throw.new.ProblemDetailsException': (handler, deriver, node) => {
+    if (ts.isNewExpression(node)) {
+      const [problem] = node.arguments ?? [];
+      if (!ts.isObjectLiteralExpression(problem)) {
+        return [];
+      }
+      const properties = problem.properties.reduce<Record<string, string>>(
+        (acc, prop) => {
+          if (ts.isPropertyAssignment(prop)) {
+            const key = prop.name.getText();
+            if (ts.isLiteralExpression(prop.initializer)) {
+              acc[key] = prop.initializer.text;
+            } else {
+              acc[key] = prop.initializer.getText();
+            }
+          }
+          return acc;
+        },
+        {},
+      );
+      return [
+        {
+          contentType: 'application/problem+json',
+          headers: [],
+          statusCode: properties.status,
+          response: problem ? deriver.serializeNode(problem) : undefined,
+        },
+      ];
+    }
+    return [];
+  },
   default: defaultResponseAnalyzer,
 };
