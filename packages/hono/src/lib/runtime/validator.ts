@@ -20,14 +20,14 @@ type InferTarget<
   S,
   Target extends keyof ValidationTargets,
 > = {
-    [K in keyof T as T[K]['select'] extends S ? K : never]: HasUndefined<
-      z.infer<T[K]['against']>
-    > extends true
+  [K in keyof T as T[K]['select'] extends S ? K : never]: HasUndefined<
+    z.infer<T[K]['against']>
+  > extends true
     ? z.infer<T[K]['against']> | undefined
     : z.infer<T[K]['against']> extends ValidationTargets[Target]
-    ? z.infer<T[K]['against']>
-    : z.infer<T[K]['against']>;
-  };
+      ? z.infer<T[K]['against']>
+      : z.infer<T[K]['against']>;
+};
 
 type InferIn<T extends ValidatorConfig> = (
   keyof InferTarget<T, QuerySelect | QueriesSelect, 'query'> extends never
@@ -35,16 +35,16 @@ type InferIn<T extends ValidatorConfig> = (
   : { query: InferTarget<T, QuerySelect | QueriesSelect, 'query'>; }) &
   (keyof InferTarget<T, BodySelect, 'json'> extends never
     ? never
-    : { json: InferTarget<T, BodySelect, 'json'>; }) &
+  : { json: InferTarget<T, BodySelect, 'json'>; }) &
   (keyof InferTarget<T, ParamsSelect, 'param'> extends never
     ? never
-    : { param: InferTarget<T, ParamsSelect, 'param'>; }) &
+  : { param: InferTarget<T, ParamsSelect, 'param'>; }) &
   (keyof InferTarget<T, HeadersSelect, 'header'> extends never
     ? never
-    : { header: InferTarget<T, HeadersSelect, 'header'>; }) &
+  : { header: InferTarget<T, HeadersSelect, 'header'>; }) &
   (keyof InferTarget<T, CookieSelect, 'cookie'> extends never
     ? never
-    : { form: InferTarget<T, CookieSelect, 'cookie'>; });
+  : { form: InferTarget<T, CookieSelect, 'cookie'>; });
 
 // Marker classes
 class BodySelect {
@@ -81,7 +81,7 @@ export const validate = <T extends ValidatorConfig>(
     };
   },
   string,
-  { in: InferIn<T>; }
+  { in: InferIn<T> }
 > => {
   return createMiddleware<{
     Variables: {
@@ -147,7 +147,8 @@ export function parse<T extends z.ZodRawShape>(
       message: 'Validation failed',
       cause: {
         code: 'api/validation-failed',
-        details: result.error.flatten((issue) => ({
+        detail: 'The input data is invalid',
+        errors: result.error.flatten((issue) => ({
           message: issue.message,
           code: issue.code,
           fatel: issue.fatal,
@@ -172,7 +173,7 @@ export const consume = (
         message: 'Unsupported Media Type',
         cause: {
           code: 'api/unsupported-media-type',
-          details: `Expected content type: ${contentType}, but got: ${clientContentType}`,
+          detail: `Expected content type: ${contentType}, but got: ${clientContentType}`,
         },
       });
     }
