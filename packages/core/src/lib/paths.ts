@@ -264,7 +264,7 @@ async function evalZod(schema: string, commonZodImport?: string) {
     `const filename = "${import.meta.url}";`,
     `const require = createRequire(filename);`,
     `const z = require("zod");`,
-    commonZodImport ? `import * as commonZod from '${commonZodImport}';` : '',
+    commonZodImport ? `const commonZod = require('${commonZodImport}');` : '',
     `const {zodToJsonSchema} = require('zod-to-json-schema');`,
     `const schema = ${schema.replace('.optional()', '')};`,
     `const jsonSchema = zodToJsonSchema(schema, {
