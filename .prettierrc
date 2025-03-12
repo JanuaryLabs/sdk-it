@@ -1,10 +1,6 @@
 {
   "singleQuote": true,
-  "importOrder": [
-    "<THIRD_PARTY_MODULES>",
-    "^@sdk-it/(.*)$",
-    "^[./]"
-  ],
+  "importOrder": ["<THIRD_PARTY_MODULES>", "^@sdk-it/(.*)$", "^[./]"],
   "plugins": ["@trivago/prettier-plugin-sort-imports"],
   "importOrderSeparation": true,
   "importOrderSortSpecifiers": true,

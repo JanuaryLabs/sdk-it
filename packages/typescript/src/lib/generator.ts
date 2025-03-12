@@ -76,15 +76,11 @@ export const defaults: Partial<GenerateSdkConfig> &
     if (operation.operationId) {
       return spinalcase(operation.operationId);
     }
-    return (
-      operation.operationId ||
-      camelcase(`${method} ${path.replace(/\//g, ' ')}`)
-    );
+    return camelcase(`${method} ${path.replace(/[\\/\\{\\}]/g, ' ').trim()}`);
   },
 };
 
 export function generateCode(config: GenerateSdkConfig) {
-  const imports: Import[] = [];
   const commonSchemas: Record<string, string> = {};
   const zodDeserialzer = new ZodDeserialzer(config.spec);
 

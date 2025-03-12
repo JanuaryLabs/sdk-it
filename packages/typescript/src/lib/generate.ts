@@ -43,7 +43,7 @@ export async function generate(
     output: string;
     name?: string;
     /**
-     * full: generate a full project including. useful for monorepo/workspaces
+     * full: generate a full project including package.json and tsconfig.json. useful for monorepo/workspaces
      * minimal: generate only the client sdk
      */
     mode?: 'full' | 'minimal';
@@ -121,7 +121,11 @@ export async function generate(
     'outputs/index.ts': outputIndex,
     'inputs/index.ts': inputsIndex,
     'http/index.ts': httpIndex,
-    'models/index.ts': modelsIndex,
+    ...(imports.length
+      ? {
+          'models/index.ts': modelsIndex,
+        }
+      : {}),
   });
   if (settings.mode === 'full') {
     await writeFiles(settings.output, {

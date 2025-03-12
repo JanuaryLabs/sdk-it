@@ -120,7 +120,10 @@ export class ZodDeserialzer {
     }
 
     this.circularRefTracker.add(schemaName);
-    this.#onRef?.(schemaName, this.handle(followRef(this.#spec, $ref), required));
+    this.#onRef?.(
+      schemaName,
+      this.handle(followRef(this.#spec, $ref), required),
+    );
     this.circularRefTracker.delete(schemaName);
 
     return schemaName;
