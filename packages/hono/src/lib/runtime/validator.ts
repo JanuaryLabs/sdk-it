@@ -6,7 +6,7 @@ import z from 'zod';
 
 type ValidatorConfig = Record<
   string,
-  { select: unknown; against: z.ZodTypeAny; }
+  { select: unknown; against: z.ZodTypeAny }
 >;
 
 type ExtractInput<T extends ValidatorConfig> = {
@@ -29,22 +29,25 @@ type InferTarget<
       : z.infer<T[K]['against']>;
 };
 
-type InferIn<T extends ValidatorConfig> = (
-  keyof InferTarget<T, QuerySelect | QueriesSelect, 'query'> extends never
+type InferIn<T extends ValidatorConfig> = (keyof InferTarget<
+  T,
+  QuerySelect | QueriesSelect,
+  'query'
+> extends never
   ? never
-  : { query: InferTarget<T, QuerySelect | QueriesSelect, 'query'>; }) &
+  : { query: InferTarget<T, QuerySelect | QueriesSelect, 'query'> }) &
   (keyof InferTarget<T, BodySelect, 'json'> extends never
     ? never
-  : { json: InferTarget<T, BodySelect, 'json'>; }) &
+    : { json: InferTarget<T, BodySelect, 'json'> }) &
   (keyof InferTarget<T, ParamsSelect, 'param'> extends never
     ? never
-  : { param: InferTarget<T, ParamsSelect, 'param'>; }) &
+    : { param: InferTarget<T, ParamsSelect, 'param'> }) &
   (keyof InferTarget<T, HeadersSelect, 'header'> extends never
     ? never
-  : { header: InferTarget<T, HeadersSelect, 'header'>; }) &
+    : { header: InferTarget<T, HeadersSelect, 'header'> }) &
   (keyof InferTarget<T, CookieSelect, 'cookie'> extends never
     ? never
-  : { form: InferTarget<T, CookieSelect, 'cookie'>; });
+    : { form: InferTarget<T, CookieSelect, 'cookie'> });
 
 // Marker classes
 class BodySelect {

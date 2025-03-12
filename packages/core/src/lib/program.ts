@@ -2,10 +2,6 @@ import debug from 'debug';
 import { dirname, join } from 'node:path';
 import ts from 'typescript';
 
-
-
-
-
 const logger = debug('january:client');
 
 export function parseTsConfig(tsconfigPath: string) {

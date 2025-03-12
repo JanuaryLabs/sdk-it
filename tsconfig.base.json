@@ -7,9 +7,9 @@
     "importHelpers": true,
     "isolatedModules": true,
     "useUnknownInCatchVariables": true,
-    "lib": ["es2022"],
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    "lib": ["ESNext"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "noEmitOnError": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
@@ -19,6 +19,7 @@
     "strict": true,
     "target": "es2022",
     "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "forceConsistentCasingInFileNames": true
   }
 }
