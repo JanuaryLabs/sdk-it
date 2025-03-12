@@ -4,6 +4,7 @@ type Collector = Record<string, any>;
 export const deriveSymbol = Symbol.for('serialize');
 export const $types = Symbol.for('types');
 const defaults: Record<string, string> = {
+  Readable: 'any',
   ReadableStream: 'any',
   DateConstructor: 'string',
   ArrayBufferConstructor: 'any',
