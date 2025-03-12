@@ -1,5 +1,5 @@
 {
-  "name": "sdk-it",
+  "name": "@sdk-it/cli",
   "version": "0.12.1",
   "type": "module",
   "main": "./dist/index.js",

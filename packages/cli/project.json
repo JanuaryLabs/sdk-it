@@ -1,5 +1,5 @@
 {
-  "name": "sdk-it",
+  "name": "@sdk-it/cli",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "packages/cli/src",
   "projectType": "library",
