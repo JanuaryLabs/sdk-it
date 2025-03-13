@@ -6,11 +6,8 @@ export type Endpoint =
 
 export type BodyInit =
   | ArrayBuffer
-  | AsyncIterable<Uint8Array>
   | Blob
   | FormData
-  | Iterable<Uint8Array>
-  | NodeJS.ArrayBufferView
   | URLSearchParams
   | null
   | string;
