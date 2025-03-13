@@ -74,9 +74,11 @@ export async function generate(
   //   name: settings.name || 'Client',
   // });
 
+  // TODO: use .getkeep instead
   await writeFiles(output, {
     'outputs/index.ts': '',
     'inputs/index.ts': '',
+    // 'models/index.ts': '',
     // 'README.md': readme,
   });
 
@@ -108,24 +110,23 @@ export async function generate(
     ),
   });
 
+  const folders = [
+    getFolderExports(output),
+    getFolderExports(join(output, 'outputs')),
+    getFolderExports(join(output, 'inputs')),
+    getFolderExports(join(output, 'http')),
+  ];
+  if (imports.length) {
+    folders.push(getFolderExports(join(output, 'models')));
+  }
   const [index, outputIndex, inputsIndex, httpIndex, modelsIndex] =
-    await Promise.all([
-      getFolderExports(output),
-      getFolderExports(join(output, 'outputs')),
-      getFolderExports(join(output, 'inputs')),
-      getFolderExports(join(output, 'http')),
-      getFolderExports(join(output, 'models')),
-    ]);
+    await Promise.all(folders);
   await writeFiles(output, {
     'index.ts': index,
     'outputs/index.ts': outputIndex,
     'inputs/index.ts': inputsIndex,
     'http/index.ts': httpIndex,
-    ...(imports.length
-      ? {
-          'models/index.ts': modelsIndex,
-        }
-      : {}),
+    ...(imports.length ? { 'models/index.ts': modelsIndex } : {}),
   });
   if (settings.mode === 'full') {
     await writeFiles(settings.output, {
