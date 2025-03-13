@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/generic",
-  "version": "0.12.3",
+  "version": "0.12.4",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -21,7 +21,7 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.12.3",
+    "@sdk-it/core": "0.12.4",
     "stringcase": "^4.3.1",
     "typescript": "^5.7.2",
     "debug": "^4.4.0",
