@@ -5,9 +5,7 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": {
-    "sdk-it": "./dist/index.js"
-  },
+  "bin": "./dist/index.js",
   "exports": {
     "./package.json": "./package.json",
     ".": {
