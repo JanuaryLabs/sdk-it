@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/typescript",
-  "version": "0.12.6",
+  "version": "0.12.7",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -21,7 +21,7 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.12.6",
+    "@sdk-it/core": "0.12.7",
     "openapi3-ts": "^4.4.0",
     "stringcase": "^4.3.1",
     "lodash-es": "^4.17.21",
