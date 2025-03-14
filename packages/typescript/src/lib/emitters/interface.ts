@@ -21,6 +21,91 @@ export class TypeScriptDeserialzer {
     this.#spec = spec;
     this.#onRef = onRef;
   }
+  #stringifyKey = (key: string): string => {
+    // List of JavaScript keywords and special object properties that should be quoted
+    const reservedWords = [
+      'constructor',
+      'prototype',
+      'break',
+      'case',
+      'catch',
+      'class',
+      'const',
+      'continue',
+      'debugger',
+      'default',
+      'delete',
+      'do',
+      'else',
+      'export',
+      'extends',
+      'false',
+      'finally',
+      'for',
+      'function',
+      'if',
+      'import',
+      'in',
+      'instanceof',
+      'new',
+      'null',
+      'return',
+      'super',
+      'switch',
+      'this',
+      'throw',
+      'true',
+      'try',
+      'typeof',
+      'var',
+      'void',
+      'while',
+      'with',
+      'yield',
+    ];
+
+    // Check if key is a reserved word
+    if (reservedWords.includes(key)) {
+      return `'${key}'`;
+    }
+
+    // Check if key is empty or only whitespace
+    if (key.trim() === '') {
+      return `'${key}'`;
+    }
+
+    // Check if first character is valid for identifiers
+    const firstChar = key.charAt(0);
+    const validFirstChar =
+      (firstChar >= 'a' && firstChar <= 'z') ||
+      (firstChar >= 'A' && firstChar <= 'Z') ||
+      firstChar === '_' ||
+      firstChar === '$';
+
+    if (!validFirstChar) {
+      return `'${key.replace(/'/g, "\\'")}'`;
+    }
+
+    // Check if the rest of the characters are valid for identifiers
+    for (let i = 1; i < key.length; i++) {
+      const char = key.charAt(i);
+      const validChar =
+        (char >= 'a' && char <= 'z') ||
+        (char >= 'A' && char <= 'Z') ||
+        (char >= '0' && char <= '9') ||
+        char === '_' ||
+        char === '$';
+
+      if (!validChar) {
+        return `'${key.replace(/'/g, "\\'")}'`;
+      }
+    }
+
+    return key;
+  };
+  #stringifyKeyV2 = (value: string): string => {
+    return `'${value}'`;
+  };
 
   /**
    * Handle objects (properties)
@@ -33,7 +118,7 @@ export class TypeScriptDeserialzer {
       const isRequired = (schema.required ?? []).includes(key);
       const tsType = this.handle(propSchema, isRequired);
       // Add question mark for optional properties
-      return `${key}: ${tsType}`;
+      return `${this.#stringifyKeyV2(key)}: ${tsType}`;
     });
 
     // Handle additionalProperties
