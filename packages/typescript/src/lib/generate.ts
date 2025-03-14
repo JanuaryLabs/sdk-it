@@ -141,7 +141,10 @@ export async function generate(
           {
             type: 'module',
             main: './src/index.ts',
-            dependencies: { 'fast-content-type-parse': '^3.0.0' },
+            dependencies: {
+              'fast-content-type-parse': '^3.0.0',
+              zod: '^3.24.2',
+            },
           },
           null,
           2,
