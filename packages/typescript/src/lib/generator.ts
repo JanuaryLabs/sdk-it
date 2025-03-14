@@ -12,13 +12,7 @@ import { camelcase, pascalcase, spinalcase } from 'stringcase';
 import { TypeScriptDeserialzer } from './emitters/interface.ts';
 import { ZodDeserialzer } from './emitters/zod.ts';
 import { type Operation, type Spec } from './sdk.ts';
-import {
-  followRef,
-  importsToString,
-  isRef,
-  mergeImports,
-  securityToOptions,
-} from './utils.ts';
+import { followRef, isRef, securityToOptions, useImports } from './utils.ts';
 
 export interface NamedImport {
   name: string;
@@ -82,7 +76,18 @@ export const defaults: Partial<GenerateSdkConfig> &
 
 export function generateCode(config: GenerateSdkConfig) {
   const commonSchemas: Record<string, string> = {};
-  const zodDeserialzer = new ZodDeserialzer(config.spec);
+  const commonZod = new Map<string, string>();
+  const commonZodImports: Import[] = [];
+  const zodDeserialzer = new ZodDeserialzer(config.spec, (model, schema) => {
+    commonZod.set(model, schema);
+    commonZodImports.push({
+      defaultImport: undefined,
+      isTypeOnly: true,
+      moduleSpecifier: `./${model}.ts`,
+      namedImports: [{ isTypeOnly: true, name: model }],
+      namespaceImport: undefined,
+    });
+  });
 
   const groups: Spec['operations'] = {};
   const outputs: Record<string, string> = {};
@@ -244,18 +249,7 @@ export function generateCode(config: GenerateSdkConfig) {
                 true,
               )
             : 'ReadableStream'; // non-json response treated as stream
-          for (const it of mergeImports(imports)) {
-            const singleImport = it.defaultImport ?? it.namespaceImport;
-            if (singleImport && responseSchema.includes(singleImport)) {
-              output.push(importsToString(it).join('\n'));
-            } else if (it.namedImports.length) {
-              for (const namedImport of it.namedImports) {
-                if (responseSchema.includes(namedImport.name)) {
-                  output.push(importsToString(it).join('\n'));
-                }
-              }
-            }
-          }
+          output.push(...useImports(responseSchema, imports));
           output.push(
             `export type ${pascalcase(operationName + ' output')} = ${responseSchema}`,
           );
@@ -287,7 +281,7 @@ export function generateCode(config: GenerateSdkConfig) {
     }
   }
 
-  return { groups, commonSchemas, outputs };
+  return { groups, commonSchemas, commonZod, outputs };
 }
 
 // TODO - USE CASES

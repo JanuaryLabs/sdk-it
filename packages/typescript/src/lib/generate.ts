@@ -11,8 +11,8 @@ import parserTxt from './http/parser.txt';
 import requestTxt from './http/request.txt';
 import responseTxt from './http/response.txt';
 import sendRequest from './http/send-request.txt';
-import { generateClientSdk } from './sdk.ts';
-import { securityToOptions } from './utils.ts';
+import { generateInputs, generateSDK } from './sdk.ts';
+import { exclude, securityToOptions } from './utils.ts';
 
 function security(spec: OpenAPIObject) {
   const security = spec.security || [];
@@ -53,7 +53,7 @@ export async function generate(
     }) => void | Promise<void>;
   },
 ) {
-  const { commonSchemas, groups, outputs } = generateCode({
+  const { commonSchemas, groups, outputs, commonZod } = generateCode({
     spec,
     style: 'github',
     target: 'javascript',
@@ -63,7 +63,7 @@ export async function generate(
 
   const options = security(spec);
 
-  const clientFiles = generateClientSdk({
+  const clientFiles = generateSDK({
     name: settings.name || 'Client',
     operations: groups,
     servers: spec.servers?.map((server) => server.url) || [],
@@ -74,11 +74,12 @@ export async function generate(
   //   name: settings.name || 'Client',
   // });
 
-  // TODO: use .getkeep instead
+  const inputFiles = generateInputs(groups, commonZod);
+
   await writeFiles(output, {
-    'outputs/index.ts': '',
-    'inputs/index.ts': '',
-    // 'models/index.ts': '',
+    'outputs/.gitkeep': '',
+    'inputs/.gitkeep': '',
+    'models/.getkeep': '',
     // 'README.md': readme,
   });
 
@@ -92,16 +93,16 @@ export async function generate(
   });
 
   await writeFiles(join(output, 'outputs'), outputs);
-
-  const imports = Object.entries(commonSchemas).map(([name]) => name);
+  const modelsImports = Object.entries(commonSchemas).map(([name]) => name);
   await writeFiles(output, {
     ...clientFiles,
+    ...inputFiles,
     ...Object.fromEntries(
       Object.entries(commonSchemas).map(([name, schema]) => [
         `models/${name}.ts`,
         [
           `import { z } from 'zod';`,
-          ...exclude(imports, [name]).map(
+          ...exclude(modelsImports, [name]).map(
             (it) => `import type { ${it} } from './${it}.ts';`,
           ),
           `export type ${name} = ${schema};`,
@@ -113,10 +114,14 @@ export async function generate(
   const folders = [
     getFolderExports(output),
     getFolderExports(join(output, 'outputs')),
-    getFolderExports(join(output, 'inputs')),
+    getFolderExports(
+      join(output, 'inputs'),
+      ['ts'],
+      (dirent) => dirent.isDirectory() && dirent.name === 'schemas',
+    ),
     getFolderExports(join(output, 'http')),
   ];
-  if (imports.length) {
+  if (modelsImports.length) {
     folders.push(getFolderExports(join(output, 'models')));
   }
   const [index, outputIndex, inputsIndex, httpIndex, modelsIndex] =
@@ -124,15 +129,44 @@ export async function generate(
   await writeFiles(output, {
     'index.ts': index,
     'outputs/index.ts': outputIndex,
-    'inputs/index.ts': inputsIndex,
+    'inputs/index.ts': inputsIndex || null,
     'http/index.ts': httpIndex,
-    ...(imports.length ? { 'models/index.ts': modelsIndex } : {}),
+    ...(modelsImports.length ? { 'models/index.ts': modelsIndex } : {}),
   });
   if (settings.mode === 'full') {
     await writeFiles(settings.output, {
       'package.json': {
         ignoreIfExists: true,
-        content: `{"type":"module","main":"./src/index.ts","dependencies":{"fast-content-type-parse":"^3.0.0"}}`,
+        content: JSON.stringify(
+          {
+            type: 'module',
+            main: './src/index.ts',
+            dependencies: { 'fast-content-type-parse': '^3.0.0' },
+          },
+          null,
+          2,
+        ),
+      },
+      'tsconfig.json': {
+        ignoreIfExists: false,
+        content: JSON.stringify(
+          {
+            compilerOptions: {
+              skipLibCheck: true,
+              skipDefaultLibCheck: true,
+              target: 'ESNext',
+              module: 'ESNext',
+              noEmit: true,
+              allowImportingTsExtensions: true,
+              verbatimModuleSyntax: true,
+              baseUrl: '.',
+              moduleResolution: 'bundler',
+            },
+            include: ['**/*.ts'],
+          },
+          null,
+          2,
+        ),
       },
     });
   }
@@ -141,8 +175,4 @@ export async function generate(
     output: output,
     env: npmRunPathEnv(),
   });
-}
-
-function exclude<T>(list: T[], exclude: T[]): T[] {
-  return list.filter((it) => !exclude.includes(it));
 }

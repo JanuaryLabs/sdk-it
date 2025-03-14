@@ -10,6 +10,7 @@ export default [
   {
     files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
     rules: {
+      'no-unused-private-class-members': 'off',
       '@nx/enforce-module-boundaries': [
         'error',
         {

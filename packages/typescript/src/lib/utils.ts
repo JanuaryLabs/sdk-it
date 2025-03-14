@@ -117,3 +117,24 @@ export function importsToString(...imports: Import[]) {
     throw new Error(`Invalid import ${JSON.stringify(it)}`);
   });
 }
+
+export function exclude<T>(list: T[], exclude: T[]): T[] {
+  return list.filter((it) => !exclude.includes(it));
+}
+
+export function useImports(content: string, imports: Import[]) {
+  const output: string[] = [];
+  for (const it of mergeImports(imports)) {
+    const singleImport = it.defaultImport ?? it.namespaceImport;
+    if (singleImport && content.includes(singleImport)) {
+      output.push(importsToString(it).join('\n'));
+    } else if (it.namedImports.length) {
+      for (const namedImport of it.namedImports) {
+        if (content.includes(namedImport.name)) {
+          output.push(importsToString(it).join('\n'));
+        }
+      }
+    }
+  }
+  return output;
+}

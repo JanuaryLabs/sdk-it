@@ -46,6 +46,7 @@
   "dependencies": {
     "chalk": "^5.4.1",
     "commander": "^13.1.0",
+    "fast-content-type-parse": "^3.0.0",
     "js-yaml": "^4.1.0",
     "lodash-es": "^4.17.21",
     "rxjs": "^7.8.2",

@@ -1,8 +1,9 @@
-import { camelcase, pascalcase, spinalcase } from 'stringcase';
+import { camelcase, spinalcase } from 'stringcase';
 
 import { removeDuplicates, toLitObject } from '@sdk-it/core';
 
 import backend from './client.ts';
+import { exclude } from './utils.ts';
 
 class SchemaEndpoint {
   #imports: string[] = [
@@ -66,7 +67,6 @@ export type Options = Record<
 >;
 export interface Spec {
   operations: Record<string, Operation[]>;
-  commonZod?: string;
   name: string;
   options: Options;
   servers: string[];
@@ -88,24 +88,16 @@ export interface Operation {
   formatOutput: () => { import: string; use: string };
 }
 
-export function generateClientSdk(spec: Spec) {
-  const emitter = new Emitter();
-  const streamEmitter = new StreamEmitter();
-  const schemas: Record<string, string[]> = {};
-  const schemaEndpoint = new SchemaEndpoint();
-  const errors: string[] = [];
-  for (const [name, operations] of Object.entries(spec.operations)) {
-    const featureSchemaFileName = camelcase(name);
-    schemas[featureSchemaFileName] = [`import z from 'zod';`];
-    emitter.addImport(
-      `import * as ${featureSchemaFileName} from './inputs/${featureSchemaFileName}.ts';`,
-    );
-    streamEmitter.addImport(
-      `import * as ${featureSchemaFileName} from './inputs/${featureSchemaFileName}.ts';`,
-    );
-    schemaEndpoint.addImport(
-      `import * as ${featureSchemaFileName} from './inputs/${featureSchemaFileName}.ts';`,
-    );
+export function generateInputs(
+  operationsSet: Spec['operations'],
+  commonZod: Map<string, string>,
+) {
+  const commonImports = commonZod.keys().toArray();
+  const inputs: Record<string, string> = {};
+  for (const [name, operations] of Object.entries(operationsSet)) {
+    const output: string[] = [];
+    const imports = new Set(['import { z } from "zod";']);
+
     for (const operation of operations) {
       const schemaName = camelcase(`${operation.name} schema`);
 
@@ -115,8 +107,53 @@ export function generateClientSdk(spec: Spec) {
           : toLitObject(operation.schemas)
       };`;
 
-      schemas[featureSchemaFileName].push(schema);
-      const schemaRef = `${featureSchemaFileName}.${schemaName}`;
+      const inputContent = schema;
+
+      for (const schema of commonImports) {
+        if (inputContent.includes(schema)) {
+          imports.add(
+            `import { ${schema} } from './schemas/${spinalcase(schema)}.ts';`,
+          );
+        }
+      }
+      output.push(inputContent);
+    }
+    inputs[`inputs/${spinalcase(name)}.ts`] =
+      [...imports, ...output].join('\n') + '\n';
+  }
+  return {
+    ...Object.fromEntries(
+      commonZod
+        .entries()
+        .map(([name, schema]) => [
+          `inputs/schemas/${spinalcase(name)}.ts`,
+          [
+            `import { z } from 'zod';`,
+            ...exclude(commonImports, [name]).map(
+              (it) => `import { ${it} } from './${spinalcase(it)}.ts';`,
+            ),
+            `export const ${name} = ${schema};`,
+          ].join('\n'),
+        ]),
+    ),
+    ...inputs,
+  };
+}
+
+export function generateSDK(spec: Spec) {
+  const emitter = new Emitter();
+  const schemaEndpoint = new SchemaEndpoint();
+  const errors: string[] = [];
+  for (const [name, operations] of Object.entries(spec.operations)) {
+    emitter.addImport(
+      `import * as ${camelcase(name)} from './inputs/${spinalcase(name)}.ts';`,
+    );
+    schemaEndpoint.addImport(
+      `import * as ${camelcase(name)} from './inputs/${spinalcase(name)}.ts';`,
+    );
+    for (const operation of operations) {
+      const schemaName = camelcase(`${operation.name} schema`);
+      const schemaRef = `${camelcase(name)}.${schemaName}`;
       const output = operation.formatOutput();
       const inputHeaders: string[] = [];
       const inputQuery: string[] = [];
@@ -142,53 +179,27 @@ export function generateClientSdk(spec: Spec) {
           );
         }
       }
-      if (operation.type === 'sse') {
-        const input = `z.infer<typeof ${schemaRef}>`;
-        const endpoint = `${operation.trigger.method.toUpperCase()} ${operation.trigger.path}`;
-        streamEmitter.addImport(
-          `import type {${pascalcase(operation.name)}} from './outputs/${spinalcase(operation.name)}.ts';`,
-        );
-        streamEmitter.addEndpoint(
+      emitter.addImport(
+        `import type {${output.import}} from './outputs/${spinalcase(operation.name)}.ts';`,
+      );
+      errors.push(...(operation.errors ?? []));
+
+      const addTypeParser = Object.keys(operation.schemas).length > 1;
+      for (const type in operation.schemas ?? {}) {
+        let typePrefix = '';
+        if (addTypeParser && type !== 'json') {
+          typePrefix = `${type} `;
+        }
+        const input = `typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}`;
+
+        const endpoint = `${typePrefix}${operation.trigger.method.toUpperCase()} ${operation.trigger.path}`;
+        emitter.addEndpoint(
           endpoint,
-          `{input: ${input}, output: ${output.use}}`,
+          `{input: z.infer<${input}>; output: ${output.use}; error: ${(operation.errors ?? ['ServerError']).concat(`ParseError<${input}>`).join('|')}}`,
         );
         schemaEndpoint.addEndpoint(
           endpoint,
           `{
-        schema: ${schemaRef},
-        toRequest(input: StreamEndpoints['${endpoint}']['input']) {
-          const endpoint = '${endpoint}';
-            return toRequest(endpoint, json(input, {
-            inputHeaders: [${inputHeaders}],
-            inputQuery: [${inputQuery}],
-            inputBody: [${inputBody}],
-            inputParams: [${inputParams}],
-          }));
-          },
-        }`,
-        );
-      } else {
-        emitter.addImport(
-          `import type {${output.import}} from './outputs/${spinalcase(operation.name)}.ts';`,
-        );
-        errors.push(...(operation.errors ?? []));
-
-        const addTypeParser = Object.keys(operation.schemas).length > 1;
-        for (const type in operation.schemas ?? {}) {
-          let typePrefix = '';
-          if (addTypeParser && type !== 'json') {
-            typePrefix = `${type} `;
-          }
-          const input = `typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}`;
-
-          const endpoint = `${typePrefix}${operation.trigger.method.toUpperCase()} ${operation.trigger.path}`;
-          emitter.addEndpoint(
-            endpoint,
-            `{input: z.infer<${input}>; output: ${output.use}; error: ${(operation.errors ?? ['ServerError']).concat(`ParseError<${input}>`).join('|')}}`,
-          );
-          schemaEndpoint.addEndpoint(
-            endpoint,
-            `{
           schema: ${schemaRef}${addTypeParser ? `.${type}` : ''},
           toRequest(input: Endpoints['${endpoint}']['input']) {
             const endpoint = '${endpoint}';
@@ -200,8 +211,7 @@ export function generateClientSdk(spec: Spec) {
               }));
             },
           }`,
-          );
-        }
+        );
       }
     }
   }
@@ -210,21 +220,6 @@ export function generateClientSdk(spec: Spec) {
     `import type { ${removeDuplicates(errors, (it) => it).join(', ')} } from './http/response.ts';`,
   );
   return {
-    ...Object.fromEntries(
-      Object.entries(schemas).map(([key, value]) => [
-        `inputs/${key}.ts`,
-        [
-          // schemasImports.length
-          //   ? `import {${removeDuplicates(schemasImports, (it) => it)}} from '../zod';`
-          //   : '',
-          spec.commonZod ? 'import * as commonZod from "../zod.ts";' : '',
-          ...value,
-        ]
-          .map((it) => it.trim())
-          .filter(Boolean)
-          .join('\n') + '\n', // add a newline at the end
-      ]),
-    ),
     'client.ts': backend(spec),
     'schemas.ts': schemaEndpoint.complete(),
     'endpoints.ts': emitter.complete(),
