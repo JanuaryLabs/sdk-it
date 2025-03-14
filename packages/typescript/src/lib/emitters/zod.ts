@@ -130,12 +130,21 @@ export class ZodDeserialzer {
   }
   allOf(schemas: (SchemaObject | ReferenceObject)[]) {
     const allOfSchemas = schemas.map((sub) => this.handle(sub, true));
+    if (allOfSchemas.length === 0) {
+      return `z.unknown()`;
+    }
     if (allOfSchemas.length === 1) {
       return allOfSchemas[0];
     }
-    return allOfSchemas.length
-      ? `z.intersection(${allOfSchemas.join(', ')})`
-      : allOfSchemas[0];
+    return this.#toIntersection(allOfSchemas);
+  }
+
+  #toIntersection(schemas: string[]): string {
+    const [left, ...right] = schemas;
+    if (!right.length) {
+      return left;
+    }
+    return `z.intersection(${left}, ${this.#toIntersection(right)})`;
   }
 
   anyOf(schemas: (SchemaObject | ReferenceObject)[], required: boolean) {
