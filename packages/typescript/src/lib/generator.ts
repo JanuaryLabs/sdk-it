@@ -5,13 +5,20 @@ import type {
   OperationObject,
   ParameterLocation,
   ParameterObject,
+  ReferenceObject,
   ResponseObject,
+  SchemaObject,
 } from 'openapi3-ts/oas31';
 import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
 import { TypeScriptDeserialzer } from './emitters/interface.ts';
 import { ZodDeserialzer } from './emitters/zod.ts';
-import { type Operation, type Spec } from './sdk.ts';
+import {
+  type Operation,
+  type OperationInput,
+  type Parser,
+  type Spec,
+} from './sdk.ts';
 import { followRef, isRef, securityToOptions, useImports } from './utils.ts';
 
 export interface NamedImport {
@@ -101,7 +108,9 @@ export function generateCode(config: GenerateSdkConfig) {
       const operationName = formatOperationId(operation, path, method);
 
       console.log(`Processing ${method} ${path}`);
-      const groupName = (operation.tags ?? ['unknown'])[0];
+      const [groupName] = Array.isArray(operation.tags)
+        ? operation.tags
+        : ['unknown'];
       groups[groupName] ??= [];
       const inputs: Operation['inputs'] = {};
 
@@ -149,7 +158,7 @@ export function generateCode(config: GenerateSdkConfig) {
         'application/xml': 'xml',
         'text/plain': 'text',
       };
-      let contentType: string | undefined;
+      let outgoingContentType: string | undefined;
       if (operation.requestBody && Object.keys(operation.requestBody).length) {
         const content: ContentObject = isRef(operation.requestBody)
           ? get(followRef(config.spec, operation.requestBody.$ref), ['content'])
@@ -163,6 +172,7 @@ export function generateCode(config: GenerateSdkConfig) {
             console.warn(`Schema not found for ${type}`);
             continue;
           }
+
           const schema = merge({}, ctSchema, {
             required: additionalProperties
               .filter((p) => p.required)
@@ -175,23 +185,19 @@ export function generateCode(config: GenerateSdkConfig) {
               {},
             ),
           });
-          for (const [name] of Object.entries(ctSchema.properties ?? {})) {
-            inputs[name] = {
-              in: 'body',
-              schema: '',
-            };
-          }
+
+          Object.assign(inputs, bodyInputs(config, ctSchema));
           types[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
         }
 
         if (content['application/json']) {
-          contentType = 'json';
+          outgoingContentType = 'json';
         } else if (content['application/x-www-form-urlencoded']) {
-          contentType = 'urlencoded';
+          outgoingContentType = 'urlencoded';
         } else if (content['multipart/form-data']) {
-          contentType = 'formdata';
+          outgoingContentType = 'formdata';
         } else {
-          contentType = 'json';
+          outgoingContentType = 'json';
         }
       } else {
         const properties = additionalProperties.reduce<Record<string, any>>(
@@ -218,6 +224,7 @@ export function generateCode(config: GenerateSdkConfig) {
 
       let foundResponse = false;
       const output = [`import z from 'zod';`];
+      let parser: Parser = 'buffered';
       for (const status in operation.responses) {
         const response = operation.responses[status] as ResponseObject;
         const statusCode = +status;
@@ -228,6 +235,9 @@ export function generateCode(config: GenerateSdkConfig) {
           foundResponse = true;
           const responseContent = get(response, ['content']);
           const isJson = responseContent && responseContent['application/json'];
+          if ((response.headers ?? {})['Transfer-Encoding']) {
+            parser = 'chunked';
+          }
           // TODO: how the user is going to handle multiple response types
           const imports: Import[] = [];
           const typeScriptDeserialzer = new TypeScriptDeserialzer(
@@ -267,8 +277,9 @@ export function generateCode(config: GenerateSdkConfig) {
         type: 'http',
         inputs,
         errors: errors.length ? errors : ['ServerError'],
-        contentType,
+        outgoingContentType,
         schemas: types,
+        parser,
         formatOutput: () => ({
           import: pascalcase(operationName + ' output'),
           use: pascalcase(operationName + ' output'),
@@ -297,4 +308,42 @@ export function generateCode(config: GenerateSdkConfig) {
 // 7. multipart/form-data // done
 // 7. application/octet-stream // done
 // 7. chunked response // done
-// we need to remove the stream fn in the backend
+
+function toProps(
+  spec: OpenAPIObject,
+  schemaOrRef: SchemaObject | ReferenceObject,
+  aggregator: string[] = [],
+) {
+  if (isRef(schemaOrRef)) {
+    const schema = followRef(spec, schemaOrRef.$ref);
+    return toProps(spec, schema, aggregator);
+  } else if (schemaOrRef.type === 'object') {
+    for (const [name] of Object.entries(schemaOrRef.properties ?? {})) {
+      aggregator.push(name);
+    }
+    return void 0;
+  } else if (schemaOrRef.allOf) {
+    for (const it of schemaOrRef.allOf) {
+      toProps(spec, it, aggregator);
+    }
+    return void 0;
+  }
+}
+
+function bodyInputs(
+  config: GenerateSdkConfig,
+  ctSchema: SchemaObject | ReferenceObject,
+) {
+  const props: string[] = [];
+  toProps(config.spec, ctSchema, props);
+  return props.reduce<Record<string, OperationInput>>(
+    (acc, prop) => ({
+      ...acc,
+      [prop]: {
+        in: 'body',
+        schema: '',
+      },
+    }),
+    {},
+  );
+}
