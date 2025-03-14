@@ -53,7 +53,7 @@ type ${spec.name}Options = z.infer<typeof optionsSchema>;
 export class ${spec.name} {
   public options: ${spec.name}Options
   constructor(options: ${spec.name}Options) {
-    this.options = options;
+    this.options = optionsSchema.parse(options);
   }
 
   async request<E extends keyof Endpoints>(
