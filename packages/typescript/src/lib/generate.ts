@@ -139,6 +139,7 @@ export async function generate(
         ignoreIfExists: true,
         content: JSON.stringify(
           {
+            name: 'sdk',
             type: 'module',
             main: './src/index.ts',
             dependencies: {
@@ -151,7 +152,7 @@ export async function generate(
         ),
       },
       'tsconfig.json': {
-        ignoreIfExists: false,
+        ignoreIfExists: true,
         content: JSON.stringify(
           {
             compilerOptions: {

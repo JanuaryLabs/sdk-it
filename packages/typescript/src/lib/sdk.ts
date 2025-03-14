@@ -3,14 +3,15 @@ import { camelcase, spinalcase } from 'stringcase';
 import { removeDuplicates, toLitObject } from '@sdk-it/core';
 
 import backend from './client.ts';
-import { exclude } from './utils.ts';
 
+export type Parser = 'chunked' | 'buffered';
 class SchemaEndpoint {
   #imports: string[] = [
     `import z from 'zod';`,
     'import type { Endpoints } from "./endpoints.ts";',
     `import { toRequest, json, urlencoded, nobody, formdata, createUrl } from './http/request.ts';`,
     `import type { ParseError } from './http/parser.ts';`,
+    'import { chunked, buffered } from "./http/parse-response.ts";',
   ];
   #endpoints: string[] = [];
   addEndpoint(endpoint: string, operation: any) {
@@ -25,7 +26,7 @@ class SchemaEndpoint {
 }
 class Emitter {
   protected imports: string[] = [
-    `import z from 'zod';`,
+    `import type z from 'zod';`,
     `import type { ParseError } from './http/parser.ts';`,
   ];
   protected endpoints: string[] = [];
@@ -81,9 +82,9 @@ export interface Operation {
   errors: string[];
   type: string;
   trigger: Record<string, any>;
-  contentType?: string;
+  outgoingContentType?: string;
+  parser: Parser;
   schemas: Record<string, string>;
-  schema?: string;
   inputs: Record<string, OperationInput>;
   formatOutput: () => { import: string; use: string };
 }
@@ -155,7 +156,7 @@ export function generateSDK(spec: Spec) {
   const errors: string[] = [];
   for (const [name, operations] of Object.entries(spec.operations)) {
     emitter.addImport(
-      `import * as ${camelcase(name)} from './inputs/${spinalcase(name)}.ts';`,
+      `import type * as ${camelcase(name)} from './inputs/${spinalcase(name)}.ts';`,
     );
     schemaEndpoint.addImport(
       `import * as ${camelcase(name)} from './inputs/${spinalcase(name)}.ts';`,
@@ -210,9 +211,10 @@ export function generateSDK(spec: Spec) {
           endpoint,
           `{
           schema: ${schemaRef}${addTypeParser ? `.${type}` : ''},
+          deserializer: ${operation.parser === 'chunked' ? 'chunked' : 'buffered'},
           toRequest(input: Endpoints['${endpoint}']['input']) {
             const endpoint = '${endpoint}';
-                return toRequest(endpoint, ${operation.contentType || 'nobody'}(input, {
+                return toRequest(endpoint, ${operation.outgoingContentType || 'nobody'}(input, {
                 inputHeaders: [${inputHeaders}],
                 inputQuery: [${inputQuery}],
                 inputBody: [${inputBody}],

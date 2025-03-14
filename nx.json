@@ -75,7 +75,7 @@
     },
     "releaseTagPattern": "release/{version}",
     "version": {
-      "preVersionCommand": "node --experimental-strip-types ./e2e/index.ts && npx nx run-many -t build",
+      "preVersionCommand": "npm run test && npx nx run-many -t build",
       "conventionalCommits": true
     }
   }

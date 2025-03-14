@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "license": "MIT",
   "type": "module",
-  "scripts": {},
+  "scripts": {
+    "test": "node --experimental-strip-types ./e2e/index.ts"
+  },
   "private": true,
   "devDependencies": {
     "@eslint/js": "^9.8.0",

@@ -44,3 +44,78 @@ export const logInterceptor = {
     return response;
   },
 };
+
+/**
+ * Creates an interceptor that logs detailed information about requests and responses.
+ * @param options Configuration options for the logger
+ * @returns An interceptor object with before and after handlers
+ */
+export const createDetailedLogInterceptor = (options?: {
+  logLevel?: 'debug' | 'info' | 'warn' | 'error';
+  includeRequestBody?: boolean;
+  includeResponseBody?: boolean;
+}) => {
+  const logLevel = options?.logLevel || 'info';
+  const includeRequestBody = options?.includeRequestBody || false;
+  const includeResponseBody = options?.includeResponseBody || false;
+
+  return {
+    async before(request: Request) {
+      const logData = {
+        url: request.url,
+        method: request.method,
+        contentType: request.headers.get('Content-Type'),
+        headers: Object.fromEntries([...request.headers.entries()]),
+      };
+
+      console[logLevel]('🚀 Outgoing Request:', logData);
+
+      if (includeRequestBody) {
+        try {
+          // Clone the request to avoid consuming the body stream
+          const clonedRequest = request.clone();
+          if (clonedRequest.headers.get('Content-Type')?.includes('application/json')) {
+            const body = await clonedRequest.json().catch(() => null);
+            console[logLevel]('Request Body:', body);
+          } else {
+            const body = await clonedRequest.text().catch(() => null);
+            console[logLevel]('Request Body:', body);
+          }
+        } catch (error) {
+          console.error('Could not log request body:', error);
+        }
+      }
+
+      return request;
+    },
+
+    async after(response: Response) {
+      const logData = {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url,
+        headers: Object.fromEntries([...response.headers.entries()]),
+      };
+
+      console[logLevel]('📥 Incoming Response:', logData);
+
+      if (includeResponseBody && response.body) {
+        try {
+          // Clone the response to avoid consuming the body stream
+          const clonedResponse = response.clone();
+          if (clonedResponse.headers.get('Content-Type')?.includes('application/json')) {
+            const body = await clonedResponse.json().catch(() => null);
+            console[logLevel]('Response Body:', body);
+          } else {
+            const body = await clonedResponse.text().catch(() => null);
+            console[logLevel]('Response Body:', body.substring(0, 500) + (body.length > 500 ? '...' : ''));
+          }
+        } catch (error) {
+          console.error('Could not log response body:', error);
+        }
+      }
+
+      return response;
+    },
+  };
+};

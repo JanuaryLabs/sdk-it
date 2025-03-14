@@ -1,12 +1,13 @@
 import z from 'zod';
 
 import type { Interceptor } from './interceptors.ts';
-import { handleError, parseResponse } from './parse-response.ts';
+import { handleError } from './parse-response.ts';
 import { parse } from './parser.ts';
 
 export interface RequestSchema {
   schema: z.ZodType;
-  toRequest: (input: any) => Request;
+  toRequest: (input: unknown) => Request;
+  deserializer: (response: Response) => Promise<unknown> | unknown;
 }
 
 export const fetchType = z
@@ -16,7 +17,7 @@ export const fetchType = z
   .optional();
 
 export async function sendRequest(
-  input: any,
+  input: unknown,
   route: RequestSchema,
   options: {
     fetch?: z.infer<typeof fetchType>;
@@ -46,7 +47,7 @@ export async function sendRequest(
   }
 
   if (response.ok) {
-    const data = await parseResponse(response);
+    const data = await route.deserializer(response);
     return [data as never, null] as const;
   }
   const error = await handleError(response);
