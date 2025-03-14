@@ -130,6 +130,9 @@ export class ZodDeserialzer {
   }
   allOf(schemas: (SchemaObject | ReferenceObject)[]) {
     const allOfSchemas = schemas.map((sub) => this.handle(sub, true));
+    if (allOfSchemas.length === 1) {
+      return allOfSchemas[0];
+    }
     return allOfSchemas.length
       ? `z.intersection(${allOfSchemas.join(', ')})`
       : allOfSchemas[0];
@@ -137,6 +140,9 @@ export class ZodDeserialzer {
 
   anyOf(schemas: (SchemaObject | ReferenceObject)[], required: boolean) {
     const anyOfSchemas = schemas.map((sub) => this.handle(sub, false));
+    if (anyOfSchemas.length === 1) {
+      return anyOfSchemas[0];
+    }
     return anyOfSchemas.length > 1
       ? `z.union([${anyOfSchemas.join(', ')}])${appendOptional(required)}`
       : // Handle an invalid anyOf with one schema
@@ -153,6 +159,9 @@ export class ZodDeserialzer {
       }
       return this.handle(sub, false);
     });
+    if (oneOfSchemas.length === 1) {
+      return oneOfSchemas[0];
+    }
     return oneOfSchemas.length > 1
       ? `z.union([${oneOfSchemas.join(', ')}])${appendOptional(required)}`
       : // Handle an invalid oneOf with one schema

@@ -51,8 +51,10 @@ ${spec.servers.length ? `export type Servers = typeof servers[number];` : ''}
 type ${spec.name}Options = z.infer<typeof optionsSchema>;
 
 export class ${spec.name} {
-
-  constructor(public options: ${spec.name}Options) {}
+  public options: ${spec.name}Options
+  constructor(options: ${spec.name}Options) {
+    this.options = options;
+  }
 
   async request<E extends keyof Endpoints>(
     endpoint: E,

@@ -46,10 +46,17 @@ type Props = {
 };
 
 abstract class Serializer {
+  protected input: Input;
+  protected props: Props;
+
   constructor(
-    protected input: Input,
-    protected props: Props,
-  ) {}
+    input: Input,
+    props: Props,
+  ) {
+    this.input = input;
+    this.props = props;
+  }
+
   abstract getBody(): BodyInit | null;
   abstract getHeaders(): Record<string, string>;
   serialize(): Serialized {

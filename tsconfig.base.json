@@ -20,7 +20,6 @@
     "target": "es2022",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
-    "forceConsistentCasingInFileNames": true,
-    "erasableSyntaxOnly": true
+    "forceConsistentCasingInFileNames": true
   }
 }

@@ -121,21 +121,30 @@ export function generateInputs(
     inputs[`inputs/${spinalcase(name)}.ts`] =
       [...imports, ...output].join('\n') + '\n';
   }
+
+  const schemas = commonZod
+    .entries()
+    .reduce<string[][]>((acc, [name, schema]) => {
+      const output = [`import { z } from 'zod';`];
+      const content = `export const ${name} = ${schema};`;
+      for (const schema of commonImports) {
+        const preciseMatch = new RegExp(`\\b${schema}\\b`);
+        if (preciseMatch.test(content) && schema !== name) {
+          output.push(
+            `import { ${schema} } from './${spinalcase(schema)}.ts';`,
+          );
+        }
+      }
+
+      output.push(content);
+      return [
+        [`inputs/schemas/${spinalcase(name)}.ts`, output.join('\n')],
+        ...acc,
+      ];
+    }, []);
+
   return {
-    ...Object.fromEntries(
-      commonZod
-        .entries()
-        .map(([name, schema]) => [
-          `inputs/schemas/${spinalcase(name)}.ts`,
-          [
-            `import { z } from 'zod';`,
-            ...exclude(commonImports, [name]).map(
-              (it) => `import { ${it} } from './${spinalcase(it)}.ts';`,
-            ),
-            `export const ${name} = ${schema};`,
-          ].join('\n'),
-        ]),
-    ),
+    ...Object.fromEntries(schemas),
     ...inputs,
   };
 }
