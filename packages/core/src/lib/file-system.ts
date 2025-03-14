@@ -1,3 +1,4 @@
+import type { Dirent } from 'node:fs';
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join } from 'node:path';
 
@@ -25,11 +26,14 @@ export async function writeFiles(
   dir: string,
   contents: Record<
     string,
-    string | { content: string; ignoreIfExists?: boolean }
+    null | string | { content: string; ignoreIfExists?: boolean }
   >,
 ) {
-  return Promise.all(
+  await Promise.all(
     Object.entries(contents).map(async ([file, content]) => {
+      if (content === null) {
+        return;
+      }
       const filePath = isAbsolute(file) ? file : join(dir, file);
       await mkdir(dirname(filePath), { recursive: true });
       if (typeof content === 'string') {
@@ -39,16 +43,25 @@ export async function writeFiles(
           if (!(await exist(filePath))) {
             await writeFile(filePath, content.content, 'utf-8');
           }
+        } else {
+          await writeFile(filePath, content.content, 'utf-8');
         }
       }
     }),
   );
 }
 
-export async function getFolderExports(folder: string, extensions = ['ts']) {
+export async function getFolderExports(
+  folder: string,
+  extensions = ['ts'],
+  ignore: (dirent: Dirent) => boolean = () => false,
+) {
   const files = await readdir(folder, { withFileTypes: true });
   const exports: string[] = [];
   for (const file of files) {
+    if (ignore(file)) {
+      continue;
+    }
     if (file.isDirectory()) {
       exports.push(`export * from './${file.name}/index.ts';`);
     } else if (
