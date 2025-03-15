@@ -226,7 +226,14 @@ export function generateCode(config: GenerateSdkConfig) {
       const output = [`import z from 'zod';`];
       let parser: Parser = 'buffered';
       for (const status in operation.responses) {
-        const response = operation.responses[status] as ResponseObject;
+        const response = isRef(
+          operation.responses[status] as ResponseObject | ReferenceObject,
+        )
+          ? (followRef(
+              config.spec,
+              operation.responses[status].$ref,
+            ) as ResponseObject)
+          : (operation.responses[status] as ResponseObject);
         const statusCode = +status;
         if (statusCode >= 400) {
           errors.push(responses[status] ?? 'ProblematicResponse');
