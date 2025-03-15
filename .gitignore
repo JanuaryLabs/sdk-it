@@ -41,4 +41,4 @@ Thumbs.db
 .nx/cache
 .nx/workspace-data
 .client
-.client-dist
+.client-*
