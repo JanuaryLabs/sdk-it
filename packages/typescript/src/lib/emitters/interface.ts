@@ -306,6 +306,10 @@ export class TypeScriptDeserialzer {
 
     // If no explicit "type", fallback to any
     if (!types.length) {
+      // unless properties are defined then assume object
+      if ('properties' in schema) {
+        return this.object(schema, required);
+      }
       return appendOptional('any', required);
     }
 

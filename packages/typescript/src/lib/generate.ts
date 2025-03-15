@@ -161,6 +161,7 @@ export async function generate(
               target: 'ESNext',
               module: 'ESNext',
               noEmit: true,
+              strict: true,
               allowImportingTsExtensions: true,
               verbatimModuleSyntax: true,
               baseUrl: '.',
