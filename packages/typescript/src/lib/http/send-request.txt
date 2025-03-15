@@ -1,8 +1,3 @@
-import z from 'zod';
-
-import type { Interceptor } from './interceptors.ts';
-import { handleError } from './parse-response.ts';
-import { parse } from './parser.ts';
 
 export interface RequestSchema {
   schema: z.ZodType;

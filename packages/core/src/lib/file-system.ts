@@ -1,6 +1,6 @@
 import type { Dirent } from 'node:fs';
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, join } from 'node:path';
+import { dirname, extname, isAbsolute, join } from 'node:path';
 
 export async function getFile(filePath: string) {
   if (await exist(filePath)) {
@@ -53,6 +53,7 @@ export async function writeFiles(
 
 export async function getFolderExports(
   folder: string,
+  includeExtension = true,
   extensions = ['ts'],
   ignore: (dirent: Dirent) => boolean = () => false,
 ) {
@@ -63,12 +64,16 @@ export async function getFolderExports(
       continue;
     }
     if (file.isDirectory()) {
-      exports.push(`export * from './${file.name}/index.ts';`);
+      exports.push(
+        `export * from './${file.name}/index${includeExtension ? '.ts' : ''}';`,
+      );
     } else if (
       file.name !== 'index.ts' &&
       extensions.includes(getExt(file.name))
     ) {
-      exports.push(`export * from './${file.name}';`);
+      exports.push(
+        `export * from './${includeExtension ? file.name : file.name.replace(extname(file.name), '')}';`,
+      );
     }
   }
   return exports.join('\n');

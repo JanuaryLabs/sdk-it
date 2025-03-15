@@ -67,6 +67,7 @@ export interface GenerateSdkConfig {
     path: string,
     method: string,
   ) => string;
+  makeImport: (module: string) => string;
 }
 
 export const defaults: Partial<GenerateSdkConfig> &
@@ -90,7 +91,7 @@ export function generateCode(config: GenerateSdkConfig) {
     commonZodImports.push({
       defaultImport: undefined,
       isTypeOnly: true,
-      moduleSpecifier: `./${model}.ts`,
+      moduleSpecifier: `./${config.makeImport(model)}`,
       namedImports: [{ isTypeOnly: true, name: model }],
       namespaceImport: undefined,
     });
@@ -254,7 +255,7 @@ export function generateCode(config: GenerateSdkConfig) {
               imports.push({
                 defaultImport: undefined,
                 isTypeOnly: true,
-                moduleSpecifier: `../models/${schemaName}.ts`,
+                moduleSpecifier: `../models/${config.makeImport(schemaName)}`,
                 namedImports: [{ isTypeOnly: true, name: schemaName }],
                 namespaceImport: undefined,
               });

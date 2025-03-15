@@ -56,7 +56,7 @@ node --experimental-strip-types ./openapi.ts
 npx tsx ./openapi.ts
 
 # using bun
-node --experimental-strip-types ./openapi.ts
+bun ./openapi.ts
 ```
 
 - Use the generated SDK
@@ -188,10 +188,7 @@ SDK-IT is evolving to support more languages and frameworks. Here's our current 
 - [ ] Python
 - [ ] Go
 - [ ] Rust
-- [ ] C#
-- [ ] Java
-- [ ] PHP
-- [ ] Ruby
+- ...
 
 ### OpenAPI Generation Framework Support
 
@@ -253,6 +250,7 @@ SDK-IT is organized as a monorepo with multiple packages:
 .
 ├── packages/
 │   ├── core/             # Core functionality and utilities
+│   ├── cli/              # Command-line interface
 │   ├── generic/          # Generic OpenAPI generation
 │   ├── hono/             # Hono OpenAPI generation
 │   └── typescript/       # TypeScript code generation
@@ -261,6 +259,7 @@ SDK-IT is organized as a monorepo with multiple packages:
 Each package serves a specific purpose:
 
 - **core**: Provides fundamental utilities and services used by all other packages
+- **cli**: Command-line interface for SDK-IT
 - **typescript**: Focuses on generating TypeScript code from OpenAPI specifications (primary use case)
 - **generic**: OpenAPI generation using `output` and `validate` constructs.
 - **hono**: OpenAPI generation for the Hono framework

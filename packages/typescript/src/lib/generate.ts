@@ -41,6 +41,7 @@ export async function generate(
   spec: OpenAPIObject,
   settings: {
     output: string;
+    useTsExtension?: boolean;
     name?: string;
     /**
      * full: generate a full project including package.json and tsconfig.json. useful for monorepo/workspaces
@@ -53,10 +54,15 @@ export async function generate(
     }) => void | Promise<void>;
   },
 ) {
+  settings.useTsExtension ??= true;
+  const makeImport = (moduleSpecifier: string) => {
+    return settings.useTsExtension ? `${moduleSpecifier}.ts` : moduleSpecifier;
+  };
   const { commonSchemas, groups, outputs, commonZod } = generateCode({
     spec,
     style: 'github',
     target: 'javascript',
+    makeImport,
   });
   const output =
     settings.mode === 'full' ? join(settings.output, 'src') : settings.output;
@@ -68,13 +74,14 @@ export async function generate(
     operations: groups,
     servers: spec.servers?.map((server) => server.url) || [],
     options: options,
+    makeImport,
   });
 
   // const readme = generateReadme(spec, {
   //   name: settings.name || 'Client',
   // });
 
-  const inputFiles = generateInputs(groups, commonZod);
+  const inputFiles = generateInputs(groups, commonZod, makeImport);
 
   await writeFiles(output, {
     'outputs/.gitkeep': '',
@@ -86,7 +93,11 @@ export async function generate(
   await writeFiles(join(output, 'http'), {
     'interceptors.ts': interceptors,
     'parse-response.ts': parseResponse,
-    'send-request.ts': sendRequest,
+    'send-request.ts': `import z from 'zod';
+import type { Interceptor } from './${makeImport('interceptors')}';
+import { handleError } from './${makeImport('parse-response')}';
+import { parse } from './${makeImport('parser')}';
+${sendRequest}`,
     'response.ts': responseTxt,
     'parser.ts': parserTxt,
     'request.ts': requestTxt,
@@ -112,17 +123,20 @@ export async function generate(
   });
 
   const folders = [
-    getFolderExports(output),
-    getFolderExports(join(output, 'outputs')),
+    getFolderExports(output, settings.useTsExtension),
+    getFolderExports(join(output, 'outputs'), settings.useTsExtension),
     getFolderExports(
       join(output, 'inputs'),
+      settings.useTsExtension,
       ['ts'],
       (dirent) => dirent.isDirectory() && dirent.name === 'schemas',
     ),
-    getFolderExports(join(output, 'http')),
+    getFolderExports(join(output, 'http'), settings.useTsExtension),
   ];
   if (modelsImports.length) {
-    folders.push(getFolderExports(join(output, 'models')));
+    folders.push(
+      getFolderExports(join(output, 'models'), settings.useTsExtension),
+    );
   }
   const [index, outputIndex, inputsIndex, httpIndex, modelsIndex] =
     await Promise.all(folders);

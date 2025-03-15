@@ -138,3 +138,6 @@ export function useImports(content: string, imports: Import[]) {
   }
   return output;
 }
+
+
+export type MakeImportFn = (moduleSpecifier: string) => string;

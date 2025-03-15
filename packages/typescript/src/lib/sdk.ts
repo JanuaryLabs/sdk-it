@@ -3,34 +3,49 @@ import { camelcase, spinalcase } from 'stringcase';
 import { removeDuplicates, toLitObject } from '@sdk-it/core';
 
 import backend from './client.ts';
+import type { MakeImportFn } from './utils.ts';
 
 export type Parser = 'chunked' | 'buffered';
 class SchemaEndpoint {
-  #imports: string[] = [
-    `import z from 'zod';`,
-    'import type { Endpoints } from "./endpoints.ts";',
-    `import { toRequest, json, urlencoded, nobody, formdata, createUrl } from './http/request.ts';`,
-    `import type { ParseError } from './http/parser.ts';`,
-    'import { chunked, buffered } from "./http/parse-response.ts";',
-  ];
+  #makeImport: MakeImportFn;
+  #imports: string[] = [];
+  constructor(makeImport: MakeImportFn) {
+    this.#makeImport = makeImport;
+    this.#imports = [
+      `import z from 'zod';`,
+      `import type { Endpoints } from '${this.#makeImport('./endpoints')}';`,
+      `import { toRequest, json, urlencoded, nobody, formdata, createUrl } from '${this.#makeImport('./http/request')}';`,
+      `import type { ParseError } from '${this.#makeImport('./http/parser')}';`,
+      `import { chunked, buffered } from "${this.#makeImport('./http/parse-response')}";`,
+    ];
+  }
+
   #endpoints: string[] = [];
-  addEndpoint(endpoint: string, operation: any) {
+
+  addEndpoint(endpoint: string, operation: string) {
     this.#endpoints.push(`  "${endpoint}": ${operation},`);
   }
+
   addImport(value: string) {
     this.#imports.push(value);
   }
+
   complete() {
     return `${this.#imports.join('\n')}\nexport default {\n${this.#endpoints.join('\n')}\n}`;
   }
 }
 class Emitter {
-  protected imports: string[] = [
-    `import type z from 'zod';`,
-    `import type { ParseError } from './http/parser.ts';`,
-  ];
+  #makeImport: MakeImportFn;
+  protected imports: string[] = [];
+  constructor(makeImport: MakeImportFn) {
+    this.#makeImport = makeImport;
+    this.imports = [
+      `import type z from 'zod';`,
+      `import type { ParseError } from '${this.#makeImport('./http/parser')}';`,
+    ];
+  }
   protected endpoints: string[] = [];
-  addEndpoint(endpoint: string, operation: any) {
+  addEndpoint(endpoint: string, operation: string) {
     this.endpoints.push(`  "${endpoint}": ${operation};`);
   }
   addImport(value: string) {
@@ -38,11 +53,6 @@ class Emitter {
   }
   complete() {
     return `${this.imports.join('\n')}\nexport interface Endpoints {\n${this.endpoints.join('\n')}\n}`;
-  }
-}
-class StreamEmitter extends Emitter {
-  override complete() {
-    return `${this.imports.join('\n')}\nexport interface StreamEndpoints {\n${this.endpoints.join('\n')}\n}`;
   }
 }
 
@@ -71,6 +81,7 @@ export interface Spec {
   name: string;
   options: Options;
   servers: string[];
+  makeImport: MakeImportFn;
 }
 
 export interface OperationInput {
@@ -92,6 +103,7 @@ export interface Operation {
 export function generateInputs(
   operationsSet: Spec['operations'],
   commonZod: Map<string, string>,
+  makeImport: MakeImportFn,
 ) {
   const commonImports = commonZod.keys().toArray();
   const inputs: Record<string, string> = {};
@@ -113,7 +125,7 @@ export function generateInputs(
       for (const schema of commonImports) {
         if (inputContent.includes(schema)) {
           imports.add(
-            `import { ${schema} } from './schemas/${spinalcase(schema)}.ts';`,
+            `import { ${schema} } from './schemas/${makeImport(spinalcase(schema))}';`,
           );
         }
       }
@@ -132,7 +144,7 @@ export function generateInputs(
         const preciseMatch = new RegExp(`\\b${schema}\\b`);
         if (preciseMatch.test(content) && schema !== name) {
           output.push(
-            `import { ${schema} } from './${spinalcase(schema)}.ts';`,
+            `import { ${schema} } from './${makeImport(spinalcase(schema))}';`,
           );
         }
       }
@@ -151,15 +163,15 @@ export function generateInputs(
 }
 
 export function generateSDK(spec: Spec) {
-  const emitter = new Emitter();
-  const schemaEndpoint = new SchemaEndpoint();
+  const emitter = new Emitter(spec.makeImport);
+  const schemaEndpoint = new SchemaEndpoint(spec.makeImport);
   const errors: string[] = [];
   for (const [name, operations] of Object.entries(spec.operations)) {
     emitter.addImport(
-      `import type * as ${camelcase(name)} from './inputs/${spinalcase(name)}.ts';`,
+      `import type * as ${camelcase(name)} from './inputs/${spec.makeImport(spinalcase(name))}';`,
     );
     schemaEndpoint.addImport(
-      `import * as ${camelcase(name)} from './inputs/${spinalcase(name)}.ts';`,
+      `import * as ${camelcase(name)} from './inputs/${spec.makeImport(spinalcase(name))}';`,
     );
     for (const operation of operations) {
       const schemaName = camelcase(`${operation.name} schema`);
@@ -190,7 +202,7 @@ export function generateSDK(spec: Spec) {
         }
       }
       emitter.addImport(
-        `import type {${output.import}} from './outputs/${spinalcase(operation.name)}.ts';`,
+        `import type {${output.import}} from './outputs/${spec.makeImport(spinalcase(operation.name))}';`,
       );
       errors.push(...(operation.errors ?? []));
 
@@ -228,7 +240,7 @@ export function generateSDK(spec: Spec) {
   }
 
   emitter.addImport(
-    `import type { ${removeDuplicates(errors, (it) => it).join(', ')} } from './http/response.ts';`,
+    `import type { ${removeDuplicates(errors, (it) => it).join(', ')} } from '${spec.makeImport('./http/response')}';`,
   );
   return {
     'client.ts': backend(spec),

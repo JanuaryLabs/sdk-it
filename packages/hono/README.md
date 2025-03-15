@@ -197,7 +197,7 @@ node --experimental-strip-types ./openapi.ts
 npx tsx ./openapi.ts
 
 # using bun
-node --experimental-strip-types ./openapi.ts
+bun ./openapi.ts
 ```
 
 > [!TIP]

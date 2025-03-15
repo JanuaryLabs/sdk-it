@@ -35,14 +35,14 @@ export default (spec: Spec) => {
   };
 
   return `
-import { fetchType, sendRequest } from './http/send-request.ts';
+import { fetchType, sendRequest } from './http/${spec.makeImport('send-request')}';
 import z from 'zod';
-import type { Endpoints } from './endpoints.ts';
-import schemas from './schemas.ts';
+import type { Endpoints } from './${spec.makeImport('endpoints')}';
+import schemas from './${spec.makeImport('schemas')}';
 import {
   createBaseUrlInterceptor,
   createDefaultHeadersInterceptor,
-} from './http/interceptors.ts';
+} from './http/${spec.makeImport('interceptors')}';
 
 ${spec.servers.length ? `export const servers = ${JSON.stringify(spec.servers, null, 2)} as const` : ''}
 const optionsSchema = z.object(${toLitObject(specOptions, (x) => x.schema)});

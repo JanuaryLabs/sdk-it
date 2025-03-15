@@ -12,6 +12,7 @@ interface Options {
   language: string;
   mode?: 'full' | 'minimal';
   name?: string;
+  useTsExtension: boolean;
   /**
    * Command to run the formatter.
    * @example 'biome check $SDK_IT_OUTPUT --write'
@@ -73,6 +74,12 @@ export default new Command('generate')
   .description(`Generate SDK out of a openapi spec file.`)
   .addOption(specOption.makeOptionMandatory(true))
   .addOption(outputOption.makeOptionMandatory(true))
+  .option(
+    '--useTsExtension [value]',
+    'Use .ts extension for generated files',
+    (value) => (value === 'false' ? false : true),
+    true,
+  )
   .option('-l, --language <language>', 'Programming language for the SDK')
   .option(
     '-m, --mode <mode>',
@@ -86,6 +93,7 @@ export default new Command('generate')
       output: options.output,
       mode: options.mode || 'minimal',
       name: options.name,
+      useTsExtension: options.useTsExtension,
       formatCode: ({ env, output }) => {
         if (options.formatter) {
           const [command, ...args] = options.formatter.split(' ');
