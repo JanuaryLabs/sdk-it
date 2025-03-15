@@ -6,7 +6,7 @@ import { parse } from './parser.ts';
 
 export interface RequestSchema {
   schema: z.ZodType;
-  toRequest: (input: unknown) => Request;
+  toRequest: (input: any) => Request;
   deserializer: (response: Response) => Promise<unknown> | unknown;
 }
 

@@ -108,7 +108,11 @@ export const createDetailedLogInterceptor = (options?: {
             console[logLevel]('Response Body:', body);
           } else {
             const body = await clonedResponse.text().catch(() => null);
-            console[logLevel]('Response Body:', body.substring(0, 500) + (body.length > 500 ? '...' : ''));
+            if (body) {
+              console[logLevel]('Response Body:', body.substring(0, 500) + (body.length > 500 ? '...' : ''));
+            } else {
+              console[logLevel]('No response body');
+            }
           }
         } catch (error) {
           console.error('Could not log response body:', error);

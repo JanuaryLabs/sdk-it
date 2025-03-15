@@ -86,19 +86,30 @@ export class ZodDeserialzer {
   // oneOf() {}
   // enum() {}
 
+  #suffixes = (defaultValue: unknown, required: boolean, nullable: boolean) => {
+    return `${nullable ? '.nullable()' : ''}${appendOptional(required)}${appendDefault(defaultValue)}`;
+  };
+
   /**
    * Convert a basic type (string | number | boolean | object | array, etc.) to Zod.
    * We'll also handle .optional() if needed.
    */
-  normal(type: string, schema: SchemaObject, required = false) {
+  normal(
+    type: string,
+    schema: SchemaObject,
+    required = false,
+    nullable = false,
+  ): string {
     switch (type) {
       case 'string':
-        return this.string(schema, required);
+        return `${this.string(schema)}${this.#suffixes(schema.default, required, nullable)}`;
       case 'number':
-      case 'integer':
-        return this.number(schema, required);
+      case 'integer': {
+        const { base, defaultValue } = this.number(schema);
+        return `${base}${this.#suffixes(defaultValue, required, nullable)}`;
+      }
       case 'boolean':
-        return `z.boolean()${appendDefault(schema.default)}${appendOptional(required)}`;
+        return `z.boolean()${this.#suffixes(schema.default, required, nullable)}`;
       case 'object':
         return this.object(schema, required);
       case 'array':
@@ -185,7 +196,7 @@ export class ZodDeserialzer {
   /**
    * Handle a `string` schema with possible format keywords (JSON Schema).
    */
-  string(schema: SchemaObject, required?: boolean): string {
+  string(schema: SchemaObject): string {
     let base = 'z.string()';
 
     // 3.1 replaces `example` in the schema with `examples` (array).
@@ -238,7 +249,7 @@ export class ZodDeserialzer {
         break;
     }
 
-    return `${base}${appendDefault(schema.default)}${appendOptional(required)}`;
+    return base;
   }
 
   /**
@@ -246,14 +257,13 @@ export class ZodDeserialzer {
    * In 3.1, exclusiveMinimum/Maximum hold the actual numeric threshold,
    * rather than a boolean toggling `minimum`/`maximum`.
    */
-  number(schema: SchemaObject, required?: boolean): string {
-    let defaultValue =
-      schema.default !== undefined ? `.default(${schema.default})` : ``;
+  number(schema: SchemaObject) {
+    let defaultValue = schema.default;
     let base = 'z.number()';
     if (schema.format === 'int64') {
       base = 'z.bigint()';
       if (schema.default !== undefined) {
-        defaultValue = `.default(BigInt(${schema.default}))`;
+        defaultValue = `BigInt(${schema.default})`;
       }
     }
 
@@ -295,7 +305,7 @@ export class ZodDeserialzer {
       base += `.refine((val) => Number.isInteger(val / ${schema.multipleOf}), "Must be a multiple of ${schema.multipleOf}")`;
     }
 
-    return `${base}${defaultValue}${appendOptional(required)}`;
+    return { base, defaultValue };
   }
 
   handle(schema: SchemaObject | ReferenceObject, required: boolean): string {
@@ -338,19 +348,24 @@ export class ZodDeserialzer {
 
     // If it's a union type (like ["string", "null"]), we'll build a Zod union
     // or apply .nullable() if it's just "type + null".
+
+    // backward compatibility with openapi 3.0
+    if ('nullable' in schema && schema.nullable) {
+      types.push('null');
+    }
+
     if (types.length > 1) {
       // If it’s exactly one real type plus "null", we can do e.g. `z.string().nullable()`
       const realTypes = types.filter((t) => t !== 'null');
       if (realTypes.length === 1 && types.includes('null')) {
         // Single real type + "null"
-        const typeZod = this.normal(realTypes[0], schema, false);
-        return `${typeZod}.nullable()${appendOptional(required)}`;
+        return this.normal(realTypes[0], schema, false, true);
       }
       // If multiple different types, build a union
       const subSchemas = types.map((t) => this.normal(t, schema, false));
       return `z.union([${subSchemas.join(', ')}])${appendOptional(required)}`;
     }
-    return this.normal(types[0], schema, required);
+    return this.normal(types[0], schema, required, false);
   }
 }
 
