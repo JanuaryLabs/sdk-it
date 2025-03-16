@@ -3,12 +3,26 @@ export interface Interceptor {
   after?: (response: Response) => Promise<Response> | Response;
 }
 
-export const createDefaultHeadersInterceptor = (
-  getHeaders: () => Record<string, string | undefined>,
+export const createHeadersInterceptor = (
+  defaultHeaders: () => Record<string, string | undefined>,
+  requestHeaders: HeadersInit,
 ) => {
   return {
     before(request: Request) {
-      const headers = getHeaders();
+      // Priority Levels
+      // 1. Headers Input
+      // 2. Request Headers
+      // 3. Default Headers
+      const headers = defaultHeaders();
+
+      for (const [key, value] of new Headers(requestHeaders)) {
+        // Only set the header if it doesn't already exist and has a value
+        // even though these headers are passed at operation level
+        // still they are lower priority compared to the headers input
+        if (value !== undefined && !request.headers.has(key)) {
+          request.headers.set(key, value);
+        }
+      }
 
       for (const [key, value] of Object.entries(headers)) {
         // Only set the header if it doesn't already exist and has a value

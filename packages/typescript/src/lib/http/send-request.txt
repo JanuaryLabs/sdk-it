@@ -17,6 +17,7 @@ export async function sendRequest(
   options: {
     fetch?: z.infer<typeof fetchType>;
     interceptors?: Interceptor[];
+    signal?: AbortSignal;
   },
 ) {
   const { interceptors = [] } = options;
@@ -32,7 +33,7 @@ export async function sendRequest(
     }
   }
 
-  let response = await (options.fetch ?? fetch)(request);
+  let response = await (options.fetch ?? fetch)(request, { signal: options.signal });
 
   for (let i = interceptors.length - 1; i >= 0; i--) {
     const interceptor = interceptors[i];

@@ -4,7 +4,7 @@
 
 This package provides tools to analyze TypeScript code and generate OpenAPI specifications from it. It can extract route information, parameter types, and response schemas from your TypeScript codebase.
 
-## Integration with Other Frameworks
+## Frameworks specific integrations
 
 - [hono](../hono/README.md)
 
@@ -39,9 +39,9 @@ app.get(
       against: z.string(),
     },
   })),
-  async (c) => {
+  async (req, res) => {
     const author = [{ name: 'John Doe' }];
-    return c.json(author);
+    return res.json(author);
   },
 );
 ```

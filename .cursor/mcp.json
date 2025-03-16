@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "nx-mcp": {
+      "url": "http://localhost:9676/sse"
+    },
+    "fetch": {
+      "command": "uvx",
+      "args": ["mcp-server-fetch"]
+    }
+  }
+}

@@ -41,7 +41,7 @@ import type { Endpoints } from './${spec.makeImport('endpoints')}';
 import schemas from './${spec.makeImport('schemas')}';
 import {
   createBaseUrlInterceptor,
-  createDefaultHeadersInterceptor,
+  createHeadersInterceptor,
 } from './http/${spec.makeImport('interceptors')}';
 
 ${spec.servers.length ? `export const servers = ${JSON.stringify(spec.servers, null, 2)} as const` : ''}
@@ -59,14 +59,16 @@ export class ${spec.name} {
   async request<E extends keyof Endpoints>(
     endpoint: E,
     input: Endpoints[E]['input'],
+    options?: { signal?: AbortSignal, headers?: HeadersInit },
   ): Promise<readonly [Endpoints[E]['output'], Endpoints[E]['error'] | null]> {
     const route = schemas[endpoint];
     return sendRequest(Object.assign(this.#defaultInputs, input), route, {
       fetch: this.options.fetch,
       interceptors: [
-        createDefaultHeadersInterceptor(() => this.defaultHeaders),
+        createHeadersInterceptor(() => this.defaultHeaders, options?.headers ?? {}),
         createBaseUrlInterceptor(() => this.options.baseUrl),
       ],
+      signal: options?.signal,
     });
   }
 

@@ -2,6 +2,9 @@
 
 This integration builds on Angular's [`resource`](https://angular.dev/guide/signals/resource) function for fetching data and simple wrapper for submitting data to the server.
 
+> ![IMPORTANT]
+> When generating the client SDK within your Angular project or workspace, ensure you include the `--useTsExtension=false` flag.
+
 ---
 
 Copy the following code into your project.
@@ -38,21 +41,24 @@ type MutationEndpoints = {
 
 export function useData<E extends DataEndpoints>(
   endpoint: E,
-  input?: Endpoints[E]['input'] | Signal<Endpoints[E]['input']>,
+  input?: Endpoints[E]['input'] | Signal<Endpoints[E]['input'] | undefined>,
   options?: Omit<
     PromiseResourceOptions<
       readonly [Endpoints[E]['output'], Endpoints[E]['error'] | null],
       typeof input
     >,
     'request' | 'loader' | 'stream'
-  >,
+  > & { headers?: HeadersInit },
 ) {
   return resource({
     ...options,
     request: isSignal(input) ? () => input() : () => input,
     loader: async ({ abortSignal, previous, request }) => {
       const input = isSignal(request) ? request() : (request ?? ({} as never));
-      return client.request(endpoint, input ?? ({} as never));
+      return client.request(endpoint, input ?? ({} as never), {
+        signal: abortSignal,
+        headers: options?.headers,
+      });
     },
   });
 }
