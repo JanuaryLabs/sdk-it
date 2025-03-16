@@ -15,7 +15,7 @@ npx @sdk-it/cli@latest \
 ```ts
 import { Figma } from './figma';
 
-const client = new Figma({
+const figma = new Figma({
   baseUrl: 'https://api.figma.com/v1',
   token: process.env.FIGMA_ACCESS_TOKEN,
 });
@@ -24,7 +24,7 @@ const client = new Figma({
 ### Get File Information
 
 ```ts
-const [result, error] = await client.request('GET /files/{file_key}', {
+const [result, error] = await figma.request('GET /files/{file_key}', {
   file_key: 'your-file-key',
 });
 
@@ -41,7 +41,7 @@ if (!error) {
 ### Get File Comments
 
 ```ts
-const [result, error] = await client.request('GET /files/{file_key}/comments', {
+const [result, error] = await figma.request('GET /files/{file_key}/comments', {
   file_key: 'your-file-key',
 });
 
@@ -58,7 +58,7 @@ if (!error) {
 ### Get Component Sets
 
 ```ts
-const [result, error] = await client.request(
+const [result, error] = await figma.request(
   'GET /files/{file_key}/component_sets',
   {
     file_key: 'your-file-key',
@@ -79,7 +79,7 @@ if (!error) {
 ### Get Style References
 
 ```ts
-const [result, error] = await client.request('GET /files/{file_key}/styles', {
+const [result, error] = await figma.request('GET /files/{file_key}/styles', {
   file_key: 'your-file-key',
 });
 
@@ -97,7 +97,7 @@ if (!error) {
 ### Post a Comment
 
 ```ts
-const [result, error] = await client.request(
+const [result, error] = await figma.request(
   'POST /files/{file_key}/comments',
   {
     file_key: 'your-file-key',

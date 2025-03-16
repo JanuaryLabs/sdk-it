@@ -17,10 +17,10 @@ import Modem from 'docker-modem';
 import { IncomingMessage } from 'node:http';
 import { Readable } from 'node:stream';
 
-import { Client } from './dockerengine';
+import { DockerEngine } from './dockerengine';
 
 const modem = new Modem();
-const client = new Client({
+const docker = new DockerEngine({
   baseUrl: 'http://localhost',
   fetch: (request) => {
     const url = new URL(request.url);
@@ -60,7 +60,7 @@ const client = new Client({
 ### Get Version
 
 ```ts
-const [result, error] = await client.request('GET /version', {});
+const [result, error] = await docker.request('GET /version', {});
 if (!error) {
   console.log(result);
 } else {
@@ -71,7 +71,7 @@ if (!error) {
 ### Stream logs from a container
 
 ```ts
-const [result, error] = await client.request('GET /containers/{id}/logs', {
+const [result, error] = await docker.request('GET /containers/{id}/logs', {
   id: '1daf90ceeee2',
   follow: true,
   stdout: true,
@@ -88,7 +88,7 @@ if (!error) {
 ### Demux container logs
 
 ```ts
-const [result, error] = await client.request('GET /containers/{id}/logs', {
+const [result, error] = await docker.request('GET /containers/{id}/logs', {
   id: '3b85714a4095',
   follow: true,
   stdout: true,

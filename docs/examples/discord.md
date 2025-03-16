@@ -15,7 +15,7 @@ npx @sdk-it/cli@latest \
 ```ts
 import { Discord } from './discord';
 
-const client = new Discord({
+const discord = new Discord({
   baseUrl: 'https://discord.com/api/v10',
   Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
 });
@@ -24,7 +24,7 @@ const client = new Discord({
 ### Get Current Bot User
 
 ```ts
-const [result, error] = await client.request('GET /users/@me', {});
+const [result, error] = await discord.request('GET /users/@me', {});
 
 if (!error) {
   console.log(`Bot User: ${result.username}#${result.discriminator}`);
@@ -38,7 +38,7 @@ if (!error) {
 ### Get Guild Information
 
 ```ts
-const [result, error] = await client.request('GET /guilds/{guild_id}', {
+const [result, error] = await discord.request('GET /guilds/{guild_id}', {
   guild_id: '123456789012345678',
 });
 
@@ -55,7 +55,7 @@ if (!error) {
 ### Get Guild Channels
 
 ```ts
-const [result, error] = await client.request(
+const [result, error] = await discord.request(
   'GET /guilds/{guild_id}/channels',
   {
     guild_id: '123456789012345678',
@@ -75,7 +75,7 @@ if (!error) {
 ### Send Message to Channel
 
 ```ts
-const [result, error] = await client.request(
+const [result, error] = await discord.request(
   'POST /channels/{channel_id}/messages',
   {
     channel_id: '123456789012345678',
@@ -108,7 +108,7 @@ if (!error) {
 ### Create Channel Invite
 
 ```ts
-const [result, error] = await client.request(
+const [result, error] = await discord.request(
   'POST /channels/{channel_id}/invites',
   {
     channel_id: '123456789012345678',
@@ -131,7 +131,7 @@ if (!error) {
 ### Edit Guild Role
 
 ```ts
-const [result, error] = await client.request(
+const [result, error] = await discord.request(
   'PATCH /guilds/{guild_id}/roles/{role_id}',
   {
     guild_id: '123456789012345678',

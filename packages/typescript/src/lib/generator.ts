@@ -100,7 +100,9 @@ export function generateCode(config: GenerateSdkConfig) {
   const groups: Spec['operations'] = {};
   const outputs: Record<string, string> = {};
 
-  for (const [path, methods] of Object.entries(config.spec.paths ?? {})) {
+  for (const [path, pathItem] of Object.entries(config.spec.paths ?? {})) {
+    const { parameters = [], ...methods } = pathItem;
+
     for (const [method, operation] of Object.entries(methods) as [
       string,
       OperationObject,
@@ -116,7 +118,7 @@ export function generateCode(config: GenerateSdkConfig) {
       const inputs: Operation['inputs'] = {};
 
       const additionalProperties: ParameterObject[] = [];
-      for (const param of operation.parameters ?? []) {
+      for (const param of [...parameters, ...(operation.parameters ?? [])]) {
         if (isRef(param)) {
           throw new Error(`Found reference in parameter ${param.$ref}`);
         }
