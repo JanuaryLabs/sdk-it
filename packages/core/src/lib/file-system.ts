@@ -64,9 +64,11 @@ export async function getFolderExports(
       continue;
     }
     if (file.isDirectory()) {
-      exports.push(
-        `export * from './${file.name}/index${includeExtension ? '.ts' : ''}';`,
-      );
+      if (await exist(`${file.parentPath}/${file.name}/index.ts`)) {
+        exports.push(
+          `export * from './${file.name}/index${includeExtension ? '.ts' : ''}';`,
+        );
+      }
     } else if (
       file.name !== 'index.ts' &&
       extensions.includes(getExt(file.name))

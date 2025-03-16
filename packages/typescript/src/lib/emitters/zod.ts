@@ -102,7 +102,7 @@ export class ZodDeserialzer {
   ): string {
     switch (type) {
       case 'string':
-        return `${this.string(schema)}${this.#suffixes(schema.default, required, nullable)}`;
+        return `${this.string(schema)}${this.#suffixes(JSON.stringify(schema.default), required, nullable)}`;
       case 'number':
       case 'integer': {
         const { base, defaultValue } = this.number(schema);
@@ -376,9 +376,7 @@ function appendOptional(isRequired?: boolean) {
   return isRequired ? '' : '.optional()';
 }
 function appendDefault(defaultValue?: any) {
-  return defaultValue !== undefined
-    ? `.default(${JSON.stringify(defaultValue)})`
-    : '';
+  return defaultValue !== undefined ? `.default(${defaultValue})` : '';
 }
 
 // Todo: convert openapi 3.0 to 3.1 before proccesing
