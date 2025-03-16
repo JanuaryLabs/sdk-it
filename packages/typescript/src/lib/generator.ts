@@ -131,9 +131,9 @@ export function generateCode(config: GenerateSdkConfig) {
       }
 
       const security = operation.security ?? [];
-      const securitySchemas = config.spec.components?.securitySchemes ?? {};
+      const securitySchemes = config.spec.components?.securitySchemes ?? {};
 
-      const securityOptions = securityToOptions(security, securitySchemas);
+      const securityOptions = securityToOptions(security, securitySchemes);
 
       Object.assign(inputs, securityOptions);
 

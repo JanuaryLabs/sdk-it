@@ -17,10 +17,10 @@ import { exclude, securityToOptions } from './utils.ts';
 function security(spec: OpenAPIObject) {
   const security = spec.security || [];
   const components = spec.components || {};
-  const securitySchemas = components.securitySchemes || {};
+  const securitySchemes = components.securitySchemes || {};
   const paths = Object.values(spec.paths ?? {});
 
-  const options = securityToOptions(security, securitySchemas);
+  const options = securityToOptions(security, securitySchemes);
 
   for (const it of paths) {
     for (const method of methods) {
@@ -30,7 +30,7 @@ function security(spec: OpenAPIObject) {
       }
       Object.assign(
         options,
-        securityToOptions(operation.security || [], securitySchemas, 'input'),
+        securityToOptions(operation.security || [], securitySchemes, 'input'),
       );
     }
   }

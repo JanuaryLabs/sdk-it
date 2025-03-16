@@ -12,7 +12,7 @@ import { removeDuplicates } from '@sdk-it/core';
 import { type Options } from './sdk.ts';
 
 export function isRef(obj: any): obj is ReferenceObject {
-  return '$ref' in obj;
+  return obj && '$ref' in obj;
 }
 
 export function cleanRef(ref: string) {
@@ -34,14 +34,18 @@ export function followRef(spec: OpenAPIObject, ref: string): SchemaObject {
 }
 export function securityToOptions(
   security: SecurityRequirementObject[],
-  securitySchemas: ComponentsObject['securitySchemes'],
+  securitySchemes: ComponentsObject['securitySchemes'],
   staticIn?: string,
 ) {
-  securitySchemas ??= {};
+  securitySchemes ??= {};
   const options: Options = {};
   for (const it of security) {
     const [name] = Object.keys(it);
-    const schema = securitySchemas[name];
+    if (!name) {
+      // this means the operation doesn't necessarily require security
+      continue;
+    }
+    const schema = securitySchemes[name];
     if (isRef(schema)) {
       throw new Error(`Ref security schemas are not supported`);
     }
