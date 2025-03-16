@@ -14,9 +14,10 @@ npx @sdk-it/cli@latest \
 
 ```ts
 import Modem from 'docker-modem';
-import { Client } from './dockerengine';
 import { IncomingMessage } from 'node:http';
 import { Readable } from 'node:stream';
+
+import { Client } from './dockerengine';
 
 const modem = new Modem();
 const client = new Client({

@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { execSync } from 'child_process';
-import { extname, join } from 'path';
+import { join } from 'path';
 
 function runCommand(title: string, command: string) {
   const width = process.stdout.columns || 80;
@@ -23,58 +23,61 @@ function runCommand(title: string, command: string) {
 }
 
 const specs = [
-  'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-  'https://raw.githubusercontent.com/figma/rest-api-spec/refs/heads/main/openapi/openapi.yaml',
+  {
+    spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
+    name: 'openai',
+  },
+  {
+    spec: 'https://raw.githubusercontent.com/figma/rest-api-spec/refs/heads/main/openapi/openapi.yaml',
+    name: 'figma',
+  },
+  { spec: 'https://docs.hetzner.cloud/spec.json', name: 'hetzner' },
 ];
 
-for (const spec of specs) {
+for (const { spec, name } of specs) {
   console.log('\n' + chalk.magenta('='.repeat(80)));
   console.log(chalk.magenta.bold(`RUNNING TEST SUITE FOR: ${spec}`));
   console.log(chalk.magenta('='.repeat(80)) + '\n');
 
   const nodeExec = 'node --experimental-strip-types';
   const cliPath = './packages/cli/src/index.ts';
-  const sdkInput = spec;
-  const [testName] = spec
-    .split('https://raw.githubusercontent.com/')[1]
-    .split('/');
 
-  const sdkOutput = `./.client-${testName}`;
+  const sdkOutput = `./.client-${name}`;
   const sdkFlags = [
-    `-s ${sdkInput}`,
+    `-s ${spec}`,
     `-o ${sdkOutput}`,
     '--formatter "prettier $SDK_IT_OUTPUT --write"',
-    `--name ${testName.replace(extname(testName), '')}`,
+    `--name ${name}`,
     '--mode full',
   ];
 
   // Generate SDK
   runCommand(
-    `GENERATING SDK: ${testName}`,
+    `GENERATING SDK: ${name}`,
     `${nodeExec} ${cliPath} ${sdkFlags.join(' ')}`,
   );
 
   // Run type checking with Node environment
   runCommand(
-    `TYPE CHECKING: ${testName}`,
+    `TYPE CHECKING: ${name}`,
     `./node_modules/.bin/tsc -p ${sdkOutput}/tsconfig.json`,
   );
 
   // Test with Bun runtime
   runCommand(
-    `TESTING WITH BUN RUNTIME: ${testName}`,
+    `TESTING WITH BUN RUNTIME: ${name}`,
     `bun ${join(sdkOutput, 'src/index.ts')}`,
   );
 
   // Test with Node runtime
   runCommand(
-    `TESTING WITH NODE RUNTIME: ${testName}`,
+    `TESTING WITH NODE RUNTIME: ${name}`,
     `${nodeExec} ${join(sdkOutput, 'src/index.ts')}`,
   );
 
   // Test browser compatibility by type checking with DOM lib
   runCommand(
-    `TYPE CHECKING WITH DOM LIB: ${testName}`,
+    `TYPE CHECKING WITH DOM LIB: ${name}`,
     `./node_modules/.bin/tsc -p ${sdkOutput}/tsconfig.json --lib ES2022,DOM,DOM.Iterable --skipLibCheck`,
   );
 }

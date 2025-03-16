@@ -91,6 +91,7 @@ This route will be correctly inferred because it uses the validate middleware an
 - [Docker Engine](./docs/examples/docker-engine.md)
 - [OpenAI](./docs/examples/openai.md)
 - [Figma](./docs/examples/figma.md)
+- [Hetzner Cloud](./docs/examples/hetzner.md)
 
 ## Roadmap
 
