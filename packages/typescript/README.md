@@ -37,14 +37,14 @@ await generate(spec, {
 import { generate } from '@sdk-it/typescript';
 
 // Fetch remote OpenAPI specification
-const spec = await fetch('https://petstore.swagger.io/v2/swagger.json').then(
-  (res) => res.json(),
+const spec = await fetch('https://api.openstatus.dev/v1/openapi').then((res) =>
+  res.json(),
 );
 
 // Generate client SDK
 await generate(spec, {
   output: './client',
-  name: 'PetStore',
+  name: 'OpenStatus',
 });
 ```
 
@@ -66,4 +66,29 @@ await generate(spec, {
     execFile('prettier', [output, '--write'], { env: env });
   },
 });
+```
+
+### Run the script
+
+```bash
+# using recent versions of node
+node --experimental-strip-types ./openapi.ts
+
+# using node < 22
+npx tsx ./openapi.ts
+
+# using bun
+bun ./openapi.ts
+```
+
+- Use the generated SDK
+
+```typescript
+import { OpenStatus } from './client';
+
+const client = new Client({
+  baseUrl: 'https://api.openstatus.dev/v1/',
+});
+
+const [result, error] = await client.request('GET /status_report', {});
 ```

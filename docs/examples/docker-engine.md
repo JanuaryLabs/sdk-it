@@ -1,10 +1,20 @@
-### Integration with Docker Engine API
+## Build Docker Engine SDK
 
-### Create a client
+### Generate SDK
+
+```bash
+npx @sdk-it/cli@latest \
+  --spec https://docs.docker.com/reference/api/engine/version/v1.48.yaml \
+  --output ./dockerengine \
+  --name DockerEngine \
+  --mode full
+```
+
+### Create and configure Client
 
 ```ts
 import Modem from 'docker-modem';
-import { Client } from 'dockerengine';
+import { Client } from './dockerengine';
 import { IncomingMessage } from 'node:http';
 import { Readable } from 'node:stream';
 
@@ -46,7 +56,7 @@ const client = new Client({
 });
 ```
 
-#### Get Version
+### Get Version
 
 ```ts
 const [result, error] = await client.request('GET /version', {});
@@ -57,7 +67,7 @@ if (!error) {
 }
 ```
 
-#### Stream logs from a container
+### Stream logs from a container
 
 ```ts
 const [result, error] = await client.request('GET /containers/{id}/logs', {
@@ -71,12 +81,10 @@ if (!error) {
   for await (const chunk of result) {
     console.log(decoder.decode(chunk as Uint8Array));
   }
-} else {
-  console.error(error);
 }
 ```
 
-#### Demux container logs
+### Demux container logs
 
 ```ts
 const [result, error] = await client.request('GET /containers/{id}/logs', {

@@ -23,7 +23,7 @@ Consider the following example:
 ```typescript
 import z from 'zod';
 
-import { validate } from '@sdk-it/express';
+import { validate } from '@sdk-it/express/runtime';
 
 const app = express();
 

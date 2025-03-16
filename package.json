@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node --experimental-strip-types ./e2e/index.ts"
   },
+  "repository": "https://github.com/JanuaryLabs/sdk-it",
   "private": true,
   "devDependencies": {
     "@eslint/js": "^9.8.0",

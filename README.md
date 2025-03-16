@@ -1,6 +1,6 @@
 # SDK-IT
 
-<div align="center">
+<div align="center" style="text-align: center;">
 
 SDK-IT generates type-safe client SDKs from OpenAPI specifications and creates OpenAPI specs from TypeScript code.
 
@@ -16,101 +16,33 @@ Also
 
 3. TypeScript RPC Client From OpenAPI specifications. (WIP)
 
-## Installation
-
-```bash
-# For SDK generation from OpenAPI
-npm install @sdk-it/typescript
-
-# For framework-specific OpenAPI generation
-npm install @sdk-it/hono
-
-# For any sdk-it powered framework
-npm install @sdk-it/generic
-```
-
 ## Quick Start
 
 - Generate an SDK from an OpenAPI specification
 
-<small>filename: openapi.ts</small>
-
-```typescript
-import { generate } from '@sdk-it/typescript';
-
-import spec from './openapi.json';
-
-await generate(spec, {
-  output: './client',
-  name: 'MyAPI',
-});
-```
-
-- Run the script
-
 ```bash
-# using recent versions of node
-node --experimental-strip-types ./openapi.ts
-
-# using node < 22
-npx tsx ./openapi.ts
-
-# using bun
-bun ./openapi.ts
+npx @sdk-it/cli@latest \
+  --spec https://api.openstatus.dev/v1/openapi \
+  --output ./client \
+  --name OpenStatus \
+  --mode full
 ```
 
 - Use the generated SDK
 
 ```typescript
-import { MyAPI } from './client';
+import { OpenStatus } from './client';
 
-const client = new MyAPI({
-  baseUrl: 'https://api.example.com/v1',
-});
-
-const [result, error] = await client.request('GET /books', {
-  authors: [1, 10],
-});
-```
-
-## SDK Generation
-
-### Generating an SDK from an OpenAPI Specification
-
-The most common use case is generating a TypeScript SDK from an OpenAPI specification:
-
-```typescript
-import { generate } from '@sdk-it/typescript';
-
-// Load your OpenAPI specification
-import spec from './openapi.json';
-
-// Generate the SDK
-await generate(spec, {
-  output: './client',
-  name: 'Client',
-});
-```
-
-### Using the Generated SDK
-
-Once generated, you can use the SDK in your application:
-
-```typescript
-import { Client } from './client';
-
-// Create a client instance
 const client = new Client({
-  baseUrl: 'https://api.example.com/v1',
+  baseUrl: 'https://api.openstatus.dev/v1/',
 });
 
-// Call API methods with type safety
-const [result, error] = await client.request('GET /books', {
-  authors: [1, 10],
-});
+const [result, error] = await client.request('GET /status_report', {});
 ```
 
-## OpenAPI Generation
+Violla!
+
+![demo](./demo.png)
 
 ### 2. OpenAPI Generation from TypeScript
 
@@ -121,8 +53,6 @@ With the right framework integration, SDK-IT can statically examine your codebas
 - Requires little to no additional configuration or annotations; depends on your code structure and naming conventions
 
 The result is accurate OpenAPI documentation that stays in sync with your code.
-
-- API Routes
 
 ```typescript
 import { validate } from '@sdk-it/hono/runtime';
@@ -148,34 +78,19 @@ app.get(
 );
 ```
 
-This route will be correctly inferred because it uses the validate middleware.
+This route will be correctly inferred because it uses the validate middleware and has an `@openapi` tag.
 
-- Analyze adapter
+[Supported frameworks](#OpenAPI-Generation-Framework-Support)
 
-```typescript
-import { join } from 'node:path';
+## Guides
 
-import { analyze } from '@sdk-it/generic';
-import { responseAnalyzer } from '@sdk-it/hono';
-import { generate } from '@sdk-it/typescript';
+- [Monorepos](./docs/monorepos.md)
 
-const { paths, components } = await analyze('apps/backend/tsconfig.app.json', {
-  responseAnalyzer,
-});
+## Examples
 
-// Now you can use the generated specification to create an SDK or save it to a file
-const spec = {
-  info: {
-    title: 'My API',
-    version: '1.0.0',
-  },
-  paths,
-  components,
-};
-await generate(spec, {
-  output: join(process.cwd(), './client'),
-});
-```
+- [Docker Engine](./docs/examples/docker-engine.md)
+- [OpenAI](./docs/examples/openai.md)
+- [Figma](./docs/examples/figma.md)
 
 ## Roadmap
 
@@ -190,6 +105,11 @@ SDK-IT is evolving to support more languages and frameworks. Here's our current 
 - [ ] Rust
 - ...
 
+### Frontend Framework Integration
+
+- [x] [React Query](./docs/react-query.md)
+- [x] [Angular](./docs/angular.md)
+
 ### OpenAPI Generation Framework Support
 
 - [x] [Generic HTTP primitives](./packages/generic/README.md)
@@ -199,48 +119,7 @@ SDK-IT is evolving to support more languages and frameworks. Here's our current 
 - [ ] Koa.js
 - [ ] Next.js
 
-### Frontend Framework Integration
-
-- [x] [React Query](./docs/react-query.md)
-- [x] [Angular](./docs/angular.md) - _experimental_
-
 We welcome contributions to help us expand language and framework support!
-
-## Third-Party API Integration
-
-Generate type-safe client SDKs for third-party services that provide OpenAPI specifications.
-
-```typescript
-import { join } from 'node:path';
-
-import { generate } from '@sdk-it/typescript';
-
-// Fetch the OpenAPI specification from a third-party service
-const spec = await fetch('https://api.openstatus.dev/v1/openapi').then((res) =>
-  res.json(),
-);
-
-// Pass it to the generate fn and specify where do you want to save the code
-await generate(spec, {
-  output: join(process.cwd(), './client'),
-});
-```
-
-Then use the generated client in your application:
-
-```typescript
-import { Client } from './client';
-
-const client = new Client({
-  baseUrl: 'https://api.openstatus.dev/v1/',
-});
-
-const [result, error] = await client.request('GET /status_report', {});
-```
-
-Violla!
-
-![demo](./demo.png)
 
 ## Contributing
 
