@@ -18,7 +18,7 @@ You can use these functions without the SDK-IT code generation tools, they're co
 
 The validator middleware offers type-safe request validation using [Zod](https://github.com/colinhacks/zod) schemas. It automatically validates incoming requests against your defined schemas and provides typed inputs to your handlers.
 
-> ![IMPORTANT]
+> [!IMPORTANT]
 > For openapi generation to work correctly, you must use the `validate` middleware for each route.
 
 ```typescript
@@ -86,7 +86,7 @@ The output function provides a clean API for sending HTTP responses with proper 
 
 The `output` utility builds on hono's `context.body`.
 
-> ![NOTE]
+> [!NOTE]
 > You don't necessarily need to use this function for OpenAPI generation, but it provides a clean and consistent way to send responses.
 
 ```typescript
@@ -147,14 +147,15 @@ app.get(
 );
 ```
 
-> ![TIP]
-> Instead of using `createOutput` fn, you can use [context-storage](https://hono.dev/docs/middleware/builtin/context-storage) middleware and then import the global `output` object from `@sdk-it/generic`.
+> [!TIP]
+> Instead of using `createOutput` fn, you can use [context-storage](https://hono.dev/docs/middleware/builtin/context-storage) middleware and then import the global `output` object from `@sdk-it/hono/runtime`.
 
 - Use the generate fn to create an OpenAPI spec from your routes.
 
-<small>filename: openapi.ts</small>
+<b><small>filename: openapi.ts</small></b>
 
 ```typescript
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { analyze } from '@sdk-it/generic';
@@ -182,6 +183,12 @@ const spec = {
   paths,
   components,
 };
+
+// Save the spec to a file
+await writeFile('openapi.json', JSON.stringify(spec, null, 2));
+// OR
+
+// Continue to generate an SDK
 await generate(spec, {
   output: join(process.cwd(), './client'),
 });
@@ -200,8 +207,17 @@ npx tsx ./openapi.ts
 bun ./openapi.ts
 ```
 
+<details>
+<summary> Run in watch mode </summary>
+
+```bash
+node --experimental-strip-types --watch-path ./apps/backend/src --watch ./openapi.ts
+```
+
+</details>
+
 > [!TIP]
-> See [typescript](../typescript/README.md) for more info.
+> See [the typescript package](../typescript/README.md) for more info.
 
 - Use the client
 

@@ -92,3 +92,12 @@ const client = new Client({
 
 const [result, error] = await client.request('GET /status_report', {});
 ```
+
+## Using with Your Favorite Frameworks
+
+The SDK works great on its own, but you might want to native integration with your frameworks:
+
+- [React Query](../../docs/react-query.md)
+- [Angular](../../docs/angular.md)
+
+Let us know what are you using, and we will help you integrate it.

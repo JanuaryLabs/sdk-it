@@ -2,14 +2,14 @@
 
 This integration builds on Angular's [`resource`](https://angular.dev/guide/signals/resource) function for fetching data and simple wrapper for submitting data to the server.
 
-> ![IMPORTANT]
+> [!IMPORTANT]
 > When generating the client SDK within your Angular project or workspace, ensure you include the `--useTsExtension=false` flag.
 
 ---
 
 Copy the following code into your project.
 
-- `api.ts` file:
+- **`api.ts` file:**
 
 <details>
 <summary>View the API code</summary>

@@ -6,7 +6,7 @@ Using the `useQuery` and `useMutation` hooks from React Query, you can integrate
 
 Copy the following code into your project.
 
-- `api.tsx` file:
+- **`api.tsx` file**:
 
 <details>
 <summary>View the API code</summary>

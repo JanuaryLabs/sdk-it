@@ -1,6 +1,6 @@
 # SDK-IT
 
-<div align="center" style="text-align: center;">
+<div align="center" style="text-align: left;">
 
 SDK-IT generates type-safe client SDKs from OpenAPI specifications and creates OpenAPI specs from TypeScript code.
 
