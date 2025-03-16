@@ -8,6 +8,9 @@ Copy the following code into your project.
 
 - `api.tsx` file:
 
+<details>
+<summary>View the API code</summary>
+
 ```ts
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -108,6 +111,10 @@ export function isParseError(error: unknown): error is ParseError<any> {
 }
 ```
 
+</details>
+
+## Examples
+
 - Fetch data from the API using the `useData` hook.
 
 ```tsx
@@ -142,10 +149,9 @@ function CreatePaymentForm() {
   const [amount, setAmount] = useState(0);
   const [date, setDate] = useState('');
 
-  // The third argument specifies which queries to invalidate after successful mutation
+  // The second argument specifies which queries to invalidate after successful mutation
   const { mutate, isLoading, error } = useAction(
     'POST /payments',
-    { amount, date },
     ['GET /payments'], // This will invalidate all payments queries
   );
 
@@ -153,7 +159,7 @@ function CreatePaymentForm() {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        mutate();
+        mutate({ amount, date });
       }}
     >
       {/* Form fields */}

@@ -184,7 +184,7 @@ SDK-IT is evolving to support more languages and frameworks. Here's our current 
 ### SDK Generation Languages
 
 - [x] TypeScript/JavaScript
-- [ ] Dart
+- [ ] Dart (WIP)
 - [ ] Python
 - [ ] Go
 - [ ] Rust
@@ -192,7 +192,7 @@ SDK-IT is evolving to support more languages and frameworks. Here's our current 
 
 ### OpenAPI Generation Framework Support
 
-- [x] [Generic HTTP clients](./packages/generic/README.md)
+- [x] [Generic HTTP primitives](./packages/generic/README.md)
 - [x] [Hono](./packages/hono/README.md)
 - [ ] Express
 - [ ] Fastify
@@ -202,7 +202,7 @@ SDK-IT is evolving to support more languages and frameworks. Here's our current 
 ### Frontend Framework Integration
 
 - [x] [React Query](./docs/react-query.md)
-- [ ] Angular Signals
+- [x] [Angular](./docs/angular.md) - _experimental_
 
 We welcome contributions to help us expand language and framework support!
 
