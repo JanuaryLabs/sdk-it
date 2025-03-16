@@ -32,6 +32,10 @@ const specs = [
     name: 'figma',
   },
   { spec: 'https://docs.hetzner.cloud/spec.json', name: 'hetzner' },
+  {
+    spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
+    name: 'discord',
+  },
 ];
 
 for (const { spec, name } of specs) {
