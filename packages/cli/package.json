@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/cli",
-  "version": "0.14.0",
+  "version": "0.14.1",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -20,7 +20,7 @@
   ],
   "dependencies": {
     "commander": "^13.1.0",
-    "@sdk-it/typescript": "0.14.0",
+    "@sdk-it/typescript": "0.14.1",
     "yaml": "^2.7.0"
   },
   "publishConfig": {
