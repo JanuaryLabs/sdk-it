@@ -11,6 +11,8 @@ import type {
 } from 'openapi3-ts/oas31';
 import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
+import { removeDuplicates } from '@sdk-it/core';
+
 import { TypeScriptDeserialzer } from './emitters/interface.ts';
 import { ZodDeserialzer } from './emitters/zod.ts';
 import {
@@ -34,7 +36,7 @@ export interface Import {
   namespaceImport: string | undefined;
 }
 
-const responses: Record<string, string> = {
+const statusCdeToMessageMap: Record<string, string> = {
   '400': 'BadRequest',
   '401': 'Unauthorized',
   '402': 'PaymentRequired',
@@ -228,6 +230,8 @@ export function generateCode(config: GenerateSdkConfig) {
       let foundResponse = false;
       const output = [`import z from 'zod';`];
       let parser: Parser = 'buffered';
+      const responses: string[] = [];
+      const responsesImports: Record<string, Import> = {};
       for (const status in operation.responses) {
         const response = isRef(
           operation.responses[status] as ResponseObject | ReferenceObject,
@@ -239,7 +243,7 @@ export function generateCode(config: GenerateSdkConfig) {
           : (operation.responses[status] as ResponseObject);
         const statusCode = +status;
         if (statusCode >= 400) {
-          errors.push(responses[status] ?? 'ProblematicResponse');
+          errors.push(statusCdeToMessageMap[status] ?? 'ProblematicResponse');
         }
         if (statusCode >= 200 && statusCode < 300) {
           foundResponse = true;
@@ -249,18 +253,17 @@ export function generateCode(config: GenerateSdkConfig) {
             parser = 'chunked';
           }
           // TODO: how the user is going to handle multiple response types
-          const imports: Import[] = [];
           const typeScriptDeserialzer = new TypeScriptDeserialzer(
             config.spec,
             (schemaName, zod) => {
               commonSchemas[schemaName] = zod;
-              imports.push({
+              responsesImports[schemaName] = {
                 defaultImport: undefined,
                 isTypeOnly: true,
                 moduleSpecifier: `../models/${config.makeImport(schemaName)}`,
                 namedImports: [{ isTypeOnly: true, name: schemaName }],
                 namespaceImport: undefined,
-              });
+              };
             },
           );
           const responseSchema = isJson
@@ -268,13 +271,30 @@ export function generateCode(config: GenerateSdkConfig) {
                 responseContent['application/json'].schema!,
                 true,
               )
-            : 'ReadableStream'; // non-json response treated as stream
-          output.push(...useImports(responseSchema, imports));
-          output.push(
-            `export type ${pascalcase(operationName + ' output')} = ${responseSchema}`,
-          );
+            : statusCode === 204
+              ? 'void'
+              : 'ReadableStream'; // non-json response treated as stream
+
+          responses.push(responseSchema);
         }
       }
+
+      if (responses.length > 1) {
+        // remove duplicates in case an operation has multiple responses with the same schema
+        output.push(
+          `export type ${pascalcase(operationName + ' output')} = ${removeDuplicates(
+            responses,
+            (it) => it,
+          ).join(' | ')};`,
+        );
+      } else {
+        output.push(
+          `export type ${pascalcase(operationName + ' output')} = ${responses[0]};`,
+        );
+      }
+      output.push(
+        ...useImports(output.join(''), Object.values(responsesImports)),
+      );
 
       if (!foundResponse) {
         output.push(
@@ -332,12 +352,30 @@ function toProps(
       aggregator.push(name);
     }
     return void 0;
+  } else if (
+    (schemaOrRef.type === 'array' || schemaOrRef.type?.includes('array')) &&
+    schemaOrRef.items
+  ) {
+    toProps(spec, schemaOrRef.items, aggregator);
+    return void 0;
   } else if (schemaOrRef.allOf) {
     for (const it of schemaOrRef.allOf) {
       toProps(spec, it, aggregator);
     }
     return void 0;
+  } else if (schemaOrRef.oneOf) {
+    for (const it of schemaOrRef.oneOf) {
+      toProps(spec, it, aggregator);
+    }
+    return void 0;
+  } else if (schemaOrRef.anyOf) {
+    for (const it of schemaOrRef.anyOf) {
+      toProps(spec, it, aggregator);
+    }
+    return void 0;
   }
+  console.warn('Unknown schema in body', schemaOrRef);
+  return void 0;
 }
 
 function bodyInputs(
