@@ -1,10 +1,6 @@
 # SDK-IT
 
-<div align="center" style="text-align: left;">
-
 SDK-IT generates type-safe client SDKs from OpenAPI specifications and creates OpenAPI specs from TypeScript code.
-
-</div>
 
 ## Features
 
@@ -92,6 +88,8 @@ This route will be correctly inferred because it uses the validate middleware an
 - [OpenAI](./docs/examples/openai.md)
 - [Figma](./docs/examples/figma.md)
 - [Hetzner Cloud](./docs/examples/hetzner.md)
+- [Discord](./docs/examples/discord.md)
+- [OpenStatus](./docs/examples/openstatus.md)
 
 ## Roadmap
 
@@ -115,7 +113,7 @@ SDK-IT is evolving to support more languages and frameworks. Here's our current 
 
 - [x] [Generic HTTP primitives](./packages/generic/README.md)
 - [x] [Hono](./packages/hono/README.md)
-- [ ] Express
+- [ ] Express (WIP)
 - [ ] Fastify
 - [ ] Koa.js
 - [ ] Next.js
