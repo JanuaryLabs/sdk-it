@@ -1,5 +1,5 @@
 export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-export type ContentType = 'xml' | 'json' | 'urlencoded' | 'multipart';
+export type ContentType = 'xml' | 'json' | 'urlencoded' | 'multipart' | 'formdata';
 export type Endpoint =
   | `${ContentType} ${Method} ${string}`
   | `${Method} ${string}`;

@@ -10,7 +10,6 @@ type OnRefCallback = (ref: string, interfaceContent: string) => void;
 
 /**
  * Convert an OpenAPI (JSON Schema style) object into TypeScript interfaces,
- * following the same pattern as ZodDeserialzer for easy interchangeability.
  */
 export class TypeScriptDeserialzer {
   circularRefTracker = new Set<string>();

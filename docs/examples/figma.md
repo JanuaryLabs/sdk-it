@@ -97,17 +97,14 @@ if (!error) {
 ### Post a Comment
 
 ```ts
-const [result, error] = await figma.request(
-  'POST /files/{file_key}/comments',
-  {
-    file_key: 'your-file-key',
-    message: 'This is a new comment added via the API',
-    client_meta: {
-      x: 100,
-      y: 200,
-    },
+const [result, error] = await figma.request('POST /files/{file_key}/comments', {
+  file_key: 'your-file-key',
+  message: 'This is a new comment added via the API',
+  client_meta: {
+    x: 100,
+    y: 200,
   },
-);
+});
 
 if (!error) {
   console.log(`Comment posted successfully! Comment ID: ${result.id}`);

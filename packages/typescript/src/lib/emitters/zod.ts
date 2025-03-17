@@ -111,7 +111,7 @@ export class ZodDeserialzer {
       case 'boolean':
         return `z.boolean()${this.#suffixes(schema.default, required, nullable)}`;
       case 'object':
-        return this.object(schema, required);
+        return this.object(schema, true); // required always
       case 'array':
         return this.array(schema, required);
       case 'null':
@@ -171,13 +171,13 @@ export class ZodDeserialzer {
 
   oneOf(schemas: (SchemaObject | ReferenceObject)[], required: boolean) {
     const oneOfSchemas = schemas.map((sub) => {
-      if ('$ref' in sub) {
+      if (isRef(sub)) {
         const { model } = parseRef(sub.$ref);
         if (this.circularRefTracker.has(model)) {
           return model;
         }
       }
-      return this.handle(sub, false);
+      return this.handle(sub, true);
     });
     if (oneOfSchemas.length === 1) {
       return oneOfSchemas[0];
@@ -324,7 +324,7 @@ export class ZodDeserialzer {
     }
 
     // oneOf → union
-    if (schema.oneOf && Array.isArray(schema.oneOf)) {
+    if (schema.oneOf && Array.isArray(schema.oneOf) && schema.oneOf.length) {
       return this.oneOf(schema.oneOf ?? [], required);
     }
 
@@ -359,7 +359,7 @@ export class ZodDeserialzer {
       const realTypes = types.filter((t) => t !== 'null');
       if (realTypes.length === 1 && types.includes('null')) {
         // Single real type + "null"
-        return this.normal(realTypes[0], schema, false, true);
+        return this.normal(realTypes[0], schema, required, true);
       }
       // If multiple different types, build a union
       const subSchemas = types.map((t) => this.normal(t, schema, false));
