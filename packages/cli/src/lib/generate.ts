@@ -44,7 +44,14 @@ async function loadRemote(location: string) {
       return parse(text);
     }
     default:
-      throw new Error(`Unsupported file extension: ${extName}`);
+      try {
+        // try to parse it as json first
+        return response.json();
+      } catch {
+        // parse as yaml
+        const text = await response.text();
+        return parse(text);
+      }
   }
 }
 
