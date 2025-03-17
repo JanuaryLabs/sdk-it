@@ -123,7 +123,6 @@ ${sendRequest}`,
   });
 
   const folders = [
-    getFolderExports(output, settings.useTsExtension),
     getFolderExports(join(output, 'outputs'), settings.useTsExtension),
     getFolderExports(
       join(output, 'inputs'),
@@ -138,14 +137,16 @@ ${sendRequest}`,
       getFolderExports(join(output, 'models'), settings.useTsExtension),
     );
   }
-  const [index, outputIndex, inputsIndex, httpIndex, modelsIndex] =
+  const [outputIndex, inputsIndex, httpIndex, modelsIndex] =
     await Promise.all(folders);
   await writeFiles(output, {
-    'index.ts': index,
     'outputs/index.ts': outputIndex,
     'inputs/index.ts': inputsIndex || null,
     'http/index.ts': httpIndex,
     ...(modelsImports.length ? { 'models/index.ts': modelsIndex } : {}),
+  });
+  await writeFiles(output, {
+    'index.ts': await getFolderExports(output, settings.useTsExtension),
   });
   if (settings.mode === 'full') {
     await writeFiles(settings.output, {
