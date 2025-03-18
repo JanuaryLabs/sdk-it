@@ -36,6 +36,13 @@ export class TypeDeriver {
         [$types]: [],
       };
     }
+    if (type.flags & TypeFlags.Unknown) {
+      return {
+        [deriveSymbol]: true,
+        optional: false,
+        [$types]: [],
+      };
+    }
     if (type.isStringLiteral()) {
       return {
         [deriveSymbol]: true,
