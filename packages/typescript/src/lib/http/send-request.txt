@@ -1,7 +1,7 @@
 
 export interface RequestSchema {
   schema: z.ZodType;
-  toRequest: (input: any) => Request;
+  toRequest: (input: any) => RequestConfig;
   deserializer: (response: Response) => Promise<unknown> | unknown;
 }
 
@@ -26,14 +26,17 @@ export async function sendRequest(
     return [null as never, { ...parseError, kind: 'parse' } as never] as const;
   }
 
-  let request = route.toRequest(parsedInput as never);
+  let config = route.toRequest(parsedInput as never);
   for (const interceptor of interceptors) {
     if (interceptor.before) {
-      request = await interceptor.before(request);
+      config = await interceptor.before(config);
     }
   }
 
-  let response = await (options.fetch ?? fetch)(request, { signal: options.signal });
+  let response = await (options.fetch ?? fetch)(new Request(config.url, config.init), {
+    ...config.init,
+    signal: options.signal,
+  });
 
   for (let i = interceptors.length - 1; i >= 0; i--) {
     const interceptor = interceptors[i];

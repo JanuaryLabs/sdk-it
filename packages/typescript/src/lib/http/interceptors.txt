@@ -1,14 +1,16 @@
+import { type RequestConfig } from './request.ts';
+
 export interface Interceptor {
-  before?: (request: Request) => Promise<Request> | Request;
+  before?: (config: RequestConfig) => Promise<RequestConfig>|RequestConfig;
   after?: (response: Response) => Promise<Response> | Response;
 }
 
 export const createHeadersInterceptor = (
   defaultHeaders: () => Record<string, string | undefined>,
   requestHeaders: HeadersInit,
-) => {
+):Interceptor => {
   return {
-    before(request: Request) {
+    before({init, url}) {
       // Priority Levels
       // 1. Headers Input
       // 2. Request Headers
@@ -19,31 +21,31 @@ export const createHeadersInterceptor = (
         // Only set the header if it doesn't already exist and has a value
         // even though these headers are passed at operation level
         // still they are lower priority compared to the headers input
-        if (value !== undefined && !request.headers.has(key)) {
-          request.headers.set(key, value);
+        if (value !== undefined && !init.headers.has(key)) {
+          init.headers.set(key, value);
         }
       }
 
       for (const [key, value] of Object.entries(headers)) {
         // Only set the header if it doesn't already exist and has a value
-        if (value !== undefined && !request.headers.has(key)) {
-          request.headers.set(key, value);
+        if (value !== undefined && !init.headers.has(key)) {
+          init.headers.set(key, value);
         }
       }
 
-      return request;
+      return {init, url};
     },
   };
 };
 
-export const createBaseUrlInterceptor = (getBaseUrl: () => string) => {
+export const createBaseUrlInterceptor = (getBaseUrl: () => string) :Interceptor => {
   return {
-    before(request: Request) {
+    before({init, url}) {
       const baseUrl = getBaseUrl();
-      if (request.url.startsWith('local://')) {
-        return new Request(request.url.replace('local://', baseUrl), request);
+      if (url.protocol === 'local:') {
+        return {init, url: new URL(url.pathname, baseUrl)}
       }
-      return request;
+      return {init, url}
     },
   };
 };

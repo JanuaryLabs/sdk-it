@@ -97,6 +97,7 @@ export async function generate(
 import type { Interceptor } from './${makeImport('interceptors')}';
 import { handleError } from './${makeImport('parse-response')}';
 import { parse } from './${makeImport('parser')}';
+import type { RequestConfig } from './request.ts';
 ${sendRequest}`,
     'response.ts': responseTxt,
     'parser.ts': parserTxt,

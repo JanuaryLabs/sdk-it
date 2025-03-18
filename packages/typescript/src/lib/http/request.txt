@@ -1,3 +1,5 @@
+type Init = Omit<RequestInit, 'headers'> & { headers: Headers; };
+export type RequestConfig = { init: Init; url: URL };
 export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export type ContentType = 'xml' | 'json' | 'urlencoded' | 'multipart' | 'formdata';
 export type Endpoint =
@@ -164,14 +166,16 @@ export function formdata(input: Input, props: Props) {
 export function toRequest<T extends Endpoint>(
   endpoint: T,
   input: Serialized,
-): Request {
+): RequestConfig {
   const [method, path] = endpoint.split(' ');
   const pathVariable = template(path, input.params);
 
-  const url = createUrl(pathVariable, input.query);
-  return new Request(url, {
-    method: method,
-    headers: input.headers,
-    body: method === 'GET' ? undefined : input.body,
-  });
+  return {
+    url: createUrl(pathVariable, input.query),
+    init: {
+      method: method,
+      headers: new Headers(input.headers),
+      body: method === 'GET' ? undefined : input.body,
+    },
+  }
 }
