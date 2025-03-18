@@ -83,8 +83,6 @@ export class ZodDeserialzer {
     const itemsSchema = this.handle(items, true);
     return `z.array(${itemsSchema})${appendOptional(required)}`;
   }
-  // oneOf() {}
-  // enum() {}
 
   #suffixes = (defaultValue: unknown, required: boolean, nullable: boolean) => {
     return `${nullable ? '.nullable()' : ''}${appendDefault(defaultValue)}${appendOptional(required)}`;
@@ -190,6 +188,9 @@ export class ZodDeserialzer {
 
   enum(values: any[], required: boolean) {
     const enumVals = values.map((val) => JSON.stringify(val)).join(', ');
+    if (values.length === 1) {
+      return `z.literal(${enumVals})${appendOptional(required)}`;
+    }
     return `z.enum([${enumVals}])${appendOptional(required)}`;
   }
 
