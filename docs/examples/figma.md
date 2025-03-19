@@ -3,7 +3,7 @@
 ### Generate SDK
 
 ```bash
-npx @sdk-it/cli@latest \
+npx @sdk-it/cli@latest typescript \
   --spec https://raw.githubusercontent.com/figma/rest-api-spec/refs/heads/main/openapi/openapi.yaml \
   --output ./figma \
   --name Figma \

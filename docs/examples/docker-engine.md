@@ -3,7 +3,7 @@
 ### Generate SDK
 
 ```bash
-npx @sdk-it/cli@latest \
+npx @sdk-it/cli@latest typescript \
   --spec https://docs.docker.com/reference/api/engine/version/v1.48.yaml \
   --output ./dockerengine \
   --name DockerEngine \

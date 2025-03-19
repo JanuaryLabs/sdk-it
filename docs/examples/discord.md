@@ -3,7 +3,7 @@
 ### Generate SDK
 
 ```bash
-npx @sdk-it/cli@latest \
+npx @sdk-it/cli@latest typescript \
   --spec https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json \
   --output ./discord \
   --name Discord \

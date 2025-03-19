@@ -3,7 +3,7 @@
 ### Generate SDK
 
 ```bash
-npx @sdk-it/cli@latest \
+npx @sdk-it/cli@latest typescript \
   --spec https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml \
   --output ./openai \
   --name OpenAI \

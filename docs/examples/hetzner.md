@@ -3,7 +3,7 @@
 ### Generate SDK
 
 ```bash
-npx @sdk-it/cli@latest \
+npx @sdk-it/cli@latest typescript \
   --spec https://docs.hetzner.cloud/spec.json \
   --output ./hetzner \
   --name Hetzner \

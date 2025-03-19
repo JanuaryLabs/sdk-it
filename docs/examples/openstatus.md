@@ -9,7 +9,7 @@ This example demonstrates how to use the SDK-IT generated client for [OpenStatus
 First, generate the SDK using the CLI:
 
 ```bash
-npx @sdk-it/cli@latest \
+npx @sdk-it/cli@latest typescript \
   --spec https://api.openstatus.dev/v1/openapi \
   --output ./openstatus \
   --name OpenStatus \

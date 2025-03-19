@@ -17,7 +17,7 @@ Also
 - Generate an SDK from an OpenAPI specification
 
 ```bash
-npx @sdk-it/cli@latest \
+npx @sdk-it/cli@latest typescript \
   --spec https://api.openstatus.dev/v1/openapi \
   --output ./client \
   --name OpenStatus \

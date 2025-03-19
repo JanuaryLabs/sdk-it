@@ -12,9 +12,19 @@ Copy the following code into your project.
 <summary>View the API code</summary>
 
 ```ts
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  type UseMutationOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
-import { Client, type Endpoints, type ParseError } from './client';
+import {
+  Client,
+  type Endpoints,
+  type ParseError,
+  ProblematicResponse,
+} from '@impact/client';
 
 export const client = new Client({
   baseUrl: 'http://localhost:3000',
@@ -81,27 +91,40 @@ export function useData<E extends DataEndpoints>(
  */
 export function useAction<E extends MutationEndpoints>(
   endpoint: E,
-  input: Endpoints[E]['input'],
-  invalidate: DataEndpoints[],
+  options: Omit<
+    UseMutationOptions<Endpoints[E]['output'], Endpoints[E]['error']>,
+    'mutationFn' | 'mutationKey'
+  > & {
+    invalidate?: DataEndpoints[];
+    mutationFn: (
+      dispatch: (
+        input: Endpoints[E]['input'],
+      ) => Promise<Endpoints[E]['output']>,
+    ) => Promise<unknown>;
+  },
 ) {
   const queryClient = useQueryClient();
   return useMutation({
+    ...options,
     mutationKey: [endpoint],
     mutationFn: async () => {
-      const [result, error] = await client.request(endpoint, input);
-      if (error) {
-        throw error;
-      }
-      return result;
+      return options.mutationFn(async (input: Endpoints[E]['input']) => {
+        const [output, error] = await client.request(endpoint, input);
+        if (error) {
+          throw error;
+        }
+        return output;
+      });
     },
-    onSuccess: () => {
-      for (const endpoint of invalidate) {
-        queryClient.invalidateQueries({
+    onSuccess: async (result, variables, context) => {
+      for (const endpoint of options.invalidate ?? []) {
+        await queryClient.invalidateQueries({
           predicate(query) {
             return query.meta?.endpoint === endpoint;
           },
         });
       }
+      return options.onSuccess?.(result, variables, context);
     },
   });
 }
@@ -109,6 +132,11 @@ export function useAction<E extends MutationEndpoints>(
 export function isParseError(error: unknown): error is ParseError<any> {
   return (error as any)?.kind === 'parse';
 }
+
+export function isResponseError(error: unknown): error is ProblematicResponse {
+  return (error as any)?.kind === 'response';
+}
+
 ```
 
 </details>
@@ -152,7 +180,15 @@ function CreatePaymentForm() {
   // The second argument specifies which queries to invalidate after successful mutation
   const { mutate, isLoading, error } = useAction(
     'POST /payments',
-    ['GET /payments'], // This will invalidate all payments queries
+    {
+      invalidate: ['GET /payments'], // This will invalidate the payments query
+      mutationFn: (dispatch) => {
+        return dispatch({ amount, date });
+      },
+      onSuccess: (result) => {
+        // Handle success
+      },
+    }
   );
 
   return (
