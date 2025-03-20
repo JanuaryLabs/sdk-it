@@ -21,7 +21,8 @@
   "dependencies": {
     "commander": "^13.1.0",
     "@sdk-it/typescript": "0.14.5",
-    "yaml": "^2.7.0"
+    "yaml": "^2.7.0",
+    "@sdk-it/dart": "0.0.1"
   },
   "publishConfig": {
     "access": "public"

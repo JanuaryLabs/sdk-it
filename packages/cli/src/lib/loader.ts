@@ -1,6 +1,6 @@
-import { Option } from 'commander';
 import { readFile } from 'node:fs/promises';
 import { extname } from 'node:path';
+import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { parse } from 'yaml';
 
 export async function loadRemote(location: string) {
@@ -29,7 +29,9 @@ export async function loadLocal(location: string) {
   const extName = extname(location);
   switch (extName) {
     case '.json':
-      return import(location);
+      return import(location, { with: { type: 'json' } }).then(
+        (mod) => mod.default,
+      );
     case '.yaml':
     case '.yml': {
       const text = await await readFile(location, 'utf-8');
@@ -40,7 +42,7 @@ export async function loadLocal(location: string) {
   }
 }
 
-export function loadSpec(location: string) {
+export function loadSpec(location: string): Promise<OpenAPIObject> {
   const [protocol] = location.split(':');
   if (protocol === 'http' || protocol === 'https') {
     return loadRemote(location);
