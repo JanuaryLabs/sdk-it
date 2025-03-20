@@ -40,6 +40,7 @@ function security(spec: OpenAPIObject) {
 export async function generate(
   spec: OpenAPIObject,
   settings: {
+    style?: 'github';
     output: string;
     useTsExtension?: boolean;
     name?: string;
@@ -61,7 +62,6 @@ export async function generate(
   const { commonSchemas, groups, outputs, commonZod } = generateCode({
     spec,
     style: 'github',
-    target: 'javascript',
     makeImport,
   });
   const output =

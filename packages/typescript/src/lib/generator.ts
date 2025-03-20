@@ -2,16 +2,19 @@ import { get, merge } from 'lodash-es';
 import type {
   ContentObject,
   OpenAPIObject,
-  OperationObject,
   ParameterLocation,
   ParameterObject,
   ReferenceObject,
   ResponseObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
-import { camelcase, pascalcase, spinalcase } from 'stringcase';
+import { pascalcase, spinalcase } from 'stringcase';
 
-import { removeDuplicates } from '@sdk-it/core';
+import {
+  type GenerateSdkConfig,
+  forEachOperation,
+  removeDuplicates,
+} from '@sdk-it/core';
 
 import { TypeScriptDeserialzer } from './emitters/interface.ts';
 import { ZodDeserialzer } from './emitters/zod.ts';
@@ -56,35 +59,16 @@ const statusCdeToMessageMap: Record<string, string> = {
   '504': 'GatewayTimeout',
 };
 
-export interface GenerateSdkConfig {
-  spec: OpenAPIObject;
-  target?: 'javascript';
-  /**
-   * No support for jsdoc in vscode
-   * @issue https://github.com/microsoft/TypeScript/issues/38106
-   */
-  style?: 'github';
-  operationId?: (
-    operation: OperationObject,
-    path: string,
-    method: string,
-  ) => string;
-  makeImport: (module: string) => string;
-}
-
-export const defaults: Partial<GenerateSdkConfig> &
-  Required<Pick<GenerateSdkConfig, 'operationId'>> = {
-  target: 'javascript',
-  style: 'github',
-  operationId: (operation, path, method) => {
-    if (operation.operationId) {
-      return spinalcase(operation.operationId);
-    }
-    return camelcase(`${method} ${path.replace(/[\\/\\{\\}]/g, ' ').trim()}`);
+export function generateCode(
+  config: GenerateSdkConfig & {
+    /**
+     * No support for jsdoc in vscode
+     * @issue https://github.com/microsoft/TypeScript/issues/38106
+     */
+    style?: 'github';
+    makeImport: (module: string) => string;
   },
-};
-
-export function generateCode(config: GenerateSdkConfig) {
+) {
   const commonSchemas: Record<string, string> = {};
   const commonZod = new Map<string, string>();
   const commonZodImports: Import[] = [];
@@ -102,225 +86,210 @@ export function generateCode(config: GenerateSdkConfig) {
   const groups: Spec['operations'] = {};
   const outputs: Record<string, string> = {};
 
-  for (const [path, pathItem] of Object.entries(config.spec.paths ?? {})) {
-    const { parameters = [], ...methods } = pathItem;
+  forEachOperation(config, (entry, operation) => {
+    console.log(`Processing ${entry.method} ${entry.path}`);
+    const [groupName] = Array.isArray(operation.tags)
+      ? operation.tags
+      : ['unknown'];
+    groups[groupName] ??= [];
+    const inputs: Operation['inputs'] = {};
 
-    for (const [method, operation] of Object.entries(methods) as [
-      string,
-      OperationObject,
-    ][]) {
-      const formatOperationId = config.operationId ?? defaults.operationId;
-      const operationName = formatOperationId(operation, path, method);
-
-      console.log(`Processing ${method} ${path}`);
-      const [groupName] = Array.isArray(operation.tags)
-        ? operation.tags
-        : ['unknown'];
-      groups[groupName] ??= [];
-      const inputs: Operation['inputs'] = {};
-
-      const additionalProperties: ParameterObject[] = [];
-      for (const param of [...parameters, ...(operation.parameters ?? [])]) {
-        if (isRef(param)) {
-          throw new Error(`Found reference in parameter ${param.$ref}`);
-        }
-        if (!param.schema) {
-          throw new Error(`Schema not found for parameter ${param.name}`);
-        }
-        inputs[param.name] = {
-          in: param.in,
-          schema: '',
-        };
-        additionalProperties.push(param);
+    const additionalProperties: ParameterObject[] = [];
+    for (const param of operation.parameters ?? []) {
+      if (isRef(param)) {
+        throw new Error(`Found reference in parameter ${param.$ref}`);
       }
-
-      const security = operation.security ?? [];
-      const securitySchemes = config.spec.components?.securitySchemes ?? {};
-
-      const securityOptions = securityToOptions(security, securitySchemes);
-
-      Object.assign(inputs, securityOptions);
-
-      additionalProperties.push(
-        ...Object.entries(securityOptions).map(
-          ([name, value]) =>
-            ({
-              name: name,
-              required: false,
-              schema: {
-                type: 'string',
-              },
-              in: value.in as ParameterLocation,
-            }) satisfies ParameterObject,
-        ),
-      );
-
-      const types: Record<string, string> = {};
-      const shortContenTypeMap: Record<string, string> = {
-        'application/json': 'json',
-        'application/x-www-form-urlencoded': 'urlencoded',
-        'multipart/form-data': 'formdata',
-        'application/xml': 'xml',
-        'text/plain': 'text',
+      if (!param.schema) {
+        throw new Error(`Schema not found for parameter ${param.name}`);
+      }
+      inputs[param.name] = {
+        in: param.in,
+        schema: '',
       };
-      let outgoingContentType: string | undefined;
-      if (operation.requestBody && Object.keys(operation.requestBody).length) {
-        const content: ContentObject = isRef(operation.requestBody)
-          ? get(followRef(config.spec, operation.requestBody.$ref), ['content'])
-          : operation.requestBody.content;
-
-        for (const type in content) {
-          const ctSchema = isRef(content[type].schema)
-            ? followRef(config.spec, content[type].schema.$ref)
-            : content[type].schema;
-          if (!ctSchema) {
-            console.warn(`Schema not found for ${type}`);
-            continue;
-          }
-
-          const schema = merge({}, ctSchema, {
-            required: additionalProperties
-              .filter((p) => p.required)
-              .map((p) => p.name),
-            properties: additionalProperties.reduce<Record<string, unknown>>(
-              (acc, p) => ({
-                ...acc,
-                [p.name]: p.schema,
-              }),
-              {},
-            ),
-          });
-
-          Object.assign(inputs, bodyInputs(config, ctSchema));
-          types[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
-        }
-
-        if (content['application/json']) {
-          outgoingContentType = 'json';
-        } else if (content['application/x-www-form-urlencoded']) {
-          outgoingContentType = 'urlencoded';
-        } else if (content['multipart/form-data']) {
-          outgoingContentType = 'formdata';
-        } else {
-          outgoingContentType = 'json';
-        }
-      } else {
-        const properties = additionalProperties.reduce<Record<string, any>>(
-          (acc, p) => ({
-            ...acc,
-            [p.name]: p.schema,
-          }),
-          {},
-        );
-        types[shortContenTypeMap['application/json']] = zodDeserialzer.handle(
-          {
-            type: 'object',
-            required: additionalProperties
-              .filter((p) => p.required)
-              .map((p) => p.name),
-            properties,
-          },
-          true,
-        );
-      }
-
-      const errors: string[] = [];
-      operation.responses ??= {};
-
-      let foundResponse = false;
-      const output = [`import z from 'zod';`];
-      let parser: Parser = 'buffered';
-      const responses: string[] = [];
-      const responsesImports: Record<string, Import> = {};
-      for (const status in operation.responses) {
-        const response = isRef(
-          operation.responses[status] as ResponseObject | ReferenceObject,
-        )
-          ? (followRef(
-              config.spec,
-              operation.responses[status].$ref,
-            ) as ResponseObject)
-          : (operation.responses[status] as ResponseObject);
-        const statusCode = +status;
-        if (statusCode >= 400) {
-          errors.push(statusCdeToMessageMap[status] ?? 'ProblematicResponse');
-        }
-        if (statusCode >= 200 && statusCode < 300) {
-          foundResponse = true;
-          const responseContent = get(response, ['content']);
-          const isJson = responseContent && responseContent['application/json'];
-          if ((response.headers ?? {})['Transfer-Encoding']) {
-            parser = 'chunked';
-          }
-          // TODO: how the user is going to handle multiple response types
-          const typeScriptDeserialzer = new TypeScriptDeserialzer(
-            config.spec,
-            (schemaName, zod) => {
-              commonSchemas[schemaName] = zod;
-              responsesImports[schemaName] = {
-                defaultImport: undefined,
-                isTypeOnly: true,
-                moduleSpecifier: `../models/${config.makeImport(schemaName)}`,
-                namedImports: [{ isTypeOnly: true, name: schemaName }],
-                namespaceImport: undefined,
-              };
-            },
-          );
-          const responseSchema = isJson
-            ? typeScriptDeserialzer.handle(
-                responseContent['application/json'].schema!,
-                true,
-              )
-            : statusCode === 204
-              ? 'void'
-              : 'ReadableStream'; // non-json response treated as stream
-
-          responses.push(responseSchema);
-        }
-      }
-
-      if (responses.length > 1) {
-        // remove duplicates in case an operation has multiple responses with the same schema
-        output.push(
-          `export type ${pascalcase(operationName + ' output')} = ${removeDuplicates(
-            responses,
-            (it) => it,
-          ).join(' | ')};`,
-        );
-      } else {
-        output.push(
-          `export type ${pascalcase(operationName + ' output')} = ${responses[0]};`,
-        );
-      }
-      output.push(
-        ...useImports(output.join(''), Object.values(responsesImports)),
-      );
-
-      if (!foundResponse) {
-        output.push(
-          `export type ${pascalcase(operationName + ' output')} = void`,
-        );
-      }
-      outputs[`${spinalcase(operationName)}.ts`] = output.join('\n');
-      groups[groupName].push({
-        name: operationName,
-        type: 'http',
-        inputs,
-        errors: errors.length ? errors : ['ServerError'],
-        outgoingContentType,
-        schemas: types,
-        parser,
-        formatOutput: () => ({
-          import: pascalcase(operationName + ' output'),
-          use: pascalcase(operationName + ' output'),
-        }),
-        trigger: {
-          path,
-          method,
-        },
-      });
+      additionalProperties.push(param);
     }
-  }
+
+    const security = operation.security ?? [];
+    const securitySchemes = config.spec.components?.securitySchemes ?? {};
+
+    const securityOptions = securityToOptions(security, securitySchemes);
+
+    Object.assign(inputs, securityOptions);
+
+    additionalProperties.push(
+      ...Object.entries(securityOptions).map(
+        ([name, value]) =>
+          ({
+            name: name,
+            required: false,
+            schema: {
+              type: 'string',
+            },
+            in: value.in as ParameterLocation,
+          }) satisfies ParameterObject,
+      ),
+    );
+
+    const types: Record<string, string> = {};
+    const shortContenTypeMap: Record<string, string> = {
+      'application/json': 'json',
+      'application/x-www-form-urlencoded': 'urlencoded',
+      'multipart/form-data': 'formdata',
+      'application/xml': 'xml',
+      'text/plain': 'text',
+    };
+    let outgoingContentType: string | undefined;
+    if (operation.requestBody && Object.keys(operation.requestBody).length) {
+      const content: ContentObject = isRef(operation.requestBody)
+        ? get(followRef(config.spec, operation.requestBody.$ref), ['content'])
+        : operation.requestBody.content;
+
+      for (const type in content) {
+        const ctSchema = isRef(content[type].schema)
+          ? followRef(config.spec, content[type].schema.$ref)
+          : content[type].schema;
+        if (!ctSchema) {
+          console.warn(`Schema not found for ${type}`);
+          continue;
+        }
+
+        const schema = merge({}, ctSchema, {
+          required: additionalProperties
+            .filter((p) => p.required)
+            .map((p) => p.name),
+          properties: additionalProperties.reduce<Record<string, unknown>>(
+            (acc, p) => ({
+              ...acc,
+              [p.name]: p.schema,
+            }),
+            {},
+          ),
+        });
+
+        Object.assign(inputs, bodyInputs(config, ctSchema));
+        types[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
+      }
+
+      if (content['application/json']) {
+        outgoingContentType = 'json';
+      } else if (content['application/x-www-form-urlencoded']) {
+        outgoingContentType = 'urlencoded';
+      } else if (content['multipart/form-data']) {
+        outgoingContentType = 'formdata';
+      } else {
+        outgoingContentType = 'json';
+      }
+    } else {
+      const properties = additionalProperties.reduce<Record<string, any>>(
+        (acc, p) => ({
+          ...acc,
+          [p.name]: p.schema,
+        }),
+        {},
+      );
+      types[shortContenTypeMap['application/json']] = zodDeserialzer.handle(
+        {
+          type: 'object',
+          required: additionalProperties
+            .filter((p) => p.required)
+            .map((p) => p.name),
+          properties,
+        },
+        true,
+      );
+    }
+
+    const errors: string[] = [];
+    operation.responses ??= {};
+
+    let foundResponse = false;
+    const output = [`import z from 'zod';`];
+    let parser: Parser = 'buffered';
+    const responses: string[] = [];
+    const responsesImports: Record<string, Import> = {};
+    for (const status in operation.responses) {
+      const response = isRef(
+        operation.responses[status] as ResponseObject | ReferenceObject,
+      )
+        ? (followRef(
+            config.spec,
+            operation.responses[status].$ref,
+          ) as ResponseObject)
+        : (operation.responses[status] as ResponseObject);
+      const statusCode = +status;
+      if (statusCode >= 400) {
+        errors.push(statusCdeToMessageMap[status] ?? 'ProblematicResponse');
+      }
+      if (statusCode >= 200 && statusCode < 300) {
+        foundResponse = true;
+        const responseContent = get(response, ['content']);
+        const isJson = responseContent && responseContent['application/json'];
+        if ((response.headers ?? {})['Transfer-Encoding']) {
+          parser = 'chunked';
+        }
+        // TODO: how the user is going to handle multiple response types
+        const typeScriptDeserialzer = new TypeScriptDeserialzer(
+          config.spec,
+          (schemaName, zod) => {
+            commonSchemas[schemaName] = zod;
+            responsesImports[schemaName] = {
+              defaultImport: undefined,
+              isTypeOnly: true,
+              moduleSpecifier: `../models/${config.makeImport(schemaName)}`,
+              namedImports: [{ isTypeOnly: true, name: schemaName }],
+              namespaceImport: undefined,
+            };
+          },
+        );
+        const responseSchema = isJson
+          ? typeScriptDeserialzer.handle(
+              responseContent['application/json'].schema!,
+              true,
+            )
+          : statusCode === 204
+            ? 'void'
+            : 'ReadableStream'; // non-json response treated as stream
+
+        responses.push(responseSchema);
+      }
+    }
+
+    if (responses.length > 1) {
+      // remove duplicates in case an operation has multiple responses with the same schema
+      output.push(
+        `export type ${pascalcase(entry.name + ' output')} = ${removeDuplicates(
+          responses,
+          (it) => it,
+        ).join(' | ')};`,
+      );
+    } else {
+      output.push(
+        `export type ${pascalcase(entry.name + ' output')} = ${responses[0]};`,
+      );
+    }
+    output.push(
+      ...useImports(output.join(''), Object.values(responsesImports)),
+    );
+
+    if (!foundResponse) {
+      output.push(`export type ${pascalcase(entry.name + ' output')} = void`);
+    }
+    outputs[`${spinalcase(entry.name)}.ts`] = output.join('\n');
+    groups[groupName].push({
+      name: entry.name,
+      type: 'http',
+      inputs,
+      errors: errors.length ? errors : ['ServerError'],
+      outgoingContentType,
+      schemas: types,
+      parser,
+      formatOutput: () => ({
+        import: pascalcase(entry.name + ' output'),
+        use: pascalcase(entry.name + ' output'),
+      }),
+      trigger: entry,
+    });
+  });
 
   return { groups, commonSchemas, commonZod, outputs };
 }
