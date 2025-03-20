@@ -1,0 +1,30 @@
+abstract class Interceptor {
+  RequestConfig before(RequestConfig config);
+  void after();
+}
+
+class BaseUrlInterceptor extends Interceptor {
+  final String Function() getBaseUrl;
+  BaseUrlInterceptor(this.getBaseUrl);
+
+  @override
+  RequestConfig before(RequestConfig config) {
+    final baseUrl = getBaseUrl();
+    if (config.url.scheme.isEmpty) {
+      config.url = Uri.parse(baseUrl + config.url.toString());
+    }
+    return config;
+  }
+
+  @override
+  void after() {
+    //
+  }
+}
+
+class RequestConfig {
+  final String method;
+  Uri url;
+  final Map<String, String> headers;
+  RequestConfig({required this.method, required this.url, required this.headers});
+}

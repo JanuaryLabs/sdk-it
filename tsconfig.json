@@ -17,6 +17,9 @@
     },
     {
       "path": "./packages/cli"
+    },
+    {
+      "path": "./packages/dart"
     }
   ]
 }
