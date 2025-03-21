@@ -16,6 +16,11 @@ function runCommand(title: string, command: string) {
   execSync(command, {
     encoding: 'utf-8',
     stdio: 'inherit',
+    env: {
+      ...process.env,
+      NODE_OPTIONS: '--experimental-strip-types',
+      NODE_NO_WARNINGS: '1',
+    },
   });
 
   // Show success message if execution completes
@@ -43,22 +48,21 @@ for (const { spec, name } of specs) {
   console.log(chalk.magenta.bold(`RUNNING TEST SUITE FOR: ${spec}`));
   console.log(chalk.magenta('='.repeat(80)) + '\n');
 
-  const nodeExec = 'node --experimental-strip-types';
   const cliPath = './packages/cli/src/index.ts';
 
   const sdkOutput = `./.client-${name}`;
   const sdkFlags = [
     `-s ${spec}`,
     `-o ${sdkOutput}`,
-    '--formatter "prettier $SDK_IT_OUTPUT --write"',
     `--name ${name}`,
     '--mode full',
+    '--no-install',
   ];
 
   // Generate SDK
   runCommand(
     `GENERATING SDK: ${name}`,
-    `${nodeExec} ${cliPath} ${sdkFlags.join(' ')}`,
+    `node ${cliPath} typescript ${sdkFlags.join(' ')}`,
   );
 
   // Run type checking with Node environment
@@ -76,7 +80,7 @@ for (const { spec, name } of specs) {
   // Test with Node runtime
   runCommand(
     `TESTING WITH NODE RUNTIME: ${name}`,
-    `${nodeExec} ${join(sdkOutput, 'src/index.ts')}`,
+    `node ${join(sdkOutput, 'src/index.ts')}`,
   );
 
   // Test browser compatibility by type checking with DOM lib

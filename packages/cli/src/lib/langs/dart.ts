@@ -3,8 +3,8 @@ import { execFile } from 'node:child_process';
 
 import { generate } from '@sdk-it/dart';
 
-import { loadSpec } from '../loader';
-import { outputOption, specOption } from '../options';
+import { loadSpec } from '../loader.ts';
+import { outputOption, specOption } from '../options.ts';
 
 interface Options {
   spec: string;

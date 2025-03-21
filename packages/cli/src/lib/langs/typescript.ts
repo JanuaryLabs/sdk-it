@@ -3,8 +3,8 @@ import { execFile, execSync } from 'node:child_process';
 
 import { generate } from '@sdk-it/typescript';
 
-import { loadSpec } from '../loader';
-import { outputOption, specOption } from '../options';
+import { loadSpec } from '../loader.ts';
+import { outputOption, specOption } from '../options.ts';
 
 interface Options {
   spec: string;
@@ -21,6 +21,8 @@ interface Options {
   formatter?: string;
   framework?: string;
   install: boolean;
+  verbose: boolean;
+  defaultFormatter: boolean;
 }
 
 export default new Command('typescript')
@@ -50,7 +52,9 @@ export default new Command('typescript')
     'Install dependencies using npm (only in full mode)',
     true,
   )
+  .option('--no-default-formatter', 'Do not use the default formatter')
   .option('--no-install', 'Do not install dependencies')
+  .option('-v, --verbose', 'Verbose output', false)
   .action(async (options: Options) => {
     const spec = await loadSpec(options.spec);
     await generate(spec, {
@@ -62,13 +66,26 @@ export default new Command('typescript')
         if (options.formatter) {
           const [command, ...args] = options.formatter.split(' ');
           execFile(command, args, { env: { ...env, SDK_IT_OUTPUT: output } });
+        } else if (options.defaultFormatter) {
+          execSync('npx -y prettier $SDK_IT_OUTPUT --write', {
+            env: {
+              ...env,
+              SDK_IT_OUTPUT: output,
+              NODE_OPTIONS: '--experimental-strip-types',
+            },
+            stdio: options.verbose ? 'inherit' : 'pipe',
+          });
         }
       },
     });
 
     // Install dependencies if in full mode and install option is enabled
+
     if (options.install && options.mode === 'full') {
       console.log('Installing dependencies...');
-      execSync('npm install', { cwd: options.output });
+      execSync('npm install', {
+        cwd: options.output,
+        stdio: options.verbose ? 'inherit' : 'pipe',
+      });
     }
   });

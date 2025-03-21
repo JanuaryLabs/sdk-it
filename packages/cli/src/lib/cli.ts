@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { Command, program } from 'commander';
 
-import dart from './langs/dart';
-import typescript from './langs/typescript';
+import dart from './langs/dart.ts';
+import typescript from './langs/typescript.ts';
 
 const generate = new Command('generate')
   .addCommand(typescript)

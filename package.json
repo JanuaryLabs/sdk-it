@@ -4,7 +4,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "test": "node --experimental-strip-types ./e2e/index.ts"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-strip-types ./e2e/index.ts"
   },
   "repository": "https://github.com/JanuaryLabs/sdk-it",
   "private": true,
