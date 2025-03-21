@@ -23,6 +23,7 @@ import {
   type OperationInput,
   type Parser,
   type Spec,
+  generateSDK,
 } from './sdk.ts';
 import { followRef, isRef, securityToOptions, useImports } from './utils.ts';
 
@@ -207,6 +208,19 @@ export function generateCode(
     const responses: string[] = [];
     const responsesImports: Record<string, Import> = {};
     for (const status in operation.responses) {
+      const typeScriptDeserialzer = new TypeScriptDeserialzer(
+        config.spec,
+        (schemaName, zod) => {
+          commonSchemas[schemaName] = zod;
+          responsesImports[schemaName] = {
+            defaultImport: undefined,
+            isTypeOnly: true,
+            moduleSpecifier: `../models/${config.makeImport(schemaName)}`,
+            namedImports: [{ isTypeOnly: true, name: schemaName }],
+            namespaceImport: undefined,
+          };
+        },
+      );
       const response = isRef(
         operation.responses[status] as ResponseObject | ReferenceObject,
       )
@@ -217,28 +231,26 @@ export function generateCode(
         : (operation.responses[status] as ResponseObject);
       const statusCode = +status;
       if (statusCode >= 400) {
-        errors.push(statusCdeToMessageMap[status] ?? 'ProblematicResponse');
-      }
-      if (statusCode >= 200 && statusCode < 300) {
+        const responseContent = get(response, ['content']);
+        const isJson = responseContent && responseContent['application/json'];
+        const responseSchema = isJson
+          ? typeScriptDeserialzer.handle(
+              responseContent['application/json'].schema!,
+              true,
+            )
+          : 'void';
+        errors.push(
+          statusCdeToMessageMap[status]
+            ? `${statusCdeToMessageMap[status]}<${responseSchema}>`
+            : 'ProblematicResponse',
+        );
+      } else if (statusCode >= 200 && statusCode < 300) {
         const responseContent = get(response, ['content']);
         const isJson = responseContent && responseContent['application/json'];
         if ((response.headers ?? {})['Transfer-Encoding']) {
           parser = 'chunked';
         }
-        // TODO: how the user is going to handle multiple response types
-        const typeScriptDeserialzer = new TypeScriptDeserialzer(
-          config.spec,
-          (schemaName, zod) => {
-            commonSchemas[schemaName] = zod;
-            responsesImports[schemaName] = {
-              defaultImport: undefined,
-              isTypeOnly: true,
-              moduleSpecifier: `../models/${config.makeImport(schemaName)}`,
-              namedImports: [{ isTypeOnly: true, name: schemaName }],
-              namespaceImport: undefined,
-            };
-          },
-        );
+
         const responseSchema = isJson
           ? typeScriptDeserialzer.handle(
               responseContent['application/json'].schema!,
@@ -269,6 +281,7 @@ export function generateCode(
     } else {
       output.push(`export type ${pascalcase(entry.name + ' output')} = void;`);
     }
+
     output.push(
       ...useImports(output.join(''), Object.values(responsesImports)),
     );
@@ -289,8 +302,11 @@ export function generateCode(
       trigger: entry,
     });
   });
-
-  return { groups, commonSchemas, commonZod, outputs };
+  const clientFiles = generateSDK({
+    operations: groups,
+    makeImport: config.makeImport,
+  });
+  return { groups, commonSchemas, commonZod, outputs, clientFiles };
 }
 
 // TODO - USE CASES

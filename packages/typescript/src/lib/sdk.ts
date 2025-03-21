@@ -1,8 +1,7 @@
 import { camelcase, spinalcase } from 'stringcase';
 
-import { removeDuplicates, toLitObject } from '@sdk-it/core';
+import { toLitObject } from '@sdk-it/core';
 
-import backend from './client.ts';
 import type { MakeImportFn } from './utils.ts';
 
 export type Parser = 'chunked' | 'buffered';
@@ -77,10 +76,10 @@ export type Options = Record<
   }
 >;
 export interface Spec {
-  operations: Record<string, Operation[]>;
   name: string;
   options: Options;
   servers: string[];
+  operations: Record<string, Operation[]>;
   makeImport: MakeImportFn;
 }
 
@@ -162,7 +161,7 @@ export function generateInputs(
   };
 }
 
-export function generateSDK(spec: Spec) {
+export function generateSDK(spec: Omit<Spec, 'servers' | 'name' | 'options'>) {
   const emitter = new Emitter(spec.makeImport);
   const schemaEndpoint = new SchemaEndpoint(spec.makeImport);
   const errors: string[] = [];
@@ -239,11 +238,7 @@ export function generateSDK(spec: Spec) {
     }
   }
 
-  emitter.addImport(
-    `import type { ${removeDuplicates(errors, (it) => it).join(', ')} } from '${spec.makeImport('./http/response')}';`,
-  );
   return {
-    'client.ts': backend(spec),
     'schemas.ts': schemaEndpoint.complete(),
     'endpoints.ts': emitter.complete(),
   };

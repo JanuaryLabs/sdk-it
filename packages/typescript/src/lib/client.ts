@@ -2,7 +2,7 @@ import { toLitObject } from '@sdk-it/core';
 
 import type { Spec } from './sdk.ts';
 
-export default (spec: Spec) => {
+export default (spec: Omit<Spec, 'operations'>) => {
   const optionsEntries = Object.entries(spec.options).map(
     ([key, value]) => [`'${key}'`, value] as const,
   );

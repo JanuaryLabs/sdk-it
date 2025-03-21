@@ -1,33 +1,37 @@
-export interface ApiResponse<Status extends number, Body extends unknown> {
-  kind: 'response';
+export class ErrorResponse<Status extends number, Body extends unknown> {
   status: Status;
-  body: Body;
+  error: Body;
+
+  constructor(status: Status, error: Body) {
+    this.status = status;
+    this.error = error;
+  }
 }
 
 // 4xx Client Errors
-export type BadRequest = ApiResponse<400, { message: string }>;
-export type Unauthorized = ApiResponse<401, { message: string }>;
-export type PaymentRequired = ApiResponse<402, { message: string }>;
-export type Forbidden = ApiResponse<403, { message: string }>;
-export type NotFound = ApiResponse<404, { message: string }>;
-export type MethodNotAllowed = ApiResponse<405, { message: string }>;
-export type NotAcceptable = ApiResponse<406, { message: string }>;
-export type Conflict = ApiResponse<409, { message: string }>;
-export type Gone = ApiResponse<410, { message: string }>;
-export type UnprocessableEntity = ApiResponse<422, { message: string; errors?: Record<string, string[]> }>;
-export type TooManyRequests = ApiResponse<429, { message: string; retryAfter?: string }>;
-export type PayloadTooLarge = ApiResponse<413, { message: string; }>;
-export type UnsupportedMediaType = ApiResponse<415, { message: string; }>;
+export class BadRequest<T> extends ErrorResponse<400, T> {}
+export class Unauthorized<T = { message: string }> extends ErrorResponse<401, T> {}
+export class PaymentRequired<T = { message: string }> extends ErrorResponse<402, T> {}
+export class Forbidden<T = { message: string }> extends ErrorResponse<403, T> {}
+export class NotFound<T = { message: string }> extends ErrorResponse<404, T> {}
+export class MethodNotAllowed<T = { message: string }> extends ErrorResponse<405, T> {}
+export class NotAcceptable<T = { message: string }> extends ErrorResponse<406, T> {}
+export class Conflict<T = { message: string }> extends ErrorResponse<409, T> {}
+export class Gone<T = { message: string }> extends ErrorResponse<410, T> {}
+export class UnprocessableEntity<T = { message: string; errors?: Record<string, string[]> }> extends ErrorResponse<422, T> {}
+export class TooManyRequests<T = { message: string; retryAfter?: string }> extends ErrorResponse<429, T> {}
+export class PayloadTooLarge<T = { message: string }> extends ErrorResponse<413, T> {}
+export class UnsupportedMediaType<T = { message: string }> extends ErrorResponse<415, T> {}
 
 // 5xx Server Errors
-export type InternalServerError = ApiResponse<500, { message: string }>;
-export type NotImplemented = ApiResponse<501, { message: string }>;
-export type BadGateway = ApiResponse<502, { message: string }>;
-export type ServiceUnavailable = ApiResponse<503, { message: string; retryAfter?: string }>;
-export type GatewayTimeout = ApiResponse<504, { message: string }>;
+export class InternalServerError<T = { message: string }> extends ErrorResponse<500, T> {}
+export class NotImplemented<T = { message: string }> extends ErrorResponse<501, T> {}
+export class BadGateway<T = { message: string }> extends ErrorResponse<502, T> {}
+export class ServiceUnavailable<T = { message: string; retryAfter?: string }> extends ErrorResponse<503, T> {}
+export class GatewayTimeout<T = { message: string }> extends ErrorResponse<504, T> {}
 
 export type ClientError =
-  | BadRequest
+  | BadRequest<{ message: string }>
   | Unauthorized
   | PaymentRequired
   | Forbidden

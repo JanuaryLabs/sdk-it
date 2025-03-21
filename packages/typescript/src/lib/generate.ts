@@ -5,6 +5,7 @@ import { spinalcase } from 'stringcase';
 
 import { getFolderExports, methods, writeFiles } from '@sdk-it/core';
 
+import backend from './client.ts';
 import { generateCode } from './generator.ts';
 import interceptors from './http/interceptors.txt';
 import parseResponse from './http/parse-response.txt';
@@ -60,24 +61,16 @@ export async function generate(
   const makeImport = (moduleSpecifier: string) => {
     return settings.useTsExtension ? `${moduleSpecifier}.ts` : moduleSpecifier;
   };
-  const { commonSchemas, groups, outputs, commonZod } = generateCode({
-    spec,
-    style: 'github',
-    makeImport,
-  });
+  const { commonSchemas, groups, outputs, commonZod, clientFiles } =
+    generateCode({
+      spec,
+      style: 'github',
+      makeImport,
+    });
   const output =
     settings.mode === 'full' ? join(settings.output, 'src') : settings.output;
-
   const options = security(spec);
-
   const clientName = settings.name || 'Client';
-  const clientFiles = generateSDK({
-    name: clientName,
-    operations: groups,
-    servers: spec.servers?.map((server) => server.url) || [],
-    options: options,
-    makeImport,
-  });
 
   // const readme = generateReadme(spec, {
   //   name: name,
@@ -109,6 +102,12 @@ ${sendRequest}`,
   await writeFiles(join(output, 'outputs'), outputs);
   const modelsImports = Object.entries(commonSchemas).map(([name]) => name);
   await writeFiles(output, {
+    'client.ts': backend({
+      name: clientName,
+      servers: (spec.servers ?? []).map((server) => server.url) || [],
+      options: options,
+      makeImport,
+    }),
     ...clientFiles,
     ...inputFiles,
     ...Object.fromEntries(
