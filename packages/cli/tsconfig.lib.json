@@ -7,5 +7,12 @@
     "tsBuildInfoFile": "dist/tsconfig.lib.tsbuildinfo"
   },
   "include": ["src/**/*.ts"],
-  "references": []
+  "references": [
+    {
+      "path": "../dart/tsconfig.lib.json"
+    },
+    {
+      "path": "../typescript/tsconfig.lib.json"
+    }
+  ]
 }
