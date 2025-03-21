@@ -24,17 +24,15 @@ export class ZodDeserialzer {
   /**
    * Handle objects (properties, additionalProperties).
    */
-  object(schema: SchemaObject, required = false): string {
+  object(schema: SchemaObject): string {
     const properties = schema.properties || {};
 
     // Convert each property
     const propEntries = Object.entries(properties).map(([key, propSchema]) => {
       const isRequired = (schema.required ?? []).includes(key);
-      const zodPart = this.handle(propSchema, isRequired);
-      return `'${key}': ${zodPart}`;
+      return `'${key}': ${this.handle(propSchema, isRequired)}`;
     });
 
-    // additionalProperties
     let additionalProps = '';
     if (schema.additionalProperties) {
       if (typeof schema.additionalProperties === 'object') {
@@ -47,8 +45,7 @@ export class ZodDeserialzer {
       }
     }
 
-    const objectSchema = `z.object({${propEntries.join(', ')}})${additionalProps}`;
-    return `${objectSchema}${appendOptional(required)}`;
+    return `z.object({${propEntries.join(', ')}})${additionalProps}`;
   }
 
   /**
@@ -109,7 +106,8 @@ export class ZodDeserialzer {
       case 'boolean':
         return `z.boolean()${this.#suffixes(schema.default, required, nullable)}`;
       case 'object':
-        return this.object(schema, true); // required always
+        return `${this.object(schema)}${this.#suffixes(schema.default, required, nullable)}`;
+      // required always
       case 'array':
         return this.array(schema, required);
       case 'null':
@@ -137,15 +135,15 @@ export class ZodDeserialzer {
 
     return schemaName;
   }
-  allOf(schemas: (SchemaObject | ReferenceObject)[]) {
+  allOf(schemas: (SchemaObject | ReferenceObject)[], required: boolean) {
     const allOfSchemas = schemas.map((sub) => this.handle(sub, true));
     if (allOfSchemas.length === 0) {
       return `z.unknown()`;
     }
     if (allOfSchemas.length === 1) {
-      return allOfSchemas[0];
+      return `${allOfSchemas[0]}${appendOptional(required)}`;
     }
-    return this.#toIntersection(allOfSchemas);
+    return `${this.#toIntersection(allOfSchemas)}${appendOptional(required)}`;
   }
 
   #toIntersection(schemas: string[]): string {
@@ -159,12 +157,9 @@ export class ZodDeserialzer {
   anyOf(schemas: (SchemaObject | ReferenceObject)[], required: boolean) {
     const anyOfSchemas = schemas.map((sub) => this.handle(sub, false));
     if (anyOfSchemas.length === 1) {
-      return anyOfSchemas[0];
+      return `${anyOfSchemas[0]}${appendOptional(required)}`;
     }
-    return anyOfSchemas.length > 1
-      ? `z.union([${anyOfSchemas.join(', ')}])${appendOptional(required)}`
-      : // Handle an invalid anyOf with one schema
-        anyOfSchemas[0];
+    return `z.union([${anyOfSchemas.join(', ')}])${appendOptional(required)}`;
   }
 
   oneOf(schemas: (SchemaObject | ReferenceObject)[], required: boolean) {
@@ -172,26 +167,23 @@ export class ZodDeserialzer {
       if (isRef(sub)) {
         const { model } = parseRef(sub.$ref);
         if (this.circularRefTracker.has(model)) {
-          return model;
+          return `${model}${appendOptional(required)}`;
         }
       }
       return this.handle(sub, true);
     });
     if (oneOfSchemas.length === 1) {
-      return oneOfSchemas[0];
+      return `${oneOfSchemas[0]}${appendOptional(required)}`;
     }
-    return oneOfSchemas.length > 1
-      ? `z.union([${oneOfSchemas.join(', ')}])${appendOptional(required)}`
-      : // Handle an invalid oneOf with one schema
-        oneOfSchemas[0];
+    return `z.union([${oneOfSchemas.join(', ')}])${appendOptional(required)}`;
   }
 
-  enum(values: any[], required: boolean) {
+  enum(values: any[]) {
     const enumVals = values.map((val) => JSON.stringify(val)).join(', ');
     if (values.length === 1) {
-      return `z.literal(${enumVals})${appendOptional(required)}`;
+      return `z.literal(${enumVals})`;
     }
-    return `z.enum([${enumVals}])${appendOptional(required)}`;
+    return `z.enum([${enumVals}])`;
   }
 
   /**
@@ -311,12 +303,12 @@ export class ZodDeserialzer {
 
   handle(schema: SchemaObject | ReferenceObject, required: boolean): string {
     if (isRef(schema)) {
-      return this.ref(schema.$ref, required);
+      return `${this.ref(schema.$ref, true)}${appendOptional(required)}`;
     }
 
     // Handle allOf → intersection
     if (schema.allOf && Array.isArray(schema.allOf)) {
-      return this.allOf(schema.allOf ?? []);
+      return this.allOf(schema.allOf ?? [], required);
     }
 
     // anyOf → union
@@ -331,7 +323,7 @@ export class ZodDeserialzer {
 
     // enum
     if (schema.enum && Array.isArray(schema.enum)) {
-      return this.enum(schema.enum, required);
+      return `${this.enum(schema.enum)}${this.#suffixes(JSON.stringify(schema.default), required, false)}`;
     }
 
     // 3.1 can have type: string or type: string[] (e.g. ["string","null"])
@@ -377,7 +369,9 @@ function appendOptional(isRequired?: boolean) {
   return isRequired ? '' : '.optional()';
 }
 function appendDefault(defaultValue?: any) {
-  return defaultValue !== undefined ? `.default(${defaultValue})` : '';
+  return defaultValue !== undefined || typeof defaultValue !== 'undefined'
+    ? `.default(${defaultValue})`
+    : '';
 }
 
 // Todo: convert openapi 3.0 to 3.1 before proccesing
