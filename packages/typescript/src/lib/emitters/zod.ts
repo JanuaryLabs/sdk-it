@@ -106,7 +106,7 @@ export class ZodDeserialzer {
       case 'boolean':
         return `z.boolean()${this.#suffixes(schema.default, required, nullable)}`;
       case 'object':
-        return `${this.object(schema)}${this.#suffixes(schema.default, required, nullable)}`;
+        return `${this.object(schema)}${this.#suffixes(JSON.stringify(schema.default), required, nullable)}`;
       // required always
       case 'array':
         return this.array(schema, required);
