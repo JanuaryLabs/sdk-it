@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { execFile } from 'node:child_process';
+import { execFile, execSync } from 'node:child_process';
 
 import { generate } from '@sdk-it/typescript';
 
@@ -20,6 +20,7 @@ interface Options {
    */
   formatter?: string;
   framework?: string;
+  install: boolean;
 }
 
 export default new Command('typescript')
@@ -44,6 +45,12 @@ export default new Command('typescript')
     'Framework that is integrating with the SDK',
   )
   .option('--formatter <formatter>', 'Formatter to use for the generated code')
+  .option(
+    '--install',
+    'Install dependencies using npm (only in full mode)',
+    true,
+  )
+  .option('--no-install', 'Do not install dependencies')
   .action(async (options: Options) => {
     const spec = await loadSpec(options.spec);
     await generate(spec, {
@@ -58,4 +65,10 @@ export default new Command('typescript')
         }
       },
     });
+
+    // Install dependencies if in full mode and install option is enabled
+    if (options.install && options.mode === 'full') {
+      console.log('Installing dependencies...');
+      execSync('npm install', { cwd: options.output });
+    }
   });

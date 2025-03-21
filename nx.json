@@ -45,6 +45,7 @@
         "external": [
           "@sdk-it/core",
           "@sdk-it/typescript",
+          "@sdk-it/dart",
           "@sdk-it/cli",
           "@sdk-it/generic",
           "@sdk-it/hono"

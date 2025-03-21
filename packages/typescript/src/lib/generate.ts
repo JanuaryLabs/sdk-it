@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
+import { spinalcase } from 'stringcase';
 
 import { getFolderExports, methods, writeFiles } from '@sdk-it/core';
 
@@ -69,8 +70,9 @@ export async function generate(
 
   const options = security(spec);
 
+  const clientName = settings.name || 'Client';
   const clientFiles = generateSDK({
-    name: settings.name || 'Client',
+    name: clientName,
     operations: groups,
     servers: spec.servers?.map((server) => server.url) || [],
     options: options,
@@ -78,7 +80,7 @@ export async function generate(
   });
 
   // const readme = generateReadme(spec, {
-  //   name: settings.name || 'Client',
+  //   name: name,
   // });
 
   const inputFiles = generateInputs(groups, commonZod, makeImport);
@@ -155,7 +157,9 @@ ${sendRequest}`,
         ignoreIfExists: true,
         content: JSON.stringify(
           {
-            name: 'sdk',
+            name: settings.name
+              ? `@${spinalcase(clientName.toLowerCase())}/sdk`
+              : 'sdk',
             type: 'module',
             main: './src/index.ts',
             dependencies: {
