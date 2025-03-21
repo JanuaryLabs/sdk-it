@@ -202,7 +202,6 @@ export function generateCode(
     const errors: string[] = [];
     operation.responses ??= {};
 
-    let foundResponse = false;
     const output = [`import z from 'zod';`];
     let parser: Parser = 'buffered';
     const responses: string[] = [];
@@ -221,7 +220,6 @@ export function generateCode(
         errors.push(statusCdeToMessageMap[status] ?? 'ProblematicResponse');
       }
       if (statusCode >= 200 && statusCode < 300) {
-        foundResponse = true;
         const responseContent = get(response, ['content']);
         const isJson = responseContent && responseContent['application/json'];
         if ((response.headers ?? {})['Transfer-Encoding']) {
@@ -254,26 +252,27 @@ export function generateCode(
       }
     }
 
-    if (responses.length > 1) {
-      // remove duplicates in case an operation has multiple responses with the same schema
-      output.push(
-        `export type ${pascalcase(entry.name + ' output')} = ${removeDuplicates(
-          responses,
-          (it) => it,
-        ).join(' | ')};`,
-      );
+    if (responses.length) {
+      if (responses.length > 1) {
+        // remove duplicates in case an operation has multiple responses with the same schema
+        output.push(
+          `export type ${pascalcase(entry.name + ' output')} = ${removeDuplicates(
+            responses,
+            (it) => it,
+          ).join(' | ')};`,
+        );
+      } else {
+        output.push(
+          `export type ${pascalcase(entry.name + ' output')} = ${responses[0]};`,
+        );
+      }
     } else {
-      output.push(
-        `export type ${pascalcase(entry.name + ' output')} = ${responses[0]};`,
-      );
+      output.push(`export type ${pascalcase(entry.name + ' output')} = void;`);
     }
     output.push(
       ...useImports(output.join(''), Object.values(responsesImports)),
     );
 
-    if (!foundResponse) {
-      output.push(`export type ${pascalcase(entry.name + ' output')} = void`);
-    }
     outputs[`${spinalcase(entry.name)}.ts`] = output.join('\n');
     groups[groupName].push({
       name: entry.name,
