@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { execFile } from 'node:child_process';
+import { execFile, execSync } from 'node:child_process';
 
 import { generate } from '@sdk-it/dart';
 
@@ -19,7 +19,7 @@ interface Options {
    * @example 'prettier $SDK_IT_OUTPUT --write'
    */
   formatter?: string;
-  framework?: string;
+  verbose: boolean;
 }
 
 export default new Command('dart')
@@ -32,6 +32,7 @@ export default new Command('dart')
   //   'full: generate a full project including package.json and tsconfig.json. useful for monorepo/workspaces minimal: generate only the client sdk',
   // )
   .option('-n, --name <name>', 'Name of the generated client', 'Client')
+  .option('-v, --verbose', 'Verbose output', false)
   // .option('--formatter <formatter>', 'Formatter to use for the generated code')
   .action(async (options: Options) => {
     const spec = await loadSpec(options.spec);
@@ -43,6 +44,11 @@ export default new Command('dart')
         if (options.formatter) {
           const [command, ...args] = options.formatter.split(' ');
           execFile(command, args, { env: { ...env, SDK_IT_OUTPUT: output } });
+        } else {
+          execSync('dart format $SDK_IT_OUTPUT', {
+            env: { ...process.env, SDK_IT_OUTPUT: output },
+            stdio: options.verbose ? 'inherit' : 'pipe',
+          });
         }
       },
     });
