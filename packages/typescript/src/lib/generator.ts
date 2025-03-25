@@ -1,31 +1,32 @@
 import { get, merge } from 'lodash-es';
+import { join } from 'node:path';
 import type {
   ContentObject,
   OpenAPIObject,
   ParameterLocation,
   ParameterObject,
   ReferenceObject,
-  ResponseObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
-import { pascalcase, spinalcase } from 'stringcase';
+import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
-import {
-  type GenerateSdkConfig,
-  forEachOperation,
-  removeDuplicates,
-} from '@sdk-it/core';
+import { type GenerateSdkConfig, forEachOperation } from '@sdk-it/core';
 
-import { TypeScriptDeserialzer } from './emitters/interface.ts';
 import { ZodDeserialzer } from './emitters/zod.ts';
 import {
   type Operation,
   type OperationInput,
-  type Parser,
   type Spec,
-  generateSDK,
+  toEndpoint,
 } from './sdk.ts';
-import { followRef, isRef, securityToOptions, useImports } from './utils.ts';
+import {
+  followRef,
+  importsToString,
+  isRef,
+  mergeImports,
+  securityToOptions,
+  useImports,
+} from './utils.ts';
 
 export interface NamedImport {
   name: string;
@@ -40,26 +41,6 @@ export interface Import {
   namespaceImport: string | undefined;
 }
 
-const statusCdeToMessageMap: Record<string, string> = {
-  '400': 'BadRequest',
-  '401': 'Unauthorized',
-  '402': 'PaymentRequired',
-  '403': 'Forbidden',
-  '404': 'NotFound',
-  '405': 'MethodNotAllowed',
-  '406': 'NotAcceptable',
-  '409': 'Conflict',
-  '413': 'PayloadTooLarge',
-  '410': 'Gone',
-  '422': 'UnprocessableEntity',
-  '429': 'TooManyRequests',
-  '500': 'InternalServerError',
-  '501': 'NotImplemented',
-  '502': 'BadGateway',
-  '503': 'ServiceUnavailable',
-  '504': 'GatewayTimeout',
-};
-
 export function generateCode(
   config: GenerateSdkConfig & {
     /**
@@ -70,7 +51,6 @@ export function generateCode(
     makeImport: (module: string) => string;
   },
 ) {
-  const commonSchemas: Record<string, string> = {};
   const commonZod = new Map<string, string>();
   const commonZodImports: Import[] = [];
   const zodDeserialzer = new ZodDeserialzer(config.spec, (model, schema) => {
@@ -86,13 +66,13 @@ export function generateCode(
 
   const groups: Spec['operations'] = {};
   const outputs: Record<string, string> = {};
+  const endpoints: Record<string, ReturnType<typeof toEndpoint>[]> = {};
 
   forEachOperation(config, (entry, operation) => {
     console.log(`Processing ${entry.method} ${entry.path}`);
-    const [groupName] = Array.isArray(operation.tags)
-      ? operation.tags
-      : ['unknown'];
-    groups[groupName] ??= [];
+
+    groups[entry.groupName] ??= [];
+    endpoints[entry.groupName] ??= [];
     const inputs: Operation['inputs'] = {};
 
     const additionalProperties: ParameterObject[] = [];
@@ -112,7 +92,6 @@ export function generateCode(
 
     const security = operation.security ?? [];
     const securitySchemes = config.spec.components?.securitySchemes ?? {};
-
     const securityOptions = securityToOptions(security, securitySchemes);
 
     Object.assign(inputs, securityOptions);
@@ -131,7 +110,7 @@ export function generateCode(
       ),
     );
 
-    const types: Record<string, string> = {};
+    const schemas: Record<string, string> = {};
     const shortContenTypeMap: Record<string, string> = {
       'application/json': 'json',
       'application/x-www-form-urlencoded': 'urlencoded',
@@ -168,9 +147,12 @@ export function generateCode(
         });
 
         Object.assign(inputs, bodyInputs(config, ctSchema));
-        types[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
+        schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
       }
 
+      // TODO: each content type should create own endpoint or force content-type header to be set as third parameter
+      // we can do the same for response that have multiple content types: force accept header to be set as third parameter
+      // instead of prefixing the endpoint name with the content type
       if (content['application/json']) {
         outgoingContentType = 'json';
       } else if (content['application/x-www-form-urlencoded']) {
@@ -188,7 +170,7 @@ export function generateCode(
         }),
         {},
       );
-      types[shortContenTypeMap['application/json']] = zodDeserialzer.handle(
+      schemas[shortContenTypeMap['application/json']] = zodDeserialzer.handle(
         {
           type: 'object',
           required: additionalProperties
@@ -200,128 +182,154 @@ export function generateCode(
       );
     }
 
-    const errors: string[] = [];
-    operation.responses ??= {};
+    const endpoint = toEndpoint(
+      entry.groupName,
+      config.spec,
+      operation,
+      {
+        outgoingContentType,
+        name: entry.name,
+        type: 'http',
+        trigger: entry,
+        schemas,
+        inputs,
+      },
+      { makeImport: config.makeImport },
+    );
 
     const output = [`import z from 'zod';`];
-    let parser: Parser = 'buffered';
-    const responses: string[] = [];
-    const responsesImports: Record<string, Import> = {};
-    for (const status in operation.responses) {
-      const typeScriptDeserialzer = new TypeScriptDeserialzer(
-        config.spec,
-        (schemaName, zod) => {
-          commonSchemas[schemaName] = zod;
-          responsesImports[schemaName] = {
-            defaultImport: undefined,
-            isTypeOnly: true,
-            moduleSpecifier: `../models/${config.makeImport(schemaName)}`,
-            namedImports: [{ isTypeOnly: true, name: schemaName }],
-            namespaceImport: undefined,
-          };
-        },
-      );
-      const response = isRef(
-        operation.responses[status] as ResponseObject | ReferenceObject,
-      )
-        ? (followRef(
-            config.spec,
-            operation.responses[status].$ref,
-          ) as ResponseObject)
-        : (operation.responses[status] as ResponseObject);
-      const statusCode = +status;
-      if (statusCode >= 400) {
-        const responseContent = get(response, ['content']);
-        const isJson = responseContent && responseContent['application/json'];
-        const responseSchema = isJson
-          ? typeScriptDeserialzer.handle(
-              responseContent['application/json'].schema!,
-              true,
-            )
-          : 'void';
-        errors.push(
-          statusCdeToMessageMap[status]
-            ? `${statusCdeToMessageMap[status]}<${responseSchema}>`
-            : 'ProblematicResponse',
-        );
-      } else if (statusCode >= 200 && statusCode < 300) {
-        const responseContent = get(response, ['content']);
-        const isJson = responseContent && responseContent['application/json'];
-        if ((response.headers ?? {})['Transfer-Encoding']) {
-          parser = 'chunked';
-        }
-
-        const responseSchema = isJson
-          ? typeScriptDeserialzer.handle(
-              responseContent['application/json'].schema!,
-              true,
-            )
-          : statusCode === 204
-            ? 'void'
-            : 'ReadableStream'; // non-json response treated as stream
-
-        responses.push(responseSchema);
-      }
-    }
-
+    const responses = endpoint.responses.flatMap((it) => it.responses);
+    const responsesImports = endpoint.responses.flatMap((it) =>
+      Object.values(it.imports),
+    );
     if (responses.length) {
-      if (responses.length > 1) {
-        // remove duplicates in case an operation has multiple responses with the same schema
-        output.push(
-          `export type ${pascalcase(entry.name + ' output')} = ${removeDuplicates(
-            responses,
-            (it) => it,
-          ).join(' | ')};`,
-        );
-      } else {
-        output.push(
-          `export type ${pascalcase(entry.name + ' output')} = ${responses[0]};`,
-        );
-      }
+      output.push(
+        ...responses.map((it) => `export type ${it.name} = ${it.schema};`),
+      );
     } else {
       output.push(`export type ${pascalcase(entry.name + ' output')} = void;`);
     }
 
-    output.push(
-      ...useImports(output.join(''), Object.values(responsesImports)),
-    );
+    output.unshift(...useImports(output.join(''), ...responsesImports));
 
     outputs[`${spinalcase(entry.name)}.ts`] = output.join('\n');
-    groups[groupName].push({
+
+    endpoints[entry.groupName].push(endpoint);
+
+    groups[entry.groupName].push({
       name: entry.name,
       type: 'http',
       inputs,
-      errors: errors.length ? errors : ['ServerError'],
       outgoingContentType,
-      schemas: types,
-      parser,
-      formatOutput: () => ({
-        import: pascalcase(entry.name + ' output'),
-        use: pascalcase(entry.name + ' output'),
-      }),
+      schemas,
       trigger: entry,
     });
   });
-  const clientFiles = generateSDK({
-    operations: groups,
-    makeImport: config.makeImport,
-  });
-  return { groups, commonSchemas, commonZod, outputs, clientFiles };
-}
+  const commonSchemas = Object.values(endpoints).reduce<Record<string, string>>(
+    (acc, endpoint) => ({
+      ...acc,
+      ...endpoint.reduce<Record<string, string>>(
+        (acc, { responses }) => ({
+          ...acc,
+          ...responses.reduce<Record<string, string>>(
+            (acc, it) => ({ ...acc, ...it.schemas }),
+            {},
+          ),
+        }),
+        {},
+      ),
+    }),
+    {},
+  );
 
-// TODO - USE CASES
-// 1. Some parameters conflicts with request body
-// 2. Generate 400 and 500 response variations // done
-// 3. Generate 200 response variations
-// 3. Doc Security
-// 4. Operation Security
-// 5. JsDocs
-// 5. test all different types of parameters
-// 6. cookies
-// 6. x-www-form-urlencoded // done
-// 7. multipart/form-data // done
-// 7. application/octet-stream // done
-// 7. chunked response // done
+  const allSchemas = Object.keys(endpoints).map((it) => ({
+    import: `import ${camelcase(it)} from './${config.makeImport(spinalcase(it))}';`,
+    use: `  ...${camelcase(it)}`,
+  }));
+
+  const imports = [
+    'import z from "zod";',
+    `import type { ParseError } from '${config.makeImport('../http/parser')}';`,
+    `import type { ServerError } from '${config.makeImport('../http/response')}';`,
+    `import type { OutputType, Parser, Type } from '../http/send-request.ts';`,
+  ];
+  return {
+    groups,
+    commonSchemas,
+    commonZod,
+    outputs,
+    clientFiles: {},
+    endpoints: {
+      [`${join('api', config.makeImport('schemas'))}`]: `
+${imports.join('\n')}
+${allSchemas.map((it) => it.import).join('\n')}
+
+const schemas = {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
+
+
+type Output<T extends OutputType> = T extends {
+  parser: Parser;
+  type: Type<any>;
+}
+  ? InstanceType<T['type']>
+  : T extends Type<any>
+    ? InstanceType<T>
+    : never;
+
+export type Endpoints = {
+  [K in keyof typeof schemas]: {
+    input: z.infer<(typeof schemas)[K]['schema']>;
+    output: (typeof schemas)[K]['output'] extends [
+      infer Single extends OutputType,
+    ]
+      ? Output<Single>
+      : (typeof schemas)[K]['output'] extends readonly [
+            ...infer Tuple extends OutputType[],
+          ]
+        ? { [I in keyof Tuple]: Output<Tuple[I]> }[number]
+        : never;
+    error: ServerError | ParseError<(typeof schemas)[K]['schema']>;
+  };
+};
+
+export default schemas;
+
+
+`.trim(),
+      ...Object.fromEntries(
+        Object.entries(endpoints)
+          .map(([name, endpoint]) => {
+            const imps = importsToString(
+              ...mergeImports(
+                ...endpoint.flatMap((it) =>
+                  it.responses.flatMap((it) =>
+                    Object.values(it.endpointImports),
+                  ),
+                ),
+              ),
+            );
+            // const imports = endpoint.map((it) => it.imports).flat();
+            return [
+              [
+                join('api', config.makeImport(spinalcase(name))),
+                `${[
+                  ...imps,
+                  // ...imports,
+                  `import z from 'zod';`,
+                  `import { toRequest, json, urlencoded, nobody, formdata, createUrl } from '${config.makeImport('../http/request')}';`,
+                  `import { chunked, buffered } from "${config.makeImport('../http/parse-response')}";`,
+                  `import * as ${camelcase(name)} from '../inputs/${config.makeImport(spinalcase(name))}';`,
+                ].join(
+                  '\n',
+                )}\nexport default {\n${endpoint.flatMap((it) => it.schemas).join(',\n')}\n}`,
+              ],
+            ];
+          })
+          .flat(),
+      ),
+    },
+  };
+}
 
 function toProps(
   spec: OpenAPIObject,

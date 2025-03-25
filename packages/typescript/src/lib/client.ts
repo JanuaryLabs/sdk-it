@@ -37,8 +37,8 @@ export default (spec: Omit<Spec, 'operations'>) => {
   return `
 import { fetchType, sendRequest } from './http/${spec.makeImport('send-request')}';
 import z from 'zod';
-import type { Endpoints } from './${spec.makeImport('endpoints')}';
-import schemas from './${spec.makeImport('schemas')}';
+import type { Endpoints } from './api/${spec.makeImport('schemas')}';
+import schemas from './api/${spec.makeImport('schemas')}';
 import {
   createBaseUrlInterceptor,
   createHeadersInterceptor,

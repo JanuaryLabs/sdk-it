@@ -38,25 +38,30 @@ export const createHeadersInterceptor = (
   };
 };
 
-export const createBaseUrlInterceptor = (getBaseUrl: () => string) :Interceptor => {
+export const createBaseUrlInterceptor = (
+  getBaseUrl: () => string,
+): Interceptor => {
   return {
-    before({init, url}) {
+    before({ init, url }) {
       const baseUrl = getBaseUrl();
       if (url.protocol === 'local:') {
-        return {init, url: new URL(url.pathname, baseUrl)}
+        return {
+          init,
+          url: new URL(url.href.replace('local://', baseUrl))
+        };
       }
-      return {init, url}
+      return { init, url };
     },
   };
 };
 
-export const logInterceptor = {
-  before(request: Request) {
-    console.log('Request', request);
-    return request;
+export const logInterceptor: Interceptor = {
+  before({ url, init }) {
+    console.dir('Request:', { url, init });
+    return { url, init };
   },
-  after(response: Response) {
-    console.log('Response', response);
+  after(response) {
+    console.log('Response:', response);
     return response;
   },
 };

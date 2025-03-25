@@ -50,7 +50,7 @@ async function handleChunkedResponse(response: Response, contentType: string) {
 }
 
 export function chunked(response: Response) {
-	return response.body;
+	return response.body!;
 }
 
 export async function buffered(response: Response) {

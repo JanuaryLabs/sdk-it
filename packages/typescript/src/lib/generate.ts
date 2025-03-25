@@ -13,7 +13,7 @@ import parserTxt from './http/parser.txt';
 import requestTxt from './http/request.txt';
 import responseTxt from './http/response.txt';
 import sendRequest from './http/send-request.txt';
-import { generateInputs, generateSDK } from './sdk.ts';
+import { generateInputs } from './sdk.ts';
 import { exclude, securityToOptions } from './utils.ts';
 
 function security(spec: OpenAPIObject) {
@@ -61,7 +61,7 @@ export async function generate(
   const makeImport = (moduleSpecifier: string) => {
     return settings.useTsExtension ? `${moduleSpecifier}.ts` : moduleSpecifier;
   };
-  const { commonSchemas, groups, outputs, commonZod, clientFiles } =
+  const { commonSchemas, endpoints, groups, outputs, commonZod, clientFiles } =
     generateCode({
       spec,
       style: 'github',
@@ -76,6 +76,7 @@ export async function generate(
   //   name: name,
   // });
 
+  // FIXME: inputs, outputs should be generated before hand.
   const inputFiles = generateInputs(groups, commonZod, makeImport);
 
   await writeFiles(output, {
@@ -90,9 +91,11 @@ export async function generate(
     'parse-response.ts': parseResponse,
     'send-request.ts': `import z from 'zod';
 import type { Interceptor } from './${makeImport('interceptors')}';
-import { handleError } from './${makeImport('parse-response')}';
+import { buffered } from './${makeImport('parse-response')}';
 import { parse } from './${makeImport('parser')}';
-import type { RequestConfig } from './request.ts';
+import type { RequestConfig } from './${makeImport('request')}';
+import { APIResponse } from './${makeImport('response')}';
+
 ${sendRequest}`,
     'response.ts': responseTxt,
     'parser.ts': parserTxt,
@@ -110,6 +113,7 @@ ${sendRequest}`,
     }),
     ...clientFiles,
     ...inputFiles,
+    ...endpoints,
     ...Object.fromEntries(
       Object.entries(commonSchemas).map(([name, schema]) => [
         `models/${name}.ts`,
@@ -130,25 +134,32 @@ ${sendRequest}`,
       join(output, 'inputs'),
       settings.useTsExtension,
       ['ts'],
-      (dirent) => dirent.isDirectory() && dirent.name === 'schemas',
+      (dirent) => dirent.isDirectory() && ['schemas'].includes(dirent.name),
     ),
-    getFolderExports(join(output, 'http'), settings.useTsExtension),
+    getFolderExports(join(output, 'api'), settings.useTsExtension),
+    getFolderExports(
+      join(output, 'http'),
+      settings.useTsExtension,
+      ['ts'],
+      (dirent) => dirent.name !== 'response.ts',
+    ),
   ];
   if (modelsImports.length) {
     folders.push(
       getFolderExports(join(output, 'models'), settings.useTsExtension),
     );
   }
-  const [outputIndex, inputsIndex, httpIndex, modelsIndex] =
+  const [outputIndex, inputsIndex, apiIndex, httpIndex, modelsIndex] =
     await Promise.all(folders);
   await writeFiles(output, {
+    'api/index.ts': apiIndex,
     'outputs/index.ts': outputIndex,
     'inputs/index.ts': inputsIndex || null,
     'http/index.ts': httpIndex,
     ...(modelsImports.length ? { 'models/index.ts': modelsIndex } : {}),
   });
   await writeFiles(output, {
-    'index.ts': await getFolderExports(output, settings.useTsExtension),
+    'index.ts': await getFolderExports(output, settings.useTsExtension, ['ts']),
   });
   if (settings.mode === 'full') {
     await writeFiles(settings.output, {

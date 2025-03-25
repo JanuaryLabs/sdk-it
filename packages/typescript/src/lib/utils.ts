@@ -22,7 +22,12 @@ export function cleanRef(ref: string) {
 export function parseRef(ref: string) {
   const parts = ref.split('/');
   const [model] = parts.splice(-1);
-  return { model, path: parts.join('/') };
+  const [namespace] = parts.splice(-1);
+  return {
+    model,
+    namespace,
+    path: cleanRef(parts.join('/')),
+  };
 }
 export function followRef(spec: OpenAPIObject, ref: string): SchemaObject {
   const pathParts = cleanRef(ref).split('/');
@@ -75,23 +80,30 @@ export function securityToOptions(
   return options;
 }
 
-export function mergeImports(imports: Import[]) {
+export function mergeImports(...imports: Import[]) {
   const merged: Record<string, Import> = {};
 
-  for (const i of imports) {
-    merged[i.moduleSpecifier] = merged[i.moduleSpecifier] ?? {
-      moduleSpecifier: i.moduleSpecifier,
-      defaultImport: i.defaultImport,
-      namespaceImport: i.namespaceImport,
+  for (const it of imports) {
+    merged[it.moduleSpecifier] = merged[it.moduleSpecifier] ?? {
+      moduleSpecifier: it.moduleSpecifier,
+      defaultImport: it.defaultImport,
+      namespaceImport: it.namespaceImport,
       namedImports: [],
     };
-    if (i.namedImports) {
-      merged[i.moduleSpecifier].namedImports.push(...i.namedImports);
+    for (const named of it.namedImports) {
+      if (
+        !merged[it.moduleSpecifier].namedImports.some(
+          (x) => x.name === named.name,
+        )
+      ) {
+        merged[it.moduleSpecifier].namedImports.push(named);
+      }
     }
   }
 
   return Object.values(merged);
 }
+
 export interface Import {
   isTypeOnly: boolean;
   moduleSpecifier: string;
@@ -126,9 +138,9 @@ export function exclude<T>(list: T[], exclude: T[]): T[] {
   return list.filter((it) => !exclude.includes(it));
 }
 
-export function useImports(content: string, imports: Import[]) {
+export function useImports(content: string, ...imports: Import[]) {
   const output: string[] = [];
-  for (const it of mergeImports(imports)) {
+  for (const it of mergeImports(...imports)) {
     const singleImport = it.defaultImport ?? it.namespaceImport;
     if (singleImport && content.includes(singleImport)) {
       output.push(importsToString(it).join('\n'));
