@@ -216,6 +216,7 @@ export class Paths {
         description: operation.description,
         requestBody: Object.keys(bodySchema).length
           ? {
+              required: required.length ? true : false,
               content: {
                 'application/json': {
                   schema: {
