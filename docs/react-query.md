@@ -12,22 +12,20 @@ Copy the following code into your project.
 <summary>View the API code</summary>
 
 ```ts
+import { Client, type Endpoints } from '@impact/client';
 import {
+  type MutationFunction,
   type UseMutationOptions,
   useMutation,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 
-import {
-  Client,
-  type Endpoints,
-  type ParseError,
-  ProblematicResponse,
-} from '@impact/client';
-
 export const client = new Client({
-  baseUrl: 'http://localhost:3000',
+  baseUrl:
+    import.meta.env.VITE_API_URL === '/'
+      ? window.location.origin
+      : import.meta.env.VITE_API_URL,
 });
 
 type DataEndpoints = {
@@ -89,25 +87,24 @@ export function useData<E extends DataEndpoints>(
  * date: '2023-01-01',
  * });
  */
-export function useAction<E extends MutationEndpoints>(
+export function useAction<E extends MutationEndpoints, TData>(
   endpoint: E,
   options: Omit<
-    UseMutationOptions<Endpoints[E]['output'], Endpoints[E]['error']>,
+    UseMutationOptions<TData, Endpoints[E]['error']>,
     'mutationFn' | 'mutationKey'
   > & {
     invalidate?: DataEndpoints[];
-    mutationFn: (
-      dispatch: (
-        input: Endpoints[E]['input'],
-      ) => Promise<Endpoints[E]['output']>,
-    ) => Promise<unknown>;
+    mutationFn: MutationFunction<
+      TData,
+      (input: Endpoints[E]['input']) => Promise<Endpoints[E]['output']>
+    >;
   },
 ) {
   const queryClient = useQueryClient();
   return useMutation({
     ...options,
     mutationKey: [endpoint],
-    mutationFn: async () => {
+    mutationFn: () => {
       return options.mutationFn(async (input: Endpoints[E]['input']) => {
         const [output, error] = await client.request(endpoint, input);
         if (error) {
@@ -128,15 +125,6 @@ export function useAction<E extends MutationEndpoints>(
     },
   });
 }
-
-export function isParseError(error: unknown): error is ParseError<any> {
-  return (error as any)?.kind === 'parse';
-}
-
-export function isResponseError(error: unknown): error is ProblematicResponse {
-  return (error as any)?.kind === 'response';
-}
-
 ```
 
 </details>
@@ -178,18 +166,15 @@ function CreatePaymentForm() {
   const [date, setDate] = useState('');
 
   // The second argument specifies which queries to invalidate after successful mutation
-  const { mutate, isLoading, error } = useAction(
-    'POST /payments',
-    {
-      invalidate: ['GET /payments'], // This will invalidate the payments query
-      mutationFn: (dispatch) => {
-        return dispatch({ amount, date });
-      },
-      onSuccess: (result) => {
-        // Handle success
-      },
-    }
-  );
+  const { mutate, isLoading, error } = useAction('POST /payments', {
+    invalidate: ['GET /payments'], // This will invalidate the payments query
+    mutationFn: async (dispatch) => {
+      return dispatch({ amount, date });
+    },
+    onSuccess: (result) => {
+      // Handle success
+    },
+  });
 
   return (
     <form

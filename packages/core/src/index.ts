@@ -11,7 +11,7 @@ export * from './lib/program.ts';
 
 export function removeDuplicates<T>(
   data: T[],
-  accessor: (item: T) => T[keyof T],
+  accessor: (item: T) => T[keyof T] | T = (item) => item,
 ): T[] {
   return [...new Map(data.map((x) => [accessor(x), x])).values()];
 }
