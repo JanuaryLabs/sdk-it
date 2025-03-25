@@ -179,11 +179,10 @@ export class ZodDeserialzer {
   }
 
   enum(values: any[]) {
-    const enumVals = values.map((val) => JSON.stringify(val)).join(', ');
     if (values.length === 1) {
-      return `z.literal(${enumVals})`;
+      return `z.literal(${values.join(', ')})`;
     }
-    return `z.enum([${enumVals}])`;
+    return `z.enum([${values.join(', ')}])`;
   }
 
   /**
@@ -323,7 +322,11 @@ export class ZodDeserialzer {
 
     // enum
     if (schema.enum && Array.isArray(schema.enum)) {
-      return `${this.enum(schema.enum)}${this.#suffixes(JSON.stringify(schema.default), required, false)}`;
+      const enumVals = schema.enum.map((val) => JSON.stringify(val));
+      const defaultValue = enumVals.includes(JSON.stringify(schema.default))
+        ? JSON.stringify(schema.default)
+        : undefined;
+      return `${this.enum(enumVals)}${this.#suffixes(defaultValue, required, false)}`;
     }
 
     // 3.1 can have type: string or type: string[] (e.g. ["string","null"])
@@ -344,6 +347,8 @@ export class ZodDeserialzer {
 
     // backward compatibility with openapi 3.0
     if ('nullable' in schema && schema.nullable) {
+      types.push('null');
+    } else if (schema.default === null) {
       types.push('null');
     }
 

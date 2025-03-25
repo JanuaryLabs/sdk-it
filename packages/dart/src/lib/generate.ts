@@ -4,17 +4,9 @@ import { npmRunPathEnv } from 'npm-run-path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
-
-
 import { forEachOperation, writeFiles } from '@sdk-it/core';
 
-
-
 import interceptors from './interceptors.txt';
-
-
-
-
 
 export async function generate(
   spec: OpenAPIObject,
@@ -42,12 +34,11 @@ export async function generate(
     }
   > = {};
   forEachOperation({ spec }, (entry, operation) => {
-    const [groupName] = operation.tags ?? [];
     const group =
-      groups[groupName] ??
-      (groups[groupName] = {
+      groups[entry.groupName] ??
+      (groups[entry.groupName] = {
         methods: [],
-        use: `final ${groupName} = new ${pascalcase(groupName)}();`,
+        use: `final ${entry.groupName} = new ${pascalcase(entry.groupName)}();`,
       });
     group.methods.push(`
         Future<http.Response> ${camelcase(operation.operationId)}() async {

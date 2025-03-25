@@ -173,6 +173,7 @@ export class TypeScriptDeserialzer {
       case 'null':
         return 'null';
       default:
+        console.warn(`Unknown type: ${type}`);
         // Unknown type -> fallback
         return appendOptional('any', required);
     }
@@ -186,7 +187,10 @@ export class TypeScriptDeserialzer {
     }
 
     this.circularRefTracker.add(schemaName);
-    this.#onRef(schemaName, this.handle(followRef(this.#spec, $ref), true));
+    this.#onRef?.(
+      schemaName,
+      this.handle(followRef(this.#spec, $ref), required),
+    );
     this.circularRefTracker.delete(schemaName);
 
     return appendOptional(schemaName, required);
