@@ -61,6 +61,14 @@ export class TypeDeriver {
         [$types]: ['number'],
       };
     }
+    if (type.flags & TypeFlags.BooleanLiteral) {
+      return {
+        [deriveSymbol]: true,
+        optional: false,
+        [$types]: ['boolean'],
+      };
+    }
+
     if (type.flags & TypeFlags.TemplateLiteral) {
       return {
         [deriveSymbol]: true,
