@@ -133,7 +133,6 @@ export function toEndpoint(
   const inputQuery: string[] = [];
   const inputBody: string[] = [];
   const inputParams: string[] = [];
-  const endpoints: string[] = [];
   const schemas: string[] = [];
   const responses: ReturnType<typeof handleResponse>[] = [];
   for (const [name, prop] of Object.entries(operation.inputs)) {
@@ -193,16 +192,8 @@ export function toEndpoint(
     if (addTypeParser && type !== 'json') {
       typePrefix = `${type} `;
     }
-    const input = `typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}`;
 
     const endpoint = `${typePrefix}${operation.trigger.method.toUpperCase()} ${operation.trigger.path}`;
-    endpoints.push(
-      `"${endpoint}": {
-        input: z.infer<${input}>;
-        output: ${outputs.join('|')};
-        error: ${['ServerError'].concat(`ParseError<${input}>`).join('|')}
-      };`,
-    );
 
     schemas.push(
       `"${endpoint}": {
@@ -265,7 +256,6 @@ function handleResponse(
       namespaceImport: undefined,
     },
   };
-  const errors: string[] = [];
   const responses: { name: string; schema: string }[] = [];
   const outputs: string[] = [];
   const typeScriptDeserialzer = new TypeScriptDeserialzer(
@@ -285,7 +275,7 @@ function handleResponse(
   const parser: Parser = (response.headers ?? {})['Transfer-Encoding']
     ? 'chunked'
     : 'buffered';
-  const statusName = statusCodeToResponseMap[status] || 'Ok';
+  const statusName = statusCodeToResponseMap[status] || 'APIResponse';
   const interfaceName = pascalcase(
     operationName + ` output${numbered ? status : ''}`,
   );
@@ -293,13 +283,16 @@ function handleResponse(
   if (statusCode === 204) {
     outputs.push(statusName);
   } else {
-    outputs.push(
-      parser !== 'buffered'
-        ? `{type: ${statusName}<${interfaceName}>, parser: ${parser}}`
-        : `${statusName}<${interfaceName}>`,
-    );
+    if (status.endsWith('XX')) {
+      outputs.push(`APIError<${interfaceName}>`);
+    } else {
+      outputs.push(
+        parser !== 'buffered'
+          ? `{type: ${statusName}<${interfaceName}>, parser: ${parser}}`
+          : `${statusName}<${interfaceName}>`,
+      );
+    }
   }
-  let foundError = false;
   const responseContent = get(response, ['content']);
   const isJson = responseContent && responseContent['application/json'];
   const responseSchema = isJson
@@ -312,26 +305,20 @@ function handleResponse(
     name: interfaceName,
     schema: responseSchema,
   });
-  if (statusCode >= 400) {
-    foundError = true;
-    errors.push(
-      statusCodeToResponseMap[status]
-        ? `${statusCodeToResponseMap[status]}<${responseSchema}>`
-        : 'ProblematicResponse',
-    );
-    endpointImports[statusCodeToResponseMap[status] ?? 'ProblematicResponse'] =
-      {
-        defaultImport: undefined,
-        isTypeOnly: false,
-        moduleSpecifier: utils.makeImport('../http/response'),
-        namedImports: [
-          {
-            isTypeOnly: false,
-            name: statusCodeToResponseMap[status] ?? 'ProblematicResponse',
-          },
-        ],
-        namespaceImport: undefined,
-      };
+  const statusGroup = +status.slice(0, 1);
+  if (statusCode >= 400 || statusGroup >= 4) {
+    endpointImports[statusCodeToResponseMap[status] ?? 'APIError'] = {
+      defaultImport: undefined,
+      isTypeOnly: false,
+      moduleSpecifier: utils.makeImport('../http/response'),
+      namedImports: [
+        {
+          isTypeOnly: false,
+          name: statusCodeToResponseMap[status] ?? 'APIError',
+        },
+      ],
+      namespaceImport: undefined,
+    };
 
     endpointImports[interfaceName] = {
       defaultImport: undefined,
@@ -340,7 +327,11 @@ function handleResponse(
       namedImports: [{ isTypeOnly: true, name: interfaceName }],
       namespaceImport: undefined,
     };
-  } else if (statusCode >= 200 && statusCode < 300) {
+  } else if (
+    (statusCode >= 200 && statusCode < 300) ||
+    statusCode >= 2 ||
+    statusGroup <= 3
+  ) {
     endpointImports[statusName] = {
       defaultImport: undefined,
       isTypeOnly: false,
@@ -348,7 +339,7 @@ function handleResponse(
       namedImports: [
         {
           isTypeOnly: false,
-          name: statusCodeToResponseMap[status] || 'Ok',
+          name: statusName,
         },
       ],
       namespaceImport: undefined,
@@ -362,16 +353,5 @@ function handleResponse(
       namespaceImport: undefined,
     };
   }
-
-  if (!foundError) {
-    endpointImports['ServerError'] = {
-      defaultImport: undefined,
-      isTypeOnly: true,
-      moduleSpecifier: utils.makeImport('../http/response'),
-      namedImports: [{ isTypeOnly: true, name: 'ServerError' }],
-      namespaceImport: undefined,
-    };
-  }
-
-  return { schemas, imports, endpointImports, errors, responses, outputs };
+  return { schemas, imports, endpointImports, responses, outputs };
 }

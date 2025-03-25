@@ -155,7 +155,7 @@ export class ZodDeserialzer {
   }
 
   anyOf(schemas: (SchemaObject | ReferenceObject)[], required: boolean) {
-    const anyOfSchemas = schemas.map((sub) => this.handle(sub, false));
+    const anyOfSchemas = schemas.map((sub) => this.handle(sub, true));
     if (anyOfSchemas.length === 1) {
       return `${anyOfSchemas[0]}${appendOptional(required)}`;
     }
