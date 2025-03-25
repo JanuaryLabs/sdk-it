@@ -29,7 +29,7 @@ type TunedOperationObject = OperationObject & {
 export function forEachOperation<T>(
   config: GenerateSdkConfig,
   callback: (
-    entry: { name: string; method: string; path: string },
+    entry: { name: string; method: string; path: string; groupName: string },
     operation: TunedOperationObject,
   ) => T,
 ) {
@@ -41,11 +41,12 @@ export function forEachOperation<T>(
       string,
       OperationObject,
     ][]) {
+      const [groupName] = operation.tags ?? ['unknown'];
       const formatOperationId = config.operationId ?? defaults.operationId;
       const operationName = formatOperationId(operation, path, method);
       result.push(
         callback(
-          { name: operationName, method, path },
+          { name: operationName, method, path, groupName },
           {
             ...operation,
             parameters: [...parameters, ...(operation.parameters ?? [])],
