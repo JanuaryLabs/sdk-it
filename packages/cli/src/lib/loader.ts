@@ -27,16 +27,13 @@ export async function loadRemote(location: string) {
 }
 export async function loadLocal(location: string) {
   const extName = extname(location);
+  const text = await await readFile(location, 'utf-8');
   switch (extName) {
     case '.json':
-      return import(location, { with: { type: 'json' } }).then(
-        (mod) => mod.default,
-      );
+      return JSON.parse(text);
     case '.yaml':
-    case '.yml': {
-      const text = await await readFile(location, 'utf-8');
+    case '.yml':
       return parse(text);
-    }
     default:
       throw new Error(`Unsupported file extension: ${extName}`);
   }
