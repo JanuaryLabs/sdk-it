@@ -43,3 +43,6 @@ Thumbs.db
 .client
 .client-*
 .yamls
+
+vite.config.*.timestamp*
+vitest.config.*.timestamp*

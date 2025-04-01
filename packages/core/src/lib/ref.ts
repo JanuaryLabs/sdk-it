@@ -26,11 +26,14 @@ export function parseRef(ref: string) {
     path: cleanRef(parts.join('/')),
   };
 }
-export function followRef(spec: OpenAPIObject, ref: string): SchemaObject {
+export function followRef<T extends SchemaObject = SchemaObject>(
+  spec: OpenAPIObject,
+  ref: string,
+): T {
   const pathParts = cleanRef(ref).split('/');
-  const entry = get(spec, pathParts) as SchemaObject | ReferenceObject;
+  const entry = get(spec, pathParts) as T | ReferenceObject;
   if (entry && '$ref' in entry) {
-    return followRef(spec, entry.$ref);
+    return followRef<T>(spec, entry.$ref);
   }
   return entry;
 }

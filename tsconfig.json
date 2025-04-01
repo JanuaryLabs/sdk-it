@@ -20,6 +20,9 @@
     },
     {
       "path": "./packages/dart"
+    },
+    {
+      "path": "./packages/apiref"
     }
   ]
 }

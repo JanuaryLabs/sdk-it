@@ -21,8 +21,9 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "npm-run-path": "6.0.0",
     "openapi3-ts": "4.4.0",
-    "@sdk-it/core": "0.16.0"
+    "@sdk-it/core": "0.16.0",
+    "lodash-es": "^4.17.21",
+    "stringcase": "^4.3.1"
   }
 }
