@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/dart",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -23,6 +23,6 @@
   "dependencies": {
     "npm-run-path": "6.0.0",
     "openapi3-ts": "4.4.0",
-    "@sdk-it/core": "0.15.0"
+    "@sdk-it/core": "0.16.0"
   }
 }
