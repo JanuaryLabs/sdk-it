@@ -10,7 +10,7 @@ import type {
 } from 'openapi3-ts/oas31';
 import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
-import { type GenerateSdkConfig, forEachOperation } from '@sdk-it/core';
+import { type GenerateSdkConfig, followRef, forEachOperation, isRef } from '@sdk-it/core';
 
 import { ZodDeserialzer } from './emitters/zod.ts';
 import {
@@ -20,9 +20,7 @@ import {
   toEndpoint,
 } from './sdk.ts';
 import {
-  followRef,
   importsToString,
-  isRef,
   mergeImports,
   securityToOptions,
   useImports,

@@ -4,7 +4,7 @@ import type {
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { cleanRef, followRef, isRef, parseRef } from '../utils.ts';
+import { cleanRef, followRef, isRef, parseRef } from '@sdk-it/core';
 
 type OnRefCallback = (ref: string, interfaceContent: string) => void;
 

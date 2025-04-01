@@ -81,6 +81,48 @@ export async function getFolderExports(
   return exports.join('\n');
 }
 
+export async function getFolderExportsV2(
+  folder: string,
+  options: {
+    includeExtension?: boolean;
+    extensions: string[];
+    ignore?: (dirent: Dirent) => boolean;
+    exportSyntax: string;
+  } = {
+    extensions: ['ts'],
+    ignore: () => false,
+    includeExtension: true,
+    exportSyntax: 'export * from ',
+  },
+) {
+  options.includeExtension ??= true;
+  if(!await exist(folder)) {
+    return '';
+  }
+  const files = await readdir(folder, { withFileTypes: true });
+  const exports: string[] = [];
+  for (const file of files) {
+    if (options.ignore?.(file)) {
+      continue;
+    }
+    if (file.isDirectory()) {
+      if (await exist(`${file.parentPath}/${file.name}/index.ts`)) {
+        exports.push(
+          `${options.exportSyntax} './${file.name}/index${options.includeExtension ? '.ts' : ''}';`,
+        );
+      }
+    } else if (
+      file.name !== 'index.ts' &&
+      options.extensions.includes(getExt(file.name))
+    ) {
+      exports.push(
+        `${options.exportSyntax} './${options.includeExtension ? file.name : file.name.replace(extname(file.name), '')}';`,
+      );
+    }
+  }
+  return exports.join('\n');
+}
+
 export const getExt = (fileName?: string) => {
   if (!fileName) {
     return ''; // shouldn't happen as there will always be a file name

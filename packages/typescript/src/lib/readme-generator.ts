@@ -12,9 +12,7 @@ import type {
 } from 'openapi3-ts/oas31';
 import { pascalcase } from 'stringcase';
 
-import { type Method } from '@sdk-it/core';
-
-import { followRef } from './utils.ts';
+import { type Method, followRef } from '@sdk-it/core';
 
 /**
  * Generate README.md documentation directly from OpenAPI spec

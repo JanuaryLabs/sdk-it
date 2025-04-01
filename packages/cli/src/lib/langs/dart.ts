@@ -40,15 +40,21 @@ export default new Command('dart')
       output: options.output,
       mode: options.mode || 'minimal',
       name: options.name,
-      formatCode: ({ env, output }) => {
+      formatCode: ({ output }) => {
         if (options.formatter) {
           const [command, ...args] = options.formatter.split(' ');
-          execFile(command, args, { env: { ...env, SDK_IT_OUTPUT: output } });
+          execFile(command, args, {
+            env: { ...process.env, SDK_IT_OUTPUT: output },
+          });
         } else {
-          execSync('dart format $SDK_IT_OUTPUT', {
+          execSync('dart format $SDK_IT_OUTPUT ', {
             env: { ...process.env, SDK_IT_OUTPUT: output },
             stdio: options.verbose ? 'inherit' : 'pipe',
           });
+          // execSync('dart fix --apply $SDK_IT_OUTPUT ', {
+          //   env: { ...process.env, SDK_IT_OUTPUT: output },
+          //   stdio: options.verbose ? 'inherit' : 'pipe',
+          // });
         }
       },
     });

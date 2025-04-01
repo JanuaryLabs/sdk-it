@@ -1,42 +1,12 @@
-import { get } from 'lodash-es';
 import type {
   ComponentsObject,
-  OpenAPIObject,
-  ReferenceObject,
-  SchemaObject,
   SecurityRequirementObject,
 } from 'openapi3-ts/oas31';
 
-import { removeDuplicates } from '@sdk-it/core';
+import { isRef, removeDuplicates } from '@sdk-it/core';
 
 import { type Options } from './sdk.ts';
 
-export function isRef(obj: any): obj is ReferenceObject {
-  return obj && '$ref' in obj;
-}
-
-export function cleanRef(ref: string) {
-  return ref.replace(/^#\//, '');
-}
-
-export function parseRef(ref: string) {
-  const parts = ref.split('/');
-  const [model] = parts.splice(-1);
-  const [namespace] = parts.splice(-1);
-  return {
-    model,
-    namespace,
-    path: cleanRef(parts.join('/')),
-  };
-}
-export function followRef(spec: OpenAPIObject, ref: string): SchemaObject {
-  const pathParts = cleanRef(ref).split('/');
-  const entry = get(spec, pathParts) as SchemaObject | ReferenceObject;
-  if (entry && '$ref' in entry) {
-    return followRef(spec, entry.$ref);
-  }
-  return entry;
-}
 export function securityToOptions(
   security: SecurityRequirementObject[],
   securitySchemes: ComponentsObject['securitySchemes'],
@@ -105,16 +75,16 @@ export function mergeImports(...imports: Import[]) {
 }
 
 export interface Import {
-  isTypeOnly: boolean;
+  isTypeOnly?: boolean;
   moduleSpecifier: string;
-  defaultImport: string | undefined;
+  defaultImport?: string | undefined;
   namedImports: NamedImport[];
-  namespaceImport: string | undefined;
+  namespaceImport?: string | undefined;
 }
 export interface NamedImport {
   name: string;
   alias?: string;
-  isTypeOnly: boolean;
+  isTypeOnly?: boolean;
 }
 
 export function importsToString(...imports: Import[]) {

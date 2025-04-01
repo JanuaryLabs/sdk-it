@@ -4,9 +4,9 @@ import type {
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { cleanRef, followRef, isRef, parseRef } from '../utils.ts';
+import { cleanRef, followRef, isRef, parseRef } from '@sdk-it/core';
 
-type OnRefCallback = (ref: string, zod: string) => void;
+type OnRefCallback = (ref: string, content: string) => void;
 
 /**
  * Convert an OpenAPI (JSON Schema style) object into a Zod schema string,

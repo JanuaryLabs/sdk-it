@@ -7,10 +7,10 @@ import type {
 } from 'openapi3-ts/oas31';
 import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
-import { toLitObject } from '@sdk-it/core';
+import { followRef, isRef, toLitObject } from '@sdk-it/core';
 
 import { TypeScriptDeserialzer } from './emitters/interface.ts';
-import { type Import, type MakeImportFn, followRef, isRef } from './utils.ts';
+import { type Import, type MakeImportFn } from './utils.ts';
 
 export type Parser = 'chunked' | 'buffered';
 
@@ -308,24 +308,14 @@ function handleResponse(
   const statusGroup = +status.slice(0, 1);
   if (statusCode >= 400 || statusGroup >= 4) {
     endpointImports[statusCodeToResponseMap[status] ?? 'APIError'] = {
-      defaultImport: undefined,
-      isTypeOnly: false,
       moduleSpecifier: utils.makeImport('../http/response'),
-      namedImports: [
-        {
-          isTypeOnly: false,
-          name: statusCodeToResponseMap[status] ?? 'APIError',
-        },
-      ],
-      namespaceImport: undefined,
+      namedImports: [{ name: statusCodeToResponseMap[status] ?? 'APIError' }],
     };
 
     endpointImports[interfaceName] = {
-      defaultImport: undefined,
       isTypeOnly: true,
       moduleSpecifier: `../outputs/${utils.makeImport(spinalcase(operationName))}`,
       namedImports: [{ isTypeOnly: true, name: interfaceName }],
-      namespaceImport: undefined,
     };
   } else if (
     (statusCode >= 200 && statusCode < 300) ||
@@ -333,8 +323,6 @@ function handleResponse(
     statusGroup <= 3
   ) {
     endpointImports[statusName] = {
-      defaultImport: undefined,
-      isTypeOnly: false,
       moduleSpecifier: utils.makeImport('../http/response'),
       namedImports: [
         {
@@ -342,7 +330,6 @@ function handleResponse(
           name: statusName,
         },
       ],
-      namespaceImport: undefined,
     };
 
     endpointImports[interfaceName] = {

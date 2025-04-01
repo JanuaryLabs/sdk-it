@@ -1,3 +1,9 @@
+import {
+  pascalcase as _pascalcase,
+  snakecase as _snakecase,
+  spinalcase as _spinalcase,
+  camelcase,
+} from 'stringcase';
 import type ts from 'typescript';
 
 import type { TypeDeriver } from './lib/deriver.ts';
@@ -7,6 +13,7 @@ export * from './lib/deriver.ts';
 export * from './lib/file-system.ts';
 export * from './lib/operation.ts';
 export * from './lib/paths.ts';
+export * from './lib/ref.ts';
 export * from './lib/program.ts';
 
 export function removeDuplicates<T>(
@@ -38,3 +45,26 @@ export type ResponseAnalyzerFn = (
   handler: ts.ArrowFunction,
   deriver: TypeDeriver,
 ) => ResponseItem[];
+
+export function isEmpty(value: unknown): value is null | undefined | '' {
+  if (value === null || value === undefined || value === '') {
+    return true;
+  }
+  if (Array.isArray(value) && value.length === 0) {
+    return true;
+  }
+  if (typeof value === 'object' && Object.keys(value).length === 0) {
+    return true;
+  }
+  return false;
+}
+
+export function pascalcase(value: string) {
+  return _pascalcase(value.split('/').join(' '));
+}
+export function spinalcase(value: string) {
+  return _spinalcase(value.split('/').join(' '));
+}
+export function snakecase(value: string) {
+  return _snakecase(value.split('/').join(' '));
+}
