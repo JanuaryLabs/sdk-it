@@ -23,8 +23,10 @@
   "dependencies": {
     "@sdk-it/core": "0.16.0",
     "stringcase": "^4.3.1",
-    "typescript": "^5.7.2",
     "debug": "^4.4.0",
     "openapi3-ts": "^4.4.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.8.3"
   }
 }

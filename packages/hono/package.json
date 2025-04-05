@@ -28,8 +28,10 @@
   "dependencies": {
     "@sdk-it/core": "0.16.0",
     "hono": "^4.7.4",
-    "typescript": "^5.7.2",
     "zod": "^3.24.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5.8.3"
   },
   "devDependencies": {
     "@types/debug": "^4.1.12"
