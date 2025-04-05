@@ -29,6 +29,10 @@ function runCommand(title: string, command: string) {
 
 const specs = [
   {
+    name: 'openstatus',
+    spec: 'https://api.openstatus.dev/v1/openapi',
+  },
+  {
     spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
     name: 'openai',
   },

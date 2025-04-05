@@ -7,63 +7,218 @@ export class APIResponse<Body = unknown, Status extends number = number> {
     this.status = status;
     this.data = data;
   }
+
+  static create<Body = unknown>(status: number, data: Body) {
+    return new this(status, data);
+  }
 }
 
 export class APIError<Body, Status extends number = number> extends APIResponse<
   Body,
   Status
-> {}
+> {
+  static create<T>(status: number, data: T) {
+    return new this(status, data);
+  }
+}
 
 // 2xx Success
 export class Ok<T> extends APIResponse<T, 200> {
   static status = 200;
+  constructor(data: T) {
+    super(200, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
 }
-export class Created<T> extends APIResponse<T, 201> {}
-export class Accepted<T> extends APIResponse<T, 202> {}
-export class NoContent extends APIResponse<null, 204> {}
+export class Created<T> extends APIResponse<T, 201> {
+  constructor(data: T) {
+    super(201, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
+export class Accepted<T> extends APIResponse<T, 202> {
+  constructor(data: T) {
+    super(202, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
+export class NoContent extends APIResponse<never, 204> {
+  constructor() {
+    super(204, null as never);
+  }
+  static create(status: number, data: never): NoContent {
+    return new this();
+  }
+}
 
 // 4xx Client Errors
-export class BadRequest<T> extends APIError<T, 400> {}
-export class Unauthorized<T = { message: string }> extends APIError<T, 401> {}
-export class PaymentRequired<T = { message: string }> extends APIError<
-  T,
-  402
-> {}
-export class Forbidden<T = { message: string }> extends APIError<T, 403> {}
-export class NotFound<T = { message: string }> extends APIError<T, 404> {}
+export class BadRequest<T> extends APIError<T, 400> {
+  constructor(data: T) {
+    super(400, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
+export class Unauthorized<T = { message: string }> extends APIError<T, 401> {
+  constructor(data: T) {
+    super(401, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
+export class PaymentRequired<T = { message: string }> extends APIError<T, 402> {
+  constructor(data: T) {
+    super(402, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
+export class Forbidden<T = { message: string }> extends APIError<T, 403> {
+  constructor(data: T) {
+    super(403, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
+export class NotFound<T = { message: string }> extends APIError<T, 404> {
+  constructor(data: T) {
+    super(404, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
 export class MethodNotAllowed<T = { message: string }> extends APIError<
   T,
   405
-> {}
-export class NotAcceptable<T = { message: string }> extends APIError<T, 406> {}
-export class Conflict<T = { message: string }> extends APIError<T, 409> {}
-export class Gone<T = { message: string }> extends APIError<T, 410> {}
+> {
+  constructor(data: T) {
+    super(405, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
+export class NotAcceptable<T = { message: string }> extends APIError<T, 406> {
+  constructor(data: T) {
+    super(406, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
+export class Conflict<T = { message: string }> extends APIError<T, 409> {
+  constructor(data: T) {
+    super(409, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
+export class Gone<T = { message: string }> extends APIError<T, 410> {
+  constructor(data: T) {
+    super(410, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
 export class UnprocessableEntity<
   T = { message: string; errors?: Record<string, string[]> },
-> extends APIError<T, 422> {}
+> extends APIError<T, 422> {
+  constructor(data: T) {
+    super(422, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
 export class TooManyRequests<
   T = { message: string; retryAfter?: string },
-> extends APIError<T, 429> {}
-export class PayloadTooLarge<T = { message: string }> extends APIError<
-  T,
-  413
-> {}
+> extends APIError<T, 429> {
+  constructor(data: T) {
+    super(429, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
+export class PayloadTooLarge<T = { message: string }> extends APIError<T, 413> {
+  constructor(data: T) {
+    super(413, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
 export class UnsupportedMediaType<T = { message: string }> extends APIError<
   T,
   415
-> {}
+> {
+  constructor(data: T) {
+    super(415, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
 
 // 5xx Server Errors
 export class InternalServerError<T = { message: string }> extends APIError<
   T,
   500
-> {}
-export class NotImplemented<T = { message: string }> extends APIError<T, 501> {}
-export class BadGateway<T = { message: string }> extends APIError<T, 502> {}
+> {
+  constructor(data: T) {
+    super(500, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
+export class NotImplemented<T = { message: string }> extends APIError<T, 501> {
+  constructor(data: T) {
+    super(501, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
+export class BadGateway<T = { message: string }> extends APIError<T, 502> {
+  constructor(data: T) {
+    super(502, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
 export class ServiceUnavailable<
   T = { message: string; retryAfter?: string },
-> extends APIError<T, 503> {}
-export class GatewayTimeout<T = { message: string }> extends APIError<T, 504> {}
+> extends APIError<T, 503> {
+  constructor(data: T) {
+    super(503, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
+export class GatewayTimeout<T = { message: string }> extends APIError<T, 504> {
+  constructor(data: T) {
+    super(504, data);
+  }
+  static create<T>(status: number, data: T) {
+    return new this(data);
+  }
+}
 
 export type ClientError =
   | BadRequest<{ message: string }>

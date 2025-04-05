@@ -44,6 +44,8 @@ import {
   createHeadersInterceptor,
 } from './http/${spec.makeImport('interceptors')}';
 
+import { parse, type ParseError } from './http/parser.ts';
+
 ${spec.servers.length ? `export const servers = ${JSON.stringify(spec.servers, null, 2)} as const` : ''}
 const optionsSchema = z.object(${toLitObject(specOptions, (x) => x.schema)});
 ${spec.servers.length ? `export type Servers = typeof servers[number];` : ''}
@@ -70,6 +72,38 @@ export class ${spec.name} {
       ],
       signal: options?.signal,
     });
+  }
+
+  async prepare<E extends keyof Endpoints>(
+    endpoint: E,
+    input: Endpoints[E]['input'],
+    options?: { headers?: HeadersInit },
+  ): Promise<
+    readonly [
+      { body: unknown } & RequestConfig,
+      ParseError<(typeof schemas)[E]['schema']> | null,
+    ]
+  > {
+    const route = schemas[endpoint];
+    const interceptors = [
+      createHeadersInterceptor(
+        () => this.defaultHeaders,
+        options?.headers ?? {},
+      ),
+      createBaseUrlInterceptor(() => this.options.baseUrl),
+    ];
+    const [parsedInput, parseError] = parse(route.schema, input);
+    if (parseError) {
+      return [null as never, parseError as never] as const;
+    }
+
+    let config = route.toRequest(parsedInput as never);
+    for (const interceptor of interceptors) {
+      if (interceptor.before) {
+        config = await interceptor.before(config);
+      }
+    }
+    return [{ ...config, body: parsedInput }, null as never] as const;
   }
 
   get defaultHeaders() {

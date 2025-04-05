@@ -62,7 +62,8 @@ export function forEachOperation<T>(
             name: metadata.name,
             method,
             path: fixedPath, // Use the fixed path here
-            groupName: metadata.group || (operation.tags ?? ['unknown'])[0],
+            // groupName: metadata.group || (operation.tags ?? ['unknown'])[0],
+            groupName:  (operation.tags ?? ['unknown'])[0],
             tag: (operation.tags ?? ['unknown'])[0],
           },
           {

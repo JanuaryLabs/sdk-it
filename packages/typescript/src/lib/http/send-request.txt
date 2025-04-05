@@ -1,3 +1,10 @@
+import z from 'zod';
+import type { Interceptor } from './interceptors.ts';
+import { buffered } from './parse-response.ts';
+import { parse } from './parser.ts';
+import type { RequestConfig } from './request.ts';
+import { APIResponse } from './response.ts';
+
 export interface Type<T> {
   new (...args: any[]): T;
 }
@@ -32,7 +39,7 @@ export async function sendRequest(
   const { interceptors = [] } = options;
   const [parsedInput, parseError] = parse(route.schema, input);
   if (parseError) {
-    return [null as never, { ...parseError, kind: 'parse' } as never] as const;
+    return [null as never, parseError as never] as const;
   }
 
   let config = route.toRequest(parsedInput as never);
@@ -57,7 +64,7 @@ export async function sendRequest(
     }
   }
 
-  let output: Constructor<APIResponse> | null = APIResponse;
+  let output: typeof APIResponse | null = APIResponse;
   let parser: Parser = buffered;
   for (const outputType of route.output) {
     if ('parser' in outputType) {
@@ -76,7 +83,7 @@ export async function sendRequest(
     }
   }
 
-  const data = new output(response.status, await parser(response));
+  const data = output.create(response.status, await parser(response));
   if (response.ok) {
     return [data as never, null] as const;
   }
