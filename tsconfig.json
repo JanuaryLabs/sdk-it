@@ -23,6 +23,9 @@
     },
     {
       "path": "./packages/apiref"
+    },
+    {
+      "path": "./packages/spec"
     }
   ]
 }

@@ -8,7 +8,6 @@ import {
   ScrollRestoration,
 } from 'react-router';
 
-import { AppNav } from './app-nav';
 import './styles.css';
 
 export const meta: MetaFunction = () => [
@@ -39,7 +38,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
       </head>
-      <body >
+      <body>
         {children}
         <ScrollRestoration />
         <Scripts />

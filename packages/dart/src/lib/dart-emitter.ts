@@ -310,7 +310,7 @@ return ${matches.join(' && ')};
     const schemaName = cleanRef($ref).split('/').pop()!;
     const result = this.handle(
       context.alias || schemaName,
-      followRef(this.#spec, $ref),
+      followRef<SchemaObject>(this.#spec, $ref),
       required,
       {
         ...context,

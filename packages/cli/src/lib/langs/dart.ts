@@ -2,8 +2,8 @@ import { Command } from 'commander';
 import { execFile, execSync } from 'node:child_process';
 
 import { generate } from '@sdk-it/dart';
+import { loadSpec } from '@sdk-it/spec';
 
-import { loadSpec } from '../loader.ts';
 import { outputOption, specOption } from '../options.ts';
 
 interface Options {

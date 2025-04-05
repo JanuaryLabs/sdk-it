@@ -3,6 +3,9 @@
   "include": [],
   "references": [
     {
+      "path": "../spec"
+    },
+    {
       "path": "./tsconfig.app.json"
     }
   ],

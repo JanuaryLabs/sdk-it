@@ -1,17 +1,24 @@
 {
-  "name": "@sdk-it/cli",
+  "name": "@sdk-it/spec",
   "version": "0.16.0",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": "./dist/index.js",
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     "./package.json": "./package.json",
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/lib/*",
+      "import": "./dist/lib/*",
+      "default": "./dist/lib/*"
     }
   },
   "files": [
@@ -19,12 +26,8 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "commander": "^13.1.0",
-    "@sdk-it/typescript": "0.16.0",
-    "@sdk-it/dart": "0.16.0",
-    "@sdk-it/spec": "0.16.0"
-  },
-  "publishConfig": {
-    "access": "public"
+    "openapi3-ts": "4.4.0",
+    "yaml": "^2.7.0",
+    "stringcase": "^4.3.1"
   }
 }

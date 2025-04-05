@@ -1,52 +1,61 @@
-import { Separator } from './components/separator';
+import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
+import { loadRemote } from '@sdk-it/spec/loaders/remote-loader.js';
+
+import { ApiContent } from './api-doc/api-content';
+import { ApiHeader } from './api-doc/api-header';
+import { useApiOperations } from './hooks/use-api-operations';
+import { useScrollOperations } from './hooks/use-scroll-operations';
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from './components/breadcrumb';
-import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
   SidebarInset,
   SidebarProvider,
-  SidebarTrigger,
-} from './components/sidebar';
-import { AppSidebar } from './components/sidebar/app-sidebar';
+  SidebarRail,
+} from './shadcn/sidebar';
+import { NavMain } from './sidebar/nav';
 
-export default function Page() {
+export async function loader() {
+  const spec = await loadRemote(
+    // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
+    'https://api.openstatus.dev/v1/openapi',
+  );
+  return spec;
+}
+
+export default function Page({
+  loaderData: spec,
+}: {
+  loaderData: OpenAPIObject;
+}) {
+  const { sidebarData, operationsMap } = useApiOperations(spec);
+  const { contentRef } = useScrollOperations({
+    operationsMap,
+  });
+
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <Sidebar collapsible="icon">
+        <SidebarHeader>
+          {/* <TeamSwitcher teams={data.teams} /> */}
+        </SidebarHeader>
+        <SidebarContent className="gap-x-2 gap-y-0">
+          <NavMain items={sidebarData} />
+          {/* <NavProjects projects={data.projects} /> */}
+        </SidebarContent>
+        <SidebarFooter>{/* <NavUser user={data.user} /> */}</SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b">
-          <div className="flex items-center gap-2 px-3">
-            <SidebarTrigger />
-            <Separator orientation="vertical" className="mr-2 h-4" />
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink href="#">
-                    Building Your Application
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>Data Fetching</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-        </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">
-          <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-            <div className="aspect-video rounded-xl bg-muted/50" />
-            <div className="aspect-video rounded-xl bg-muted/50" />
-            <div className="aspect-video rounded-xl bg-muted/50" />
-          </div>
-          <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min" />
-        </div>
+        <ApiHeader title={spec.info.title} />
+        <ApiContent
+          contentRef={contentRef}
+          info={spec.info}
+          sidebarData={sidebarData}
+          operationsMap={operationsMap}
+        />
       </SidebarInset>
     </SidebarProvider>
   );

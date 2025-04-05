@@ -189,7 +189,7 @@ export class TypeScriptDeserialzer {
     this.circularRefTracker.add(schemaName);
     this.#onRef?.(
       schemaName,
-      this.handle(followRef(this.#spec, $ref), required),
+      this.handle(followRef<SchemaObject>(this.#spec, $ref), required),
     );
     this.circularRefTracker.delete(schemaName);
 

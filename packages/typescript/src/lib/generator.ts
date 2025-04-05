@@ -10,7 +10,11 @@ import type {
 } from 'openapi3-ts/oas31';
 import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
-import { type GenerateSdkConfig, followRef, forEachOperation, isRef } from '@sdk-it/core';
+import { followRef, isRef } from '@sdk-it/core';
+import {
+  type GenerateSdkConfig,
+  forEachOperation,
+} from '@sdk-it/spec/operation.js';
 
 import { ZodDeserialzer } from './emitters/zod.ts';
 import {
@@ -186,7 +190,7 @@ export function generateCode(
       operation,
       {
         outgoingContentType,
-        name: entry.name,
+        name: operation.operationId,
         type: 'http',
         trigger: entry,
         schemas,
@@ -205,17 +209,19 @@ export function generateCode(
         ...responses.map((it) => `export type ${it.name} = ${it.schema};`),
       );
     } else {
-      output.push(`export type ${pascalcase(entry.name + ' output')} = void;`);
+      output.push(
+        `export type ${pascalcase(operation.operationId + ' output')} = void;`,
+      );
     }
 
     output.unshift(...useImports(output.join(''), ...responsesImports));
 
-    outputs[`${spinalcase(entry.name)}.ts`] = output.join('\n');
+    outputs[`${spinalcase(operation.operationId)}.ts`] = output.join('\n');
 
     endpoints[entry.groupName].push(endpoint);
 
     groups[entry.groupName].push({
-      name: entry.name,
+      name: operation.operationId,
       type: 'http',
       inputs,
       outgoingContentType,

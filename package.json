@@ -10,7 +10,7 @@
   "private": true,
   "devDependencies": {
     "@eslint/js": "^9.8.0",
-    "@nx/esbuild": "20.6.2",
+    "@nx/esbuild": "20.7.0",
     "@nx/eslint": "20.6.2",
     "@nx/eslint-plugin": "20.6.2",
     "@nx/js": "20.7.0",
@@ -20,6 +20,7 @@
     "@swc-node/register": "~1.9.1",
     "@swc/core": "~1.5.7",
     "@swc/helpers": "~0.5.11",
+    "@tailwindcss/typography": "^0.5.16",
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@types/lodash-es": "^4.17.12",
     "@types/node": "22.13.10",
@@ -52,12 +53,17 @@
     }
   },
   "dependencies": {
+    "@fontsource-variable/roboto-flex": "^5.2.5",
     "commander": "^13.1.0",
     "fast-content-type-parse": "^3.0.0",
+    "get-urls": "^12.1.0",
     "js-yaml": "^4.1.0",
     "lodash-es": "^4.17.21",
+    "react-markdown": "^10.1.0",
+    "rollup-plugin-node-polyfills": "^0.2.1",
     "rxjs": "^7.8.2",
     "stringcase": "^4.3.1",
+    "vite-plugin-node-polyfills": "^0.23.0",
     "yaml": "^2.7.0"
   }
 }

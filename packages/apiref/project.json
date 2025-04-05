@@ -4,6 +4,7 @@
   "sourceRoot": "packages/apiref/src",
   "projectType": "application",
   "tags": [],
+  "implicitDependencies": ["@sdk-it/spec"],
   "// targets": "to see all targets run: nx show project apiref --web",
   "targets": {}
 }

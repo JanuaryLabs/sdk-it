@@ -9,6 +9,9 @@
   "include": ["src/**/*.ts"],
   "references": [
     {
+      "path": "../spec/tsconfig.lib.json"
+    },
+    {
       "path": "../dart/tsconfig.lib.json"
     },
     {

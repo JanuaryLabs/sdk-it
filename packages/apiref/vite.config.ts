@@ -1,6 +1,11 @@
 import { reactRouter } from '@react-router/dev/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
+
+
+
+
 
 export default defineConfig(() => ({
   root: __dirname,
@@ -13,7 +18,20 @@ export default defineConfig(() => ({
     port: 4300,
     host: 'localhost',
   },
-  plugins: [tailwindcss(), reactRouter()],
+  resolve: {
+    alias: {
+      'node:path': 'rollup-plugin-node-polyfills/polyfills/path',
+    },
+  },
+  plugins: [
+    tailwindcss(),
+    reactRouter(),
+    // nodePolyfills({
+    //   exclude: ['stream'],
+    //   include: ['path'],
+    //   protocolImports: false,
+    // }),
+  ],
   build: {
     outDir: './dist',
     emptyOutDir: true,

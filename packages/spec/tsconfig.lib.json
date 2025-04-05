@@ -9,13 +9,6 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "global.d.ts"],
-  "references": [
-    {
-      "path": "../spec/tsconfig.lib.json"
-    },
-    {
-      "path": "../core/tsconfig.lib.json"
-    }
-  ]
+  "include": ["src/**/*.ts"],
+  "references": []
 }

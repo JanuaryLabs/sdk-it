@@ -1,6 +1,8 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import '@fontsource-variable/roboto-flex';
 
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@plugin "@tailwindcss/typography";
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -29,7 +31,8 @@
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
+  /* --sidebar: oklch(0.985 0 0); */
+  --sidebar: var(--secondary);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -119,5 +122,138 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  body {
+    font-family: 'Roboto Flex', sans-serif;
+    font-weight: 400;
+  }
+
+  @supports (font-variation-settings: normal) {
+    body {
+      font-family: 'Roboto Flex Variable', sans-serif;
+      font-weight: 400;
+      font-variation-settings:
+        'wdth' 75,
+        'wght' 400;
+    }
+  }
+}
+
+@layer base {
+  :root {
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer components {
+  .api-doc-scrollable {
+    scroll-behavior: smooth;
+    scroll-padding-top: 2rem;
+  }
+
+  .operation-card {
+    position: relative;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .operation-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .operation-card::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    box-shadow: 0 0 0 2px transparent;
+    border-radius: inherit;
+    pointer-events: none;
+    transition: all 0.2s ease;
+  }
+
+  .operation-card:target::after {
+    box-shadow: 0 0 0 2px var(--primary);
+  }
+
+  .method-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 60px;
+    font-weight: 500;
+  }
+
+  .api-doc-content {
+    padding-bottom: 3rem;
+  }
+
+  .api-doc-section:not(:last-child) {
+    margin-bottom: 2.5rem;
+  }
+
+  /* HTTP Method Colors */
+  .method-get {
+    background-color: rgb(219 234 254);
+    color: rgb(30 64 175);
+  }
+
+  .method-post {
+    background-color: rgb(220 252 231);
+    color: rgb(22 101 52);
+  }
+
+  .method-put {
+    background-color: rgb(254 249 195);
+    color: rgb(133 77 14);
+  }
+
+  .method-delete {
+    background-color: rgb(254 226 226);
+    color: rgb(153 27 27);
+  }
+
+  .method-patch {
+    background-color: rgb(243 232 255);
+    color: rgb(107 33 168);
+  }
+
+  /* Scrollbar styling */
+  .api-doc-scrollable::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .api-doc-scrollable::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+
+  .api-doc-scrollable::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 4px;
+  }
+
+  .api-doc-scrollable::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted-foreground);
   }
 }

@@ -11,7 +11,6 @@ import { camelcase } from 'stringcase';
 
 import {
   followRef,
-  forEachOperation,
   getFolderExportsV2,
   isEmpty,
   isRef,
@@ -20,6 +19,7 @@ import {
   snakecase,
   writeFiles,
 } from '@sdk-it/core';
+import { forEachOperation } from '@sdk-it/spec';
 
 import { DartSerializer } from './dart-emitter.ts';
 import interceptors from './interceptors.txt';
