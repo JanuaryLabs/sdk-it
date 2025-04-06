@@ -262,9 +262,8 @@ export function generateCode(
     commonSchemas,
     commonZod,
     outputs,
-    clientFiles: {},
     endpoints: {
-      [`${join('api', config.makeImport('schemas'))}`]: `
+      [`${join('api', 'schemas.ts')}`]: `
 ${imports.join('\n')}
 ${allSchemas.map((it) => it.import).join('\n')}
 
@@ -315,7 +314,7 @@ export default schemas;
             // const imports = endpoint.map((it) => it.imports).flat();
             return [
               [
-                join('api', config.makeImport(spinalcase(name))),
+                join('api', `${spinalcase(name)}.ts`),
                 `${[
                   ...imps,
                   // ...imports,

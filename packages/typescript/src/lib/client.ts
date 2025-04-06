@@ -35,7 +35,7 @@ export default (spec: Omit<Spec, 'operations'>) => {
   };
 
   return `
-import type { RequestConfig } from './http/request.ts';
+import type { RequestConfig } from './http/${spec.makeImport('request')}';
 import { fetchType, sendRequest } from './http/${spec.makeImport('send-request')}';
 import z from 'zod';
 import type { Endpoints } from './api/${spec.makeImport('schemas')}';
@@ -45,7 +45,7 @@ import {
   createHeadersInterceptor,
 } from './http/${spec.makeImport('interceptors')}';
 
-import { parse, type ParseError } from './http/parser.ts';
+import { parse, type ParseError } from './http/${spec.makeImport('parser')}';
 
 ${spec.servers.length ? `export const servers = ${JSON.stringify(spec.servers, null, 2)} as const` : ''}
 const optionsSchema = z.object(${toLitObject(specOptions, (x) => x.schema)});

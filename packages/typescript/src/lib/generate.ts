@@ -61,12 +61,13 @@ export async function generate(
   const makeImport = (moduleSpecifier: string) => {
     return settings.useTsExtension ? `${moduleSpecifier}.ts` : moduleSpecifier;
   };
-  const { commonSchemas, endpoints, groups, outputs, commonZod, clientFiles } =
-    generateCode({
+  const { commonSchemas, endpoints, groups, outputs, commonZod } = generateCode(
+    {
       spec,
       style: 'github',
       makeImport,
-    });
+    },
+  );
   const output =
     settings.mode === 'full' ? join(settings.output, 'src') : settings.output;
   const options = security(spec);
@@ -87,7 +88,9 @@ export async function generate(
   });
 
   await writeFiles(join(output, 'http'), {
-    'interceptors.ts': interceptors,
+    'interceptors.ts': `
+    import { type RequestConfig } from './${makeImport('request')}';
+    ${interceptors}`,
     'parse-response.ts': parseResponse,
     'send-request.ts': `import z from 'zod';
 import type { Interceptor } from './${makeImport('interceptors')}';
@@ -111,7 +114,6 @@ ${sendRequest}`,
       options: options,
       makeImport,
     }),
-    ...clientFiles,
     ...inputFiles,
     ...endpoints,
     ...Object.fromEntries(
