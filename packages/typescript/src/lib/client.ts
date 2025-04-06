@@ -35,6 +35,7 @@ export default (spec: Omit<Spec, 'operations'>) => {
   };
 
   return `
+import type { RequestConfig } from './http/request.ts';
 import { fetchType, sendRequest } from './http/${spec.makeImport('send-request')}';
 import z from 'zod';
 import type { Endpoints } from './api/${spec.makeImport('schemas')}';
@@ -79,10 +80,7 @@ export class ${spec.name} {
     input: Endpoints[E]['input'],
     options?: { headers?: HeadersInit },
   ): Promise<
-    readonly [
-      { body: unknown } & RequestConfig,
-      ParseError<(typeof schemas)[E]['schema']> | null,
-    ]
+    readonly [RequestConfig, ParseError<(typeof schemas)[E]['schema']> | null]
   > {
     const route = schemas[endpoint];
     const interceptors = [
@@ -103,7 +101,7 @@ export class ${spec.name} {
         config = await interceptor.before(config);
       }
     }
-    return [{ ...config, body: parsedInput }, null as never] as const;
+    return [config, null as never] as const;
   }
 
   get defaultHeaders() {
