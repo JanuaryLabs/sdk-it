@@ -57,7 +57,7 @@ export async function sendRequest(
     }
   }
 
-  let output: typeof APIResponse | null = APIResponse;
+  let output: typeof APIResponse | null = null;
   let parser: Parser = buffered;
   for (const outputType of route.output) {
     if ('parser' in outputType) {
@@ -76,10 +76,17 @@ export async function sendRequest(
     }
   }
 
-  const data = output.create(response.status, await parser(response));
   if (response.ok) {
+    const data = (output || APIResponse).create(
+      response.status,
+      await parser(response),
+    );
     return [data as never, null] as const;
   }
+  const data = (output || APIError).create(
+    response.status,
+    await parser(response),
+  );
   return [null as never, data as never] as const;
 }
 

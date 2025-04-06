@@ -1,7 +1,5 @@
-import { type RequestConfig } from './request.ts';
-
 export interface Interceptor {
-  before?: (config: RequestConfig) => Promise<RequestConfig>|RequestConfig;
+  before?: (config: RequestConfig) => Promise<RequestConfig> | RequestConfig;
   after?: (response: Response) => Promise<Response> | Response;
 }
 

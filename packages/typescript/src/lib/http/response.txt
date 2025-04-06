@@ -17,84 +17,92 @@ export class APIError<Body, Status extends number = number> extends APIResponse<
   Body,
   Status
 > {
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(status, data);
   }
 }
 
 // 2xx Success
 export class Ok<T> extends APIResponse<T, 200> {
-  static status = 200;
+  static override status = 200 as const;
   constructor(data: T) {
-    super(200, data);
+    super(Ok.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class Created<T> extends APIResponse<T, 201> {
+  static override status = 201 as const;
   constructor(data: T) {
-    super(201, data);
+    super(Created.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class Accepted<T> extends APIResponse<T, 202> {
+  static override status = 202 as const;
   constructor(data: T) {
-    super(202, data);
+    super(Accepted.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class NoContent extends APIResponse<never, 204> {
+  static override status = 204 as const;
   constructor() {
-    super(204, null as never);
+    super(NoContent.status, null as never);
   }
-  static create(status: number, data: never): NoContent {
+  static override create(status: number, data: never): NoContent {
     return new this();
   }
 }
 
 // 4xx Client Errors
 export class BadRequest<T> extends APIError<T, 400> {
+  static override status = 400 as const;
   constructor(data: T) {
-    super(400, data);
+    super(BadRequest.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class Unauthorized<T = { message: string }> extends APIError<T, 401> {
+  static override status = 401 as const;
   constructor(data: T) {
-    super(401, data);
+    super(Unauthorized.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class PaymentRequired<T = { message: string }> extends APIError<T, 402> {
+  static override status = 402 as const;
   constructor(data: T) {
-    super(402, data);
+    super(PaymentRequired.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class Forbidden<T = { message: string }> extends APIError<T, 403> {
+  static override status = 403 as const;
   constructor(data: T) {
-    super(403, data);
+    super(Forbidden.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class NotFound<T = { message: string }> extends APIError<T, 404> {
+  static override status = 404 as const;
   constructor(data: T) {
-    super(404, data);
+    super(NotFound.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
@@ -102,62 +110,69 @@ export class MethodNotAllowed<T = { message: string }> extends APIError<
   T,
   405
 > {
+  static override status = 405 as const;
   constructor(data: T) {
-    super(405, data);
+    super(MethodNotAllowed.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class NotAcceptable<T = { message: string }> extends APIError<T, 406> {
+  static override status = 406 as const;
   constructor(data: T) {
-    super(406, data);
+    super(NotAcceptable.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class Conflict<T = { message: string }> extends APIError<T, 409> {
+  static override status = 409 as const;
   constructor(data: T) {
-    super(409, data);
+    super(Conflict.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class Gone<T = { message: string }> extends APIError<T, 410> {
+  static override status = 410 as const;
   constructor(data: T) {
-    super(410, data);
+    super(Gone.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class UnprocessableEntity<
   T = { message: string; errors?: Record<string, string[]> },
 > extends APIError<T, 422> {
+  static override status = 422 as const;
   constructor(data: T) {
-    super(422, data);
+    super(UnprocessableEntity.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class TooManyRequests<
   T = { message: string; retryAfter?: string },
 > extends APIError<T, 429> {
+  static override status = 429 as const;
   constructor(data: T) {
-    super(429, data);
+    super(TooManyRequests.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class PayloadTooLarge<T = { message: string }> extends APIError<T, 413> {
+  static override status = 413 as const;
   constructor(data: T) {
-    super(413, data);
+    super(PayloadTooLarge.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
@@ -165,10 +180,11 @@ export class UnsupportedMediaType<T = { message: string }> extends APIError<
   T,
   415
 > {
+  static override status = 415 as const;
   constructor(data: T) {
-    super(415, data);
+    super(UnsupportedMediaType.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
@@ -178,44 +194,49 @@ export class InternalServerError<T = { message: string }> extends APIError<
   T,
   500
 > {
+  static override status = 500 as const;
   constructor(data: T) {
-    super(500, data);
+    super(InternalServerError.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class NotImplemented<T = { message: string }> extends APIError<T, 501> {
+  static override status = 501 as const;
   constructor(data: T) {
-    super(501, data);
+    super(NotImplemented.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class BadGateway<T = { message: string }> extends APIError<T, 502> {
+  static override status = 502 as const;
   constructor(data: T) {
-    super(502, data);
+    super(BadGateway.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class ServiceUnavailable<
   T = { message: string; retryAfter?: string },
 > extends APIError<T, 503> {
+  static override status = 503 as const;
   constructor(data: T) {
-    super(503, data);
+    super(ServiceUnavailable.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
 export class GatewayTimeout<T = { message: string }> extends APIError<T, 504> {
+  static override status = 504 as const;
   constructor(data: T) {
-    super(504, data);
+    super(GatewayTimeout.status, data);
   }
-  static create<T>(status: number, data: T) {
+  static override create<T>(status: number, data: T) {
     return new this(data);
   }
 }
