@@ -36,16 +36,16 @@ export default (spec: Omit<Spec, 'operations'>) => {
 
   return `
 import type { RequestConfig } from './http/${spec.makeImport('request')}';
-import { fetchType, sendRequest } from './http/${spec.makeImport('send-request')}';
+import { fetchType, sendRequest, parse } from './http/${spec.makeImport('send-request')}';
 import z from 'zod';
-import type { Endpoints } from './api/${spec.makeImport('schemas')}';
+import type { Endpoints } from './api/${spec.makeImport('endpoints')}';
 import schemas from './api/${spec.makeImport('schemas')}';
 import {
   createBaseUrlInterceptor,
   createHeadersInterceptor,
 } from './http/${spec.makeImport('interceptors')}';
 
-import { parse, type ParseError } from './http/${spec.makeImport('parser')}';
+import { parseInput, type ParseError } from './http/${spec.makeImport('parser')}';
 
 ${spec.servers.length ? `export const servers = ${JSON.stringify(spec.servers, null, 2)} as const` : ''}
 const optionsSchema = z.object(${toLitObject(specOptions, (x) => x.schema)});
@@ -80,9 +80,15 @@ export class ${spec.name} {
     input: Endpoints[E]['input'],
     options?: { headers?: HeadersInit },
   ): Promise<
-    readonly [RequestConfig, ParseError<(typeof schemas)[E]['schema']> | null]
+    readonly [
+      RequestConfig & {
+        parse: (response: Response) => ReturnType<typeof parse>;
+      },
+      ParseError<(typeof schemas)[E]['schema']> | null,
+    ]
   > {
     const route = schemas[endpoint];
+
     const interceptors = [
       createHeadersInterceptor(
         () => this.defaultHeaders,
@@ -90,7 +96,7 @@ export class ${spec.name} {
       ),
       createBaseUrlInterceptor(() => this.options.baseUrl),
     ];
-    const [parsedInput, parseError] = parse(route.schema, input);
+    const [parsedInput, parseError] = parseInput(route.schema, input);
     if (parseError) {
       return [null as never, parseError as never] as const;
     }
@@ -101,7 +107,10 @@ export class ${spec.name} {
         config = await interceptor.before(config);
       }
     }
-    return [config, null as never] as const;
+    return [
+      { ...config, parse: (response: Response) => parse(route, response) },
+      null as never,
+    ] as const;
   }
 
   get defaultHeaders() {

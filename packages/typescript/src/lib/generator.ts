@@ -23,6 +23,7 @@ import {
   type Spec,
   toEndpoint,
 } from './sdk.ts';
+import endpointsTxt from './styles/github/endpoints.txt';
 import {
   importsToString,
   mergeImports,
@@ -263,40 +264,26 @@ export function generateCode(
     commonZod,
     outputs,
     endpoints: {
+      [join('api', 'endpoints.ts')]: `
+
+
+import type z from 'zod';
+import type { ParseError } from '${config.makeImport('../http/parser')}';
+import type { ProblematicResponse, SuccessfulResponse } from '${config.makeImport(
+        '../http/response',
+      )}';
+import type { OutputType, Parser, Type } from '${config.makeImport(
+        '../http/send-request',
+      )}';
+
+import schemas from '${config.makeImport('./schemas')}';
+
+      ${endpointsTxt}`,
       [`${join('api', 'schemas.ts')}`]: `
 ${imports.join('\n')}
 ${allSchemas.map((it) => it.import).join('\n')}
 
-const schemas = {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
-
-
-type Output<T extends OutputType> = T extends {
-  parser: Parser;
-  type: Type<any>;
-}
-  ? InstanceType<T['type']>
-  : T extends Type<any>
-    ? InstanceType<T>
-    : never;
-
-export type Endpoints = {
-  [K in keyof typeof schemas]: {
-    input: z.infer<(typeof schemas)[K]['schema']>;
-    output: (typeof schemas)[K]['output'] extends [
-      infer Single extends OutputType,
-    ]
-      ? Output<Single>
-      : (typeof schemas)[K]['output'] extends readonly [
-            ...infer Tuple extends OutputType[],
-          ]
-        ? { [I in keyof Tuple]: Output<Tuple[I]> }[number]
-        : never;
-    error: ServerError | ParseError<(typeof schemas)[K]['schema']>;
-  };
-};
-
-export default schemas;
-
+export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
 
 `.trim(),
       ...Object.fromEntries(

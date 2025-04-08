@@ -65,7 +65,9 @@ export default new Command('typescript')
       formatCode: ({ env, output }) => {
         if (options.formatter) {
           const [command, ...args] = options.formatter.split(' ');
-          execFile(command, args, { env: { ...env, SDK_IT_OUTPUT: output } });
+          execFile(command, args, {
+            env: { ...env, SDK_IT_OUTPUT: output },
+          });
         } else if (options.defaultFormatter) {
           execSync('npx -y prettier $SDK_IT_OUTPUT --write', {
             env: {

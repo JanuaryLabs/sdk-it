@@ -243,22 +243,24 @@ export class GatewayTimeout<T = { message: string }> extends APIError<T, 504> {
 
 export type ClientError =
   | BadRequest<{ message: string }>
-  | Unauthorized
-  | PaymentRequired
-  | Forbidden
-  | NotFound
-  | MethodNotAllowed
-  | NotAcceptable
-  | Conflict
-  | Gone
-  | UnprocessableEntity
-  | TooManyRequests;
+  | Unauthorized<unknown>
+  | PaymentRequired<unknown>
+  | Forbidden<unknown>
+  | NotFound<unknown>
+  | MethodNotAllowed<unknown>
+  | NotAcceptable<unknown>
+  | Conflict<unknown>
+  | Gone<unknown>
+  | UnprocessableEntity<unknown>
+  | TooManyRequests<unknown>;
 
 export type ServerError =
-  | InternalServerError
-  | NotImplemented
-  | BadGateway
-  | ServiceUnavailable
-  | GatewayTimeout;
+  | InternalServerError<unknown>
+  | NotImplemented<unknown>
+  | BadGateway<unknown>
+  | ServiceUnavailable<unknown>
+  | GatewayTimeout<unknown>;
 
 export type ProblematicResponse = ClientError | ServerError;
+
+export type SuccessfulResponse = Ok<unknown> | Created<unknown> | Accepted<unknown> | NoContent;

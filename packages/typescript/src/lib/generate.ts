@@ -95,7 +95,7 @@ export async function generate(
     'send-request.ts': `import z from 'zod';
 import type { Interceptor } from './${makeImport('interceptors')}';
 import { buffered } from './${makeImport('parse-response')}';
-import { parse } from './${makeImport('parser')}';
+import { parseInput } from './${makeImport('parser')}';
 import type { RequestConfig } from './${makeImport('request')}';
 import { APIResponse } from './${makeImport('response')}';
 
