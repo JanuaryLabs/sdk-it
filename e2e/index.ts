@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { execSync } from 'child_process';
 import { join } from 'path';
 
-function runCommand(title: string, command: string) {
+function runCommand(title: string, command: string, memory?: number) {
   const width = process.stdout.columns || 80;
   const divider = '='.repeat(width);
 
@@ -12,13 +12,24 @@ function runCommand(title: string, command: string) {
   console.log(chalk.blue(divider) + '\n');
 
   // Run the command and let errors propagate naturally
-  console.log(chalk.dim(`$ ${command}`));
+  const flags: string[] = [];
+  if (memory) {
+    flags.push(`--max-old-space-size=${memory}`);
+  }
+  flags.push('--experimental-strip-types');
+
+  console.log(
+    chalk.dim(`$ ${command}`),
+    `with`,
+    chalk.dim(`NODE_OPTIONS: ${flags.join(' ')}`),
+  );
+
   execSync(command, {
     encoding: 'utf-8',
     stdio: 'inherit',
     env: {
       ...process.env,
-      NODE_OPTIONS: '--experimental-strip-types',
+      NODE_OPTIONS: flags.join(' '),
       NODE_NO_WARNINGS: '1',
     },
   });
@@ -73,6 +84,7 @@ for (const { spec, name } of specs) {
   runCommand(
     `TYPE CHECKING: ${name}`,
     `./node_modules/.bin/tsc -p ${sdkOutput}/tsconfig.json`,
+    8096,
   );
 
   // Test with Bun runtime
@@ -91,6 +103,7 @@ for (const { spec, name } of specs) {
   runCommand(
     `TYPE CHECKING WITH DOM LIB: ${name}`,
     `./node_modules/.bin/tsc -p ${sdkOutput}/tsconfig.json --lib ES2022,DOM,DOM.Iterable --skipLibCheck`,
+    8096,
   );
 }
 

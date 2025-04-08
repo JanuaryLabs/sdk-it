@@ -72,6 +72,7 @@ export class Paths {
     method: Method;
     selectors: Selector[];
     responses: ResponsesObject;
+    contentType?: string;
     tags?: string[];
     description?: string;
   }> = [];
@@ -85,6 +86,7 @@ export class Paths {
     name: string,
     path: string,
     method: Method,
+    contentType: string | undefined,
     selectors: Selector[],
     responses: ResponseItem[],
     sourceFile: string,
@@ -97,6 +99,7 @@ export class Paths {
       name,
       path: this.#tunePath(path),
       sourceFile,
+      contentType: contentType,
       method,
       selectors,
       responses: responsesObject,
@@ -218,7 +221,7 @@ export class Paths {
           ? {
               required: required.length ? true : false,
               content: {
-                'application/json': {
+                [operation.contentType || 'application/json']: {
                   schema: {
                     required: required.length ? required : undefined,
                     type: 'object',
@@ -267,13 +270,16 @@ async function evalZod(schema: string, commonZodImport?: string) {
     `const z = require("zod");`,
     commonZodImport ? `const commonZod = require('${commonZodImport}');` : '',
     `const {zodToJsonSchema} = require('zod-to-json-schema');`,
-    `const schema = ${schema.replace('.optional()', '')};`,
+    `const schema = ${schema.replace('.optional()', '').replaceAll('instanceof(File)', 'string().base64()')};`,
     `const jsonSchema = zodToJsonSchema(schema, {
-    	$refStrategy: 'root',
-    	basePath: ['#', 'components', 'schemas']
-    });`,
+      $refStrategy: 'root',
+      basePath: ['#', 'components', 'schemas'],
+      target: 'jsonSchema7',
+      base64Strategy: 'format:binary',
+  });`,
     `export default jsonSchema;`,
   ];
+
   const base64 = Buffer.from(lines.join('\n')).toString('base64');
   return import(`data:text/javascript;base64,${base64}`)
     .then((mod) => mod.default)

@@ -124,7 +124,10 @@ class UrlencodedSerializer extends Serializer {
     return body;
   }
   getHeaders(): Record<string, string> {
-    return {};
+    return {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+    };
   }
 }
 
@@ -146,7 +149,10 @@ class FormDataSerializer extends Serializer {
     return body;
   }
   getHeaders(): Record<string, string> {
-    return {};
+    return {
+      'Content-Type': 'multipart/form-data',
+      Accept: 'application/json',
+    };
   }
 }
 
