@@ -97,7 +97,7 @@ import type { Interceptor } from './${makeImport('interceptors')}';
 import { buffered } from './${makeImport('parse-response')}';
 import { parseInput } from './${makeImport('parser')}';
 import type { RequestConfig } from './${makeImport('request')}';
-import { APIResponse } from './${makeImport('response')}';
+import { APIError, APIResponse } from './${makeImport('response')}';
 
 ${sendRequest}`,
     'response.ts': responseTxt,

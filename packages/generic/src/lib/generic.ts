@@ -122,7 +122,20 @@ function visit(
   const operationName =
     metadata.name ||
     camelcase(`${method} ${path.replace(/[^a-zA-Z0-9]/g, '')}`);
-  const selector = validate.arguments.find((arg) => ts.isArrowFunction(arg));
+  if (!validate.arguments.length) {
+    return moveOn();
+  }
+  let selector: ts.Expression | undefined;
+  let contentType: ts.Expression | undefined;
+  if (validate.arguments.length === 2) {
+    contentType = validate.arguments[0];
+    selector = validate.arguments[1];
+  } else {
+    selector = validate.arguments[0];
+  }
+  if (!ts.isArrowFunction(selector)) {
+    return moveOn();
+  }
   if (
     !selector ||
     !ts.isParenthesizedExpression(selector.body) ||
@@ -146,6 +159,11 @@ function visit(
     operationName,
     path,
     method,
+    contentType
+      ? ts.isStringLiteral(contentType)
+        ? contentType.text
+        : undefined
+      : undefined,
     toSelectors(props),
     responses,
     sourceFile.fileName,
@@ -207,6 +225,7 @@ export async function analyze(
   const program = getProgram(tsconfigPath);
   logger(`Program created`);
   const typeChecker = program.getTypeChecker();
+
   logger(`Type checker created`);
   const typeDeriver = new TypeDeriver(typeChecker);
   const paths = new Paths({

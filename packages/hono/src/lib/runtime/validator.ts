@@ -1,8 +1,14 @@
-/* eslint-disable no-unused-private-class-members */
+import { parse as parseContentType } from 'fast-content-type-parse';
 import type { MiddlewareHandler, ValidationTargets } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { HTTPException } from 'hono/http-exception';
 import z from 'zod';
+
+type ContentType =
+  | 'application/json'
+  | 'application/x-www-form-urlencoded'
+  | 'multipart/form-data'
+  | 'text/plain';
 
 type ValidatorConfig = Record<
   string,
@@ -47,7 +53,7 @@ type InferIn<T extends ValidatorConfig> = (keyof InferTarget<
     : { header: InferTarget<T, HeadersSelect, 'header'> }) &
   (keyof InferTarget<T, CookieSelect, 'cookie'> extends never
     ? never
-    : { form: InferTarget<T, CookieSelect, 'cookie'> });
+    : { cookie: InferTarget<T, CookieSelect, 'cookie'> });
 
 // Marker classes
 class BodySelect {
@@ -69,15 +75,14 @@ class CookieSelect {
   #private = 0;
 }
 
-export const validate = <T extends ValidatorConfig>(
-  selector: (payload: {
-    body: Record<string, BodySelect>;
-    query: Record<string, QuerySelect>;
-    queries: Record<string, QueriesSelect>;
-    params: Record<string, ParamsSelect>;
-    headers: Record<string, HeadersSelect>;
-  }) => T,
-): MiddlewareHandler<
+type SelectorFn<T> = (payload: {
+  body: Record<string, BodySelect>;
+  query: Record<string, QuerySelect>;
+  queries: Record<string, QueriesSelect>;
+  params: Record<string, ParamsSelect>;
+  headers: Record<string, HeadersSelect>;
+}) => T;
+type ValidateMiddleware<T extends ValidatorConfig> = MiddlewareHandler<
   {
     Variables: {
       input: ExtractInput<T>;
@@ -85,20 +90,46 @@ export const validate = <T extends ValidatorConfig>(
   },
   string,
   { in: InferIn<T> }
-> => {
-  return createMiddleware<{
-    Variables: {
-      input: ExtractInput<T>;
-    };
-  }>(async (c, next) => {
-    const contentType = c.req.header('content-type') ?? '';
+>;
+
+export function validate<T extends ValidatorConfig>(
+  selector: SelectorFn<T>,
+): ValidateMiddleware<T>;
+export function validate<T extends ValidatorConfig>(
+  expectedContentTypeOrSelector: ContentType,
+  selector: SelectorFn<T>,
+): ValidateMiddleware<T>;
+export function validate<T extends ValidatorConfig>(
+  expectedContentTypeOrSelector: ContentType | SelectorFn<T>,
+  selector?: SelectorFn<T>,
+): ValidateMiddleware<T> {
+  const expectedContentType =
+    typeof expectedContentTypeOrSelector === 'string'
+      ? expectedContentTypeOrSelector
+      : undefined;
+  const _selector =
+    typeof expectedContentTypeOrSelector === 'function'
+      ? expectedContentTypeOrSelector
+      : selector;
+  if (!_selector) {
+    throw new Error('Selector function is required');
+  }
+
+  return createMiddleware(async (c, next) => {
+    const ct = c.req.header('content-type');
+    if (expectedContentType) {
+      verifyContentType(ct, expectedContentType);
+    }
+
+    const contentType = ct ? parseContentType(ct) : null;
     let body: unknown = null;
 
-    switch (contentType) {
+    switch (contentType?.type) {
       case 'application/json':
         body = await c.req.json();
         break;
       case 'application/x-www-form-urlencoded':
+      case 'multipart/form-data':
         body = await c.req.parseBody();
         break;
       default:
@@ -115,7 +146,7 @@ export const validate = <T extends ValidatorConfig>(
       ),
     };
 
-    const config = selector(payload as never);
+    const config = _selector(payload as never);
     const schema = z.object(
       Object.entries(config).reduce(
         (acc, [key, value]) => {
@@ -138,7 +169,7 @@ export const validate = <T extends ValidatorConfig>(
     c.set('input', parsed as ExtractInput<T>);
     await next();
   });
-};
+}
 
 export function parse<T extends z.ZodRawShape>(
   schema: z.ZodObject<T>,
@@ -166,20 +197,34 @@ export function parse<T extends z.ZodRawShape>(
 
 export const openapi = validate;
 
-export const consume = (
-  contentType: 'application/json' | 'application/x-www-form-urlencoded',
-) => {
+export const consume = (contentType: ContentType) => {
   return createMiddleware(async (context, next) => {
-    const clientContentType = context.req.header('Content-Type');
-    if (clientContentType !== contentType) {
-      throw new HTTPException(415, {
-        message: 'Unsupported Media Type',
-        cause: {
-          code: 'api/unsupported-media-type',
-          detail: `Expected content type: ${contentType}, but got: ${clientContentType}`,
-        },
-      });
-    }
+    verifyContentType(context.req.header('content-type'), contentType);
     await next();
   });
 };
+
+export function verifyContentType(
+  actual: string | undefined,
+  expected: ContentType,
+): asserts actual is ContentType {
+  if (!actual) {
+    throw new HTTPException(415, {
+      message: 'Unsupported Media Type',
+      cause: {
+        code: 'api/unsupported-media-type',
+        details: 'Missing content type header',
+      },
+    });
+  }
+  const { type: incomingContentType } = parseContentType(actual);
+  if (incomingContentType !== expected) {
+    throw new HTTPException(415, {
+      message: 'Unsupported Media Type',
+      cause: {
+        code: 'api/unsupported-media-type',
+        details: `Expected content type: ${expected}, but got: ${incomingContentType}`,
+      },
+    });
+  }
+}
