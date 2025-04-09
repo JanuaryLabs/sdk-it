@@ -18,9 +18,12 @@ import {
 } from '@sdk-it/core';
 
 const formatName = (it: any): string => {
-  const startsWithDigitPattern = /^\d/;
+  const startsWithDigitPattern = /^-?\d/;
   // 1. Handle numbers
   if (typeof it === 'number') {
+    if (Math.sign(it) === -1) {
+      return `$_${Math.abs(it)}`;
+    }
     return `$${it}`;
   }
 
@@ -33,7 +36,12 @@ const formatName = (it: any): string => {
   if (typeof it === 'string') {
     // 3a. Check if the string starts with a digit FIRST
     if (startsWithDigitPattern.test(it)) {
-      return `$${it}`; // Prefix with $ and return immediately
+      if (typeof it === 'number') {
+        if (Math.sign(it) === -1) {
+          return `$_${Math.abs(it)}`;
+        }
+        return `$${it}`;
+      }
     }
 
     // 3b. If not starting with a digit, handle brackets and snake_case
@@ -629,8 +637,12 @@ return false;
           content: '',
           use: 'DateTime',
           simple: true,
-          toJson: `this.${camelcase(context.name)}.toIso8601String()`,
-          fromJson: `DateTime.parse(json['${context.name}'])`,
+          toJson: context.required
+            ? `this.${camelcase(context.name)}.toIso8601String()`
+            : `this.${camelcase(context.name)} != null ? this.${camelcase(
+                context.name,
+              )}!.toIso8601String() : null`,
+          fromJson: `json['${context.name}'] != null ? DateTime.parse(json['${context.name}']) : null`,
           matches: `json['${context.name}'] is String`,
         };
       case 'binary':
