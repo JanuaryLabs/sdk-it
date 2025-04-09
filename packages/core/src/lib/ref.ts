@@ -3,6 +3,7 @@ import type {
   OpenAPIObject,
   ParameterObject,
   ReferenceObject,
+  RequestBodyObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
@@ -28,7 +29,7 @@ export function parseRef(ref: string) {
   };
 }
 export function followRef<
-  T extends SchemaObject | ParameterObject = SchemaObject,
+  T extends SchemaObject | ParameterObject | RequestBodyObject = SchemaObject,
 >(spec: OpenAPIObject, ref: string): T {
   const pathParts = cleanRef(ref).split('/');
   const entry = get(spec, pathParts) as T | ReferenceObject;

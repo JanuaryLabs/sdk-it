@@ -1,16 +1,16 @@
-import { get, merge } from 'lodash-es';
+import { merge } from 'lodash-es';
 import { join } from 'node:path';
 import type {
-  ContentObject,
   OpenAPIObject,
   ParameterLocation,
   ParameterObject,
   ReferenceObject,
+  RequestBodyObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
 import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
-import { followRef, isRef } from '@sdk-it/core';
+import { followRef, isEmpty, isRef } from '@sdk-it/core';
 import {
   type GenerateSdkConfig,
   forEachOperation,
@@ -73,7 +73,6 @@ export function generateCode(
 
   forEachOperation(config, (entry, operation) => {
     console.log(`Processing ${entry.method} ${entry.path}`);
-
     groups[entry.groupName] ??= [];
     endpoints[entry.groupName] ??= [];
     const inputs: Operation['inputs'] = {};
@@ -116,27 +115,41 @@ export function generateCode(
     const schemas: Record<string, string> = {};
     const shortContenTypeMap: Record<string, string> = {
       'application/json': 'json',
+      'application/*+json': 'json', // type specific of json like application/vnd.api+json (from the generation pov it shouldn't matter)
+      'text/json': 'json', // non standard - later standardized to application/json
       'application/x-www-form-urlencoded': 'urlencoded',
       'multipart/form-data': 'formdata',
       'application/xml': 'xml',
       'text/plain': 'text',
     };
     let outgoingContentType: string | undefined;
-    if (operation.requestBody && Object.keys(operation.requestBody).length) {
-      const content: ContentObject = isRef(operation.requestBody)
-        ? get(followRef(config.spec, operation.requestBody.$ref), ['content'])
-        : operation.requestBody.content;
 
-      for (const type in content) {
-        const ctSchema = isRef(content[type].schema)
-          ? followRef(config.spec, content[type].schema.$ref)
-          : content[type].schema;
+    if (!isEmpty(operation.requestBody)) {
+      const requestBody = isRef(operation.requestBody)
+        ? followRef<RequestBodyObject>(config.spec, operation.requestBody.$ref)
+        : operation.requestBody;
+
+      for (const type in requestBody.content) {
+        const ctSchema = isRef(requestBody.content[type].schema)
+          ? followRef(config.spec, requestBody.content[type].schema.$ref)
+          : requestBody.content[type].schema;
         if (!ctSchema) {
           console.warn(`Schema not found for ${type}`);
           continue;
         }
 
-        const schema = merge({}, ctSchema, {
+        let objectSchema = ctSchema;
+        if (objectSchema.type !== 'object') {
+          objectSchema = {
+            type: 'object',
+            required: [requestBody.required ? '$body' : ''],
+            properties: {
+              $body: ctSchema,
+            },
+          };
+        }
+
+        const schema = merge({}, objectSchema, {
           required: additionalProperties
             .filter((p) => p.required)
             .map((p) => p.name),
@@ -149,18 +162,18 @@ export function generateCode(
           ),
         });
 
-        Object.assign(inputs, bodyInputs(config, ctSchema));
+        Object.assign(inputs, bodyInputs(config, objectSchema));
         schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
       }
 
       // TODO: each content type should create own endpoint or force content-type header to be set as third parameter
       // we can do the same for response that have multiple content types: force accept header to be set as third parameter
       // instead of prefixing the endpoint name with the content type
-      if (content['application/json']) {
+      if (requestBody.content['application/json']) {
         outgoingContentType = 'json';
-      } else if (content['application/x-www-form-urlencoded']) {
+      } else if (requestBody.content['application/x-www-form-urlencoded']) {
         outgoingContentType = 'urlencoded';
-      } else if (content['multipart/form-data']) {
+      } else if (requestBody.content['multipart/form-data']) {
         outgoingContentType = 'formdata';
       } else {
         outgoingContentType = 'json';

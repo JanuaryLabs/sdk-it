@@ -102,6 +102,13 @@ interface Serialized {
 class JsonSerializer extends Serializer {
   getBody(): BodyInit | null {
     const body: Record<string, any> = {};
+    if (
+      this.props.inputBody.length === 1 &&
+      this.props.inputBody[0] === '$body'
+    ) {
+      return JSON.stringify(this.input.$body);
+    }
+
     for (const prop of this.props.inputBody) {
       body[prop] = this.input[prop];
     }
