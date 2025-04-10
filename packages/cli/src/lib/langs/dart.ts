@@ -38,7 +38,7 @@ export default new Command('dart')
     const spec = await loadSpec(options.spec);
     await generate(spec, {
       output: options.output,
-      mode: options.mode || 'minimal',
+      mode: options.mode || 'full',
       name: options.name,
       formatCode: ({ output }) => {
         if (options.formatter) {

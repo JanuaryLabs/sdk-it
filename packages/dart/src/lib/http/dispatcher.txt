@@ -1,0 +1,17 @@
+import './interceptors.dart';
+import 'package:http/http.dart' as http;
+
+class Dispatcher {
+  final List<Interceptor> interceptors;
+
+  Dispatcher(this.interceptors);
+
+  Future<http.StreamedResponse> dispatch(RequestConfig config) {
+    final modifedConfig = interceptors.fold(
+      config,
+      (acc, interceptor) => interceptor.before(acc),
+    );
+    final request = http.Request(modifedConfig.method, modifedConfig.url);
+    return request.send();
+  }
+}

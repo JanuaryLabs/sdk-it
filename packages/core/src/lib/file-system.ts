@@ -85,18 +85,18 @@ export async function getFolderExportsV2(
   folder: string,
   options: {
     includeExtension?: boolean;
-    extensions: string[];
+    extensions: string;
     ignore?: (dirent: Dirent) => boolean;
     exportSyntax: string;
   } = {
-    extensions: ['ts'],
+    extensions: 'ts',
     ignore: () => false,
     includeExtension: true,
     exportSyntax: 'export * from ',
   },
 ) {
   options.includeExtension ??= true;
-  if(!await exist(folder)) {
+  if (!(await exist(folder))) {
     return '';
   }
   const files = await readdir(folder, { withFileTypes: true });
@@ -106,13 +106,17 @@ export async function getFolderExportsV2(
       continue;
     }
     if (file.isDirectory()) {
-      if (await exist(`${file.parentPath}/${file.name}/index.ts`)) {
+      if (
+        await exist(
+          `${file.parentPath}/${file.name}/index.${options.extensions}`,
+        )
+      ) {
         exports.push(
-          `${options.exportSyntax} './${file.name}/index${options.includeExtension ? '.ts' : ''}';`,
+          `${options.exportSyntax} './${file.name}/index${options.includeExtension ? `.${options.extensions}` : ''}';`,
         );
       }
     } else if (
-      file.name !== 'index.ts' &&
+      file.name !== `index.${options.extensions}` &&
       options.extensions.includes(getExt(file.name))
     ) {
       exports.push(

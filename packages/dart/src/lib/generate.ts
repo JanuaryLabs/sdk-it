@@ -5,9 +5,11 @@ import { join } from 'node:path';
 import type {
   OpenAPIObject,
   ReferenceObject,
+  RequestBodyObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
+import yaml from 'yaml';
 
 import {
   followRef,
@@ -22,7 +24,8 @@ import {
 import { forEachOperation } from '@sdk-it/spec';
 
 import { DartSerializer } from './dart-emitter.ts';
-import interceptors from './interceptors.txt';
+import dispatcherTxt from './http/dispatcher.txt';
+import interceptorsTxt from './http/interceptors.txt';
 
 function tuneSpec(
   spec: OpenAPIObject,
@@ -116,8 +119,8 @@ export async function generate(
     formatCode?: (options: { output: string }) => void | Promise<void>;
   },
 ) {
-  const output =
-    settings.mode === 'full' ? join(settings.output, 'src') : settings.output;
+  const clientName = settings.name || 'Client';
+  const output = join(settings.output, 'lib');
   const groups: Record<
     string,
     {
@@ -127,8 +130,11 @@ export async function generate(
   > = {};
   spec.components ??= {};
   spec.components.schemas ??= {};
-
+  const inputs: Record<string, string> = {};
   forEachOperation({ spec }, (entry, operation) => {
+    // if (entry.path !== '/Activity') {
+    //   return;
+    // }
     console.log(`Processing ${entry.method} ${entry.path}`);
     const group =
       groups[entry.groupName] ??
@@ -136,15 +142,70 @@ export async function generate(
         methods: [],
         use: `final ${entry.groupName} = new ${pascalcase(entry.groupName)}();`,
       });
+
+    const inputName = pascalcase(`${operation.operationId} input`);
+    const outputName = pascalcase(`${operation.operationId} output`);
+    if (!isEmpty(operation.requestBody)) {
+      const requestBody = isRef(operation.requestBody)
+        ? followRef<RequestBodyObject>(spec, operation.requestBody.$ref)
+        : operation.requestBody;
+
+      for (const type in requestBody.content) {
+        const ctSchema = isRef(requestBody.content[type].schema)
+          ? followRef(spec, requestBody.content[type].schema.$ref)
+          : requestBody.content[type].schema;
+        if (!ctSchema) {
+          console.warn(
+            `Schema not found for ${type} in ${entry.method} ${entry.path}`,
+          );
+          continue;
+        }
+
+        let objectSchema = ctSchema;
+        if (objectSchema.type !== 'object') {
+          objectSchema = {
+            type: 'object',
+            required: [requestBody.required ? '$body' : ''],
+            properties: {
+              $body: ctSchema,
+            },
+          };
+        }
+
+        const serializer = new DartSerializer(spec, (name, content) => {
+          inputs[join(`inputs/${name}.dart`)] =
+            `import 'dart:typed_data'; import './index.dart';\n\n${content}`;
+        });
+        serializer.handle(inputName, objectSchema);
+        // const schema = merge({}, objectSchema, {
+        //   required: additionalProperties
+        //     .filter((p) => p.required)
+        //     .map((p) => p.name),
+        //   properties: additionalProperties.reduce<Record<string, unknown>>(
+        //     (acc, p) => ({
+        //       ...acc,
+        //       [p.name]: p.schema,
+        //     }),
+        //     {},
+        //   ),
+        // });
+
+        // Object.assign(inputs, bodyInputs(config, objectSchema));
+        // schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
+      }
+    }
     group.methods.push(`
-        Future<http.Response> ${camelcase(operation.operationId)}() async {
+        Future<${outputName}> ${camelcase(operation.operationId)}(
+       ${isEmpty(operation.requestBody) ? '' : `${inputName} ${camelcase(inputName)}`}
+        ) async {
           final stream = await this.dispatcher.dispatch(RequestConfig(
             method: '${entry.method}',
             url: Uri.parse('${entry.path}'),
             headers: {},
           ));
           final response = await http.Response.fromStream(stream);
-          return response;
+          final Map<String, dynamic> json = jsonDecode(response.body);
+          return ${outputName}.fromJson(json);
       }
     `);
   });
@@ -175,8 +236,12 @@ export async function generate(
       return {
         ...acc,
         [`api/${snakecase(name)}.dart`]: `
+import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+
 import '../interceptors.dart';
+import '../inputs/index.dart';
 import '../http.dart';
 
     class ${pascalcase(name)} {
@@ -197,13 +262,13 @@ import '../http.dart';
 import './interceptors.dart';
 import './http.dart';
 
-  class Client {
+  class ${clientName} {
   final Options options;
 ${Object.keys(groups)
   .map((name) => `late final ${pascalcase(name)} ${camelcase(name)};`)
   .join('\n')}
 
-  Client(this.options) {
+  ${clientName}(this.options) {
     final interceptors = [new BaseUrlInterceptor(() => this.options.baseUrl)];
     final dispatcher = new Dispatcher(interceptors);
     ${Object.keys(groups)
@@ -231,36 +296,45 @@ class Options {
   `;
   await writeFiles(output, {
     ...models,
+    ...inputs,
   });
 
   await writeFiles(output, {
     'models/index.dart': await getFolderExportsV2(join(output, 'models'), {
       exportSyntax: 'export',
-      extensions: ['dart'],
+      extensions: 'dart',
     }),
-    'index.dart': client,
-    'interceptors.dart': interceptors,
-    'http.dart': `
-import 'interceptors.dart';
-import 'package:http/http.dart' as http;
-
-class Dispatcher {
-  final List<Interceptor> interceptors;
-
-  Dispatcher(this.interceptors);
-
-  Future<http.StreamedResponse> dispatch(RequestConfig config) {
-    final modifedConfig = interceptors.fold(
-      config,
-      (acc, interceptor) => interceptor.before(acc),
-    );
-    final request = http.Request(modifedConfig.method, modifedConfig.url);
-    return request.send();
-  }
-}
-`,
+    'inputs/index.dart': await getFolderExportsV2(join(output, 'inputs'), {
+      exportSyntax: 'export',
+      extensions: 'dart',
+    }),
+    'interceptors.dart': interceptorsTxt,
+    'http.dart': dispatcherTxt,
     ...clazzez,
-    // 'index.dart': await getFolderExports(output, settings.useTsExtension),
+  });
+  await writeFiles(output, {
+    'package.dart': `${await getFolderExportsV2(join(output), {
+      exportSyntax: 'export',
+      extensions: 'dart',
+    })}${client}`,
+  });
+
+  await writeFiles(settings.output, {
+    'pubspec.yaml': {
+      ignoreIfExists: true,
+      content: yaml.stringify({
+        name: settings.name
+          ? `${snakecase(clientName.toLowerCase())}_sdk`
+          : 'sdk',
+        version: '0.0.1',
+        environment: {
+          sdk: '^3.7.2',
+        },
+        dependencies: {
+          http: '^1.3.0',
+        },
+      }),
+    },
   });
 
   await settings.formatCode?.({
