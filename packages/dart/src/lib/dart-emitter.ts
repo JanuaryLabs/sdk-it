@@ -224,13 +224,16 @@ return ${matches.join(' && ')};
       this.#emit(className, content);
     }
     const nullable = !context.required || context.nullable === true;
-    return {
+    const serialized = {
       use: className,
       content,
       toJson: `${this.#safe(context.name, context.required)}`,
-      fromJson: `${className}.fromJson(json['${context.name}'])`,
+      fromJson: context.name
+        ? `${className}.fromJson(json['${context.name}'])`
+        : `${className}.fromJson(json)`,
       matches: `${className}.matches(json['${context.name}'])`,
     };
+    return serialized;
   }
 
   #safe(accces: string, required: boolean) {
@@ -245,27 +248,50 @@ return ${matches.join(' && ')};
     required = false,
     context: Context,
   ): Serialized {
-    const { items } = schema;
-    if (!items) {
-      return {
+    let serialized;
+    if (!schema.items) {
+      serialized = {
         content: '',
         use: 'List<dynamic>',
         toJson: '',
-        fromJson: '',
+        fromJson: `List<dynamic>.from(${context.name ? `json['${context.name}']` : `json`})})`,
         matches: '',
       };
+    } else {
+      const itemsType = this.handle(className, schema.items, true, context);
+      const fromJson = required
+        ? context.name
+          ? `(json['${context.name}'] as List<${itemsType.simple ? itemsType.use : 'dynamic'}>)
+            .map((it) => ${itemsType.simple ? 'it' : `${itemsType.use}.fromJson(it)`})
+            .toList()`
+          : `(json as List<${itemsType.simple ? itemsType.use : 'dynamic'}>)
+            .map((it) => ${itemsType.simple ? 'it' : `${itemsType.use}.fromJson(it)`})
+            .toList()`
+        : context.name
+          ? `json['${context.name}'] != null
+            ? (json['${context.name}'] as List)
+                .map((it) => ${itemsType.fromJson})
+                .toList()
+            : null`
+          : `json != null
+            ? (json as List)
+                .map((it) => ${itemsType.fromJson})
+                .toList()
+            : null`;
+
+      serialized = {
+        content: '',
+        use: `List<${itemsType.use}>`,
+        fromJson,
+        toJson: `${context.required ? `this.${camelcase(context.name)}${itemsType.simple ? '' : '.map((it) => it.toJson()).toList()'}` : `this.${camelcase(context.name)}!= null? this.${camelcase(context.name)}${itemsType.simple ? '' : '!.map((it) => it.toJson()).toList()'} : null`}`,
+        matches: `json['${camelcase(context.name)}'].every((it) => ${itemsType.matches})`,
+      };
+    }
+    if (!context.propName) {
+      this.#emit(className, `typedef ${className} = ${serialized.use};`);
     }
 
-    const itemsType = this.handle(className, items, true, context);
-    return {
-      content: '',
-      use: `List<${itemsType.use}>`,
-      fromJson: required
-        ? `(json['${context.name}'] as List<${itemsType.simple ? itemsType.use : 'dynamic'}>).map((it) => ${itemsType.simple ? 'it' : `${itemsType.use}.fromJson(it)`}).toList()`
-        : `json['${context.name}'] != null ? (json['${context.name}'] as List).map((it) => ${itemsType.fromJson}).toList() : null`,
-      toJson: `${context.required ? `this.${camelcase(context.name)}${itemsType.simple ? '' : '.map((it) => it.toJson()).toList()'}` : `this.${camelcase(context.name)}!= null? this.${camelcase(context.name)}${itemsType.simple ? '' : '!.map((it) => it.toJson()).toList()'} : null`}`,
-      matches: `json['${camelcase(context.name)}'].every((it) => ${itemsType.matches})`,
-    };
+    return serialized;
   }
 
   /**
@@ -314,19 +340,27 @@ return ${matches.join(' && ')};
     }
   }
 
-  #ref($ref: string, required: boolean, context: Context): Serialized {
+  #ref(
+    className: string,
+    $ref: string,
+    required: boolean,
+    context: Context,
+  ): Serialized {
     const schemaName = cleanRef($ref).split('/').pop()!;
-    const result = this.handle(
+    if (!context.propName) {
+      this.#emit(className, `typedef ${className} = ${schemaName};`);
+    }
+    const serialized = this.handle(
       context.alias || schemaName,
       followRef<SchemaObject>(this.#spec, $ref),
       required,
       {
         ...context,
         propName: schemaName,
-        noEmit: !context.forceEmit,
+        noEmit: !!className || !context.forceEmit,
       },
     );
-    return result;
+    return serialized;
   }
 
   // fixme: this method should no longer be needed because the logic in it is being preprocessed before emitting begins
@@ -407,7 +441,7 @@ return ${matches.join(' && ')};
     const objects = schemas.filter(notRef).filter((it) => it.type === 'object');
     for (const schema of schemas) {
       if (isRef(schema)) {
-        const refType = this.#ref(schema.$ref, true, context);
+        const refType = this.#ref(className, schema.$ref, true, context);
         patterns.push({
           pattern: `case ${refType.type || 'Map<String, dynamic>'} map when ${refType.use}.matches(map): return ${refType.use}.fromJson(map);`,
           name: refType.use,
@@ -701,7 +735,7 @@ return false;
     context: Context = {},
   ): Serialized {
     if (isRef(schema)) {
-      return this.#ref(schema.$ref, required, context);
+      return this.#ref(className, schema.$ref, required, context);
     }
 
     if (schema.allOf && Array.isArray(schema.allOf)) {

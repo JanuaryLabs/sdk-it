@@ -40,6 +40,10 @@ export interface OperationEntry {
   groupName: string;
   tag: string;
 }
+export type Operation = {
+  entry: OperationEntry;
+  operation: TunedOperationObject;
+};
 
 export function forEachOperation<T>(
   config: GenerateSdkConfig,
@@ -92,6 +96,19 @@ export interface GenerateSdkConfig {
   tag?: (operation: OperationObject, path: string) => string;
 }
 
+const reservedKeywords = new Set([
+  'abstract',
+  'arguments',
+  'await',
+  'boolean',
+  'break',
+  'case',
+  'public',
+  'private',
+  'protected',
+  'catch',
+]);
+
 /**
  * Attempts to determine a generic tag for an OpenAPI operation based on path and operationId.
  * Prioritizes the *last* segment of the path that is not a parameter (`{...}`),
@@ -107,6 +124,10 @@ export function determineGenericTag(
   pathString: string,
   operation: OperationObject,
 ): string {
+  // TODO: check for reserved keywords
+  // TODO: ignore verbs and past tense
+  // how about we take last next non dynamic segment
+  // "/channels/{channel_id}/threads/archived/public" => "threads"
   const operationId = operation.operationId || '';
   const VERSION_REGEX = /^[vV]\d+$/; // Matches 'v1', 'V2', etc.
 
@@ -124,7 +145,7 @@ export function determineGenericTag(
   // 1. Primary Heuristic: Find the last segment NOT starting with '@'
   for (let i = potentialCandidates.length - 1; i >= 0; i--) {
     const segment = potentialCandidates[i];
-    if (!segment.startsWith('@')) {
+    if (!segment.startsWith('@') || !reservedKeywords.has(segment)) {
       return camelcase(segment); // Found the best candidate
     }
   }
@@ -170,4 +191,58 @@ export function determineGenericTag(
     `Could not determine a suitable tag for path: ${pathString}, operationId: ${operationId}. Using 'unknown'.`,
   );
   return 'unknown';
+}
+
+export function isJsonContentType(
+  contentType: string | null | undefined,
+): boolean {
+  if (!contentType) {
+    return false;
+  }
+
+  // 1. Trim whitespace
+  let mainType = contentType.trim();
+
+  // 2. Remove parameters (anything after the first ';')
+  const semicolonIndex = mainType.indexOf(';');
+  if (semicolonIndex !== -1) {
+    mainType = mainType.substring(0, semicolonIndex).trim(); // Trim potential space before ';'
+  }
+
+  // 3. Convert to lowercase for case-insensitive comparison
+  mainType = mainType.toLowerCase();
+
+  // 4. Perform the checks
+  return mainType.endsWith('/json') || mainType.endsWith('+json');
+}
+
+/**
+ * Checks if a given content type string represents Server-Sent Events (SSE).
+ * Handles case-insensitivity, parameters (like charset), and leading/trailing whitespace.
+ *
+ * @param contentType The content type string to check (e.g., from a Content-Type header).
+ * @returns True if the content type is 'text/event-stream', false otherwise.
+ */
+export function isSseContentType(
+  contentType: string | null | undefined,
+): boolean {
+  if (!contentType) {
+    return false; // Handle null, undefined, or empty string
+  }
+
+  // 1. Trim whitespace from the input string
+  let mainType = contentType.trim();
+
+  // 2. Find the position of the first semicolon (if any) to remove parameters
+  const semicolonIndex = mainType.indexOf(';');
+  if (semicolonIndex !== -1) {
+    // Extract the part before the semicolon and trim potential space
+    mainType = mainType.substring(0, semicolonIndex).trim();
+  }
+
+  // 3. Convert the main type part to lowercase for case-insensitive comparison
+  mainType = mainType.toLowerCase();
+
+  // 4. Compare against the standard SSE MIME type
+  return mainType === 'text/event-stream';
 }

@@ -40,6 +40,10 @@ function runCommand(title: string, command: string, memory?: number) {
 
 const specs = [
   {
+    name: 'Nowa',
+    spec: 'https://nowa-server-dev-412327058882.europe-west1.run.app/swagger/v1/swagger.json',
+  },
+  {
     name: 'openstatus',
     spec: 'https://api.openstatus.dev/v1/openapi',
   },

@@ -4,8 +4,10 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
   OpenAPIObject,
+  OperationObject,
   ReferenceObject,
   RequestBodyObject,
+  ResponseObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
@@ -21,7 +23,11 @@ import {
   snakecase,
   writeFiles,
 } from '@sdk-it/core';
-import { forEachOperation } from '@sdk-it/spec';
+import {
+  type Operation,
+  forEachOperation,
+  isJsonContentType,
+} from '@sdk-it/spec';
 
 import { DartSerializer } from './dart-emitter.ts';
 import dispatcherTxt from './http/dispatcher.txt';
@@ -131,8 +137,9 @@ export async function generate(
   spec.components ??= {};
   spec.components.schemas ??= {};
   const inputs: Record<string, string> = {};
+  const outputs: Record<string, string> = {};
   forEachOperation({ spec }, (entry, operation) => {
-    // if (entry.path !== '/Activity') {
+    // if (entry.path !== '/Announcements') {
     //   return;
     // }
     console.log(`Processing ${entry.method} ${entry.path}`);
@@ -143,60 +150,16 @@ export async function generate(
         use: `final ${entry.groupName} = new ${pascalcase(entry.groupName)}();`,
       });
 
-    const inputName = pascalcase(`${operation.operationId} input`);
-    const outputName = pascalcase(`${operation.operationId} output`);
-    if (!isEmpty(operation.requestBody)) {
-      const requestBody = isRef(operation.requestBody)
-        ? followRef<RequestBodyObject>(spec, operation.requestBody.$ref)
-        : operation.requestBody;
+    const input = toInputs(spec, { entry, operation });
+    Object.assign(inputs, input.inputs);
 
-      for (const type in requestBody.content) {
-        const ctSchema = isRef(requestBody.content[type].schema)
-          ? followRef(spec, requestBody.content[type].schema.$ref)
-          : requestBody.content[type].schema;
-        if (!ctSchema) {
-          console.warn(
-            `Schema not found for ${type} in ${entry.method} ${entry.path}`,
-          );
-          continue;
-        }
-
-        let objectSchema = ctSchema;
-        if (objectSchema.type !== 'object') {
-          objectSchema = {
-            type: 'object',
-            required: [requestBody.required ? '$body' : ''],
-            properties: {
-              $body: ctSchema,
-            },
-          };
-        }
-
-        const serializer = new DartSerializer(spec, (name, content) => {
-          inputs[join(`inputs/${name}.dart`)] =
-            `import 'dart:typed_data'; import './index.dart';\n\n${content}`;
-        });
-        serializer.handle(inputName, objectSchema);
-        // const schema = merge({}, objectSchema, {
-        //   required: additionalProperties
-        //     .filter((p) => p.required)
-        //     .map((p) => p.name),
-        //   properties: additionalProperties.reduce<Record<string, unknown>>(
-        //     (acc, p) => ({
-        //       ...acc,
-        //       [p.name]: p.schema,
-        //     }),
-        //     {},
-        //   ),
-        // });
-
-        // Object.assign(inputs, bodyInputs(config, objectSchema));
-        // schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
-      }
+    const response = toOutput(spec, operation);
+    if (response) {
+      Object.assign(outputs, response.outputs);
     }
     group.methods.push(`
-        Future<${outputName}> ${camelcase(operation.operationId)}(
-       ${isEmpty(operation.requestBody) ? '' : `${inputName} ${camelcase(inputName)}`}
+        Future<${response ? response.outputName : 'http.Response'}> ${camelcase(operation.operationId)}(
+       ${isEmpty(operation.requestBody) ? '' : `${input.inputName} ${camelcase(input.inputName)}`}
         ) async {
           final stream = await this.dispatcher.dispatch(RequestConfig(
             method: '${entry.method}',
@@ -204,8 +167,12 @@ export async function generate(
             headers: {},
           ));
           final response = await http.Response.fromStream(stream);
-          final Map<String, dynamic> json = jsonDecode(response.body);
-          return ${outputName}.fromJson(json);
+          ${
+            response
+              ? `final dynamic json = jsonDecode(response.body);
+          return ${response.parse};`
+              : 'return response;'
+          }
       }
     `);
   });
@@ -242,6 +209,8 @@ import 'package:http/http.dart' as http;
 
 import '../interceptors.dart';
 import '../inputs/index.dart';
+import '../outputs/index.dart';
+import '../models/index.dart';
 import '../http.dart';
 
     class ${pascalcase(name)} {
@@ -297,6 +266,7 @@ class Options {
   await writeFiles(output, {
     ...models,
     ...inputs,
+    ...outputs,
   });
 
   await writeFiles(output, {
@@ -305,6 +275,10 @@ class Options {
       extensions: 'dart',
     }),
     'inputs/index.dart': await getFolderExportsV2(join(output, 'inputs'), {
+      exportSyntax: 'export',
+      extensions: 'dart',
+    }),
+    'outputs/index.dart': await getFolderExportsV2(join(output, 'outputs'), {
       exportSyntax: 'export',
       extensions: 'dart',
     }),
@@ -340,4 +314,98 @@ class Options {
   await settings.formatCode?.({
     output: output,
   });
+}
+
+function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
+  const inputs: Record<string, unknown> = {};
+  const inputName = pascalcase(`${operation.operationId} input`);
+  if (!isEmpty(operation.requestBody)) {
+    const requestBody = isRef(operation.requestBody)
+      ? followRef<RequestBodyObject>(spec, operation.requestBody.$ref)
+      : operation.requestBody;
+
+    for (const type in requestBody.content) {
+      const ctSchema = isRef(requestBody.content[type].schema)
+        ? followRef(spec, requestBody.content[type].schema.$ref)
+        : requestBody.content[type].schema;
+      if (!ctSchema) {
+        console.warn(
+          `Schema not found for ${type} in ${entry.method} ${entry.path}`,
+        );
+        continue;
+      }
+
+      let objectSchema = ctSchema;
+      if (objectSchema.type !== 'object') {
+        objectSchema = {
+          type: 'object',
+          required: [requestBody.required ? '$body' : ''],
+          properties: {
+            $body: ctSchema,
+          },
+        };
+      }
+
+      const serializer = new DartSerializer(spec, (name, content) => {
+        inputs[join(`inputs/${name}.dart`)] =
+          `import 'dart:typed_data'; import './index.dart';\n\n${content}`;
+      });
+      serializer.handle(inputName, objectSchema);
+      // const schema = merge({}, objectSchema, {
+      //   required: additionalProperties
+      //     .filter((p) => p.required)
+      //     .map((p) => p.name),
+      //   properties: additionalProperties.reduce<Record<string, unknown>>(
+      //     (acc, p) => ({
+      //       ...acc,
+      //       [p.name]: p.schema,
+      //     }),
+      //     {},
+      //   ),
+      // });
+
+      // Object.assign(inputs, bodyInputs(config, objectSchema));
+      // schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
+    }
+  }
+  return { inputs, inputName };
+}
+
+function toOutput(spec: OpenAPIObject, operation: OperationObject) {
+  const outputName = pascalcase(`${operation.operationId} output`);
+  operation.responses ??= {};
+  const outputs: Record<string, string> = {};
+  for (const status in operation.responses) {
+    const response = isRef(operation.responses[status] as ReferenceObject)
+      ? followRef<ResponseObject>(spec, operation.responses[status].$ref)
+      : (operation.responses[status] as ResponseObject);
+    for (const type in response.content) {
+      const { schema } = response.content[type];
+      if (!schema) {
+        console.warn(
+          `Schema not found for ${type} in ${operation.operationId}`,
+        );
+        continue;
+      }
+      const serializer = new DartSerializer(spec, (name, content) => {
+        // console.log(name, content);
+        outputs[join(`outputs/${name}.dart`)] =
+          `import 'dart:typed_data'; import '../models/index.dart'; \n\n${content}`;
+      });
+      if (isJsonContentType(type)) {
+        const serialized = serializer.handle(outputName, schema, true, {
+          forceEmit: true,
+          alias: outputName,
+        });
+        console.log(serialized);
+        return {
+          type: 'json',
+          outputName,
+          outputs,
+          parse: serialized.fromJson,
+        };
+      }
+    }
+  }
+  return null;
 }

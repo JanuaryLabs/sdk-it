@@ -165,13 +165,8 @@ export function toEndpoint(
       return statusCode >= 200 && statusCode < 300;
     }).length > 1;
   for (const status in specOperation.responses) {
-    const response = isRef(
-      specOperation.responses[status] as ResponseObject | ReferenceObject,
-    )
-      ? (followRef(
-          spec,
-          specOperation.responses[status].$ref,
-        ) as ResponseObject)
+    const response = isRef(specOperation.responses[status] as ReferenceObject)
+      ? followRef<ResponseObject>(spec, specOperation.responses[status].$ref)
       : (specOperation.responses[status] as ResponseObject);
     const handled = handleResponse(
       spec,
