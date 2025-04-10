@@ -134,7 +134,9 @@ export function generateCode(
           ? followRef(config.spec, requestBody.content[type].schema.$ref)
           : requestBody.content[type].schema;
         if (!ctSchema) {
-          console.warn(`Schema not found for ${type}`);
+          console.warn(
+            `Schema not found for ${type} in ${entry.method} ${entry.path}`,
+          );
           continue;
         }
 
@@ -292,9 +294,8 @@ import type { OutputType, Parser, Type } from '${config.makeImport(
 import schemas from '${config.makeImport('./schemas')}';
 
       ${endpointsTxt}`,
-      [`${join('api', 'schemas.ts')}`]: `
-${imports.join('\n')}
-${allSchemas.map((it) => it.import).join('\n')}
+      [`${join('api', 'schemas.ts')}`]:
+        `${allSchemas.map((it) => it.import).join('\n')}
 
 export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
 

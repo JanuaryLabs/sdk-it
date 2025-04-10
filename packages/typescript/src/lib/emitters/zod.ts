@@ -178,10 +178,15 @@ export class ZodDeserialzer {
     return `z.union([${oneOfSchemas.join(', ')}])${appendOptional(required)}`;
   }
 
-  enum(values: any[]) {
+  enum(type: string, values: any[]) {
     if (values.length === 1) {
       return `z.literal(${values.join(', ')})`;
     }
+    if (type === 'integer') {
+      // Zod doesn’t have a direct enum for numbers, so we use union of literals
+      return `z.union([${values.map((val) => `z.literal(${val})`).join(', ')}])`;
+    }
+
     return `z.enum([${values.join(', ')}])`;
   }
 
@@ -326,7 +331,7 @@ export class ZodDeserialzer {
       const defaultValue = enumVals.includes(JSON.stringify(schema.default))
         ? JSON.stringify(schema.default)
         : undefined;
-      return `${this.enum(enumVals)}${this.#suffixes(defaultValue, required, false)}`;
+      return `${this.enum(schema.type as string, enumVals)}${this.#suffixes(defaultValue, required, false)}`;
     }
 
     // 3.1 can have type: string or type: string[] (e.g. ["string","null"])
