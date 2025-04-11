@@ -235,7 +235,7 @@ export class ZodDeserialzer {
         break;
       case 'byte':
       case 'binary':
-        base = 'z.instanceof(Blob) /* consider base64 check if needed */';
+        base = 'z.instanceof(Blob)';
         break;
       case 'int64':
         // JS numbers can't reliably store int64, consider z.bigint() or keep as string

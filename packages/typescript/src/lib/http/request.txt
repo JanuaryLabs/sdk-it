@@ -157,7 +157,6 @@ class FormDataSerializer extends Serializer {
   }
   getHeaders(): Record<string, string> {
     return {
-      'Content-Type': 'multipart/form-data',
       Accept: 'application/json',
     };
   }
