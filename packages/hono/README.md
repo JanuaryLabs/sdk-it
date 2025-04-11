@@ -21,11 +21,16 @@ The validator middleware offers type-safe request validation using [Zod](https:/
 > [!IMPORTANT]
 > For openapi generation to work correctly, you must use the `validate` middleware for each route.
 
+**Basic Usage:**
+
 ```typescript
+import { z } from 'zod';
+
 import { validate } from '@sdk-it/hono/runtime';
 
 app.post(
   '/books',
+  // No content type specified - validation runs regardless of content type
   validate((payload) => ({
     // Query parameter validation
     page: {
@@ -80,6 +85,106 @@ app.post(
 );
 ```
 
+**Enforcing Content Type:**
+
+The `validate` function can optionally enforce a specific content type before validation.
+
+```typescript
+import { z } from 'zod';
+
+import { validate } from '@sdk-it/hono/runtime';
+
+// Specifying content type enforcement
+app.post(
+  '/users',
+  validate('application/json', (payload) => ({
+    // <-- Enforces 'application/json'
+    name: {
+      select: payload.body.name,
+      against: z.string(),
+    },
+  })),
+  (c) => {
+    // Handle request with guaranteed JSON content
+    const { name } = c.var.input;
+    return c.json({ success: true });
+  },
+);
+```
+
+**Handling File Uploads (`multipart/form-data`):**
+
+Use `z.instanceof(File)` to validate file uploads when enforcing `multipart/form-data`.
+
+```typescript
+import { z } from 'zod';
+
+import { validate } from '@sdk-it/hono/runtime';
+
+// import { writeFile } from 'node:fs/promises'; // Example for saving file
+
+/**
+ * @openapi uploadProfilePicture
+ * @tags users
+ */
+app.post(
+  '/users/:userId/avatar',
+  validate('multipart/form-data', (payload) => ({
+    userId: {
+      select: payload.params.userId,
+      against: z.string().uuid(),
+    },
+    // File validation
+    avatar: {
+      select: payload.body.avatar, // 'avatar' is the field name in the form data
+      against: z.instanceof(File), // <-- Validate that 'avatar' is a File object
+    },
+    // Other form fields can also be validated
+    caption: {
+      select: payload.body.caption,
+      against: z.string().optional(), // Example: optional caption field
+    },
+  })),
+  async (c) => {
+    const { userId, avatar, caption } = c.var.input;
+
+    // Example: Process the uploaded file
+    // const fileBuffer = Buffer.from(await avatar.arrayBuffer());
+    // await writeFile(`./uploads/${userId}_${avatar.name}`, fileBuffer);
+
+    console.log(
+      `Received avatar for user ${userId}: ${avatar.name}, size: ${avatar.size}`,
+    );
+    if (caption) {
+      console.log(`Caption: ${caption}`);
+    }
+    return c.json({
+      message: `Avatar for user ${userId} uploaded successfully.`,
+    });
+  },
+);
+```
+
+### Content Type Consumption
+
+If you only need to enforce a content type without performing validation, use the `consume` middleware:
+
+```typescript
+import { consume } from '@sdk-it/hono/runtime';
+
+app.post(
+  '/upload',
+  consume('multipart/form-data'), // <-- Enforces 'multipart/form-data'
+  async (c) => {
+    // Process raw multipart form data from the request body
+    const body = await c.req.parseBody();
+    const file = body['file']; // Access file data
+    // ... process file ...
+    return c.json({ success: true });
+  },
+);
+```
+
 ### Response Helper
 
 The output function provides a clean API for sending HTTP responses with proper status codes and content types.
@@ -122,7 +227,7 @@ Consider the following example:
 - Create hono routes with the `@openapi` tag and validate middleware.
 
 ```typescript
-import z from 'zod';
+import { z } from 'zod';
 
 import { validate } from '@sdk-it/hono/runtime';
 
@@ -141,7 +246,8 @@ app.get(
     },
   })),
   async (c) => {
-    const books = [{ name: 'OpenAPI' }];
+    const { author } = c.var.input; // <-- Access validated input
+    const books = [{ name: `Books by ${author}` }];
     return c.json(books);
   },
 );
