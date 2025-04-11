@@ -29,7 +29,7 @@ import {
   isJsonContentType,
 } from '@sdk-it/spec';
 
-import { DartSerializer } from './dart-emitter.ts';
+import { DartSerializer, isObjectSchema } from './dart-emitter.ts';
 import dispatcherTxt from './http/dispatcher.txt';
 import interceptorsTxt from './http/interceptors.txt';
 
@@ -139,7 +139,7 @@ export async function generate(
   const inputs: Record<string, string> = {};
   const outputs: Record<string, string> = {};
   forEachOperation({ spec }, (entry, operation) => {
-    // if (entry.path !== '/Announcements') {
+    // if (entry.path !== '/Auth/resetpassword') {
     //   return;
     // }
     console.log(`Processing ${entry.method} ${entry.path}`);
@@ -213,9 +213,9 @@ import '../outputs/index.dart';
 import '../models/index.dart';
 import '../http.dart';
 
-    class ${pascalcase(name)} {
+    class ${pascalcase(name)}Client {
       final Dispatcher dispatcher;
-      ${pascalcase(name)}(this.dispatcher);
+      ${pascalcase(name)}Client(this.dispatcher);
       ${methods.join('\n')}
     }
     `,
@@ -234,7 +234,7 @@ import './http.dart';
   class ${clientName} {
   final Options options;
 ${Object.keys(groups)
-  .map((name) => `late final ${pascalcase(name)} ${camelcase(name)};`)
+  .map((name) => `late final ${pascalcase(name)}Client ${camelcase(name)};`)
   .join('\n')}
 
   ${clientName}(this.options) {
@@ -243,7 +243,7 @@ ${Object.keys(groups)
     ${Object.keys(groups)
       .map(
         (name) =>
-          `this.${camelcase(name)} = new ${pascalcase(name)}(dispatcher);`,
+          `this.${camelcase(name)} = new ${pascalcase(name)}Client(dispatcher);`,
       )
       .join('\n')}
 
@@ -335,22 +335,15 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
         continue;
       }
 
-      let objectSchema = ctSchema;
-      if (objectSchema.type !== 'object') {
-        objectSchema = {
-          type: 'object',
-          required: [requestBody.required ? '$body' : ''],
-          properties: {
-            $body: ctSchema,
-          },
-        };
-      }
+      const objectSchema = ctSchema;
 
       const serializer = new DartSerializer(spec, (name, content) => {
         inputs[join(`inputs/${name}.dart`)] =
-          `import 'dart:typed_data'; import './index.dart';\n\n${content}`;
+          `import 'dart:typed_data';import '../models/index.dart'; import './index.dart';\n\n${content}`;
       });
-      serializer.handle(inputName, objectSchema);
+      serializer.handle(inputName, objectSchema, true, {
+        alias: isObjectSchema(objectSchema) ? undefined : inputName,
+      });
       // const schema = merge({}, objectSchema, {
       //   required: additionalProperties
       //     .filter((p) => p.required)
@@ -388,16 +381,13 @@ function toOutput(spec: OpenAPIObject, operation: OperationObject) {
         continue;
       }
       const serializer = new DartSerializer(spec, (name, content) => {
-        // console.log(name, content);
         outputs[join(`outputs/${name}.dart`)] =
           `import 'dart:typed_data'; import '../models/index.dart'; \n\n${content}`;
       });
       if (isJsonContentType(type)) {
         const serialized = serializer.handle(outputName, schema, true, {
-          forceEmit: true,
           alias: outputName,
         });
-        console.log(serialized);
         return {
           type: 'json',
           outputName,

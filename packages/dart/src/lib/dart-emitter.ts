@@ -229,8 +229,8 @@ return ${matches.join(' && ')};
       content,
       toJson: `${this.#safe(context.name, context.required)}`,
       fromJson: context.name
-        ? `${className}.fromJson(json['${context.name}'])`
-        : `${className}.fromJson(json)`,
+        ? `${context.forJson || className}.fromJson(json['${context.name}'])`
+        : `${context.forJson || className}.fromJson(json)`,
       matches: `${className}.matches(json['${context.name}'])`,
     };
     return serialized;
@@ -248,7 +248,7 @@ return ${matches.join(' && ')};
     required = false,
     context: Context,
   ): Serialized {
-    let serialized;
+    let serialized: Serialized;
     if (!schema.items) {
       serialized = {
         content: '',
@@ -287,9 +287,6 @@ return ${matches.join(' && ')};
         matches: `json['${camelcase(context.name)}'].every((it) => ${itemsType.matches})`,
       };
     }
-    if (!context.propName) {
-      this.#emit(className, `typedef ${className} = ${serialized.use};`);
-    }
 
     return serialized;
   }
@@ -297,7 +294,7 @@ return ${matches.join(' && ')};
   /**
    * Convert a basic type to Dart
    */
-  primitive(
+  #primitive(
     className: string,
     type: string,
     schema: SchemaObject,
@@ -347,17 +344,15 @@ return ${matches.join(' && ')};
     context: Context,
   ): Serialized {
     const schemaName = cleanRef($ref).split('/').pop()!;
-    if (!context.propName) {
-      this.#emit(className, `typedef ${className} = ${schemaName};`);
-    }
+
     const serialized = this.handle(
-      context.alias || schemaName,
+      schemaName,
       followRef<SchemaObject>(this.#spec, $ref),
       required,
       {
         ...context,
         propName: schemaName,
-        noEmit: !!className || !context.forceEmit,
+        noEmit: !!context.alias || !!className || !context.forceEmit,
       },
     );
     return serialized;
@@ -676,7 +671,9 @@ return false;
             : `this.${camelcase(context.name)} != null ? this.${camelcase(
                 context.name,
               )}!.toIso8601String() : null`,
-          fromJson: `json['${context.name}'] != null ? DateTime.parse(json['${context.name}']) : null`,
+          fromJson: context.name
+            ? `json['${context.name}'] != null ? DateTime.parse(json['${context.name}']) : null`
+            : 'json',
           matches: `json['${context.name}'] is String`,
         };
       case 'binary':
@@ -686,7 +683,7 @@ return false;
           use: 'Uint8List',
           toJson: `this.${camelcase(context.name)}`,
           simple: true,
-          fromJson: `json['${context.name}']`,
+          fromJson: context.name ? `json['${context.name}']` : 'json',
           matches: `json['${context.name}'] is Uint8List`,
         };
       default:
@@ -695,7 +692,7 @@ return false;
           content: '',
           simple: true,
           toJson: `this.${camelcase(context.name)}`,
-          fromJson: `json['${context.name}'] as String`,
+          fromJson: context.name ? `json['${context.name}'] as String` : 'json',
           matches: `json['${context.name}'] is String`,
         };
     }
@@ -728,7 +725,7 @@ return false;
     };
   }
 
-  handle(
+  #serialize(
     className: string,
     schema: SchemaObject | ReferenceObject,
     required = true,
@@ -737,23 +734,18 @@ return false;
     if (isRef(schema)) {
       return this.#ref(className, schema.$ref, required, context);
     }
-
     if (schema.allOf && Array.isArray(schema.allOf)) {
       return this.#allOf(className, schema.allOf, context);
     }
-
     if (schema.anyOf && Array.isArray(schema.anyOf)) {
       return this.anyOf(className, schema.anyOf, context);
     }
-
     if (schema.oneOf && Array.isArray(schema.oneOf)) {
       return this.#oneOf(className, schema.oneOf, context);
     }
-
     if (schema.enum && Array.isArray(schema.enum)) {
       return this.#enum(className, schema, context);
     }
-
     // Handle types
     const types = Array.isArray(schema.type)
       ? schema.type
@@ -786,8 +778,7 @@ return false;
         fromJson: `json['${context.name}']`,
       };
     }
-
-    return this.primitive(
+    return this.#primitive(
       className,
       types[0],
       schema,
@@ -795,4 +786,30 @@ return false;
       required,
     );
   }
+
+  handle(
+    className: string,
+    schema: SchemaObject | ReferenceObject,
+    required = true,
+    context: Context = {},
+  ): Serialized {
+    const alias = context.alias;
+    context.alias = undefined;
+    const serialized = this.#serialize(className, schema, required, {
+      ...context,
+      forJson: alias,
+    });
+
+    if (alias) {
+      this.#emit(className, `typedef ${alias} = ${serialized.use};`);
+      return serialized;
+    }
+    return serialized;
+  }
+}
+
+export function isObjectSchema(
+  schema: SchemaObject | ReferenceObject,
+): schema is SchemaObject {
+  return !isRef(schema) && (schema.type === 'object' || !!schema.properties);
 }
