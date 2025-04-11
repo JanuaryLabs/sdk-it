@@ -96,44 +96,156 @@ export interface GenerateSdkConfig {
   tag?: (operation: OperationObject, path: string) => string;
 }
 
+// --- Function Definition (determineGenericTag, sanitizeTag, reservedKeywords, commonVerbs) ---
+/**
+ * Set of reserved TypeScript keywords and common verbs potentially used as tags.
+ */
 const reservedKeywords = new Set([
   'abstract',
   'arguments',
   'await',
   'boolean',
   'break',
+  'byte',
   'case',
-  'public',
+  'catch',
+  'char',
+  'class',
+  'const',
+  'continue',
+  'debugger',
+  'default',
+  'delete',
+  'do',
+  'double',
+  'else',
+  'enum',
+  'eval',
+  'export',
+  'extends',
+  'false',
+  'final',
+  'finally',
+  'float',
+  'for',
+  'function',
+  'goto',
+  'if',
+  'implements',
+  'import',
+  'in',
+  'instanceof',
+  'int',
+  'interface',
+  'let',
+  'long',
+  'native',
+  'new',
+  'null',
+  'package',
   'private',
   'protected',
-  'catch',
+  'public',
+  'return',
+  'short',
+  'static',
+  'super',
+  'switch',
+  'synchronized',
+  'this',
+  'throw',
+  'throws',
+  'transient',
+  'true',
+  'try',
+  'typeof',
+  'var',
+  'void',
+  'volatile',
+  'while',
+  'with',
+  'yield',
+  // Potentially problematic identifiers / Common Verbs used as tags
+  'object',
+  'string',
+  'number',
+  'any',
+  'unknown',
+  'never',
+  'get',
+  'list',
+  'create',
+  'update',
+  'delete',
+  'post',
+  'put',
+  'patch',
+  'do',
+  'send',
+  'add',
+  'remove',
+  'set',
+  'find',
+  'search',
+  'check',
+  'make', // Added make, check
 ]);
 
 /**
+ * Sanitizes a potential tag name (assumed to be already camelCased)
+ * to avoid conflicts with reserved keywords or invalid starting characters (numbers).
+ * Appends an underscore if the tag matches a reserved keyword.
+ * Prepends an underscore if the tag starts with a number.
+ * @param camelCasedTag The potential tag name, already camelCased.
+ * @returns The sanitized tag name.
+ */
+function sanitizeTag(camelCasedTag: string): string {
+  // Prepend underscore if starts with a number
+  if (/^\d/.test(camelCasedTag)) {
+    return `_${camelCasedTag}`;
+  }
+  // Append underscore if it's a reserved keyword
+  return reservedKeywords.has(camelCasedTag)
+    ? `${camelCasedTag}_`
+    : camelCasedTag;
+}
+
+/**
  * Attempts to determine a generic tag for an OpenAPI operation based on path and operationId.
- * Prioritizes the *last* segment of the path that is not a parameter (`{...}`),
- * not a version string (`vN`), and not starting with `'@'`.
- * If all valid segments start with '@', it falls back to operationId.
- * If operationId fails, it falls back to the *first* valid segment (removing leading '@' if present).
- * Defaults to 'unknown' only as a last resort.
- * @param {string} pathString The path string (e.g., "/users/@me/orders" or "/webhooks/{id}/@original").
- * @param {OperationObject} operation The operation object.
- * @returns {string} The determined tag name (camelCase).
+ * Rules and fallbacks are documented within the code.
+ * @param pathString The path string.
+ * @param operation The OpenAPI Operation Object.
+ * @returns A sanitized, camelCased tag name string.
  */
 export function determineGenericTag(
   pathString: string,
   operation: OperationObject,
 ): string {
-  // TODO: check for reserved keywords
-  // TODO: ignore verbs and past tense
-  // how about we take last next non dynamic segment
-  // "/channels/{channel_id}/threads/archived/public" => "threads"
   const operationId = operation.operationId || '';
-  const VERSION_REGEX = /^[vV]\d+$/; // Matches 'v1', 'V2', etc.
+  const VERSION_REGEX = /^[vV]\d+$/;
+  const commonVerbs = new Set([
+    // Verbs to potentially strip from operationId prefix
+    'get',
+    'list',
+    'create',
+    'update',
+    'delete',
+    'post',
+    'put',
+    'patch',
+    'do',
+    'send',
+    'add',
+    'remove',
+    'set',
+    'find',
+    'search',
+    'check',
+    'make', // Added make
+  ]);
 
-  const segments = pathString.split('/').filter(Boolean); // Remove empty segments
+  const segments = pathString.split('/').filter(Boolean);
 
-  // Get all segments that are potentially meaningful (not params, not versions)
   const potentialCandidates = segments.filter(
     (segment) =>
       segment &&
@@ -142,55 +254,152 @@ export function determineGenericTag(
       !VERSION_REGEX.test(segment),
   );
 
-  // 1. Primary Heuristic: Find the last segment NOT starting with '@'
+  // --- Heuristic 1: Last non-'@' path segment ---
   for (let i = potentialCandidates.length - 1; i >= 0; i--) {
     const segment = potentialCandidates[i];
-    if (!segment.startsWith('@') || !reservedKeywords.has(segment)) {
-      return camelcase(segment); // Found the best candidate
+    if (!segment.startsWith('@')) {
+      // Sanitize just before returning
+      return sanitizeTag(camelcase(segment));
     }
   }
 
-  // If we reach here, all potential candidates started with '@', or there were none.
+  const canFallbackToPathSegment = potentialCandidates.length > 0;
 
-  // 2. Secondary Heuristic: operationId prefix
+  // --- Heuristic 2: OperationId parsing ---
   if (operationId) {
+    const lowerOpId = operationId.toLowerCase();
     const parts = operationId
-      .replace(/([A-Z])/g, '_$1') // Insert underscore before uppercase letters
-      .split(/[_-\s]+/); // Split by underscore, hyphen, or space
+      .replace(/([a-z])([A-Z])/g, '$1_$2')
+      .replace(/([A-Z])([A-Z][a-z])/g, '$1_$2')
+      .replace(/([a-zA-Z])(\d)/g, '$1_$2')
+      .replace(/(\d)([a-zA-Z])/g, '$1_$2')
+      .toLowerCase()
+      .split(/[_-\s]+/);
 
-    if (parts.length > 0 && parts[0]) {
-      const potentialTag = camelcase(parts[0]);
-      // Basic sanity check
-      if (potentialTag.length > 1 || parts.length === 1) {
-        return potentialTag;
-      }
-      // Try second part if first was too short/numeric
-      if (parts.length > 1 && parts[1] && camelcase(parts[1]).length > 1) {
-        return camelcase(parts[1]);
-      }
-      // Fallback to the first part anyway if it exists
-      if (potentialTag) return potentialTag;
+    const validParts = parts.filter(Boolean);
+
+    // Quick skip: If opId is just a verb and we can use Heuristic 3, prefer that.
+    if (
+      commonVerbs.has(lowerOpId) &&
+      validParts.length === 1 &&
+      canFallbackToPathSegment
+    ) {
+      // Proceed directly to Heuristic 3
     }
-  }
+    // Only process if there are valid parts and the quick skip didn't happen
+    else if (validParts.length > 0) {
+      const firstPart = validParts[0];
+      const isFirstPartVerb = commonVerbs.has(firstPart);
 
-  // 3. Tertiary Heuristic: Use the FIRST potential candidate, even if it starts with '@'
+      // Case 2a: Starts with verb, has following parts
+      if (isFirstPartVerb && validParts.length > 1) {
+        const verbPrefixLength = firstPart.length;
+        let nextPartStartIndex = -1;
+        if (operationId.length > verbPrefixLength) {
+          // Simplified check for next part start
+          const charAfterPrefix = operationId[verbPrefixLength];
+          if (charAfterPrefix >= 'A' && charAfterPrefix <= 'Z') {
+            nextPartStartIndex = verbPrefixLength;
+          } else if (charAfterPrefix >= '0' && charAfterPrefix <= '9') {
+            nextPartStartIndex = verbPrefixLength;
+          } else if (['_', '-'].includes(charAfterPrefix)) {
+            nextPartStartIndex = verbPrefixLength + 1;
+          } else {
+            const match = operationId
+              .substring(verbPrefixLength)
+              .match(/[A-Z0-9]/);
+            if (match && match.index !== undefined) {
+              nextPartStartIndex = verbPrefixLength + match.index;
+            }
+            if (
+              nextPartStartIndex === -1 &&
+              operationId.length > verbPrefixLength
+            ) {
+              nextPartStartIndex = verbPrefixLength; // Default guess
+            }
+          }
+        }
+
+        if (
+          nextPartStartIndex !== -1 &&
+          nextPartStartIndex < operationId.length
+        ) {
+          const remainingOriginalSubstring =
+            operationId.substring(nextPartStartIndex);
+          const potentialTag = camelcase(remainingOriginalSubstring);
+          if (potentialTag) {
+            // Sanitize just before returning
+            return sanitizeTag(potentialTag);
+          }
+        }
+
+        // Fallback: join remaining lowercased parts
+        const potentialTagJoined = camelcase(validParts.slice(1).join('_'));
+        if (potentialTagJoined) {
+          // Sanitize just before returning
+          return sanitizeTag(potentialTagJoined);
+        }
+      }
+
+      // Case 2b: Doesn't start with verb, or only one part (might be verb)
+      const potentialTagFull = camelcase(operationId);
+      if (potentialTagFull) {
+        const isResultSingleVerb = validParts.length === 1 && isFirstPartVerb;
+
+        // Avoid returning only a verb if Heuristic 3 is possible
+        if (!(isResultSingleVerb && canFallbackToPathSegment)) {
+          if (potentialTagFull.length > 0) {
+            // Sanitize just before returning
+            return sanitizeTag(potentialTagFull);
+          }
+        }
+      }
+
+      // Case 2c: Further fallbacks within OpId if above failed/skipped
+      const firstPartCamel = camelcase(firstPart);
+      if (firstPartCamel) {
+        const isFirstPartCamelVerb = commonVerbs.has(firstPartCamel);
+        if (
+          !isFirstPartCamelVerb ||
+          validParts.length === 1 ||
+          !canFallbackToPathSegment
+        ) {
+          // Sanitize just before returning
+          return sanitizeTag(firstPartCamel);
+        }
+      }
+      if (
+        isFirstPartVerb &&
+        validParts.length > 1 &&
+        validParts[1] &&
+        canFallbackToPathSegment
+      ) {
+        const secondPartCamel = camelcase(validParts[1]);
+        if (secondPartCamel) {
+          // Sanitize just before returning
+          return sanitizeTag(secondPartCamel);
+        }
+      }
+    } // End if(validParts.length > 0) after quick skip check
+  } // End if(operationId)
+
+  // --- Heuristic 3: First path segment (stripping '@') ---
   if (potentialCandidates.length > 0) {
     let firstCandidate = potentialCandidates[0];
-    // If it starts with '@', remove it before using as tag
     if (firstCandidate.startsWith('@')) {
       firstCandidate = firstCandidate.substring(1);
     }
-    // Ensure it's not empty after potentially removing '@'
     if (firstCandidate) {
-      return camelcase(firstCandidate);
+      // Sanitize just before returning
+      return sanitizeTag(camelcase(firstCandidate));
     }
   }
 
-  // 4. Final Default Tag
+  // --- Heuristic 4: Default ---
   console.warn(
     `Could not determine a suitable tag for path: ${pathString}, operationId: ${operationId}. Using 'unknown'.`,
   );
-  return 'unknown';
+  return 'unknown'; // 'unknown' is safe
 }
 
 export function isJsonContentType(
