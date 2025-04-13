@@ -455,3 +455,14 @@ export function isSseContentType(
   // 4. Compare against the standard SSE MIME type
   return mainType === 'text/event-stream';
 }
+
+export function isStreamingContentType(
+  contentType: string | null | undefined,
+): boolean {
+  return contentType === 'application/octet-stream';
+}
+
+export function isSuccessStatusCode(statusCode: number | string): boolean {
+  statusCode = Number(statusCode);
+  return statusCode >= 200 && statusCode < 300;
+}

@@ -68,6 +68,7 @@ const formatName = (it: any): string => {
 
 type Context = Record<string, any>;
 type Serialized = {
+  nullable?: boolean;
   use: string;
   toJson: string;
   matches?: string;
@@ -182,7 +183,7 @@ export class DartSerializer {
         required,
         propName: [className, propName].filter(Boolean).join('_'),
       });
-      const nullable = !required;
+      const nullable = typeStr.nullable || !required;
       const nullableSuffix = nullable ? '?' : '';
       props.push(
         `final ${typeStr.use}${nullableSuffix} ${camelcase(propName)};`,
@@ -380,7 +381,7 @@ return ${matches.join(' && ')};
     return this.handle(name, objectSchema, true, context);
   }
 
-  anyOf(
+  #anyOf(
     className: string,
     schemas: (SchemaObject | ReferenceObject)[],
     context: Record<string, unknown>,
@@ -394,8 +395,22 @@ return ${matches.join(' && ')};
         fromJson: `json['${context.name}']`,
       };
     }
+    const nullSchemaIndex = schemas.findIndex((schema) => {
+      if (isRef(schema)) {
+        const refSchema = followRef(this.#spec, schema.$ref);
+        return refSchema.type === 'null';
+      }
+      return schema.type === 'null';
+    });
+    const anyOfSchemas = schemas.slice(0);
+    if (nullSchemaIndex >= 0) {
+      anyOfSchemas.splice(nullSchemaIndex, 1); // remove null schema
+    }
 
-    return this.handle(className, schemas[0], true, context);
+    return this.handle(className, anyOfSchemas[0], true, {
+      ...context,
+      nullable: nullSchemaIndex >= 0,
+    });
   }
 
   #mixinise(name: string, context: Context) {
@@ -688,7 +703,7 @@ return false;
         };
       default:
         return {
-          use: 'String',
+          use: `${context.nullable ? 'String?' : 'String'}`,
           content: '',
           simple: true,
           toJson: `this.${camelcase(context.name)}`,
@@ -738,7 +753,7 @@ return false;
       return this.#allOf(className, schema.allOf, context);
     }
     if (schema.anyOf && Array.isArray(schema.anyOf)) {
-      return this.anyOf(className, schema.anyOf, context);
+      return this.#anyOf(className, schema.anyOf, context);
     }
     if (schema.oneOf && Array.isArray(schema.oneOf)) {
       return this.#oneOf(className, schema.oneOf, context);

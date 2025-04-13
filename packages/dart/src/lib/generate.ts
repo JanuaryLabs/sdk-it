@@ -28,6 +28,8 @@ import {
   type Operation,
   forEachOperation,
   isJsonContentType,
+  isStreamingContentType,
+  isSuccessStatusCode,
 } from '@sdk-it/spec';
 
 import { DartSerializer, isObjectSchema } from './dart-emitter.ts';
@@ -140,9 +142,33 @@ export async function generate(
   const inputs: Record<string, string> = {};
   const outputs: Record<string, string> = {};
   forEachOperation({ spec }, (entry, operation) => {
-    // if (entry.path !== '/Samples/{id}/images') {
+    // if (entry.path !== '/beneficiary') {
     //   return;
     // }
+    operation.responses ??= {};
+    for (const status in operation.responses) {
+      if (!isSuccessStatusCode(status)) continue;
+      const response = isRef(operation.responses[status] as ReferenceObject)
+        ? followRef<ResponseObject>(spec, operation.responses[status].$ref)
+        : (operation.responses[status] as ResponseObject);
+      if (response.content && Object.keys(response.content).length) {
+        for (const [contentType, mediaType] of Object.entries(
+          response.content,
+        )) {
+          if (isJsonContentType(contentType)) {
+            if (mediaType.schema && !isRef(mediaType.schema)) {
+              spec.components ??= {};
+              spec.components.schemas ??= {};
+              const outputName = pascalcase(`${operation.operationId} output`);
+              spec.components.schemas[outputName] = mediaType.schema;
+              operation.responses[status].content[contentType].schema = {
+                $ref: `#/components/schemas/${outputName}`,
+              };
+            }
+          }
+        }
+      }
+    }
     console.log(`Processing ${entry.method} ${entry.path}`);
     const group =
       groups[entry.groupName] ??
@@ -159,7 +185,7 @@ export async function generate(
       Object.assign(outputs, response.outputs);
     }
     group.methods.push(`
-        Future<${response ? response.outputName : 'http.Response'}> ${camelcase(operation.operationId)}(
+        Future<${response ? response.returnType : 'http.Response'}> ${camelcase(operation.operationId)}(
        ${isEmpty(operation.requestBody) ? '' : `${input.inputName} ${camelcase(input.inputName)}`}
         ) async {
           final stream = await this.dispatcher.${input.contentType}(RequestConfig(
@@ -167,13 +193,7 @@ export async function generate(
             url: Uri.parse('${entry.path}'),
             headers: {},
           ), ${input.contentType === 'json' ? `${camelcase(input.inputName)}.toJson()` : ``});
-          final response = await http.Response.fromStream(stream);
-          ${
-            response
-              ? `final dynamic json = jsonDecode(response.body);
-          return ${response.parse};`
-              : 'return response;'
-          }
+          ${response ? `${response.parse};` : 'return response;'}
       }
     `);
   });
@@ -394,18 +414,29 @@ function toOutput(spec: OpenAPIObject, operation: OperationObject) {
         continue;
       }
       const serializer = new DartSerializer(spec, (name, content) => {
-        outputs[join(`outputs/${name}.dart`)] =
-          `import 'dart:typed_data'; import '../models/index.dart'; \n\n${content}`;
+        // outputs[join(`outputs/${name}.dart`)] =
+        //   `import 'dart:typed_data'; import '../models/index.dart'; \n\n${content}`;
       });
+      if (isStreamingContentType(type)) {
+        return {
+          type: 'stream',
+          outputName,
+          outputs,
+          parse: `return stream`,
+          returnType: `http.StreamedResponse`,
+        };
+      }
       if (isJsonContentType(type)) {
         const serialized = serializer.handle(outputName, schema, true, {
-          alias: outputName,
+          // alias: outputName,
+          noEmit: true,
         });
         return {
           type: 'json',
           outputName,
           outputs,
-          parse: serialized.fromJson,
+          parse: `final response = await http.Response.fromStream(stream);final dynamic json = jsonDecode(response.body); return ${serialized.fromJson}`,
+          returnType: serialized.use,
         };
       }
     }
