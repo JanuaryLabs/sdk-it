@@ -1,22 +1,66 @@
+import 'package:mime/mime.dart' as mime;
 import 'dart:convert';
+import 'dart:io';
 
 import './interceptors.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 class Dispatcher {
   final List<Interceptor> interceptors;
 
   Dispatcher(this.interceptors);
 
+  Future<http.StreamedResponse> multipart(
+    RequestConfig config,
+    Map<String, dynamic> body,
+  ) async {
+    final modifiedConfig = interceptors.fold(
+      config,
+      (acc, interceptor) => interceptor.before(acc),
+    );
+    final request = http.MultipartRequest(
+      modifiedConfig.method,
+      modifiedConfig.url,
+    );
+    request.headers.addAll(modifiedConfig.headers);
+    for (var entry in body.entries) {
+      final key = entry.key;
+      final value = entry.value;
+      if (value is File) {
+        final mimeType = mime.lookupMimeType(value.path);
+        request.files.add(
+          http.MultipartFile(
+            key,
+            value.openRead(),
+            await value.length(),
+            filename: value.uri.pathSegments.last,
+            contentType: mimeType != null ? MediaType.parse(mimeType) : null,
+          ),
+        );
+      } else {
+        request.fields[key] = value.toString();
+      }
+    }
+
+    return request.send();
+  }
+
   Future<http.StreamedResponse> empty(RequestConfig config) {
-    final modifiedConfig = interceptors.fold(config, (acc, interceptor) => interceptor.before(acc));
+    final modifiedConfig = interceptors.fold(
+      config,
+      (acc, interceptor) => interceptor.before(acc),
+    );
     final request = http.Request(modifiedConfig.method, modifiedConfig.url);
     request.headers.addAll(modifiedConfig.headers);
     return request.send();
   }
 
   Future<http.StreamedResponse> json(RequestConfig config, dynamic body) {
-    final modifiedConfig = interceptors.fold(config, (acc, interceptor) => interceptor.before(acc));
+    final modifiedConfig = interceptors.fold(
+      config,
+      (acc, interceptor) => interceptor.before(acc),
+    );
     final request = http.Request(modifiedConfig.method, modifiedConfig.url);
     request.headers.addAll(modifiedConfig.headers);
 

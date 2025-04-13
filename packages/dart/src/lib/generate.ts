@@ -192,7 +192,7 @@ export async function generate(
             method: '${entry.method}',
             url: Uri.parse('${entry.path}'),
             headers: {},
-          ), ${input.contentType === 'json' ? `${camelcase(input.inputName)}.toJson()` : ``});
+          ), ${['json', 'multipart'].includes(input.contentType) ? `${camelcase(input.inputName)}.toJson()` : ``});
           ${response ? `${response.parse};` : 'return response;'}
       }
     `);
@@ -213,7 +213,7 @@ export async function generate(
   >((acc, [name, schema]) => {
     const serializer = new DartSerializer(spec, (name, content) => {
       acc[`models/${snakecase(name)}.dart`] =
-        `import 'dart:typed_data'; import './index.dart';\n\n${content}`;
+        `import 'dart:io';import 'dart:typed_data'; import './index.dart';\n\n${content}`;
     });
     serializer.handle(pascalcase(name), schema);
     return acc;
@@ -327,6 +327,7 @@ class Options {
         },
         dependencies: {
           http: '^1.3.0',
+          mime: '^2.0.0',
         },
       }),
     },
@@ -359,7 +360,7 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
 
       const serializer = new DartSerializer(spec, (name, content) => {
         inputs[join(`inputs/${name}.dart`)] =
-          `import 'dart:typed_data';import '../models/index.dart'; import './index.dart';\n\n${content}`;
+          `import 'dart:io';import 'dart:typed_data';import '../models/index.dart'; import './index.dart';\n\n${content}`;
       });
       serializer.handle(inputName, ctSchema, true, {
         alias: isObjectSchema(ctSchema) ? undefined : inputName,
