@@ -225,7 +225,7 @@ return ${matches.join(' && ')};
       this.#emit(className, content);
     }
     const nullable = !context.required || context.nullable === true;
-    const serialized = {
+    return {
       use: className,
       content,
       toJson: `${this.#safe(context.name, context.required)}`,
@@ -234,7 +234,6 @@ return ${matches.join(' && ')};
         : `${context.forJson || className}.fromJson(json)`,
       matches: `${className}.matches(json['${context.name}'])`,
     };
-    return serialized;
   }
 
   #safe(accces: string, required: boolean) {
@@ -629,7 +628,9 @@ return ${matches.join(' && ')};
       ${values.map((it) => `static const _EnumValue ${formatName(it)} = _EnumValue(${typeof it === 'number' ? it : `'${it}'`});`).join('\n')}
       dynamic toJson();
 
-    static _EnumValue fromJson(${valType} value) {
+      String get value;
+
+      static _EnumValue fromJson(${valType} value) {
       switch (value) {
 ${values
   .map(
@@ -695,7 +696,7 @@ return false;
       case 'byte':
         return {
           content: '',
-          use: 'Uint8List',
+          use: 'File',
           toJson: `this.${camelcase(context.name)}`,
           simple: true,
           fromJson: context.name ? `json['${context.name}']` : 'json',
@@ -717,9 +718,7 @@ return false;
    * Handle number/integer types with formats
    */
   number(schema: SchemaObject, context: Context): Serialized {
-    const type = schema.type === 'integer' ? 'int' : 'double';
-
-    if (schema.format === 'int64') {
+    if (schema.type === 'integer') {
       return {
         content: '',
         use: 'int',
@@ -729,14 +728,23 @@ return false;
         matches: `json['${context.name}'] is int`,
       };
     }
-
+    if (['float', 'double'].includes(schema.format as string)) {
+      return {
+        content: '',
+        use: 'double',
+        simple: true,
+        toJson: `this.${camelcase(context.name)}`,
+        fromJson: `json['${context.name}']`,
+        matches: `json['${context.name}'] is double`,
+      };
+    }
     return {
       content: '',
+      use: 'num',
       simple: true,
-      use: type,
       toJson: `this.${camelcase(context.name)}`,
       fromJson: `json['${context.name}']`,
-      matches: `json['${context.name}'] is int`,
+      matches: `json['${context.name}'] is double`,
     };
   }
 
