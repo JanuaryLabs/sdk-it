@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import './interceptors.dart';
 import 'package:http/http.dart' as http;
 
@@ -6,12 +8,27 @@ class Dispatcher {
 
   Dispatcher(this.interceptors);
 
-  Future<http.StreamedResponse> dispatch(RequestConfig config) {
-    final modifedConfig = interceptors.fold(
-      config,
-      (acc, interceptor) => interceptor.before(acc),
-    );
-    final request = http.Request(modifedConfig.method, modifedConfig.url);
+  Future<http.StreamedResponse> empty(RequestConfig config) {
+    final modifiedConfig = interceptors.fold(config, (acc, interceptor) => interceptor.before(acc));
+    final request = http.Request(modifiedConfig.method, modifiedConfig.url);
+    request.headers.addAll(modifiedConfig.headers);
+    return request.send();
+  }
+
+  Future<http.StreamedResponse> json(RequestConfig config, dynamic body) {
+    final modifiedConfig = interceptors.fold(config, (acc, interceptor) => interceptor.before(acc));
+    final request = http.Request(modifiedConfig.method, modifiedConfig.url);
+    request.headers.addAll(modifiedConfig.headers);
+
+    if ((body is Map || body is List)) {
+      request.headers['Content-Type'] = 'application/json';
+      request.body = jsonEncode(body);
+    } else if (body is String) {
+      request.body = body;
+    } else {
+      throw ArgumentError('Unsupported body type: ${body.runtimeType}');
+    }
+
     return request.send();
   }
 }

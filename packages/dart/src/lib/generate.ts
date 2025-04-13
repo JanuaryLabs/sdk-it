@@ -1,3 +1,4 @@
+import { parse as partContentType } from 'fast-content-type-parse';
 import { merge } from 'lodash-es';
 import assert from 'node:assert';
 import { writeFile } from 'node:fs/promises';
@@ -139,7 +140,7 @@ export async function generate(
   const inputs: Record<string, string> = {};
   const outputs: Record<string, string> = {};
   forEachOperation({ spec }, (entry, operation) => {
-    // if (entry.path !== '/Auth/resetpassword') {
+    // if (entry.path !== '/Samples/{id}/images') {
     //   return;
     // }
     console.log(`Processing ${entry.method} ${entry.path}`);
@@ -161,11 +162,11 @@ export async function generate(
         Future<${response ? response.outputName : 'http.Response'}> ${camelcase(operation.operationId)}(
        ${isEmpty(operation.requestBody) ? '' : `${input.inputName} ${camelcase(input.inputName)}`}
         ) async {
-          final stream = await this.dispatcher.dispatch(RequestConfig(
+          final stream = await this.dispatcher.${input.contentType}(RequestConfig(
             method: '${entry.method}',
             url: Uri.parse('${entry.path}'),
             headers: {},
-          ));
+          ), ${input.contentType === 'json' ? `${camelcase(input.inputName)}.toJson()` : ``});
           final response = await http.Response.fromStream(stream);
           ${
             response
@@ -319,6 +320,7 @@ class Options {
 function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
   const inputs: Record<string, unknown> = {};
   const inputName = pascalcase(`${operation.operationId} input`);
+  let contentType = 'empty';
   if (!isEmpty(operation.requestBody)) {
     const requestBody = isRef(operation.requestBody)
       ? followRef<RequestBodyObject>(spec, operation.requestBody.$ref)
@@ -335,15 +337,26 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
         continue;
       }
 
-      const objectSchema = ctSchema;
-
       const serializer = new DartSerializer(spec, (name, content) => {
         inputs[join(`inputs/${name}.dart`)] =
           `import 'dart:typed_data';import '../models/index.dart'; import './index.dart';\n\n${content}`;
       });
-      serializer.handle(inputName, objectSchema, true, {
-        alias: isObjectSchema(objectSchema) ? undefined : inputName,
+      serializer.handle(inputName, ctSchema, true, {
+        alias: isObjectSchema(ctSchema) ? undefined : inputName,
       });
+      if (contentType) {
+        console.warn(
+          `${entry.method} ${entry.path} have more than one content type`,
+        );
+      }
+
+      const [mediaType, mediaSubType] = partContentType(type).type.split('/');
+      if (mediaType === 'application') {
+        contentType = mediaSubType;
+      } else {
+        contentType = mediaType;
+      }
+
       // const schema = merge({}, objectSchema, {
       //   required: additionalProperties
       //     .filter((p) => p.required)
@@ -361,7 +374,7 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
       // schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
     }
   }
-  return { inputs, inputName };
+  return { inputs, inputName, contentType };
 }
 
 function toOutput(spec: OpenAPIObject, operation: OperationObject) {
