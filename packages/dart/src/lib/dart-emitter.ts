@@ -69,6 +69,7 @@ const formatName = (it: any): string => {
 type Context = Record<string, any>;
 type Serialized = {
   nullable?: boolean;
+  encode?: string;
   use: string;
   toJson: string;
   matches?: string;
@@ -131,9 +132,11 @@ export class DartSerializer {
     context: Context,
   ): Serialized {
     if (schema.additionalProperties) {
+      this.#emit(className, `typedef ${className} = Map<String, dynamic>;`);
       return {
         content: '',
         use: 'Map<String, dynamic>',
+        encode: 'input',
         toJson: `this.${camelcase(context.name)}`,
         fromJson: `json['${camelcase(context.name)}']`,
         matches: `json['${camelcase(context.name)}'] is Map<String, dynamic>`,
@@ -162,6 +165,7 @@ export class DartSerializer {
       }
       return {
         content: '',
+        encode: 'input.toJson()',
         use: className,
         toJson: `${this.#safe(context.name as string, context.required)}`,
         fromJson: `${className}.fromJson(json['${context.name}'])`,
@@ -228,6 +232,7 @@ return ${matches.join(' && ')};
     return {
       use: className,
       content,
+      encode: 'input.toJson()',
       toJson: `${this.#safe(context.name, context.required)}`,
       fromJson: context.name
         ? `${context.forJson || className}.fromJson(json['${context.name}'])`
@@ -269,17 +274,18 @@ return ${matches.join(' && ')};
             .toList()`
         : context.name
           ? `json['${context.name}'] != null
-            ? (json['${context.name}'] as List)
-                .map((it) => ${itemsType.fromJson})
+            ? (json['${context.name}'] as List<${itemsType.simple ? itemsType.use : 'dynamic'}>)
+                .map((it) => ${itemsType.simple ? 'it' : `${itemsType.use}.fromJson(it)`})
                 .toList()
             : null`
           : `json != null
-            ? (json as List)
-                .map((it) => ${itemsType.fromJson})
+            ? (json as List<${itemsType.simple ? itemsType.use : 'dynamic'}>)
+                .map((it) => ${itemsType.simple ? 'it' : `${itemsType.use}.fromJson(it)`})
                 .toList()
             : null`;
 
       serialized = {
+        encode: `input.map((it) => ${itemsType.simple ? 'it' : `it.toJson()`}).toList()`,
         content: '',
         use: `List<${itemsType.use}>`,
         fromJson,
@@ -628,7 +634,7 @@ return ${matches.join(' && ')};
       ${values.map((it) => `static const _EnumValue ${formatName(it)} = _EnumValue(${typeof it === 'number' ? it : `'${it}'`});`).join('\n')}
       dynamic toJson();
 
-      String get value;
+      ${valType} get value;
 
       static _EnumValue fromJson(${valType} value) {
       switch (value) {
@@ -704,7 +710,8 @@ return false;
         };
       default:
         return {
-          use: `${context.nullable ? 'String?' : 'String'}`,
+          encode: 'input',
+          use: `String`,
           content: '',
           simple: true,
           toJson: `this.${camelcase(context.name)}`,

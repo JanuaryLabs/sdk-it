@@ -402,11 +402,9 @@ export function determineGenericTag(
   return 'unknown'; // 'unknown' is safe
 }
 
-export function isJsonContentType(
-  contentType: string | null | undefined,
-): boolean {
+export function parseJsonContentType(contentType: string | null | undefined) {
   if (!contentType) {
-    return false;
+    return null;
   }
 
   // 1. Trim whitespace
@@ -421,8 +419,12 @@ export function isJsonContentType(
   // 3. Convert to lowercase for case-insensitive comparison
   mainType = mainType.toLowerCase();
 
-  // 4. Perform the checks
-  return mainType.endsWith('/json') || mainType.endsWith('+json');
+  if (mainType.endsWith('/json')) {
+    return mainType.split('/')[1];
+  } else if (mainType.endsWith('+json')) {
+    return mainType.split('+')[1];
+  }
+  return null;
 }
 
 /**

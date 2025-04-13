@@ -27,9 +27,9 @@ import {
 import {
   type Operation,
   forEachOperation,
-  isJsonContentType,
   isStreamingContentType,
   isSuccessStatusCode,
+  parseJsonContentType,
 } from '@sdk-it/spec';
 
 import { DartSerializer, isObjectSchema } from './dart-emitter.ts';
@@ -155,7 +155,7 @@ export async function generate(
         for (const [contentType, mediaType] of Object.entries(
           response.content,
         )) {
-          if (isJsonContentType(contentType)) {
+          if (parseJsonContentType(contentType)) {
             if (mediaType.schema && !isRef(mediaType.schema)) {
               spec.components ??= {};
               spec.components.schemas ??= {};
@@ -185,15 +185,15 @@ export async function generate(
       Object.assign(outputs, response.outputs);
     }
     group.methods.push(`
-        Future<${response ? response.returnType : 'http.Response'}> ${camelcase(operation.operationId)}(
-       ${isEmpty(operation.requestBody) ? '' : `${input.inputName} ${camelcase(input.inputName)}`}
+        Future<${response ? response.returnType : 'http.StreamedResponse'}> ${camelcase(operation.operationId)}(
+       ${isEmpty(operation.requestBody) ? '' : `${input.inputName} input`}
         ) async {
           final stream = await this.dispatcher.${input.contentType}(RequestConfig(
             method: '${entry.method}',
             url: Uri.parse('${entry.path}'),
             headers: {},
-          ), ${['json', 'multipart'].includes(input.contentType) ? `${camelcase(input.inputName)}.toJson()` : ``});
-          ${response ? `${response.parse};` : 'return response;'}
+          ), ${['json', 'multipart'].includes(input.contentType) ? input.encode : ``});
+          ${response ? `${response.decode};` : 'return stream;'}
       }
     `);
   });
@@ -311,6 +311,9 @@ class Options {
     'package.dart': `${await getFolderExportsV2(join(output), {
       exportSyntax: 'export',
       extensions: 'dart',
+      ignore(dirent) {
+        return dirent.isFile() && dirent.name === 'package.dart';
+      },
     })}${client}`,
   });
 
@@ -342,6 +345,7 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
   const inputs: Record<string, unknown> = {};
   const inputName = pascalcase(`${operation.operationId} input`);
   let contentType = 'empty';
+  let encode = '';
   if (!isEmpty(operation.requestBody)) {
     const requestBody = isRef(operation.requestBody)
       ? followRef<RequestBodyObject>(spec, operation.requestBody.$ref)
@@ -362,9 +366,10 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
         inputs[join(`inputs/${name}.dart`)] =
           `import 'dart:io';import 'dart:typed_data';import '../models/index.dart'; import './index.dart';\n\n${content}`;
       });
-      serializer.handle(inputName, ctSchema, true, {
+      const serialized = serializer.handle(inputName, ctSchema, true, {
         alias: isObjectSchema(ctSchema) ? undefined : inputName,
       });
+      encode = serialized.encode as string;
       if (contentType) {
         console.warn(
           `${entry.method} ${entry.path} have more than one content type`,
@@ -373,7 +378,7 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
 
       const [mediaType, mediaSubType] = partContentType(type).type.split('/');
       if (mediaType === 'application') {
-        contentType = mediaSubType;
+        contentType = parseJsonContentType(type) as string;
       } else {
         contentType = mediaType;
       }
@@ -395,7 +400,8 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
       // schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
     }
   }
-  return { inputs, inputName, contentType };
+
+  return { inputs, inputName, contentType, encode };
 }
 
 function toOutput(spec: OpenAPIObject, operation: OperationObject) {
@@ -423,11 +429,11 @@ function toOutput(spec: OpenAPIObject, operation: OperationObject) {
           type: 'stream',
           outputName,
           outputs,
-          parse: `return stream`,
+          decode: `return stream`,
           returnType: `http.StreamedResponse`,
         };
       }
-      if (isJsonContentType(type)) {
+      if (parseJsonContentType(type)) {
         const serialized = serializer.handle(outputName, schema, true, {
           // alias: outputName,
           noEmit: true,
@@ -436,7 +442,7 @@ function toOutput(spec: OpenAPIObject, operation: OperationObject) {
           type: 'json',
           outputName,
           outputs,
-          parse: `final response = await http.Response.fromStream(stream);final dynamic json = jsonDecode(response.body); return ${serialized.fromJson}`,
+          decode: `final response = await http.Response.fromStream(stream);final dynamic json = jsonDecode(response.body); return ${serialized.fromJson}`,
           returnType: serialized.use,
         };
       }
