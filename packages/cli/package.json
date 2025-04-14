@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/cli",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -20,9 +20,9 @@
   ],
   "dependencies": {
     "commander": "^13.1.0",
-    "@sdk-it/typescript": "0.17.0",
-    "@sdk-it/dart": "0.17.0",
-    "@sdk-it/spec": "0.17.0"
+    "@sdk-it/typescript": "0.18.0",
+    "@sdk-it/dart": "0.18.0",
+    "@sdk-it/spec": "0.18.0"
   },
   "publishConfig": {
     "access": "public"
