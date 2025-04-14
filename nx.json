@@ -104,7 +104,7 @@
     },
     "releaseTagPattern": "release/{version}",
     "version": {
-      "preVersionCommand": "npx nx run-many -t build && npm run test",
+      "preVersionCommand": "npx nx run-many -t build --prod && npm run test",
       "conventionalCommits": true
     }
   },

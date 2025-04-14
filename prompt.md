@@ -41,7 +41,7 @@ Error Handling
 *   **Summary Section:**
     *   End the article with a dedicated section titled "Notes".
     *   Present the key takeaways or summary as a bulleted list within the "Notes" section.
-    *   Relevant reference links (if any) can be included in this final section.
+    *   Relevant reference links from docs folder only (if any) can be included in this final section.
 
 ### Output Format ###
 Produce the complete text of the blog post directly. Ensure it is formatted correctly and ready for publication according to the guidelines.
