@@ -2,7 +2,7 @@ import { toLitObject } from '@sdk-it/core';
 
 import type { Spec } from './sdk.ts';
 
-export default (spec: Omit<Spec, 'operations'>) => {
+export default (spec: Omit<Spec, 'operations'>, throwError: boolean) => {
   const optionsEntries = Object.entries(spec.options).map(
     ([key, value]) => [`'${key}'`, value] as const,
   );
@@ -63,7 +63,9 @@ export class ${spec.name} {
     endpoint: E,
     input: Endpoints[E]['input'],
     options?: { signal?: AbortSignal, headers?: HeadersInit },
-  ): Promise<readonly [Endpoints[E]['output'], Endpoints[E]['error'] | null]> {
+  )
+ ${throwError ?`: Endpoints[E]['output']`:`: Promise<readonly [Endpoints[E]['output'], Endpoints[E]['error'] | null]>`}
+  {
     const route = schemas[endpoint];
     return sendRequest(Object.assign(this.#defaultInputs, input), route, {
       fetch: this.options.fetch,

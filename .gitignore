@@ -38,11 +38,13 @@ testem.log
 .DS_Store
 Thumbs.db
 
-.nx/cache
-.nx/workspace-data
+.nx/
+.nx/
 .client
 .client-*
 .yamls
 
 vite.config.*.timestamp*
 vitest.config.*.timestamp*
+
+combined.txt

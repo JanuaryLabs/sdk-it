@@ -50,7 +50,7 @@ if (!error) {
       ),
   );
 } else {
-  if (error.kind === 'parse') {
+  if (error instanceof ParseError) {
     console.log('Parse Error'); // you sent invalid or non-compliant data
     console.error(error);
   } else {

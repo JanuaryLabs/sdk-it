@@ -32,8 +32,12 @@ export async function sendRequest(
   const { interceptors = [] } = options;
   const [parsedInput, parseError] = parseInput(route.schema, input);
   if (parseError) {
+  <% if(throwError) { %>
+    throw parseError;
+  <% } else { %>
     return [null as never, parseError as never] as const;
   }
+  <% } %>
 
   let config = route.toRequest(parsedInput as never);
   for (const interceptor of interceptors) {
@@ -84,13 +88,24 @@ export async function parse(route: RequestSchema, response: Response) {
       response.status,
       await parser(response),
     );
+    <% if(throwError) { %>
+    return data;
+    <% } else { %>
     return [data as never, null] as const;
+    <% } %>
   }
+<% if(throwError) { %>
+  throw (output || APIError).create(
+    response.status,
+    await parser(response),
+  );
+<% } else { %>
   const data = (output || APIError).create(
     response.status,
     await parser(response),
   );
   return [null as never, data as never] as const;
+<% } %>
 }
 
 export function isTypeOf<T extends Type<APIResponse>>(

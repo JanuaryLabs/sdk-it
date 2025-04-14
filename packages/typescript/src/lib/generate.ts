@@ -1,6 +1,8 @@
+import { template } from 'lodash-es';
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
+import type { throwError } from 'rxjs';
 import { spinalcase } from 'stringcase';
 
 import { getFolderExports, methods, writeFiles } from '@sdk-it/core';
@@ -46,6 +48,7 @@ export async function generate(
     output: string;
     useTsExtension?: boolean;
     name?: string;
+    throwError?: boolean;
     /**
      * full: generate a full project including package.json and tsconfig.json. useful for monorepo/workspaces
      * minimal: generate only the client sdk
@@ -99,7 +102,7 @@ import { parseInput } from './${makeImport('parser')}';
 import type { RequestConfig } from './${makeImport('request')}';
 import { APIError, APIResponse } from './${makeImport('response')}';
 
-${sendRequest}`,
+${template(sendRequest, {})({ throwError: settings.throwError })}`,
     'response.ts': responseTxt,
     'parser.ts': parserTxt,
     'request.ts': requestTxt,
@@ -108,12 +111,15 @@ ${sendRequest}`,
   await writeFiles(join(output, 'outputs'), outputs);
   const modelsImports = Object.entries(commonSchemas).map(([name]) => name);
   await writeFiles(output, {
-    'client.ts': backend({
-      name: clientName,
-      servers: (spec.servers ?? []).map((server) => server.url) || [],
-      options: options,
-      makeImport,
-    }),
+    'client.ts': backend(
+      {
+        name: clientName,
+        servers: (spec.servers ?? []).map((server) => server.url) || [],
+        options: options,
+        makeImport,
+      },
+      settings.throwError ?? false,
+    ),
     ...inputFiles,
     ...endpoints,
     ...Object.fromEntries(
