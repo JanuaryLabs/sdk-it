@@ -1,10 +1,12 @@
-import 'package:mime/mime.dart' as mime;
 import 'dart:convert';
 import 'dart:io';
 
-import './interceptors.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart' as mime;
+
+import './interceptors.dart';
+import './responses.dart';
 
 class Dispatcher {
   final List<Interceptor> interceptors;
@@ -64,8 +66,8 @@ class Dispatcher {
     final request = http.Request(modifiedConfig.method, modifiedConfig.url);
     request.headers.addAll(modifiedConfig.headers);
 
+    request.headers['Content-Type'] = 'application/json';
     if ((body is Map || body is List)) {
-      request.headers['Content-Type'] = 'application/json';
       request.body = jsonEncode(body);
     } else if (body is String) {
       request.body = body;
@@ -75,4 +77,89 @@ class Dispatcher {
 
     return request.send();
   }
+}
+
+class Receiver {
+  final List<Interceptor> interceptors;
+  Receiver(this.interceptors);
+
+  dynamic _parse(http.Response response) {
+    final contentTypeHeader = response.headers['content-type'];
+    final parsed = parseContentType(contentTypeHeader);
+    if (parsed.type == 'application/json') {
+      return jsonDecode(response.body);
+    } else if (parsed.type == 'text/plain') {
+      return response.body;
+    } else if (parsed.type == 'application/octet-stream') {
+      return response.bodyBytes;
+    } else {
+      throw UnsupportedError('Unsupported content type: ${parsed.type}');
+    }
+  }
+
+  dynamic json(http.StreamedResponse stream) async {
+    if (stream.statusCode >= 200 && stream.statusCode < 300) {
+      final response = await http.Response.fromStream(stream);
+      return _parse(response);
+    }
+    switch (stream.statusCode) {
+      case 400:
+        throw BadRequestError('');
+      case 401:
+        throw UnauthorizedError('');
+      case 403:
+        throw ForbiddenError('');
+      case 404:
+        throw NotFoundError('');
+      case 500:
+        throw InternalServerError('');
+      case 402:
+        throw PaymentRequiredError('');
+      case 405:
+        throw MethodNotAllowedError('');
+      case 406:
+        throw NotAcceptableError('');
+      case 409:
+        throw ConflictError('');
+      case 410:
+        throw GoneError('');
+      case 422:
+        throw UnprocessableEntityError('');
+      case 429:
+        throw TooManyRequestsError('');
+      case 413:
+        throw PayloadTooLargeError('');
+      case 415:
+        throw UnsupportedMediaTypeError('');
+      case 501:
+        throw NotImplementedError('');
+      case 502:
+        throw BadGatewayError('');
+      case 503:
+        throw ServiceUnavailableError('');
+      case 504:
+        throw GatewayTimeoutError('');
+      default:
+        throw UnknownApiError('', stream.statusCode);
+    }
+  }
+}
+
+({String type, Map<String, String> parameters}) parseContentType(
+  String? contentTypeHeader,
+) {
+  if (contentTypeHeader == null || contentTypeHeader.isEmpty) {
+    return (type: '', parameters: {});
+  }
+  final parts = contentTypeHeader.split(';');
+  final type = parts[0].trim();
+  final parameters = <String, String>{};
+  for (var i = 1; i < parts.length; i++) {
+    final param = parts[i].split('=');
+    if (param.length == 2) {
+      parameters[param[0].trim()] = param[1].trim();
+    }
+  }
+
+  return (type: type, parameters: parameters);
 }

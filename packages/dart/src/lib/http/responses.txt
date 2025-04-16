@@ -1,0 +1,105 @@
+sealed class ApiError {
+  final String message;
+  final int? statusCode;
+  final String status;
+  const ApiError(this.message, {this.statusCode, this.status = ''});
+
+  @override
+  String toString() =>
+      'ApiError(status: $status, statusCode: $statusCode, message: $message)';
+}
+
+base class BadRequestError extends ApiError {
+  const BadRequestError(String message)
+    : super(message, statusCode: 400, status: 'BadRequest');
+}
+
+base class UnauthorizedError extends ApiError {
+  const UnauthorizedError(String message)
+    : super(message, statusCode: 401, status: 'Unauthorized');
+}
+
+base class ForbiddenError extends ApiError {
+  const ForbiddenError(String message)
+    : super(message, statusCode: 403, status: 'Forbidden');
+}
+
+base class NotFoundError extends ApiError {
+  const NotFoundError(String message)
+    : super(message, statusCode: 404, status: 'NotFound');
+}
+
+base class InternalServerError extends ApiError {
+  const InternalServerError(String message)
+    : super(message, statusCode: 500, status: 'InternalServerError');
+}
+
+base class UnknownApiError extends ApiError {
+  const UnknownApiError(String message, int statusCode)
+    : super(message, statusCode: statusCode, status: 'UnknownApiError');
+}
+
+base class PaymentRequiredError extends ApiError {
+  const PaymentRequiredError(String message)
+    : super(message, statusCode: 402, status: 'PaymentRequired');
+}
+
+base class MethodNotAllowedError extends ApiError {
+  const MethodNotAllowedError(String message)
+    : super(message, statusCode: 405, status: 'MethodNotAllowed');
+}
+
+base class NotAcceptableError extends ApiError {
+  const NotAcceptableError(String message)
+    : super(message, statusCode: 406, status: 'NotAcceptable');
+}
+
+base class ConflictError extends ApiError {
+  const ConflictError(String message)
+    : super(message, statusCode: 409, status: 'Conflict');
+}
+
+base class GoneError extends ApiError {
+  const GoneError(String message)
+    : super(message, statusCode: 410, status: 'Gone');
+}
+
+base class UnprocessableEntityError extends ApiError {
+  const UnprocessableEntityError(String message)
+    : super(message, statusCode: 422, status: 'UnprocessableEntity');
+}
+
+base class TooManyRequestsError extends ApiError {
+  const TooManyRequestsError(String message)
+    : super(message, statusCode: 429, status: 'TooManyRequests');
+}
+
+base class PayloadTooLargeError extends ApiError {
+  const PayloadTooLargeError(String message)
+    : super(message, statusCode: 413, status: 'PayloadTooLarge');
+}
+
+base class UnsupportedMediaTypeError extends ApiError {
+  const UnsupportedMediaTypeError(String message)
+    : super(message, statusCode: 415, status: 'UnsupportedMediaType');
+}
+
+base class NotImplementedError extends ApiError {
+  const NotImplementedError(String message)
+    : super(message, statusCode: 501, status: 'NotImplemented');
+}
+
+base class BadGatewayError extends ApiError {
+  const BadGatewayError(String message)
+    : super(message, statusCode: 502, status: 'BadGateway');
+}
+
+base class ServiceUnavailableError extends ApiError {
+  const ServiceUnavailableError(String message)
+    : super(message, statusCode: 503, status: 'ServiceUnavailable');
+}
+
+base class GatewayTimeoutError extends ApiError {
+  const GatewayTimeoutError(String message)
+    : super(message, statusCode: 504, status: 'GatewayTimeout');
+}

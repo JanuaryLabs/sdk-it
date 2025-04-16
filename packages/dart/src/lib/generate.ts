@@ -35,6 +35,7 @@ import {
 import { DartSerializer, isObjectSchema } from './dart-emitter.ts';
 import dispatcherTxt from './http/dispatcher.txt';
 import interceptorsTxt from './http/interceptors.txt';
+import responsesTxt from './http/responses.txt';
 
 function tuneSpec(
   spec: OpenAPIObject,
@@ -239,7 +240,8 @@ import '../http.dart';
 
     class ${pascalcase(name)}Client {
       final Dispatcher dispatcher;
-      ${pascalcase(name)}Client(this.dispatcher);
+      final Receiver receiver;
+      ${pascalcase(name)}Client(this.dispatcher, this.receiver);
       ${methods.join('\n')}
     }
     `,
@@ -262,12 +264,13 @@ ${Object.keys(groups)
   .join('\n')}
 
   ${clientName}(this.options) {
-    final interceptors = [new BaseUrlInterceptor(() => this.options.baseUrl)];
-    final dispatcher = new Dispatcher(interceptors);
+    final interceptors = [BaseUrlInterceptor(() => this.options.baseUrl)];
+    final dispatcher = Dispatcher(interceptors);
+    final receiver = Receiver(interceptors);
     ${Object.keys(groups)
       .map(
         (name) =>
-          `this.${camelcase(name)} = new ${pascalcase(name)}Client(dispatcher);`,
+          `this.${camelcase(name)} = ${pascalcase(name)}Client(dispatcher, receiver);`,
       )
       .join('\n')}
 
@@ -308,6 +311,7 @@ class Options {
     }),
     'interceptors.dart': interceptorsTxt,
     'http.dart': dispatcherTxt,
+    'responses.dart': responsesTxt,
     ...clazzez,
   });
   await writeFiles(output, {
@@ -439,7 +443,7 @@ function toOutput(spec: OpenAPIObject, operation: OperationObject) {
           type: 'json',
           outputName,
           outputs,
-          decode: `final response = await http.Response.fromStream(stream);final dynamic json = jsonDecode(response.body); return ${serialized.fromJson}`,
+          decode: `final json = await this.receiver.json(stream); return ${serialized.fromJson}`,
           returnType: serialized.use,
         };
       }
