@@ -69,16 +69,21 @@
         "declarationRootDir": "{projectRoot}/src",
         "deleteOutputPath": true,
         "minify": false,
-        "sourcemap": true,
-        "external": [
-          "@sdk-it/core",
-          "@sdk-it/typescript",
-          "@sdk-it/dart",
-          "@sdk-it/cli",
-          "@sdk-it/generic",
-          "@sdk-it/hono"
-        ]
+        "sourcemap": true
       },
+      "configurations": {
+        "production": {
+          "external": [
+            "@sdk-it/core",
+            "@sdk-it/typescript",
+            "@sdk-it/dart",
+            "@sdk-it/cli",
+            "@sdk-it/generic",
+            "@sdk-it/hono"
+          ]
+        }
+      },
+
       "cache": true,
       "dependsOn": ["^build"],
       "inputs": ["production", "^production"]

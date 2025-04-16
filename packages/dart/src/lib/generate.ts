@@ -44,7 +44,10 @@ function tuneSpec(
   for (const [name, schema] of Object.entries(schemas)) {
     if (isRef(schema)) continue;
 
-    if (schema.allOf && Array.isArray(schema.allOf) && schema.allOf.length) {
+    if (!isEmpty(schema.anyOf) && !isEmpty(schema.oneOf)) {
+      delete schema.anyOf;
+    }
+    if (!isEmpty(schema.allOf)) {
       const schemas = schema.allOf;
       const refs = schemas.filter(isRef);
       const nonRefs = schemas.filter(notRef);
@@ -142,10 +145,12 @@ export async function generate(
   const inputs: Record<string, string> = {};
   const outputs: Record<string, string> = {};
   forEachOperation({ spec }, (entry, operation) => {
-    // if (entry.path !== '/beneficiary') {
+    // if (entry.path !== '/v6/prepareUpload') {
     //   return;
     // }
     operation.responses ??= {};
+    spec.components ??= {};
+    spec.components.schemas ??= {};
     for (const status in operation.responses) {
       if (!isSuccessStatusCode(status)) continue;
       const response = isRef(operation.responses[status] as ReferenceObject)
@@ -157,8 +162,6 @@ export async function generate(
         )) {
           if (parseJsonContentType(contentType)) {
             if (mediaType.schema && !isRef(mediaType.schema)) {
-              spec.components ??= {};
-              spec.components.schemas ??= {};
               const outputName = pascalcase(`${operation.operationId} output`);
               spec.components.schemas[outputName] = mediaType.schema;
               operation.responses[status].content[contentType].schema = {
@@ -370,12 +373,6 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
         alias: isObjectSchema(ctSchema) ? undefined : inputName,
       });
       encode = serialized.encode as string;
-      if (contentType) {
-        console.warn(
-          `${entry.method} ${entry.path} have more than one content type`,
-        );
-      }
-
       const [mediaType, mediaSubType] = partContentType(type).type.split('/');
       if (mediaType === 'application') {
         contentType = parseJsonContentType(type) as string;

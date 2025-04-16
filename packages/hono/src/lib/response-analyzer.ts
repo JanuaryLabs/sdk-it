@@ -49,7 +49,17 @@ const handlerVisitor: (
   };
 };
 
-function toResponses(handler: ts.ArrowFunction, deriver: TypeDeriver) {
+function resolveStatusCode(node: ts.Node) {
+  if (ts.isNumericLiteral(node)) {
+    return node.text;
+  }
+  throw new Error(`Could not resolve status code`);
+}
+
+export function defaultResponseAnalyzer(
+  handler: ts.ArrowFunction,
+  deriver: TypeDeriver,
+) {
   const contextVarName = handler.parameters[0].name.getText();
   const responsesList: ResponseItem[] = [];
   const visit = handlerVisitor((node, statusCode, headers, contentType) => {
@@ -62,20 +72,6 @@ function toResponses(handler: ts.ArrowFunction, deriver: TypeDeriver) {
   }, contextVarName);
   visit(handler.body);
   return responsesList;
-}
-
-function resolveStatusCode(node: ts.Node) {
-  if (ts.isNumericLiteral(node)) {
-    return node.text;
-  }
-  throw new Error(`Could not resolve status code`);
-}
-
-export function defaultResponseAnalyzer(
-  handler: ts.ArrowFunction,
-  deriver: TypeDeriver,
-) {
-  return toResponses(handler, deriver);
 }
 
 export function streamText(

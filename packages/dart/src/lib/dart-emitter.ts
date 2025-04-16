@@ -200,12 +200,12 @@ export class DartSerializer {
       if (required) {
         matches.push(`(
   json.containsKey('${camelcase(propName)}')
-  ? ${nullable ? `json['${propName}'] == null` : `json['${propName}'] != null`} && ${typeStr.matches}
+  ? ${nullable ? `json['${propName}'] == null` : `json['${propName}'] != null`} ${typeStr.matches ? `&& ${typeStr.matches}` : ''}
   : false)`);
       } else {
         matches.push(`(
   json.containsKey('${camelcase(propName)}')
-  ? ${nullable ? `json['${propName}'] == null` : `json['${propName}'] != null`} || ${typeStr.matches}
+  ? ${nullable ? `json['${propName}'] == null` : `json['${propName}'] != null`} ${typeStr.matches ? `|| ${typeStr.matches}` : ''}
   : true)`);
       }
     }
@@ -253,48 +253,44 @@ return ${matches.join(' && ')};
     required = false,
     context: Context,
   ): Serialized {
-    let serialized: Serialized;
     if (!schema.items) {
-      serialized = {
+      return {
         content: '',
         use: 'List<dynamic>',
         toJson: '',
         fromJson: `List<dynamic>.from(${context.name ? `json['${context.name}']` : `json`})})`,
         matches: '',
       };
-    } else {
-      const itemsType = this.handle(className, schema.items, true, context);
-      const fromJson = required
-        ? context.name
-          ? `(json['${context.name}'] as List<${itemsType.simple ? itemsType.use : 'dynamic'}>)
+    }
+    const itemsType = this.handle(className, schema.items, true, context);
+    const fromJson = required
+      ? context.name
+        ? `(json['${context.name}'] as List<${itemsType.simple ? itemsType.use : 'dynamic'}>)
             .map((it) => ${itemsType.simple ? 'it' : `${itemsType.use}.fromJson(it)`})
             .toList()`
-          : `(json as List<${itemsType.simple ? itemsType.use : 'dynamic'}>)
+        : `(json as List<${itemsType.simple ? itemsType.use : 'dynamic'}>)
             .map((it) => ${itemsType.simple ? 'it' : `${itemsType.use}.fromJson(it)`})
             .toList()`
-        : context.name
-          ? `json['${context.name}'] != null
+      : context.name
+        ? `json['${context.name}'] != null
             ? (json['${context.name}'] as List<${itemsType.simple ? itemsType.use : 'dynamic'}>)
                 .map((it) => ${itemsType.simple ? 'it' : `${itemsType.use}.fromJson(it)`})
                 .toList()
             : null`
-          : `json != null
+        : `json != null
             ? (json as List<${itemsType.simple ? itemsType.use : 'dynamic'}>)
                 .map((it) => ${itemsType.simple ? 'it' : `${itemsType.use}.fromJson(it)`})
                 .toList()
             : null`;
 
-      serialized = {
-        encode: `input.map((it) => ${itemsType.simple ? 'it' : `it.toJson()`}).toList()`,
-        content: '',
-        use: `List<${itemsType.use}>`,
-        fromJson,
-        toJson: `${context.required ? `this.${camelcase(context.name)}${itemsType.simple ? '' : '.map((it) => it.toJson()).toList()'}` : `this.${camelcase(context.name)}!= null? this.${camelcase(context.name)}${itemsType.simple ? '' : '!.map((it) => it.toJson()).toList()'} : null`}`,
-        matches: `json['${camelcase(context.name)}'].every((it) => ${itemsType.matches})`,
-      };
-    }
-
-    return serialized;
+    return {
+      encode: `input.map((it) => ${itemsType.simple ? 'it' : `it.toJson()`}).toList()`,
+      content: '',
+      use: `List<${itemsType.use}>`,
+      fromJson,
+      toJson: `${context.required ? `this.${camelcase(context.name)}${itemsType.simple ? '' : '.map((it) => it.toJson()).toList()'}` : `this.${camelcase(context.name)}!= null? this.${camelcase(context.name)}${itemsType.simple ? '' : '!.map((it) => it.toJson()).toList()'} : null`}`,
+      matches: `json['${camelcase(context.name)}'].every((it) => ${itemsType.matches})`,
+    };
   }
 
   /**
@@ -337,6 +333,7 @@ return ${matches.join(' && ')};
         return {
           content: '',
           use: 'dynamic',
+          nullable: false,
           toJson: `${camelcase(context.name as string)}`,
           fromJson: `json['${context.name}']`,
         };
@@ -395,6 +392,7 @@ return ${matches.join(' && ')};
     if (schemas.length === 0) {
       return {
         content: '',
+        nullable: false,
         use: 'dynamic',
         toJson: `${camelcase(context.name as string)}`,
         fromJson: `json['${context.name}']`,
@@ -445,6 +443,7 @@ return ${matches.join(' && ')};
     if (schemas.length === 0) {
       return {
         content: '',
+        nullable: false,
         use: 'dynamic',
         toJson: `${camelcase(context.name as string)}`,
         fromJson: `json['${context.name}']`,
@@ -764,14 +763,16 @@ return false;
     if (isRef(schema)) {
       return this.#ref(className, schema.$ref, required, context);
     }
+    // some schemas have decalres allof, oneof, anyOf at once or combinations of them
+    // so we need to process them in order
     if (schema.allOf && Array.isArray(schema.allOf)) {
       return this.#allOf(className, schema.allOf, context);
     }
-    if (schema.anyOf && Array.isArray(schema.anyOf)) {
-      return this.#anyOf(className, schema.anyOf, context);
-    }
     if (schema.oneOf && Array.isArray(schema.oneOf)) {
       return this.#oneOf(className, schema.oneOf, context);
+    }
+    if (schema.anyOf && Array.isArray(schema.anyOf)) {
+      return this.#anyOf(className, schema.anyOf, context);
     }
     if (schema.enum && Array.isArray(schema.enum)) {
       return this.#enum(className, schema, context);
@@ -806,6 +807,8 @@ return false;
         use: 'dynamic',
         toJson: `${camelcase(context.name as string)}`,
         fromJson: `json['${context.name}']`,
+        nullable: false,
+        matches: '', // keep it empty as 'type is dynamic' is always true
       };
     }
     return this.#primitive(
