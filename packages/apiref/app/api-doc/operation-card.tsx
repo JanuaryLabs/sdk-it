@@ -5,7 +5,9 @@ import type {
   TunedOperationObject,
 } from '@sdk-it/spec/operation.js';
 
+import { Badge } from '../shadcn/badge';
 import { linkifyText } from './format-text';
+import { MD } from './md';
 
 interface OperationCardProps {
   entry: OperationEntry;
@@ -24,27 +26,20 @@ export function OperationCard({
     : '';
 
   return (
-    <div
-      id={`operation-${operationId}`}
-      className="rounded-lg border bg-card p-6 transition-colors hover:border-primary operation-card"
-    >
-      <div className="mb-4 flex items-center gap-3">
-        <div
-          className={`rounded px-2.5 py-0.5 text-xs font-medium method-badge method-${entry.method.toLowerCase()}`}
-        >
-          {entry.method.toUpperCase()}
-        </div>
-        <h4 className="text-lg font-semibold">
-          {entry.name || operation.summary || operationId}
-        </h4>
+    <div id={operationId}>
+      <span className="text-3xl font-semibold">
+        {entry.name || operation.summary || operationId}
+      </span>
+      <div className="my-4 flex items-center">
+        <Badge variant={'secondary'} className="gap-x-1 py-1">
+          <span className="font-mono">{entry.method.toUpperCase()}</span>
+          <span>{entry.path}</span>
+        </Badge>
       </div>
-      <div className="mb-3 font-mono text-sm text-gray-600">{entry.path}</div>
 
-      {markdownDescription && (
-        <div className="prose max-w-none text-sm">
-          <ReactMarkdown>{markdownDescription}</ReactMarkdown>
-        </div>
-      )}
+      <div className="prose max-w-none text-sm">
+        <MD content={operation.summary}></MD>
+      </div>
     </div>
   );
 }

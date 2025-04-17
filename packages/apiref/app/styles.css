@@ -1,4 +1,6 @@
-@import '@fontsource-variable/roboto-flex';
+@import '@fontsource-variable/open-sans';
+
+
 
 @import 'tailwindcss';
 @import 'tw-animate-css';
@@ -124,11 +126,11 @@
     @apply bg-background text-foreground;
   }
   body {
-    font-family: 'Roboto Flex', sans-serif;
+  font-family: 'Open Sans Variable', sans-serif;
     font-weight: 400;
   }
 
-  @supports (font-variation-settings: normal) {
+  /* @supports (font-variation-settings: normal) {
     body {
       font-family: 'Roboto Flex Variable', sans-serif;
       font-weight: 400;
@@ -136,7 +138,7 @@
         'wdth' 75,
         'wght' 400;
     }
-  }
+  } */
 }
 
 @layer base {

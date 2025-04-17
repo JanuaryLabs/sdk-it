@@ -9,8 +9,6 @@ export function ApiInfoSection({ info }: { info: InfoObject }) {
     ? linkifyText(info.description)
     : '';
 
-  console.log(markdownDescription);
-
   return (
     <div className="border-b p-8">
       <div className="mx-auto max-w-5xl">

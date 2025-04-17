@@ -10,11 +10,13 @@ import {
 
 import './styles.css';
 
-export const meta: MetaFunction = () => [
-  {
-    title: 'New Nx React Router App',
-  },
-];
+export const meta: MetaFunction = (args) => {
+  return [
+    {
+      title: 'New Nx React Router App',
+    },
+  ];
+};
 
 export const links: LinksFunction = () => [
   { rel: 'preconnect', href: 'https://fonts.googleapis.com' },

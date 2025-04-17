@@ -32,7 +32,7 @@ export function useApiOperations(spec: OpenAPIObject) {
 
       const operationId = operation.operationId;
       const title = entry.name || operation.summary || titlecase(operationId);
-      const url = `/${group}/${operationId}`;
+      const url = `/${group.toLowerCase()}/${operationId}`;
 
       categoryMap[category][group].push({
         title,

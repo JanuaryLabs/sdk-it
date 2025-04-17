@@ -53,13 +53,14 @@
     }
   },
   "dependencies": {
+    "@fontsource-variable/open-sans": "^5.2.5",
     "@fontsource-variable/roboto-flex": "^5.2.5",
+    "@fontsource/geist-sans": "^5.2.5",
     "commander": "^13.1.0",
     "fast-content-type-parse": "^3.0.0",
     "get-urls": "^12.1.0",
     "js-yaml": "^4.1.0",
     "lodash-es": "^4.17.21",
-    "react-markdown": "^10.1.0",
     "rollup-plugin-node-polyfills": "^0.2.1",
     "rxjs": "^7.8.2",
     "stringcase": "^4.3.1",

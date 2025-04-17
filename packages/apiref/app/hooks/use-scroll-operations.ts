@@ -1,57 +1,56 @@
 import { useEffect, useRef } from 'react';
 
-import type {
-  OperationEntry,
-  TunedOperationObject,
-} from '@sdk-it/spec/operation.js';
+import type { SidebarData } from '../sidebar/nav';
 
 interface UseScrollOperationsProps {
-  operationsMap: Record<
-    string,
-    { entry: OperationEntry; operation: TunedOperationObject }
-  >;
+  sidebarData: SidebarData;
 }
 
-export function useScrollOperations({
-  operationsMap,
-}: UseScrollOperationsProps) {
+export function useScrollOperations({ sidebarData }: UseScrollOperationsProps) {
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Handle scroll event to update URL when scrolling
   useEffect(() => {
-    if (Object.keys(operationsMap).length === 0) {
+    if (!contentRef.current || sidebarData.length === 0) {
       return;
     }
 
     const handleScroll = () => {
       if (!contentRef.current) return;
 
-      const operations = Object.entries(operationsMap);
-      if (operations.length === 0) return;
+      for (const category of sidebarData) {
+        for (const item of category.items) {
+          for (const subitem of item.items ?? []) {
+            const element = document.getElementById(subitem.id);
+            if (!element) continue;
 
-      for (const [operationId, { entry }] of operations) {
-        const element = document.getElementById(`operation-${operationId}`);
-        if (!element) continue;
-
-        const rect = element.getBoundingClientRect();
-        // If the operation is in view (with some buffer), update the URL
-        if (rect.top <= 150 && rect.bottom >= 0) {
-          window.history.replaceState(
-            null,
-            '',
-            `/${entry.groupName}/${operationId}`,
-          );
-          break;
+            const rect = element.getBoundingClientRect();
+            // If the operation is in view (with some buffer), update the URL
+            if (rect.top <= 150 && rect.bottom >= 0) {
+              window.history.replaceState(null, '', subitem.url);
+              break;
+            }
+          }
         }
       }
     };
 
-    const contentElement = contentRef.current;
-    if (contentElement) {
-      contentElement.addEventListener('scroll', handleScroll);
-      return () => contentElement.removeEventListener('scroll', handleScroll);
+    const el = contentRef.current;
+    el.addEventListener('scroll', handleScroll);
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, [sidebarData]);
+
+  useEffect(() => {
+    if (!contentRef.current || sidebarData.length === 0) return;
+    const operationId = window.location.pathname.split('/').pop();
+    if (!operationId) return;
+    const element = document.getElementById(operationId);
+    if (element) {
+      contentRef.current.scrollTo({
+        top: element.offsetTop,
+        behavior: 'instant',
+      });
     }
-  }, [operationsMap]);
+  }, [sidebarData]);
 
   return {
     contentRef,
