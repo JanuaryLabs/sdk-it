@@ -19,7 +19,7 @@ import {
 import { NavMain, type SidebarData } from './sidebar/nav';
 
 export async function loader({ params }: { params: any }) {
-  const spec = await loadRemote(
+  const spec = await loadRemote<OpenAPIObject>(
     'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
     // 'https://api.openstatus.dev/v1/openapi',
   );

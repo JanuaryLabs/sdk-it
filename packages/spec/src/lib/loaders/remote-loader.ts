@@ -1,13 +1,12 @@
 import { extname } from 'node:path';
-import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { parse } from 'yaml';
 
-export async function loadRemote(location: string): Promise<OpenAPIObject> {
+export async function loadRemote<T>(location: string): Promise<T> {
   const extName = extname(location);
   const response = await fetch(location);
   switch (extName) {
     case '.json':
-      return response.json() as Promise<OpenAPIObject>;
+      return response.json() as Promise<T>;
     case '.yaml':
     case '.yml': {
       const text = await response.text();
@@ -16,11 +15,11 @@ export async function loadRemote(location: string): Promise<OpenAPIObject> {
     default:
       try {
         // try to parse it as json first
-        return response.json() as Promise<OpenAPIObject>;
+        return response.json() as Promise<T>;
       } catch {
         // parse as yaml
         const text = await response.text();
-        return parse(text) as Promise<OpenAPIObject>;
+        return parse(text) as Promise<T>;
       }
   }
 }
