@@ -271,7 +271,7 @@ function handleResponse(
   const parser: Parser = (response.headers ?? {})['Transfer-Encoding']
     ? 'chunked'
     : 'buffered';
-  const statusName = statusCodeToResponseMap[status] || 'APIResponse';
+  const statusName = `http.${statusCodeToResponseMap[status] || 'APIResponse'}`;
   const interfaceName = pascalcase(
     operationName + ` output${numbered ? status : ''}`,
   );
@@ -280,7 +280,7 @@ function handleResponse(
     outputs.push(statusName);
   } else {
     if (status.endsWith('XX')) {
-      outputs.push(`APIError<${interfaceName}>`);
+      outputs.push(`http.APIError<${interfaceName}>`);
     } else {
       outputs.push(
         parser !== 'buffered'
@@ -291,12 +291,21 @@ function handleResponse(
   }
   const responseContent = get(response, ['content']);
   const isJson = responseContent && responseContent['application/json'];
-  const responseSchema = isJson
-    ? typeScriptDeserialzer.handle(
-        responseContent['application/json'].schema!,
-        true,
-      )
-    : 'void';
+  let responseSchema = parser==='chunked'?'ReadableStream': 'void';
+  if (isJson) {
+    const schema = responseContent['application/json'].schema!;
+    const isObject = !isRef(schema) && schema.type === 'object';
+    if (isObject && schema.properties) {
+      schema.properties['[http.KIND]'] = {
+        'x-internal': true,
+        const: `typeof ${statusName}.kind`,
+        type: 'string',
+      };
+      schema.required ??= [];
+      schema.required.push('[KIND]');
+    }
+    responseSchema = typeScriptDeserialzer.handle(schema, true);
+  }
 
   responses.push({
     name: interfaceName,
@@ -320,15 +329,6 @@ function handleResponse(
     statusCode >= 2 ||
     statusGroup <= 3
   ) {
-    endpointImports[statusName] = {
-      moduleSpecifier: utils.makeImport('../http/response'),
-      namedImports: [
-        {
-          isTypeOnly: false,
-          name: statusName,
-        },
-      ],
-    };
 
     endpointImports[interfaceName] = {
       defaultImport: undefined,

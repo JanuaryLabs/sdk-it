@@ -1,23 +1,35 @@
-import { merge } from 'lodash-es';
+import { merge, template } from 'lodash-es';
 import { join } from 'node:path';
-import type { OpenAPIObject, ParameterLocation, ParameterObject, ReferenceObject, RequestBodyObject, SchemaObject } from 'openapi3-ts/oas31';
+import type {
+  OpenAPIObject,
+  ParameterLocation,
+  ParameterObject,
+  ReferenceObject,
+  RequestBodyObject,
+  SchemaObject,
+} from 'openapi3-ts/oas31';
 import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
-
-
 import { followRef, isEmpty, isRef } from '@sdk-it/core';
-import { type GenerateSdkConfig, forEachOperation } from '@sdk-it/spec/operation.js';
-
-
+import {
+  type GenerateSdkConfig,
+  forEachOperation,
+} from '@sdk-it/spec/operation.js';
 
 import { ZodDeserialzer } from './emitters/zod.ts';
-import { type Operation, type OperationInput, type Spec, toEndpoint } from './sdk.ts';
+import {
+  type Operation,
+  type OperationInput,
+  type Spec,
+  toEndpoint,
+} from './sdk.ts';
 import endpointsTxt from './styles/github/endpoints.txt';
-import { importsToString, mergeImports, securityToOptions, useImports } from './utils.ts';
-
-
-
-
+import {
+  importsToString,
+  mergeImports,
+  securityToOptions,
+  useImports,
+} from './utils.ts';
 
 export interface NamedImport {
   name: string;
@@ -38,7 +50,7 @@ export function generateCode(
      * No support for jsdoc in vscode
      * @issue https://github.com/microsoft/TypeScript/issues/38106
      */
-    style?: 'github';
+    style?: { name?: 'github'; outputType?: 'default' | 'status' };
     makeImport: (module: string) => string;
   },
 ) {
@@ -203,7 +215,10 @@ export function generateCode(
       { makeImport: config.makeImport },
     );
 
-    const output = [`import z from 'zod';`];
+    const output = [
+      `import z from 'zod';`,
+      `import type * as http from '../http';`,
+    ];
     const responses = endpoint.responses.flatMap((it) => it.responses);
     const responsesImports = endpoint.responses.flatMap((it) =>
       Object.values(it.imports),
@@ -284,10 +299,10 @@ import type { OutputType, Parser, Type } from '${config.makeImport(
 
 import schemas from '${config.makeImport('./schemas')}';
 
-      ${endpointsTxt}`,
+      ${template(endpointsTxt)({ outputType: config.style?.outputType })}`,
       [`${join('api', 'schemas.ts')}`]:
         `${allSchemas.map((it) => it.import).join('\n')}
-
+import { KIND } from "${config.makeImport('../http/index')}";
 export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
 
 `.trim(),
@@ -311,6 +326,7 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
                   ...imps,
                   // ...imports,
                   `import z from 'zod';`,
+                  `import * as http from '${config.makeImport("../http/response")}';`,
                   `import { toRequest, json, urlencoded, nobody, formdata, createUrl } from '${config.makeImport('../http/request')}';`,
                   `import { chunked, buffered } from "${config.makeImport('../http/parse-response')}";`,
                   `import * as ${camelcase(name)} from '../inputs/${config.makeImport(spinalcase(name))}';`,

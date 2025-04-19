@@ -20,91 +20,13 @@ export class TypeScriptDeserialzer {
     this.#spec = spec;
     this.#onRef = onRef;
   }
-  #stringifyKey = (key: string): string => {
-    // List of JavaScript keywords and special object properties that should be quoted
-    const reservedWords = [
-      'constructor',
-      'prototype',
-      'break',
-      'case',
-      'catch',
-      'class',
-      'const',
-      'continue',
-      'debugger',
-      'default',
-      'delete',
-      'do',
-      'else',
-      'export',
-      'extends',
-      'false',
-      'finally',
-      'for',
-      'function',
-      'if',
-      'import',
-      'in',
-      'instanceof',
-      'new',
-      'null',
-      'return',
-      'super',
-      'switch',
-      'this',
-      'throw',
-      'true',
-      'try',
-      'typeof',
-      'var',
-      'void',
-      'while',
-      'with',
-      'yield',
-    ];
-
-    // Check if key is a reserved word
-    if (reservedWords.includes(key)) {
-      return `'${key}'`;
-    }
-
-    // Check if key is empty or only whitespace
-    if (key.trim() === '') {
-      return `'${key}'`;
-    }
-
-    // Check if first character is valid for identifiers
-    const firstChar = key.charAt(0);
-    const validFirstChar =
-      (firstChar >= 'a' && firstChar <= 'z') ||
-      (firstChar >= 'A' && firstChar <= 'Z') ||
-      firstChar === '_' ||
-      firstChar === '$';
-
-    if (!validFirstChar) {
-      return `'${key.replace(/'/g, "\\'")}'`;
-    }
-
-    // Check if the rest of the characters are valid for identifiers
-    for (let i = 1; i < key.length; i++) {
-      const char = key.charAt(i);
-      const validChar =
-        (char >= 'a' && char <= 'z') ||
-        (char >= 'A' && char <= 'Z') ||
-        (char >= '0' && char <= '9') ||
-        char === '_' ||
-        char === '$';
-
-      if (!validChar) {
-        return `'${key.replace(/'/g, "\\'")}'`;
-      }
-    }
-
-    return key;
-  };
-  #stringifyKeyV2 = (value: string): string => {
+  #stringifyKey = (value: string): string => {
     return `'${value}'`;
   };
+
+  #isInternal = (schema: SchemaObject | ReferenceObject): boolean => {
+   return isRef(schema)?false: !!schema['x-internal'];
+  }
 
   /**
    * Handle objects (properties)
@@ -117,7 +39,7 @@ export class TypeScriptDeserialzer {
       const isRequired = (schema.required ?? []).includes(key);
       const tsType = this.handle(propSchema, isRequired);
       // Add question mark for optional properties
-      return `${this.#stringifyKeyV2(key)}: ${tsType}`;
+      return `${this.#isInternal(propSchema) ? key : this.#stringifyKey(key)}: ${tsType}`;
     });
 
     // Handle additionalProperties
@@ -300,6 +222,13 @@ export class TypeScriptDeserialzer {
       return this.enum(schema.enum, required);
     }
 
+    if (schema.const) {
+      if (schema['x-internal']) {
+        return `${schema.const}`;
+      }
+      return this.enum([schema.const], required);
+    }
+
     // Handle types, in TypeScript we can have union types directly
     const types = Array.isArray(schema.type)
       ? schema.type
@@ -332,17 +261,6 @@ export class TypeScriptDeserialzer {
 
     // Single type
     return this.normal(types[0], schema, required);
-  }
-
-  /**
-   * Generate an interface declaration
-   */
-  generateInterface(
-    name: string,
-    schema: SchemaObject | ReferenceObject,
-  ): string {
-    const content = this.handle(schema, true);
-    return `interface ${name} ${content}`;
   }
 }
 

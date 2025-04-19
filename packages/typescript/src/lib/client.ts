@@ -1,8 +1,9 @@
 import { toLitObject } from '@sdk-it/core';
 
 import type { Spec } from './sdk.ts';
+import type { Style } from './style.ts';
 
-export default (spec: Omit<Spec, 'operations'>, throwError: boolean) => {
+export default (spec: Omit<Spec, 'operations'>, style: Style) => {
   const optionsEntries = Object.entries(spec.options).map(
     ([key, value]) => [`'${key}'`, value] as const,
   );
@@ -35,8 +36,8 @@ export default (spec: Omit<Spec, 'operations'>, throwError: boolean) => {
   };
 
   return `
-import type { RequestConfig } from './http/${spec.makeImport('request')}';
-import { fetchType, sendRequest, parse } from './http/${spec.makeImport('send-request')}';
+import type { HeadersInit, RequestConfig } from './http/${spec.makeImport('request')}';
+import { fetchType, dispatch, parse } from './http/${spec.makeImport('send-request')}';
 import z from 'zod';
 import type { Endpoints } from './api/${spec.makeImport('endpoints')}';
 import schemas from './api/${spec.makeImport('schemas')}';
@@ -63,18 +64,17 @@ export class ${spec.name} {
     endpoint: E,
     input: Endpoints[E]['input'],
     options?: { signal?: AbortSignal, headers?: HeadersInit },
-  )
- ${throwError ? `` : `: Promise<readonly [Endpoints[E]['output'], Endpoints[E]['error'] | null]>`}
-  {
+  ) ${style.errorAsValue ? `: Promise<readonly [Endpoints[E]['output'], Endpoints[E]['error'] | null]>` : `: Promise<Endpoints[E]['output']>`} {
     const route = schemas[endpoint];
-    return sendRequest(Object.assign(this.#defaultInputs, input), route, {
+    const result = await dispatch(Object.assign(this.#defaultInputs, input), route, {
       fetch: this.options.fetch,
       interceptors: [
         createHeadersInterceptor(() => this.defaultHeaders, options?.headers ?? {}),
         createBaseUrlInterceptor(() => this.options.baseUrl),
       ],
       signal: options?.signal,
-    }) ${throwError ? `as Promise<Endpoints[E]['output']>` : ''}
+    });
+    return ${style.errorAsValue ? `result as [Endpoints[E]['output'], Endpoints[E]['error'] | null]` : `result as Endpoints[E]['output']`};
   }
 
   async prepare<E extends keyof Endpoints>(
@@ -82,11 +82,8 @@ export class ${spec.name} {
     input: Endpoints[E]['input'],
     options?: { headers?: HeadersInit },
   ): ${
-    throwError
-      ? `Promise<RequestConfig & {
-        parse: (response: Response) => ReturnType<typeof parse>;
-      }>`
-      : `Promise<
+    style.errorAsValue
+      ? `Promise<
     readonly [
       RequestConfig & {
         parse: (response: Response) => ReturnType<typeof parse>;
@@ -94,6 +91,9 @@ export class ${spec.name} {
       ParseError<(typeof schemas)[E]['schema']> | null,
     ]
   >`
+      : `Promise<RequestConfig & {
+        parse: (response: Response) => ReturnType<typeof parse>;
+      }>`
   } {
     const route = schemas[endpoint];
 
@@ -106,7 +106,7 @@ export class ${spec.name} {
     ];
     const [parsedInput, parseError] = parseInput(route.schema, input);
     if (parseError) {
-      ${throwError ? 'throw parseError;' : 'return [null as never, parseError as never] as const;'}
+      ${style.errorAsValue ? 'return [null as never, parseError as never] as const;' : 'throw parseError;'}
     }
 
     let config = route.toRequest(parsedInput as never);
@@ -116,7 +116,7 @@ export class ${spec.name} {
       }
     }
     const prepared = { ...config, parse: (response: Response) => parse(route, response) };
-    return ${throwError ? 'prepared' : '[prepared, null as never] as const;'}
+    return ${style.errorAsValue ? '[prepared, null as never] as const;' : 'prepared'}
   }
 
   get defaultHeaders() {

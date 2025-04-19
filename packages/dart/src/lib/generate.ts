@@ -157,7 +157,7 @@ export async function generate(
       const response = isRef(operation.responses[status] as ReferenceObject)
         ? followRef<ResponseObject>(spec, operation.responses[status].$ref)
         : (operation.responses[status] as ResponseObject);
-      if (response.content && Object.keys(response.content).length) {
+      if (!isEmpty(response.content)) {
         for (const [contentType, mediaType] of Object.entries(
           response.content,
         )) {
@@ -170,6 +170,7 @@ export async function generate(
               };
             }
           }
+          // handle chunked response
         }
       }
     }

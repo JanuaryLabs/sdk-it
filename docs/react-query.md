@@ -12,14 +12,17 @@ Copy the following code into your project.
 <summary>View the API code</summary>
 
 ```ts
-import { Client, type Endpoints } from '@impact/client';
 import {
   type MutationFunction,
   type UseMutationOptions,
+  type UseMutationResult,
+  type UseQueryResult,
   useMutation,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+
+import { Client, type Endpoints } from '@impact/client';
 
 export const client = new Client({
   baseUrl:
@@ -56,23 +59,35 @@ export function useData<E extends DataEndpoints>(
   endpoint: E,
   input?: Endpoints[E]['input'],
   options?: { staleTime?: number; queryKey?: string[] },
-) {
+): UseQueryResult<Endpoints[E]['output'], Endpoints[E]['error']> {
   return useQuery({
     queryKey: options?.queryKey ?? [endpoint, JSON.stringify(input)],
     staleTime: options?.staleTime,
     meta: { endpoint, input },
-    queryFn: async () => {
-      const [result, error] = await client.request(
-        endpoint,
-        input ?? ({} as never),
-      );
-      if (error) {
-        throw error;
-      }
-      return result;
-    },
+    queryFn: () => client.request(endpoint, input ?? ({} as never)),
   });
 }
+
+type WithMutationFn<E extends keyof Endpoints> = Omit<
+  UseMutationOptions<Endpoints[E]['output'], Endpoints[E]['error'], unknown>,
+  'mutationFn' | 'mutationKey'
+> & {
+  invalidate?: DataEndpoints[];
+  mutationFn: MutationFunction<
+    Endpoints[E]['output'] | undefined,
+    (input: Endpoints[E]['input']) => Promise<Endpoints[E]['output']>
+  >;
+};
+type WithoutMutationFn<E extends keyof Endpoints> = Omit<
+  UseMutationOptions<
+    Endpoints[E]['output'],
+    Endpoints[E]['error'],
+    Endpoints[E]['input']
+  >,
+  'mutationFn' | 'mutationKey'
+> & {
+  invalidate?: DataEndpoints[];
+};
 
 /**
  * A hook to perform an action on the API
@@ -87,41 +102,53 @@ export function useData<E extends DataEndpoints>(
  * date: '2023-01-01',
  * });
  */
-export function useAction<E extends MutationEndpoints, TData>(
+
+export function useAction<E extends MutationEndpoints>(
   endpoint: E,
-  options: Omit<
-    UseMutationOptions<TData, Endpoints[E]['error']>,
-    'mutationFn' | 'mutationKey'
-  > & {
-    invalidate?: DataEndpoints[];
-    mutationFn: MutationFunction<
-      TData,
-      (input: Endpoints[E]['input']) => Promise<Endpoints[E]['output']>
-    >;
-  },
-) {
+  options: WithMutationFn<E>,
+): UseMutationResult<Endpoints[E]['output'], Endpoints[E]['error'], void>;
+
+export function useAction<E extends MutationEndpoints>(
+  endpoint: E,
+  options?: WithoutMutationFn<E>,
+): UseMutationResult<
+  Endpoints[E]['output'],
+  Endpoints[E]['error'],
+  Endpoints[E]['input']
+>;
+export function useAction<E extends MutationEndpoints>(
+  endpoint: E,
+  options?: WithMutationFn<E> | WithoutMutationFn<E>,
+): UseMutationResult<
+  Endpoints[E]['output'],
+  Endpoints[E]['error'],
+  Endpoints[E]['input']
+> {
   const queryClient = useQueryClient();
-  return useMutation({
+  return useMutation<
+    Endpoints[E]['output'],
+    Endpoints[E]['error'],
+    Endpoints[E]['input']
+  >({
     ...options,
     mutationKey: [endpoint],
-    mutationFn: () => {
-      return options.mutationFn(async (input: Endpoints[E]['input']) => {
-        const [output, error] = await client.request(endpoint, input);
-        if (error) {
-          throw error;
-        }
-        return output;
-      });
+    mutationFn: async (input) => {
+      if (options && 'mutationFn' in options && options.mutationFn) {
+        return options.mutationFn(async (input: Endpoints[E]['input']) => {
+          return client.request(endpoint, input);
+        });
+      }
+      return await client.request(endpoint, input);
     },
     onSuccess: async (result, variables, context) => {
-      for (const endpoint of options.invalidate ?? []) {
+      for (const endpoint of options?.invalidate ?? []) {
         await queryClient.invalidateQueries({
           predicate(query) {
             return query.meta?.endpoint === endpoint;
           },
         });
       }
-      return options.onSuccess?.(result, variables, context);
+      return options?.onSuccess?.(result, variables, context);
     },
   });
 }

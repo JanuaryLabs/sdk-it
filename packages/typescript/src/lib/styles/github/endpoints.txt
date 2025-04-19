@@ -1,4 +1,3 @@
-
 type Output<T extends OutputType> = T extends {
   parser: Parser;
   type: Type<unknown>;
@@ -27,7 +26,7 @@ type EndpointError<K extends keyof typeof schemas> = Extract<
 export type Endpoints = {
   [K in keyof typeof schemas]: {
     input: z.infer<(typeof schemas)[K]['schema']>;
-    output: EndpointOutput<K>;
+    output: <% if (outputType === 'default') { %>EndpointOutput<K>['data']<% } else { %>EndpointOutput<K><% } %>;
     error: EndpointError<K> | ParseError<(typeof schemas)[K]['schema']>;
   };
 };

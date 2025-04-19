@@ -20,7 +20,7 @@ export const fetchType = z
   .returns(z.promise(z.instanceof(Response)))
   .optional();
 
-export async function sendRequest(
+export async function dispatch(
   input: unknown,
   route: RequestSchema,
   options: {
@@ -84,14 +84,14 @@ export async function parse(route: RequestSchema, response: Response) {
   }
 
   if (response.ok) {
-    const data = (output || APIResponse).create(
+    const apiresponse = (output || APIResponse).create(
       response.status,
       await parser(response),
     );
     <% if(throwError) { %>
-    return data;
+      return <% if (outputType === 'default') { %>apiresponse.data<% } else { %>apiresponse<% } %>;
     <% } else { %>
-    return [data as never, null] as const;
+      return [<% if (outputType === 'default') { %>apiresponse.data<% } else { %>apiresponse<% } %> , null] as const;
     <% } %>
   }
 <% if(throwError) { %>

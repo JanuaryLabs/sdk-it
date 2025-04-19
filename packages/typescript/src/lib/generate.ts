@@ -13,8 +13,9 @@ import parseResponse from './http/parse-response.txt';
 import parserTxt from './http/parser.txt';
 import requestTxt from './http/request.txt';
 import responseTxt from './http/response.txt';
-import sendRequest from './http/send-request.txt';
+import sendRequestTxt from './http/send-request.txt';
 import { generateInputs } from './sdk.ts';
+import type { Style } from './style.ts';
 import { exclude, securityToOptions } from './utils.ts';
 
 function security(spec: OpenAPIObject) {
@@ -43,11 +44,7 @@ function security(spec: OpenAPIObject) {
 export async function generate(
   spec: OpenAPIObject,
   settings: {
-    style?: {
-      name?: 'github';
-      outputType?: 'default' | 'status';
-      errorAsValue?: boolean;
-    };
+    style?: Style;
     output: string;
     useTsExtension?: boolean;
     name?: string;
@@ -62,6 +59,16 @@ export async function generate(
     }) => void | Promise<void>;
   },
 ) {
+  const style = Object.assign(
+    {},
+    {
+      errorAsValue: true,
+      name: 'github',
+      outputType: 'default',
+    },
+    settings.style ?? {},
+  );
+
   settings.useTsExtension ??= true;
   const makeImport = (moduleSpecifier: string) => {
     return settings.useTsExtension ? `${moduleSpecifier}.ts` : moduleSpecifier;
@@ -69,7 +76,7 @@ export async function generate(
   const { commonSchemas, endpoints, groups, outputs, commonZod } = generateCode(
     {
       spec,
-      style: 'github',
+      style,
       makeImport,
     },
   );
@@ -94,7 +101,7 @@ export async function generate(
 
   await writeFiles(join(output, 'http'), {
     'interceptors.ts': `
-    import { type RequestConfig } from './${makeImport('request')}';
+    import type { RequestConfig, HeadersInit } from './${makeImport('request')}';
     ${interceptors}`,
     'parse-response.ts': parseResponse,
     'send-request.ts': `import z from 'zod';
@@ -104,7 +111,7 @@ import { parseInput } from './${makeImport('parser')}';
 import type { RequestConfig } from './${makeImport('request')}';
 import { APIError, APIResponse } from './${makeImport('response')}';
 
-${template(sendRequest, {})({ throwError: !settings.style?.errorAsValue })}`,
+${template(sendRequestTxt, {})({ throwError: !style.errorAsValue,outputType:style.outputType })}`,
     'response.ts': responseTxt,
     'parser.ts': parserTxt,
     'request.ts': requestTxt,
@@ -120,7 +127,7 @@ ${template(sendRequest, {})({ throwError: !settings.style?.errorAsValue })}`,
         options: options,
         makeImport,
       },
-      !settings.style?.errorAsValue,
+      style,
     ),
     ...inputFiles,
     ...endpoints,
@@ -151,7 +158,7 @@ ${template(sendRequest, {})({ throwError: !settings.style?.errorAsValue })}`,
       join(output, 'http'),
       settings.useTsExtension,
       ['ts'],
-      (dirent) => dirent.name !== 'response.ts',
+      (dirent) => !['response.ts', 'parser.ts'].includes(dirent.name),
     ),
   ];
   if (modelsImports.length) {

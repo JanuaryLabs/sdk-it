@@ -55,7 +55,7 @@ export const createBaseUrlInterceptor = (
 
 export const logInterceptor: Interceptor = {
   before({ url, init }) {
-    console.dir('Request:', { url, init });
+    console.log('Request:', { url, init });
     return { url, init };
   },
   after(response) {
