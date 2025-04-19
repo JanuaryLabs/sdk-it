@@ -412,7 +412,6 @@ function requestToOperation(
     path: `/${url.path.join('/')}`.replace(/:([^/]+)/g, '{$1}'),
     method: (item.request.method ?? 'get').toLowerCase(),
     operation: {
-      operationId: item.name,
       summary: item.name,
       description: descriptionToText(item.request.description),
       parameters,
