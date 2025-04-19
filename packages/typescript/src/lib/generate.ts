@@ -2,7 +2,6 @@ import { template } from 'lodash-es';
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
-import type { throwError } from 'rxjs';
 import { spinalcase } from 'stringcase';
 
 import { getFolderExports, methods, writeFiles } from '@sdk-it/core';
@@ -44,11 +43,14 @@ function security(spec: OpenAPIObject) {
 export async function generate(
   spec: OpenAPIObject,
   settings: {
-    style?: 'github';
+    style?: {
+      name?: 'github';
+      outputType?: 'default' | 'status';
+      errorAsValue?: boolean;
+    };
     output: string;
     useTsExtension?: boolean;
     name?: string;
-    throwError?: boolean;
     /**
      * full: generate a full project including package.json and tsconfig.json. useful for monorepo/workspaces
      * minimal: generate only the client sdk
@@ -102,7 +104,7 @@ import { parseInput } from './${makeImport('parser')}';
 import type { RequestConfig } from './${makeImport('request')}';
 import { APIError, APIResponse } from './${makeImport('response')}';
 
-${template(sendRequest, {})({ throwError: settings.throwError })}`,
+${template(sendRequest, {})({ throwError: settings.style?.errorAsValue })}`,
     'response.ts': responseTxt,
     'parser.ts': parserTxt,
     'request.ts': requestTxt,
@@ -118,7 +120,7 @@ ${template(sendRequest, {})({ throwError: settings.throwError })}`,
         options: options,
         makeImport,
       },
-      settings.throwError ?? false,
+      settings.style?.errorAsValue ?? false,
     ),
     ...inputFiles,
     ...endpoints,

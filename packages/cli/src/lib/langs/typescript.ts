@@ -1,10 +1,18 @@
 import { Command } from 'commander';
 import { execFile, execSync } from 'node:child_process';
 
+
+
 import { loadSpec } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
 
+
+
 import { outputOption, specOption } from '../options.ts';
+
+
+
+
 
 interface Options {
   spec: string;
@@ -23,6 +31,8 @@ interface Options {
   install: boolean;
   verbose: boolean;
   defaultFormatter: boolean;
+  outputType?: 'default' | 'status';
+  errorAsValue?: boolean;
 }
 
 export default new Command('typescript')
@@ -52,6 +62,13 @@ export default new Command('typescript')
     'Install dependencies using npm (only in full mode)',
     true,
   )
+  .option('--output-type <outputType>', 'Endpoint output type', 'default')
+  .option(
+    '--error-as-value <errorAsValue>',
+    'Treat errors as values instead of throwing them',
+    (value) => (value === 'false' ? false : true),
+    true,
+  )
   .option('--no-default-formatter', 'Do not use the default formatter')
   .option('--no-install', 'Do not install dependencies')
   .option('-v, --verbose', 'Verbose output', false)
@@ -61,6 +78,11 @@ export default new Command('typescript')
       output: options.output,
       mode: options.mode || 'minimal',
       name: options.name,
+      style: {
+        name: 'github',
+        outputType: options.outputType,
+        errorAsValue: options.errorAsValue,
+      },
       useTsExtension: options.useTsExtension,
       formatCode: ({ env, output }) => {
         if (options.formatter) {

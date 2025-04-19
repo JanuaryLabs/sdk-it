@@ -32,12 +32,12 @@ export async function sendRequest(
   const { interceptors = [] } = options;
   const [parsedInput, parseError] = parseInput(route.schema, input);
   if (parseError) {
-  <% if(throwError) { %>
-    throw parseError;
-  <% } else { %>
-    return [null as never, parseError as never] as const;
+    <% if(throwError) { %>
+      throw parseError;
+    <% } else { %>
+      return [null as never, parseError as never] as const;
+    <% } %>
   }
-  <% } %>
 
   let config = route.toRequest(parsedInput as never);
   for (const interceptor of interceptors) {

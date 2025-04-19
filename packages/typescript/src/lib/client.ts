@@ -64,7 +64,7 @@ export class ${spec.name} {
     input: Endpoints[E]['input'],
     options?: { signal?: AbortSignal, headers?: HeadersInit },
   )
- ${throwError ?`: Endpoints[E]['output']`:`: Promise<readonly [Endpoints[E]['output'], Endpoints[E]['error'] | null]>`}
+ ${throwError ? `` : `: Promise<readonly [Endpoints[E]['output'], Endpoints[E]['error'] | null]>`}
   {
     const route = schemas[endpoint];
     return sendRequest(Object.assign(this.#defaultInputs, input), route, {
@@ -74,21 +74,27 @@ export class ${spec.name} {
         createBaseUrlInterceptor(() => this.options.baseUrl),
       ],
       signal: options?.signal,
-    });
+    }) ${throwError ? `as Promise<Endpoints[E]['output']>` : ''}
   }
 
   async prepare<E extends keyof Endpoints>(
     endpoint: E,
     input: Endpoints[E]['input'],
     options?: { headers?: HeadersInit },
-  ): Promise<
+  ): ${
+    throwError
+      ? `Promise<RequestConfig & {
+        parse: (response: Response) => ReturnType<typeof parse>;
+      }>`
+      : `Promise<
     readonly [
       RequestConfig & {
         parse: (response: Response) => ReturnType<typeof parse>;
       },
       ParseError<(typeof schemas)[E]['schema']> | null,
     ]
-  > {
+  >`
+  } {
     const route = schemas[endpoint];
 
     const interceptors = [
@@ -100,7 +106,7 @@ export class ${spec.name} {
     ];
     const [parsedInput, parseError] = parseInput(route.schema, input);
     if (parseError) {
-      return [null as never, parseError as never] as const;
+      ${throwError ? 'throw parseError;' : 'return [null as never, parseError as never] as const;'}
     }
 
     let config = route.toRequest(parsedInput as never);
@@ -109,10 +115,8 @@ export class ${spec.name} {
         config = await interceptor.before(config);
       }
     }
-    return [
-      { ...config, parse: (response: Response) => parse(route, response) },
-      null as never,
-    ] as const;
+    const prepared = { ...config, parse: (response: Response) => parse(route, response) };
+    return ${throwError ? 'prepared' : '[prepared, null as never] as const;'}
   }
 
   get defaultHeaders() {
