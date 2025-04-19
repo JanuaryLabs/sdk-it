@@ -104,7 +104,7 @@ import { parseInput } from './${makeImport('parser')}';
 import type { RequestConfig } from './${makeImport('request')}';
 import { APIError, APIResponse } from './${makeImport('response')}';
 
-${template(sendRequest, {})({ throwError: settings.style?.errorAsValue })}`,
+${template(sendRequest, {})({ throwError: !settings.style?.errorAsValue })}`,
     'response.ts': responseTxt,
     'parser.ts': parserTxt,
     'request.ts': requestTxt,
@@ -120,7 +120,7 @@ ${template(sendRequest, {})({ throwError: settings.style?.errorAsValue })}`,
         options: options,
         makeImport,
       },
-      settings.style?.errorAsValue ?? false,
+      !settings.style?.errorAsValue,
     ),
     ...inputFiles,
     ...endpoints,

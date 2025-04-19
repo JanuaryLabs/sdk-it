@@ -251,7 +251,8 @@ function handleResponse(
       namespaceImport: undefined,
     },
   };
-  const responses: { name: string; schema: string }[] = [];
+  const responses: { name: string; schema: string; description?: string }[] =
+    [];
   const outputs: string[] = [];
   const typeScriptDeserialzer = new TypeScriptDeserialzer(
     spec,
@@ -296,9 +297,11 @@ function handleResponse(
         true,
       )
     : 'void';
+
   responses.push({
     name: interfaceName,
     schema: responseSchema,
+    description: response.description,
   });
   const statusGroup = +status.slice(0, 1);
   if (statusCode >= 400 || statusGroup >= 4) {

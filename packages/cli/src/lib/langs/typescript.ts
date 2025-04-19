@@ -1,18 +1,10 @@
 import { Command } from 'commander';
 import { execFile, execSync } from 'node:child_process';
 
-
-
 import { loadSpec } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
 
-
-
 import { outputOption, specOption } from '../options.ts';
-
-
-
-
 
 interface Options {
   spec: string;

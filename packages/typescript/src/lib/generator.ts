@@ -1,35 +1,23 @@
 import { merge } from 'lodash-es';
 import { join } from 'node:path';
-import type {
-  OpenAPIObject,
-  ParameterLocation,
-  ParameterObject,
-  ReferenceObject,
-  RequestBodyObject,
-  SchemaObject,
-} from 'openapi3-ts/oas31';
+import type { OpenAPIObject, ParameterLocation, ParameterObject, ReferenceObject, RequestBodyObject, SchemaObject } from 'openapi3-ts/oas31';
 import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
+
+
 import { followRef, isEmpty, isRef } from '@sdk-it/core';
-import {
-  type GenerateSdkConfig,
-  forEachOperation,
-} from '@sdk-it/spec/operation.js';
+import { type GenerateSdkConfig, forEachOperation } from '@sdk-it/spec/operation.js';
+
+
 
 import { ZodDeserialzer } from './emitters/zod.ts';
-import {
-  type Operation,
-  type OperationInput,
-  type Spec,
-  toEndpoint,
-} from './sdk.ts';
+import { type Operation, type OperationInput, type Spec, toEndpoint } from './sdk.ts';
 import endpointsTxt from './styles/github/endpoints.txt';
-import {
-  importsToString,
-  mergeImports,
-  securityToOptions,
-  useImports,
-} from './utils.ts';
+import { importsToString, mergeImports, securityToOptions, useImports } from './utils.ts';
+
+
+
+
 
 export interface NamedImport {
   name: string;
@@ -222,7 +210,10 @@ export function generateCode(
     );
     if (responses.length) {
       output.push(
-        ...responses.map((it) => `export type ${it.name} = ${it.schema};`),
+        ...responses.map(
+          (it) =>
+            `${it.description ? `\n/** \n * ${it.description}\n */\n` : ''} export type ${it.name} = ${it.schema};`,
+        ),
       );
     } else {
       output.push(
