@@ -4,7 +4,7 @@ import { execFile, execSync } from 'node:child_process';
 import { loadSpec } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
 
-import { outputOption, specOption } from '../options.ts';
+import { outputOption, shellEnv, specOption } from '../options.ts';
 
 interface Options {
   spec: string;
@@ -83,7 +83,7 @@ export default new Command('typescript')
             env: { ...env, SDK_IT_OUTPUT: output },
           });
         } else if (options.defaultFormatter) {
-          execSync('npx -y prettier $SDK_IT_OUTPUT --write', {
+          execSync(`npx -y prettier ${shellEnv('SDK_IT_OUTPUT')} --write`, {
             env: {
               ...env,
               SDK_IT_OUTPUT: output,
@@ -96,7 +96,6 @@ export default new Command('typescript')
     });
 
     // Install dependencies if in full mode and install option is enabled
-
     if (options.install && options.mode === 'full') {
       console.log('Installing dependencies...');
       execSync('npm install', {

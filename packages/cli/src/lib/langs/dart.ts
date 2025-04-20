@@ -4,7 +4,7 @@ import { execFile, execSync } from 'node:child_process';
 import { generate } from '@sdk-it/dart';
 import { loadSpec } from '@sdk-it/spec';
 
-import { outputOption, specOption } from '../options.ts';
+import { outputOption, shellEnv, specOption } from '../options.ts';
 
 interface Options {
   spec: string;
@@ -47,7 +47,7 @@ export default new Command('dart')
             env: { ...process.env, SDK_IT_OUTPUT: output },
           });
         } else {
-          execSync('dart format $SDK_IT_OUTPUT ', {
+          execSync(`dart format ${shellEnv('SDK_IT_OUTPUT')}`, {
             env: { ...process.env, SDK_IT_OUTPUT: output },
             stdio: options.verbose ? 'inherit' : 'pipe',
           });
