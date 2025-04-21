@@ -1,10 +1,10 @@
 import { Command } from 'commander';
-import { execFile, execSync } from 'node:child_process';
+import { execFile, execSync, spawnSync } from 'node:child_process';
 
 import { loadSpec } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
 
-import { outputOption, shellEnv, specOption } from '../options.ts';
+import { outputOption, specOption } from '../options.ts';
 
 interface Options {
   spec: string;
@@ -83,7 +83,7 @@ export default new Command('typescript')
             env: { ...env, SDK_IT_OUTPUT: output },
           });
         } else if (options.defaultFormatter) {
-          execSync(`npx -y prettier ${shellEnv('SDK_IT_OUTPUT')} --write`, {
+          spawnSync('npx', ['-y', 'prettier', output, '--write'], {
             env: {
               ...env,
               SDK_IT_OUTPUT: output,
@@ -91,6 +91,14 @@ export default new Command('typescript')
             },
             stdio: options.verbose ? 'inherit' : 'pipe',
           });
+          // execSync(`npx -y prettier ${shellEnv('SDK_IT_OUTPUT')} --write`, {
+          //   env: {
+          //     ...env,
+          //     SDK_IT_OUTPUT: output,
+          //     NODE_OPTIONS: '--experimental-strip-types',
+          //   },
+          //   stdio: options.verbose ? 'inherit' : 'pipe',
+          // });
         }
       },
     });

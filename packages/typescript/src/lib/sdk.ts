@@ -291,7 +291,7 @@ function handleResponse(
   }
   const responseContent = get(response, ['content']);
   const isJson = responseContent && responseContent['application/json'];
-  let responseSchema = parser==='chunked'?'ReadableStream': 'void';
+  let responseSchema = parser === 'chunked' ? 'ReadableStream' : 'void';
   if (isJson) {
     const schema = responseContent['application/json'].schema!;
     const isObject = !isRef(schema) && schema.type === 'object';
@@ -302,7 +302,7 @@ function handleResponse(
         type: 'string',
       };
       schema.required ??= [];
-      schema.required.push('[KIND]');
+      schema.required.push('[http.KIND]');
     }
     responseSchema = typeScriptDeserialzer.handle(schema, true);
   }
@@ -329,7 +329,6 @@ function handleResponse(
     statusCode >= 2 ||
     statusGroup <= 3
   ) {
-
     endpointImports[interfaceName] = {
       defaultImport: undefined,
       isTypeOnly: true,

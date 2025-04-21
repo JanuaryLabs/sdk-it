@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import type {
   OpenAPIObject,
   OperationObject,
+  ParameterObject,
   ReferenceObject,
   RequestBodyObject,
   ResponseObject,
@@ -349,11 +350,26 @@ class Options {
   });
 }
 
+// function makeRequestBody(spec: OpenAPIObject, operation: OperationObject) {
+//   const requestBody = operation.requestBody;
+//   const params = (operation.parameters ?? []).map((it) =>
+//     isRef(it) ? followRef<ParameterObject>(spec, it.$ref) : it,
+//   );
+//   if (!requestBody) return {
+
+//   }
+//   if (isRef(requestBody)) {
+//     return followRef<RequestBodyObject>(operation, requestBody.$ref);
+//   }
+//   return requestBody;
+// }
+
 function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
   const inputs: Record<string, unknown> = {};
   const inputName = pascalcase(`${operation.operationId} input`);
   let contentType = 'empty';
   let encode = '';
+
   if (!isEmpty(operation.requestBody)) {
     const requestBody = isRef(operation.requestBody)
       ? followRef<RequestBodyObject>(spec, operation.requestBody.$ref)

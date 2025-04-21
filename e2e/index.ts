@@ -48,6 +48,11 @@ const specs = [
     spec: 'https://nowa-server-dev-412327058882.europe-west1.run.app/swagger/v1/swagger.json',
   },
   {
+    name: 'Problem',
+    spec: join(process.cwd(), '.yamls', 'problem.json'),
+    flags: ['--no-install'],
+  },
+  {
     name: 'openstatus',
     spec: 'https://api.openstatus.dev/v1/openapi',
   },
@@ -78,7 +83,7 @@ for (const { spec, name, flags } of specs) {
   console.log(chalk.magenta.bold(`RUNNING TEST SUITE FOR: ${spec}`));
   console.log(chalk.magenta('='.repeat(80)) + '\n');
 
-  const cliPath = './packages/cli/src/index.ts';
+  const cliPath = join(process.cwd(), 'packages', 'cli', 'src', 'index.ts');
 
   const sdkOutput = `./.client-${name}`;
   const sdkFlags = [
@@ -89,6 +94,10 @@ for (const { spec, name, flags } of specs) {
     '--no-install',
     ...(flags ?? []),
   ];
+  // invoke TS compiler script via Node for cross‑platform compatibility
+  const tsconfigPath = join(sdkOutput, 'tsconfig.json');
+  const tscScript = join('node_modules', 'typescript', 'bin', 'tsc');
+  const tsc = `node "${tscScript}" -p "${tsconfigPath}"`;
 
   // Generate SDK
   runCommand(
@@ -97,28 +106,24 @@ for (const { spec, name, flags } of specs) {
   );
 
   // Run type checking with Node environment
-  runCommand(
-    `TYPE CHECKING: ${name}`,
-    `./node_modules/.bin/tsc -p ${sdkOutput}/tsconfig.json`,
-    8096,
-  );
+  runCommand(`TYPE CHECKING: ${name}`, tsc, 8096);
 
   // Test with Bun runtime
   runCommand(
     `TESTING WITH BUN RUNTIME: ${name}`,
-    `bun ${join(sdkOutput, 'src/index.ts')}`,
+    `bun ${join(sdkOutput, 'src', 'index.ts')}`,
   );
 
   // Test with Node runtime
   runCommand(
     `TESTING WITH NODE RUNTIME: ${name}`,
-    `node ${join(sdkOutput, 'src/index.ts')}`,
+    `node ${join(sdkOutput, 'src', 'index.ts')}`,
   );
 
   // Test browser compatibility by type checking with DOM lib
   runCommand(
     `TYPE CHECKING WITH DOM LIB: ${name}`,
-    `./node_modules/.bin/tsc -p ${sdkOutput}/tsconfig.json --lib ES2022,DOM,DOM.Iterable --skipLibCheck`,
+    `${tsc} --lib ES2022,DOM,DOM.Iterable --skipLibCheck`,
     8096,
   );
 }

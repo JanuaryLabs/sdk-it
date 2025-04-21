@@ -4,7 +4,7 @@ import type {
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { cleanRef, followRef, isRef, parseRef } from '@sdk-it/core';
+import { cleanRef, followRef, isRef } from '@sdk-it/core';
 
 type OnRefCallback = (ref: string, content: string) => void;
 
@@ -13,7 +13,7 @@ type OnRefCallback = (ref: string, content: string) => void;
  * adapted for OpenAPI 3.1 (fully aligned with JSON Schema 2020-12).
  */
 export class ZodDeserialzer {
-  circularRefTracker = new Set<string>();
+  generatedRefs = new Set<string>();
   #spec: OpenAPIObject;
   #onRef?: OnRefCallback;
 
@@ -122,16 +122,14 @@ export class ZodDeserialzer {
   ref($ref: string, required: boolean) {
     const schemaName = cleanRef($ref).split('/').pop()!;
 
-    if (this.circularRefTracker.has(schemaName)) {
+    if (this.generatedRefs.has(schemaName)) {
       return schemaName;
     }
-
-    this.circularRefTracker.add(schemaName);
+    this.generatedRefs.add(schemaName);
     this.#onRef?.(
       schemaName,
       this.handle(followRef<SchemaObject>(this.#spec, $ref), required),
     );
-    this.circularRefTracker.delete(schemaName);
 
     return schemaName;
   }
@@ -163,15 +161,7 @@ export class ZodDeserialzer {
   }
 
   oneOf(schemas: (SchemaObject | ReferenceObject)[], required: boolean) {
-    const oneOfSchemas = schemas.map((sub) => {
-      if (isRef(sub)) {
-        const { model } = parseRef(sub.$ref);
-        if (this.circularRefTracker.has(model)) {
-          return `${model}${appendOptional(required)}`;
-        }
-      }
-      return this.handle(sub, true);
-    });
+    const oneOfSchemas = schemas.map((sub) => this.handle(sub, true));
     if (oneOfSchemas.length === 1) {
       return `${oneOfSchemas[0]}${appendOptional(required)}`;
     }

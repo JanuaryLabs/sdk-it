@@ -4,7 +4,7 @@ import type {
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { cleanRef, followRef, isRef, parseRef } from '@sdk-it/core';
+import { cleanRef, followRef, isRef } from '@sdk-it/core';
 
 type OnRefCallback = (ref: string, interfaceContent: string) => void;
 
@@ -12,7 +12,7 @@ type OnRefCallback = (ref: string, interfaceContent: string) => void;
  * Convert an OpenAPI (JSON Schema style) object into TypeScript interfaces,
  */
 export class TypeScriptDeserialzer {
-  circularRefTracker = new Set<string>();
+  generatedRefs = new Set<string>();
   #spec: OpenAPIObject;
   #onRef: OnRefCallback;
 
@@ -25,8 +25,8 @@ export class TypeScriptDeserialzer {
   };
 
   #isInternal = (schema: SchemaObject | ReferenceObject): boolean => {
-   return isRef(schema)?false: !!schema['x-internal'];
-  }
+    return isRef(schema) ? false : !!schema['x-internal'];
+  };
 
   /**
    * Handle objects (properties)
@@ -104,16 +104,15 @@ export class TypeScriptDeserialzer {
   ref($ref: string, required: boolean): string {
     const schemaName = cleanRef($ref).split('/').pop()!;
 
-    if (this.circularRefTracker.has(schemaName)) {
+    if (this.generatedRefs.has(schemaName)) {
       return schemaName;
     }
+    this.generatedRefs.add(schemaName);
 
-    this.circularRefTracker.add(schemaName);
     this.#onRef?.(
       schemaName,
       this.handle(followRef<SchemaObject>(this.#spec, $ref), required),
     );
-    this.circularRefTracker.delete(schemaName);
 
     return appendOptional(schemaName, required);
   }
@@ -141,12 +140,6 @@ export class TypeScriptDeserialzer {
     required: boolean,
   ): string {
     const oneOfTypes = schemas.map((sub) => {
-      if (isRef(sub)) {
-        const { model } = parseRef(sub.$ref);
-        if (this.circularRefTracker.has(model)) {
-          return model;
-        }
-      }
       return this.handle(sub, false);
     });
     return appendOptional(

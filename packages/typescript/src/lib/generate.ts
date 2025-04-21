@@ -92,6 +92,8 @@ export async function generate(
   // FIXME: inputs, outputs should be generated before hand.
   const inputFiles = generateInputs(groups, commonZod, makeImport);
 
+  console.log('Writing to', output);
+
   await writeFiles(output, {
     'outputs/.gitkeep': '',
     'inputs/.gitkeep': '',
