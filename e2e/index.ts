@@ -39,10 +39,10 @@ function runCommand(title: string, command: string, memory?: number) {
 }
 
 const specs = [
-  // {
-  //   name: 'UploadThings',
-  //   spec: 'https://api.uploadthing.com/openapi-spec.json',
-  // },
+  {
+    name: 'UploadThings',
+    spec: 'https://api.uploadthing.com/openapi-spec.json',
+  },
   {
     name: 'Nowa',
     spec: 'https://nowa-server-dev-412327058882.europe-west1.run.app/swagger/v1/swagger.json',

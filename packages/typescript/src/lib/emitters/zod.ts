@@ -190,6 +190,11 @@ export class ZodDeserialzer {
     // We do not strictly need them for the Zod type, so they’re optional
     // for validation. However, we could keep them as metadata if you want.
 
+    if (schema.contentEncoding === 'binary') {
+      base = 'z.instanceof(Blob)';
+      return base;
+    }
+
     switch (schema.format) {
       case 'date-time':
       case 'datetime':

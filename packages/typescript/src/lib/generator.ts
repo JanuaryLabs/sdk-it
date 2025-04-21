@@ -77,7 +77,7 @@ export function generateCode(
     endpoints[entry.groupName] ??= [];
     const inputs: Operation['inputs'] = {};
 
-    const additionalProperties: ParameterObject[] = [];
+    const additionalProperties: Record<string, ParameterObject> = {};
     for (const param of operation.parameters ?? []) {
       if (isRef(param)) {
         throw new Error(`Found reference in parameter ${param.$ref}`);
@@ -89,7 +89,7 @@ export function generateCode(
         in: param.in,
         schema: '',
       };
-      additionalProperties.push(param);
+      additionalProperties[param.name] = param;
     }
 
     const security = operation.security ?? [];
@@ -98,19 +98,18 @@ export function generateCode(
 
     Object.assign(inputs, securityOptions);
 
-    additionalProperties.push(
-      ...Object.entries(securityOptions).map(
-        ([name, value]) =>
-          ({
-            name: name,
-            required: false,
-            schema: {
-              type: 'string',
-            },
-            in: value.in as ParameterLocation,
-          }) satisfies ParameterObject,
-      ),
-    );
+    // the spec might have explict security param for security set
+    // which we need to overwrite it by ours. (avoid having it mandatory)
+    Object.entries(securityOptions).forEach(([name, value]) => {
+      additionalProperties[name] = {
+        name: name,
+        required: false,
+        schema: {
+          type: 'string',
+        },
+        in: value.in as ParameterLocation,
+      } satisfies ParameterObject;
+    });
 
     const schemas: Record<string, string> = {};
     const shortContenTypeMap: Record<string, string> = {
@@ -150,13 +149,14 @@ export function generateCode(
             },
           };
         }
-
         const schema = merge({}, objectSchema, {
-          required: additionalProperties
+          required: Object.values(additionalProperties)
             .filter((p) => p.required)
             .map((p) => p.name),
-          properties: additionalProperties.reduce<Record<string, unknown>>(
-            (acc, p) => ({
+          properties: Object.entries(additionalProperties).reduce<
+            Record<string, unknown>
+          >(
+            (acc, [, p]) => ({
               ...acc,
               [p.name]: p.schema,
             }),
@@ -168,9 +168,6 @@ export function generateCode(
         schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
       }
 
-      // TODO: each content type should create own endpoint or force content-type header to be set as third parameter
-      // we can do the same for response that have multiple content types: force accept header to be set as third parameter
-      // instead of prefixing the endpoint name with the content type
       if (requestBody.content['application/json']) {
         outgoingContentType = 'json';
       } else if (requestBody.content['application/x-www-form-urlencoded']) {
@@ -181,8 +178,10 @@ export function generateCode(
         outgoingContentType = 'json';
       }
     } else {
-      const properties = additionalProperties.reduce<Record<string, any>>(
-        (acc, p) => ({
+      const properties = Object.entries(additionalProperties).reduce<
+        Record<string, any>
+      >(
+        (acc, [, p]) => ({
           ...acc,
           [p.name]: p.schema,
         }),
@@ -191,7 +190,7 @@ export function generateCode(
       schemas[shortContenTypeMap['application/json']] = zodDeserialzer.handle(
         {
           type: 'object',
-          required: additionalProperties
+          required: Object.values(additionalProperties)
             .filter((p) => p.required)
             .map((p) => p.name),
           properties,
@@ -318,15 +317,13 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
                 ),
               ),
             );
-            // const imports = endpoint.map((it) => it.imports).flat();
             return [
               [
                 join('api', `${spinalcase(name)}.ts`),
                 `${[
                   ...imps,
-                  // ...imports,
                   `import z from 'zod';`,
-                  `import * as http from '${config.makeImport("../http/response")}';`,
+                  `import * as http from '${config.makeImport('../http/response')}';`,
                   `import { toRequest, json, urlencoded, nobody, formdata, createUrl } from '${config.makeImport('../http/request')}';`,
                   `import { chunked, buffered } from "${config.makeImport('../http/parse-response')}";`,
                   `import * as ${camelcase(name)} from '../inputs/${config.makeImport(spinalcase(name))}';`,
