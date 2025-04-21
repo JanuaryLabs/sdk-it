@@ -162,6 +162,10 @@ export class TypeScriptDeserialzer {
   string(schema: SchemaObject, required?: boolean): string {
     let type: string;
 
+    if (schema.contentEncoding === 'binary') {
+      return appendOptional('Blob', required);
+    }
+    
     switch (schema.format) {
       case 'date-time':
       case 'datetime':

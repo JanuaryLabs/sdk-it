@@ -4,7 +4,12 @@ import { npmRunPathEnv } from 'npm-run-path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { spinalcase } from 'stringcase';
 
-import { getFolderExports, methods, writeFiles } from '@sdk-it/core';
+import {
+  getFolderExports,
+  methods,
+  pascalcase,
+  writeFiles,
+} from '@sdk-it/core';
 
 import backend from './client.ts';
 import { generateCode } from './generator.ts';
@@ -83,7 +88,9 @@ export async function generate(
   const output =
     settings.mode === 'full' ? join(settings.output, 'src') : settings.output;
   const options = security(spec);
-  const clientName = settings.name || 'Client';
+  const clientName = settings.name?.trim()
+    ? pascalcase(settings.name)
+    : 'Client';
 
   // const readme = generateReadme(spec, {
   //   name: name,
@@ -113,7 +120,7 @@ import { parseInput } from './${makeImport('parser')}';
 import type { RequestConfig } from './${makeImport('request')}';
 import { APIError, APIResponse } from './${makeImport('response')}';
 
-${template(sendRequestTxt, {})({ throwError: !style.errorAsValue,outputType:style.outputType })}`,
+${template(sendRequestTxt, {})({ throwError: !style.errorAsValue, outputType: style.outputType })}`,
     'response.ts': responseTxt,
     'parser.ts': parserTxt,
     'request.ts': requestTxt,
