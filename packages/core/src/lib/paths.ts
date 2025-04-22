@@ -8,7 +8,7 @@ import type {
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { $types } from './deriver.ts';
+import { $types } from './deriver.js';
 
 export type Method =
   | 'get'

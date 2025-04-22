@@ -1,2 +1,2 @@
-export * from './output.ts';
-export * from './validator.ts';
+export * from './output.js';
+export * from './validator.js';

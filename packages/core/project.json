@@ -8,7 +8,9 @@
     "build": {
       "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
-      "options": {}
+      "options": {
+        "bundle": false
+      }
     }
   }
 }

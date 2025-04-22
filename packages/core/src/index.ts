@@ -8,10 +8,10 @@ import type ts from 'typescript';
 import type { TypeDeriver } from './lib/deriver.ts';
 import type { ResponseItem } from './lib/paths.ts';
 
-export * from './lib/deriver.ts';
-export * from './lib/paths.ts';
-export * from './lib/program.ts';
-export * from './lib/ref.ts';
+export * from './lib/deriver.js';
+export * from './lib/paths.js';
+export * from './lib/program.js';
+export * from './lib/ref.js';
 
 export function removeDuplicates<T>(
   data: T[],

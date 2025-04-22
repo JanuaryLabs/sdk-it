@@ -1,1 +1,1 @@
-export * from './lib/response-analyzer.ts';
+export * from './lib/response-analyzer.js';

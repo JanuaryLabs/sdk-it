@@ -122,16 +122,12 @@ export interface GenerateSdkConfig {
 /**
  * Set of reserved TypeScript keywords and common verbs potentially used as tags.
  */
+
 const reservedKeywords = new Set([
-  'abstract',
-  'arguments',
-  'await',
-  'boolean',
+  'await', // Reserved in async functions
   'break',
-  'byte',
   'case',
   'catch',
-  'char',
   'class',
   'const',
   'continue',
@@ -139,78 +135,44 @@ const reservedKeywords = new Set([
   'default',
   'delete',
   'do',
-  'double',
   'else',
   'enum',
-  'eval',
   'export',
   'extends',
   'false',
-  'final',
   'finally',
-  'float',
   'for',
   'function',
-  'goto',
   'if',
-  'implements',
+  'implements', // Strict mode
   'import',
   'in',
   'instanceof',
-  'int',
-  'interface',
-  'let',
-  'long',
-  'native',
+  'interface', // Strict mode
+  'let', // Strict mode
   'new',
   'null',
-  'package',
-  'private',
-  'protected',
-  'public',
+  'package', // Strict mode
+  'private', // Strict mode
+  'protected', // Strict mode
+  'public', // Strict mode
   'return',
-  'short',
-  'static',
+  'static', // Strict mode
   'super',
   'switch',
-  'synchronized',
   'this',
   'throw',
-  'throws',
-  'transient',
   'true',
   'try',
   'typeof',
   'var',
   'void',
-  'volatile',
   'while',
   'with',
-  'yield',
-  // Potentially problematic identifiers / Common Verbs used as tags
-  'object',
-  'string',
-  'number',
-  'any',
-  'unknown',
-  'never',
-  'get',
-  'list',
-  'create',
-  'update',
-  'delete',
-  'post',
-  'put',
-  'patch',
-  'do',
-  'send',
-  'add',
-  'remove',
-  'set',
-  'find',
-  'search',
-  'check',
-  'make',
+  'yield', // Strict mode / Generator functions
+  // 'arguments' is not technically a reserved word, but it's a special identifier within functions
+  // and assigning to it or declaring it can cause issues or unexpected behavior.
+  'arguments',
 ]);
 
 /**
@@ -263,7 +225,7 @@ export function determineGenericTag(
     'find',
     'search',
     'check',
-    'make', // Added make
+    'make',
   ]);
 
   const segments = pathString.split('/').filter(Boolean);

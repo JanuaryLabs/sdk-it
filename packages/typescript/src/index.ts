@@ -1,2 +1,2 @@
-export * from './lib/generate.ts';
-export * from './lib/watcher.ts';
+export * from './lib/generate.js';
+export * from './lib/watcher.js';
