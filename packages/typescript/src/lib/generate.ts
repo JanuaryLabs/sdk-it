@@ -4,7 +4,12 @@ import { npmRunPathEnv } from 'npm-run-path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { spinalcase } from 'stringcase';
 
-import { type WriteContent, getFolderExports, writeFiles } from '@sdk-it/core/file-system.js';
+import { methods, pascalcase } from '@sdk-it/core';
+import {
+  type WriteContent,
+  getFolderExports,
+  writeFiles,
+} from '@sdk-it/core/file-system.js';
 
 import backend from './client.ts';
 import { generateCode } from './generator.ts';
@@ -18,7 +23,6 @@ import { toReadme } from './readme.ts';
 import { generateInputs } from './sdk.ts';
 import type { Style } from './style.ts';
 import { exclude, securityToOptions } from './utils.ts';
-import { methods, pascalcase } from '@sdk-it/core';
 
 function security(spec: OpenAPIObject) {
   const security = spec.security || [];

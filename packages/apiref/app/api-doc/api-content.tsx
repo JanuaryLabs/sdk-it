@@ -6,9 +6,9 @@ import type {
   TunedOperationObject,
 } from '@sdk-it/spec/operation.js';
 
-import type { CategoryItem } from '../sidebar/nav';
 import { ApiInfoSection } from './api-info';
 import { OperationsList } from './operations-list';
+import type { CategoryItem } from '@sdk-it/spec/sidebar.js';
 
 interface ApiContentProps {
   contentRef: RefObject<HTMLDivElement | null>;

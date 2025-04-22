@@ -10,15 +10,15 @@
   },
   "exports": {
     "./package.json": "./package.json",
-    "./*": {
-      "types": "./dist/lib/*",
-      "import": "./dist/lib/*",
-      "default": "./dist/lib/*"
-    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/lib/*",
+      "import": "./dist/lib/*",
+      "default": "./dist/lib/*"
     }
   },
   "files": [

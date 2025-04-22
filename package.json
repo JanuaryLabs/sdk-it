@@ -57,6 +57,7 @@
     "@fontsource-variable/roboto-flex": "^5.2.5",
     "@fontsource/geist-sans": "^5.2.5",
     "commander": "^13.1.0",
+    "execa": "^9.5.2",
     "fast-content-type-parse": "^3.0.0",
     "get-urls": "^12.1.0",
     "js-yaml": "^4.1.0",

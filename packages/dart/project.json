@@ -8,13 +8,7 @@
     "build": {
       "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
-      "options": {
-        "esbuildOptions": {
-          "loader": {
-            ".txt": "text"
-          }
-        }
-      }
+      "options": {}
     }
   }
 }

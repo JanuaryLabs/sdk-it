@@ -69,7 +69,12 @@
         "declarationRootDir": "{projectRoot}/src",
         "deleteOutputPath": true,
         "minify": false,
-        "sourcemap": true
+        "sourcemap": true,
+        "esbuildOptions": {
+          "loader": {
+            ".txt": "text"
+          }
+        }
       },
       "configurations": {
         "production": {
