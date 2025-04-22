@@ -6,7 +6,6 @@ import { join } from 'node:path';
 import type {
   OpenAPIObject,
   OperationObject,
-  ParameterObject,
   ReferenceObject,
   RequestBodyObject,
   ResponseObject,
@@ -17,14 +16,13 @@ import yaml from 'yaml';
 
 import {
   followRef,
-  getFolderExportsV2,
   isEmpty,
   isRef,
   notRef,
   pascalcase,
   snakecase,
-  writeFiles,
 } from '@sdk-it/core';
+import { getFolderExportsV2, writeFiles } from '@sdk-it/core/file-system.js';
 import {
   type Operation,
   forEachOperation,
@@ -155,9 +153,7 @@ export async function generate(
     spec.components.schemas ??= {};
     for (const status in operation.responses) {
       if (!isSuccessStatusCode(status)) continue;
-      const response = isRef(operation.responses[status] as ReferenceObject)
-        ? followRef<ResponseObject>(spec, operation.responses[status].$ref)
-        : (operation.responses[status] as ResponseObject);
+      const response = operation.responses[status];
       if (!isEmpty(response.content)) {
         for (const [contentType, mediaType] of Object.entries(
           response.content,
@@ -166,6 +162,7 @@ export async function generate(
             if (mediaType.schema && !isRef(mediaType.schema)) {
               const outputName = pascalcase(`${operation.operationId} output`);
               spec.components.schemas[outputName] = mediaType.schema;
+              operation.responses[status].content ??= {};
               operation.responses[status].content[contentType].schema = {
                 $ref: `#/components/schemas/${outputName}`,
               };

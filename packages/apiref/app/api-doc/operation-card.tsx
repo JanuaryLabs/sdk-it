@@ -28,7 +28,7 @@ export function OperationCard({
   return (
     <div id={operationId}>
       <span className="text-3xl font-semibold">
-        {entry.name || operation.summary || operationId}
+        {entry.name || operationId}
       </span>
       <div className="my-4 flex items-center">
         <Badge variant={'secondary'} className="gap-x-1 py-1">

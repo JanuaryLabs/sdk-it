@@ -1,5 +1,7 @@
 import { ChevronRight, type LucideIcon } from 'lucide-react';
 
+import type { SidebarData } from '@sdk-it/spec/sidebar.js';
+
 import {
   Collapsible,
   CollapsibleContent,
@@ -16,33 +18,7 @@ import {
   SidebarMenuSubItem,
 } from '../shadcn/sidebar';
 
-export type ChildNavItem = {
-  id: string;
-  title: string;
-  url: string;
-  isActive?: boolean;
-};
-
-export type NavItem = {
-  id: string;
-  title: string;
-  description?: string;
-  url: string;
-  icon?: LucideIcon;
-  isActive?: boolean;
-  items?: ChildNavItem[];
-};
-
-export type CategoryItem = {
-  category: string;
-  description?: string;
-  items: NavItem[];
-  isActive?: boolean;
-};
-
-export type SidebarData = CategoryItem[];
-
-export function NavMain({ items }: { items: SidebarData; }) {
+export function NavMain({ items }: { items: SidebarData }) {
   return (
     <>
       {items.map((category) => (
@@ -66,7 +42,7 @@ export function NavMain({ items }: { items: SidebarData; }) {
                       tooltip={item.title}
                     >
                       <ChevronRight className=" transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                      {item.icon && <item.icon />}
+                      {/* {item.icon && <item.icon />} */}
                       <span>{item.title}</span>
                     </SidebarMenuButton>
                   </CollapsibleTrigger>

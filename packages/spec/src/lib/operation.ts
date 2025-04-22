@@ -3,8 +3,11 @@ import type {
   OperationObject,
   ParameterObject,
   ReferenceObject,
+  ResponseObject,
 } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
+
+import { followRef, isRef } from '@sdk-it/core';
 
 export const defaults: Partial<GenerateSdkConfig> &
   Required<Pick<GenerateSdkConfig, 'operationId' | 'tag'>> = {
@@ -24,13 +27,19 @@ export const defaults: Partial<GenerateSdkConfig> &
     );
   },
   tag: (operation, path) => {
-    return operation.tags?.[0] || determineGenericTag(path, operation);
+    return operation.tags?.[0]
+      ? sanitizeTag(operation.tags?.[0])
+      : determineGenericTag(path, operation);
   },
 };
 
-export type TunedOperationObject = OperationObject & {
+export type TunedOperationObject = Omit<
+  OperationObject,
+  'operationId' | 'parameters' | 'responses'
+> & {
   operationId: string;
   parameters: (ParameterObject | ReferenceObject)[];
+  responses: Record<string, ResponseObject>;
 };
 
 export interface OperationEntry {
@@ -44,6 +53,18 @@ export type Operation = {
   entry: OperationEntry;
   operation: TunedOperationObject;
 };
+
+function resolveResponses(spec: OpenAPIObject, operation: OperationObject) {
+  const responses = operation.responses ?? {};
+  const resolved: Record<string, ResponseObject> = {};
+  for (const status in responses) {
+    const response = isRef(responses[status] as ReferenceObject)
+      ? followRef<ResponseObject>(spec, responses[status].$ref)
+      : (responses[status] as ResponseObject);
+    resolved[status] = response;
+  }
+  return resolved;
+}
 
 export function forEachOperation<T>(
   config: GenerateSdkConfig,
@@ -65,6 +86,7 @@ export function forEachOperation<T>(
       const operationName = formatOperationId(operation, fixedPath, method);
       const operationTag = formatTag(operation, fixedPath);
       const metadata = operation['x-oaiMeta'] ?? {};
+
       result.push(
         callback(
           {
@@ -78,6 +100,7 @@ export function forEachOperation<T>(
             ...operation,
             parameters: [...parameters, ...(operation.parameters ?? [])],
             operationId: operationName,
+            responses: resolveResponses(config.spec, operation),
           },
         ),
       );
@@ -96,7 +119,6 @@ export interface GenerateSdkConfig {
   tag?: (operation: OperationObject, path: string) => string;
 }
 
-// --- Function Definition (determineGenericTag, sanitizeTag, reservedKeywords, commonVerbs) ---
 /**
  * Set of reserved TypeScript keywords and common verbs potentially used as tags.
  */
@@ -188,7 +210,7 @@ const reservedKeywords = new Set([
   'find',
   'search',
   'check',
-  'make', // Added make, check
+  'make',
 ]);
 
 /**
@@ -205,7 +227,7 @@ function sanitizeTag(camelCasedTag: string): string {
     return `_${camelCasedTag}`;
   }
   // Append underscore if it's a reserved keyword
-  return reservedKeywords.has(camelCasedTag)
+  return reservedKeywords.has(camelcase(camelCasedTag))
     ? `${camelCasedTag}_`
     : camelCasedTag;
 }

@@ -4,12 +4,7 @@ import { npmRunPathEnv } from 'npm-run-path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { spinalcase } from 'stringcase';
 
-import {
-  getFolderExports,
-  methods,
-  pascalcase,
-  writeFiles,
-} from '@sdk-it/core';
+import { type WriteContent, getFolderExports, writeFiles } from '@sdk-it/core/file-system.js';
 
 import backend from './client.ts';
 import { generateCode } from './generator.ts';
@@ -19,9 +14,11 @@ import parserTxt from './http/parser.txt';
 import requestTxt from './http/request.txt';
 import responseTxt from './http/response.txt';
 import sendRequestTxt from './http/send-request.txt';
+import { toReadme } from './readme.ts';
 import { generateInputs } from './sdk.ts';
 import type { Style } from './style.ts';
 import { exclude, securityToOptions } from './utils.ts';
+import { methods, pascalcase } from '@sdk-it/core';
 
 function security(spec: OpenAPIObject) {
   const security = spec.security || [];
@@ -49,6 +46,7 @@ function security(spec: OpenAPIObject) {
 export async function generate(
   spec: OpenAPIObject,
   settings: {
+    readme?: boolean;
     style?: Style;
     output: string;
     useTsExtension?: boolean;
@@ -92,9 +90,7 @@ export async function generate(
     ? pascalcase(settings.name)
     : 'Client';
 
-  // const readme = generateReadme(spec, {
-  //   name: name,
-  // });
+  const readme = settings.readme ? toReadme(spec) : '';
 
   // FIXME: inputs, outputs should be generated before hand.
   const inputFiles = generateInputs(groups, commonZod, makeImport);
@@ -105,7 +101,6 @@ export async function generate(
     'outputs/.gitkeep': '',
     'inputs/.gitkeep': '',
     'models/.getkeep': '',
-    // 'README.md': readme,
   });
 
   await writeFiles(join(output, 'http'), {
@@ -188,7 +183,7 @@ ${template(sendRequestTxt, {})({ throwError: !style.errorAsValue, outputType: st
     'index.ts': await getFolderExports(output, settings.useTsExtension, ['ts']),
   });
   if (settings.mode === 'full') {
-    await writeFiles(settings.output, {
+    const configFiles: WriteContent = {
       'package.json': {
         ignoreIfExists: true,
         content: JSON.stringify(
@@ -229,7 +224,14 @@ ${template(sendRequestTxt, {})({ throwError: !style.errorAsValue, outputType: st
           2,
         ),
       },
-    });
+    };
+    if (readme) {
+      configFiles['README.md'] = {
+        ignoreIfExists: true,
+        content: readme,
+      };
+    }
+    await writeFiles(settings.output, configFiles);
   }
 
   await settings.formatCode?.({

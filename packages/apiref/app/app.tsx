@@ -1,7 +1,7 @@
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
-import { camelcase } from 'stringcase';
 
 import { loadRemote } from '@sdk-it/spec/loaders/remote-loader.js';
+import { toSidebar, type SidebarData } from '@sdk-it/spec/sidebar.js';
 
 import { ApiContent } from './api-doc/api-content';
 import { ApiHeader } from './api-doc/api-header';
@@ -16,42 +16,14 @@ import {
   SidebarProvider,
   SidebarRail,
 } from './shadcn/sidebar';
-import { NavMain, type SidebarData } from './sidebar/nav';
+import { NavMain } from './sidebar/nav';
 
-export async function loader({ params }: { params: any }) {
+export async function loader({ params }: { params: { '*'?: string } }) {
   const spec = await loadRemote<OpenAPIObject>(
     'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
     // 'https://api.openstatus.dev/v1/openapi',
   );
-  const openapi: OpenAPIObject & { 'x-oaiMeta': XOaiMeta } = spec as any;
-  const sidebar: SidebarData = [];
-  for (const navGroup of openapi['x-oaiMeta'].navigationGroups) {
-    const group = openapi['x-oaiMeta'].groups.filter(
-      (group) => group.navigationGroup === navGroup.id,
-    );
-    const [activeGroup] = (params['*'] || '').split('/');
-    sidebar.push({
-      category: navGroup.title,
-      isActive: false,
-      items: group.map((item) => ({
-        id: item.id,
-        title: item.title,
-        url: `/${item.id}`,
-        isActive: activeGroup === item.id,
-        description: item.description,
-        items: (item.sections ?? [])
-          .filter((it) => it.type === 'endpoint')
-          .map((section) => ({
-            id: section.key,
-            title: section.key,
-            url: `/${item.id}/${camelcase(section.key)}`,
-            isActive:
-              `/${item.id}/${camelcase(section.key)}` === `/${params['*']}`,
-          })),
-      })),
-    });
-  }
-  return { spec, sidebar };
+  return { spec, sidebar: toSidebar(spec, params['*'] || '') };
 }
 
 export default function Page({
@@ -88,31 +60,4 @@ export default function Page({
       </SidebarInset>
     </SidebarProvider>
   );
-}
-
-export interface XOaiMeta {
-  navigationGroups: NavigationGroup[];
-  groups: Group[];
-}
-
-export interface Group {
-  id: string;
-  title: string;
-  description: string;
-  navigationGroup: string;
-  sections?: Section[];
-  beta?: boolean;
-  legacy?: boolean;
-}
-
-export interface Section {
-  type: 'endpoint' | 'object';
-  key: string;
-  path: string;
-}
-
-export interface NavigationGroup {
-  id: string;
-  title: string;
-  beta?: boolean;
 }

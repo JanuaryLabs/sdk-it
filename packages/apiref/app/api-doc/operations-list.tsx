@@ -4,9 +4,9 @@ import type {
 } from '@sdk-it/spec/operation.js';
 
 import { Separator } from '../shadcn/separator';
-import type { CategoryItem } from '../sidebar/nav';
 import { MD } from './md';
 import { OperationCard } from './operation-card';
+import type { CategoryItem } from '@sdk-it/spec/sidebar.js';
 
 interface OperationsListProps {
   sidebarData: CategoryItem[];

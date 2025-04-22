@@ -22,13 +22,11 @@ export async function readFolder(path: string) {
   return [] as string[];
 }
 
-export async function writeFiles(
-  dir: string,
-  contents: Record<
-    string,
-    null | string | { content: string; ignoreIfExists?: boolean }
-  >,
-) {
+export type WriteContent = Record<
+  string,
+  null | string | { content: string; ignoreIfExists?: boolean }
+>;
+export async function writeFiles(dir: string, contents: WriteContent) {
   await Promise.all(
     Object.entries(contents).map(async ([file, content]) => {
       if (content === null) {

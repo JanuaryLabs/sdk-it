@@ -9,7 +9,6 @@ import type { TypeDeriver } from './lib/deriver.ts';
 import type { ResponseItem } from './lib/paths.ts';
 
 export * from './lib/deriver.ts';
-export * from './lib/file-system.ts';
 export * from './lib/paths.ts';
 export * from './lib/program.ts';
 export * from './lib/ref.ts';
