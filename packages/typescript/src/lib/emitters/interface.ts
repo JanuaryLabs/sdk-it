@@ -11,7 +11,7 @@ type OnRefCallback = (ref: string, interfaceContent: string) => void;
 /**
  * Convert an OpenAPI (JSON Schema style) object into TypeScript interfaces,
  */
-export class TypeScriptDeserialzer {
+export class TypeScriptEmitter {
   generatedRefs = new Set<string>();
   #spec: OpenAPIObject;
   #onRef: OnRefCallback;
@@ -165,7 +165,7 @@ export class TypeScriptDeserialzer {
     if (schema.contentEncoding === 'binary') {
       return appendOptional('Blob', required);
     }
-    
+
     switch (schema.format) {
       case 'date-time':
       case 'datetime':

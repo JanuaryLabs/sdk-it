@@ -3,6 +3,7 @@ import type {
   OperationObject,
   ParameterObject,
   ReferenceObject,
+  RequestBodyObject,
   ResponseObject,
 } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
@@ -40,6 +41,7 @@ export type TunedOperationObject = Omit<
   operationId: string;
   parameters: (ParameterObject | ReferenceObject)[];
   responses: Record<string, ResponseObject>;
+  requestBody: RequestBodyObject | undefined;
 };
 
 export interface OperationEntry {
@@ -87,6 +89,10 @@ export function forEachOperation<T>(
       const operationTag = formatTag(operation, fixedPath);
       const metadata = operation['x-oaiMeta'] ?? {};
 
+      const requestBody = isRef(operation.requestBody)
+        ? followRef<RequestBodyObject>(config.spec, operation.requestBody.$ref)
+        : operation.requestBody;
+
       result.push(
         callback(
           {
@@ -101,6 +107,7 @@ export function forEachOperation<T>(
             parameters: [...parameters, ...(operation.parameters ?? [])],
             operationId: operationName,
             responses: resolveResponses(config.spec, operation),
+            requestBody: requestBody,
           },
         ),
       );

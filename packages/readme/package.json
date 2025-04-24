@@ -1,0 +1,28 @@
+{
+  "name": "@sdk-it/readme",
+  "version": "0.20.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!**/*.tsbuildinfo"
+  ],
+  "dependencies": {
+    "openapi3-ts": "4.4.0",
+    "@sdk-it/core": "0.20.0",
+    "@sdk-it/spec": "0.20.0"
+  }
+}

@@ -2,9 +2,9 @@ import { template } from 'lodash-es';
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
-import { spinalcase } from 'stringcase';
+import { camelcase, spinalcase } from 'stringcase';
 
-import { methods, pascalcase } from '@sdk-it/core';
+import { isEmpty, methods, pascalcase } from '@sdk-it/core';
 import {
   type WriteContent,
   getFolderExports,
@@ -12,6 +12,7 @@ import {
 } from '@sdk-it/core/file-system.js';
 
 import backend from './client.ts';
+import { SnippetEmitter } from './emitters/snippet.ts';
 import { generateCode } from './generator.ts';
 import interceptors from './http/interceptors.txt';
 import parseResponse from './http/parse-response.txt';
@@ -94,7 +95,38 @@ export async function generate(
     ? pascalcase(settings.name)
     : 'Client';
 
-  const readme = settings.readme ? toReadme(spec) : '';
+  const snippetEmitter = new SnippetEmitter(spec);
+  const packageName = settings.name
+    ? `@${spinalcase(clientName.toLowerCase())}/sdk`
+    : 'sdk';
+  const readme = toReadme(spec, {
+    generateSnippet: (entry, operation) => {
+      let payload = '{}';
+      if (!isEmpty(operation.requestBody)) {
+        // Find the first content type with schema
+        const contentTypes = Object.keys(operation.requestBody.content || {});
+        if (contentTypes.length > 0) {
+          const firstContent = operation.requestBody.content[contentTypes[0]];
+          if (firstContent?.schema) {
+            const examplePayload = snippetEmitter.handle(firstContent.schema);
+            payload = JSON.stringify(examplePayload, null, 2);
+          }
+        }
+      }
+
+      return `
+import { ${clientName} } from '${packageName}';
+
+const ${camelcase(clientName)} = new ${clientName}({
+  baseUrl: '${spec.servers?.[0]?.url ?? 'http://localhost:3000'}',
+});
+
+const result = await ${camelcase(clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload});
+
+console.log(result.data);
+`;
+    },
+  });
 
   // FIXME: inputs, outputs should be generated before hand.
   const inputFiles = generateInputs(groups, commonZod, makeImport);
@@ -192,11 +224,20 @@ ${template(sendRequestTxt, {})({ throwError: !style.errorAsValue, outputType: st
         ignoreIfExists: true,
         content: JSON.stringify(
           {
-            name: settings.name
-              ? `@${spinalcase(clientName.toLowerCase())}/sdk`
-              : 'sdk',
+            name: packageName,
+            version: '0.0.1',
             type: 'module',
             main: './src/index.ts',
+            module: './src/index.ts',
+            types: './src/index.ts',
+            exports: {
+              './package.json': './package.json',
+              '.': {
+                import: './src/index.ts',
+                default: './src/index.ts',
+                types: './src/index.ts',
+              },
+            },
             dependencies: {
               'fast-content-type-parse': '^3.0.0',
               zod: '^3.24.2',
@@ -231,7 +272,7 @@ ${template(sendRequestTxt, {})({ throwError: !style.errorAsValue, outputType: st
     };
     if (readme) {
       configFiles['README.md'] = {
-        ignoreIfExists: true,
+        ignoreIfExists: false,
         content: readme,
       };
     }

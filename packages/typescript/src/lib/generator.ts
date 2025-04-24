@@ -16,7 +16,7 @@ import {
   forEachOperation,
 } from '@sdk-it/spec/operation.js';
 
-import { ZodDeserialzer } from './emitters/zod.ts';
+import { ZodEmitter } from './emitters/zod.ts';
 import {
   type Operation,
   type OperationInput,
@@ -56,7 +56,7 @@ export function generateCode(
 ) {
   const commonZod = new Map<string, string>();
   const commonZodImports: Import[] = [];
-  const zodDeserialzer = new ZodDeserialzer(config.spec, (model, schema) => {
+  const zodDeserialzer = new ZodEmitter(config.spec, (model, schema) => {
     commonZod.set(model, schema);
     commonZodImports.push({
       defaultImport: undefined,
@@ -124,14 +124,13 @@ export function generateCode(
     let outgoingContentType: string | undefined;
 
     if (!isEmpty(operation.requestBody)) {
-      const requestBody = isRef(operation.requestBody)
-        ? followRef<RequestBodyObject>(config.spec, operation.requestBody.$ref)
-        : operation.requestBody;
-
-      for (const type in requestBody.content) {
-        const ctSchema = isRef(requestBody.content[type].schema)
-          ? followRef(config.spec, requestBody.content[type].schema.$ref)
-          : requestBody.content[type].schema;
+      for (const type in operation.requestBody.content) {
+        const ctSchema = isRef(operation.requestBody.content[type].schema)
+          ? followRef(
+              config.spec,
+              operation.requestBody.content[type].schema.$ref,
+            )
+          : operation.requestBody.content[type].schema;
         if (!ctSchema) {
           console.warn(
             `Schema not found for ${type} in ${entry.method} ${entry.path}`,
@@ -143,7 +142,7 @@ export function generateCode(
         if (objectSchema.type !== 'object') {
           objectSchema = {
             type: 'object',
-            required: [requestBody.required ? '$body' : ''],
+            required: [operation.requestBody.required ? '$body' : ''],
             properties: {
               $body: ctSchema,
             },
@@ -168,11 +167,13 @@ export function generateCode(
         schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
       }
 
-      if (requestBody.content['application/json']) {
+      if (operation.requestBody.content['application/json']) {
         outgoingContentType = 'json';
-      } else if (requestBody.content['application/x-www-form-urlencoded']) {
+      } else if (
+        operation.requestBody.content['application/x-www-form-urlencoded']
+      ) {
         outgoingContentType = 'urlencoded';
-      } else if (requestBody.content['multipart/form-data']) {
+      } else if (operation.requestBody.content['multipart/form-data']) {
         outgoingContentType = 'formdata';
       } else {
         outgoingContentType = 'json';

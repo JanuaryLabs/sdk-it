@@ -9,7 +9,7 @@ import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
 import { followRef, isRef, toLitObject } from '@sdk-it/core';
 
-import { TypeScriptDeserialzer } from './emitters/interface.ts';
+import { TypeScriptEmitter } from './emitters/interface.ts';
 import { type Import, type MakeImportFn } from './utils.ts';
 
 export type Parser = 'chunked' | 'buffered';
@@ -254,7 +254,7 @@ function handleResponse(
   const responses: { name: string; schema: string; description?: string }[] =
     [];
   const outputs: string[] = [];
-  const typeScriptDeserialzer = new TypeScriptDeserialzer(
+  const typeScriptDeserialzer = new TypeScriptEmitter(
     spec,
     (schemaName, zod) => {
       schemas[schemaName] = zod;
