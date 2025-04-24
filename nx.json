@@ -117,6 +117,7 @@
       "conventionalCommits": true
     }
   },
+  "sync": { "applyChanges": true },
   "generators": {
     "@nx/react": {
       "application": {

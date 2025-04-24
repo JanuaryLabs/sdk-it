@@ -11,7 +11,7 @@ export function ApiInfoSection({ info }: { info: InfoObject }) {
 
   return (
     <div className="border-b p-8">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <Badge className="px-1.5 py-0" variant="secondary">
           v{info.version}
         </Badge>

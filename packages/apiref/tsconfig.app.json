@@ -38,6 +38,9 @@
   ],
   "references": [
     {
+      "path": "../typescript/tsconfig.lib.json"
+    },
+    {
       "path": "../spec/tsconfig.lib.json"
     }
   ]

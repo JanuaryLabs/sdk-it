@@ -23,7 +23,7 @@ export function NavMain({ items }: { items: SidebarData }) {
     <>
       {items.map((category) => (
         <SidebarGroup key={category.category} className="py-0 ">
-          <SidebarGroupLabel className="text-xs text-foreground font-bold uppercase">
+          <SidebarGroupLabel className="text-sm text-foreground font-bold uppercase">
             {category.category}
           </SidebarGroupLabel>
           <SidebarMenu className="gap-0">
@@ -37,7 +37,7 @@ export function NavMain({ items }: { items: SidebarData }) {
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
-                      className="text-xs font-normal"
+                      className="text-sm font-normal"
                       size={'sm'}
                       tooltip={item.title}
                     >
@@ -51,7 +51,7 @@ export function NavMain({ items }: { items: SidebarData }) {
                       {item.items?.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.title}>
                           <SidebarMenuSubButton
-                            className="text-xs"
+                            className="text-sm text-gray-600"
                             asChild
                             isActive={subItem.isActive}
                             size="sm"

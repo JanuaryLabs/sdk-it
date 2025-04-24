@@ -391,7 +391,7 @@ export function toReadme(
 
     const snippet = generators.generateSnippet(entry, operation);
     markdown.push(`##### Example usage`);
-    markdown.push('```typescript\n' + snippet + '\n```');
+    markdown.push(snippet);
 
     // Process request body using the refactored emitter
     const requestBodyContent = propEmitter.requestBody(operation.requestBody);

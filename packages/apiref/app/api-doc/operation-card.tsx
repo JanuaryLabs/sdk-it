@@ -1,16 +1,12 @@
-import ReactMarkdown from 'react-markdown';
+import type { TunedOperationObject } from '@sdk-it/spec/operation.js';
 
-import type {
-  OperationEntry,
-  TunedOperationObject,
-} from '@sdk-it/spec/operation.js';
-
+import SdksTabs from '../components/sdks-tabs';
 import { Badge } from '../shadcn/badge';
-import { linkifyText } from './format-text';
 import { MD } from './md';
+import type { AugmentedOperation } from './types';
 
 interface OperationCardProps {
-  entry: OperationEntry;
+  entry: AugmentedOperation;
   operation: TunedOperationObject;
   operationId: string;
 }
@@ -20,25 +16,32 @@ export function OperationCard({
   operation,
   operationId,
 }: OperationCardProps) {
-  // Apply linkification to the entire description
-  const markdownDescription = operation.description
-    ? linkifyText(operation.description)
-    : '';
-
   return (
-    <div id={operationId}>
-      <span className="text-3xl font-semibold">
-        {entry.name || operationId}
-      </span>
-      <div className="my-4 flex items-center">
-        <Badge variant={'secondary'} className="gap-x-1 py-1">
-          <span className="font-mono">{entry.method.toUpperCase()}</span>
-          <span>{entry.path}</span>
-        </Badge>
+    <div id={operationId} className="grid grid-cols-2 items-start gap-x-4">
+      <div id="left" className="sticky top-0 self-start pt-12">
+        <span className="text-3xl font-semibold">
+          {entry.name || operationId}
+        </span>
+        <div className="my-4 flex items-center">
+          <Badge variant={'secondary'} className="gap-x-1 py-1">
+            <span className="font-mono">{entry.method.toUpperCase()}</span>
+            <span className="font-normal">{entry.path}</span>
+          </Badge>
+        </div>
+
+        <div className="prose max-w-none text-sm">
+          <MD content={operation.summary}></MD>
+        </div>
       </div>
 
-      <div className="prose max-w-none text-sm">
-        <MD content={operation.summary}></MD>
+      <div id="right" className="sticky top-0 self-start pt-12">
+        <SdksTabs
+          tabs={entry.snippets.map((snippet) => ({
+            name: snippet.language,
+            value: snippet.language,
+            content: <MD content={snippet.code} />,
+          }))}
+        />
       </div>
     </div>
   );

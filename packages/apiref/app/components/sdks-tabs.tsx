@@ -1,0 +1,58 @@
+'use client';
+
+import { Copy } from 'lucide-react';
+import type { ReactNode } from 'react';
+
+import { Button } from '../shadcn/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../shadcn/tabs';
+
+interface SdkTab {
+  name: string;
+  value: string;
+  content: ReactNode;
+}
+
+// const tabs: SdkTab[] = [
+//   {
+//     name: 'typescript',
+//     value: 'TypeScript',
+//     content: 'pnpm dlx shadcn@latest add tabs',
+//   },
+//   {
+//     name: 'curl',
+//     value: 'CURL',
+//     content: 'pnpm dlx shadcn@latest add tabs',
+//   },
+//   {
+//     name: 'Dart',
+//     value: 'dart',
+//     content: 'npx shadcn@latest add tabs',
+//   },
+// ];
+export default function SdksTabs({ tabs }: { tabs: SdkTab[] }) {
+  return (
+    <Tabs defaultValue={tabs[0].value} className="w-full">
+      <TabsList className="w-full p-0 bg-background justify-start border-b rounded-none">
+        {tabs.map((tab) => (
+          <TabsTrigger
+            key={tab.value}
+            value={tab.value}
+            className="rounded-none bg-background h-full data-[state=active]:shadow-none border border-transparent border-b-border data-[state=active]:border-border data-[state=active]:border-b-background -mb-[2px] rounded-t"
+          >
+            <code className="text-xs">{tab.name}</code>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+
+      {tabs.map((tab) => (
+        <TabsContent
+          className="mt-0 border border-t-0"
+          key={tab.value}
+          value={tab.value}
+        >
+          {tab.content}
+        </TabsContent>
+      ))}
+    </Tabs>
+  );
+}

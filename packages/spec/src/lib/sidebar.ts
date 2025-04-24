@@ -26,7 +26,6 @@ export type CategoryItem = {
 
 export type SidebarData = CategoryItem[];
 
-
 export function toSidebar(spec: OpenAPIObject, route: string) {
   const openapi: OpenAPIObject & { 'x-oaiMeta': XOaiMeta } = spec as any;
   const sidebar: SidebarData = [];

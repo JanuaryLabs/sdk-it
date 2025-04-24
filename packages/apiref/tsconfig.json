@@ -3,6 +3,9 @@
   "include": [],
   "references": [
     {
+      "path": "../typescript"
+    },
+    {
       "path": "../spec"
     },
     {

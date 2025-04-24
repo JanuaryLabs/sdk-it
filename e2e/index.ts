@@ -42,7 +42,7 @@ const specs = [
   {
     name: 'openstatus',
     spec: 'https://api.openstatus.dev/v1/openapi',
-    flags:[]
+    flags: ['--readme=true'],
   },
   // {
   //   name: 'UploadThings',

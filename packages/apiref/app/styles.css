@@ -1,7 +1,3 @@
-@import '@fontsource-variable/open-sans';
-
-
-
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
@@ -126,19 +122,17 @@
     @apply bg-background text-foreground;
   }
   body {
-  font-family: 'Open Sans Variable', sans-serif;
+    font-family: 'Figtree', sans-serif;
     font-weight: 400;
   }
-
-  /* @supports (font-variation-settings: normal) {
-    body {
-      font-family: 'Roboto Flex Variable', sans-serif;
-      font-weight: 400;
-      font-variation-settings:
-        'wdth' 75,
-        'wght' 400;
-    }
-  } */
+  body {
+    --ec-frm-frameBoxShdCssVal: none !important;
+    --ec-brdCol: hsl(var(--border)) !important;
+    --ec-brdWd: 1px !important;
+    --ec-brdRad: var(--radius) !important;
+    --ec-codeFontFml: theme('fontFamily.mono');
+    --ec-uiFontFml: theme('fontFamily.sans');
+  }
 }
 
 @layer base {

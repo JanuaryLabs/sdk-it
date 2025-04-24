@@ -103,7 +103,9 @@ export class TypeScriptGenerator {
       }
     }
 
-    return `
+    return [
+      '```typescript showLineNumbers',
+      `
 import { ${this.#clientName} } from '${this.#packageName}';
 
 const ${camelcase(this.#clientName)} = new ${this.#clientName}({
@@ -113,28 +115,15 @@ const ${camelcase(this.#clientName)} = new ${this.#clientName}({
 const result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload});
 
 console.log(result.data);
-`;
+`,
+      '```',
+    ].join('\n');
   }
 }
 
 export async function generate(
   spec: OpenAPIObject,
-  settings: {
-    readme?: boolean;
-    style?: Style;
-    output: string;
-    useTsExtension?: boolean;
-    name?: string;
-    /**
-     * full: generate a full project including package.json and tsconfig.json. useful for monorepo/workspaces
-     * minimal: generate only the client sdk
-     */
-    mode?: 'full' | 'minimal';
-    formatCode?: (options: {
-      output: string;
-      env: ReturnType<typeof npmRunPathEnv>;
-    }) => void | Promise<void>;
-  },
+  settings: TypeScriptGeneratorOptions,
 ) {
   const generator = new TypeScriptGenerator(spec, settings);
   const style = Object.assign(
@@ -315,7 +304,7 @@ ${template(sendRequestTxt, {})({ throwError: !style.errorAsValue, outputType: st
       configFiles['README.md'] = {
         ignoreIfExists: false,
         content: toReadme(spec, {
-          generateSnippet:(...args)=> generator.snippet(...args),
+          generateSnippet: (...args) => generator.snippet(...args),
         }),
       };
     }
