@@ -25,6 +25,7 @@ interface Options {
   defaultFormatter: boolean;
   outputType?: 'default' | 'status';
   errorAsValue?: boolean;
+  readme?: boolean;
 }
 
 export default new Command('typescript')
@@ -54,6 +55,9 @@ export default new Command('typescript')
     'Install dependencies using npm (only in full mode)',
     true,
   )
+  .option('--readme <readme>', 'Generate a README file', (value) =>
+    value === 'false' ? false : true,
+  )
   .option('--output-type <outputType>', 'Endpoint output type', 'default')
   .option(
     '--error-as-value <errorAsValue>',
@@ -75,6 +79,7 @@ export default new Command('typescript')
         outputType: options.outputType,
         errorAsValue: options.errorAsValue,
       },
+      readme: options.readme,
       useTsExtension: options.useTsExtension,
       formatCode: ({ env, output }) => {
         if (options.formatter) {
@@ -91,14 +96,6 @@ export default new Command('typescript')
             },
             stdio: options.verbose ? 'inherit' : 'pipe',
           });
-          // execSync(`npx -y prettier ${shellEnv('SDK_IT_OUTPUT')} --write`, {
-          //   env: {
-          //     ...env,
-          //     SDK_IT_OUTPUT: output,
-          //     NODE_OPTIONS: '--experimental-strip-types',
-          //   },
-          //   stdio: options.verbose ? 'inherit' : 'pipe',
-          // });
         }
       },
     });

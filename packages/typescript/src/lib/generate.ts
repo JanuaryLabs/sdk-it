@@ -10,6 +10,10 @@ import {
   getFolderExports,
   writeFiles,
 } from '@sdk-it/core/file-system.js';
+import type {
+  OperationEntry,
+  TunedOperationObject,
+} from '@sdk-it/spec/operation.js';
 
 import backend from './client.ts';
 import { SnippetEmitter } from './emitters/snippet.ts';
@@ -48,6 +52,71 @@ function security(spec: OpenAPIObject) {
   return options;
 }
 
+export interface TypeScriptGeneratorOptions {
+  readme?: boolean;
+  style?: Style;
+  output: string;
+  useTsExtension?: boolean;
+  name?: string;
+  /**
+   * full: generate a full project including package.json and tsconfig.json. useful for monorepo/workspaces
+   * minimal: generate only the client sdk
+   */
+  mode?: 'full' | 'minimal';
+  formatCode?: (options: {
+    output: string;
+    env: ReturnType<typeof npmRunPathEnv>;
+  }) => void | Promise<void>;
+}
+
+export class TypeScriptGenerator {
+  #spec: OpenAPIObject;
+  #settings: TypeScriptGeneratorOptions;
+  #snippetEmitter: SnippetEmitter;
+  #clientName: string;
+  #packageName: string;
+  constructor(spec: OpenAPIObject, settings: TypeScriptGeneratorOptions) {
+    this.#spec = spec;
+    this.#settings = settings;
+    this.#snippetEmitter = new SnippetEmitter(spec);
+    this.#clientName = settings.name?.trim()
+      ? pascalcase(settings.name)
+      : 'Client';
+
+    this.#packageName = settings.name
+      ? `@${spinalcase(this.#clientName.toLowerCase())}/sdk`
+      : 'sdk';
+  }
+  snippet(entry: OperationEntry, operation: TunedOperationObject) {
+    let payload = '{}';
+    if (!isEmpty(operation.requestBody)) {
+      // Find the first content type with schema
+      const contentTypes = Object.keys(operation.requestBody.content || {});
+      if (contentTypes.length > 0) {
+        const firstContent = operation.requestBody.content[contentTypes[0]];
+        if (firstContent?.schema) {
+          const examplePayload = this.#snippetEmitter.handle(
+            firstContent.schema,
+          );
+          payload = JSON.stringify(examplePayload, null, 2);
+        }
+      }
+    }
+
+    return `
+import { ${this.#clientName} } from '${this.#packageName}';
+
+const ${camelcase(this.#clientName)} = new ${this.#clientName}({
+  baseUrl: '${this.#spec.servers?.[0]?.url ?? 'http://localhost:3000'}',
+});
+
+const result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload});
+
+console.log(result.data);
+`;
+  }
+}
+
 export async function generate(
   spec: OpenAPIObject,
   settings: {
@@ -67,6 +136,7 @@ export async function generate(
     }) => void | Promise<void>;
   },
 ) {
+  const generator = new TypeScriptGenerator(spec, settings);
   const style = Object.assign(
     {},
     {
@@ -95,38 +165,9 @@ export async function generate(
     ? pascalcase(settings.name)
     : 'Client';
 
-  const snippetEmitter = new SnippetEmitter(spec);
   const packageName = settings.name
     ? `@${spinalcase(clientName.toLowerCase())}/sdk`
     : 'sdk';
-  const readme = toReadme(spec, {
-    generateSnippet: (entry, operation) => {
-      let payload = '{}';
-      if (!isEmpty(operation.requestBody)) {
-        // Find the first content type with schema
-        const contentTypes = Object.keys(operation.requestBody.content || {});
-        if (contentTypes.length > 0) {
-          const firstContent = operation.requestBody.content[contentTypes[0]];
-          if (firstContent?.schema) {
-            const examplePayload = snippetEmitter.handle(firstContent.schema);
-            payload = JSON.stringify(examplePayload, null, 2);
-          }
-        }
-      }
-
-      return `
-import { ${clientName} } from '${packageName}';
-
-const ${camelcase(clientName)} = new ${clientName}({
-  baseUrl: '${spec.servers?.[0]?.url ?? 'http://localhost:3000'}',
-});
-
-const result = await ${camelcase(clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload});
-
-console.log(result.data);
-`;
-    },
-  });
 
   // FIXME: inputs, outputs should be generated before hand.
   const inputFiles = generateInputs(groups, commonZod, makeImport);
@@ -270,10 +311,12 @@ ${template(sendRequestTxt, {})({ throwError: !style.errorAsValue, outputType: st
         ),
       },
     };
-    if (readme) {
+    if (settings.readme) {
       configFiles['README.md'] = {
         ignoreIfExists: false,
-        content: readme,
+        content: toReadme(spec, {
+          generateSnippet:(...args)=> generator.snippet(...args),
+        }),
       };
     }
     await writeFiles(settings.output, configFiles);
