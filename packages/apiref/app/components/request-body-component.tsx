@@ -69,39 +69,6 @@ export const RequestBodyComponent: React.FC<RequestBodyComponentProps> = ({
                 )}
               </div>
             )}
-
-            {mediaType.example && (
-              <div className="request-example">
-                <h6>Example:</h6>
-                <pre>{JSON.stringify(mediaType.example, null, 2)}</pre>
-              </div>
-            )}
-
-            {mediaType.examples &&
-              Object.entries(mediaType.examples).length > 0 && (
-                <div className="request-examples">
-                  <h6>Examples:</h6>
-                  {Object.entries(mediaType.examples).map(
-                    ([exampleName, example]) => {
-                      const resolvedExample = isRef(example)
-                        ? followRef<ExampleObject>(spec, example.$ref)
-                        : example;
-
-                      return (
-                        <div key={exampleName} className="example-item">
-                          <h6>{exampleName}</h6>
-                          {resolvedExample.summary && (
-                            <p>{resolvedExample.summary}</p>
-                          )}
-                          <pre>
-                            {JSON.stringify(resolvedExample.value, null, 2)}
-                          </pre>
-                        </div>
-                      );
-                    },
-                  )}
-                </div>
-              )}
           </div>
         );
       })}

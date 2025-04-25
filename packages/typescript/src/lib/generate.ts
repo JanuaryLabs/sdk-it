@@ -1,11 +1,7 @@
 import { template } from 'lodash-es';
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
-import type {
-  OpenAPIObject,
-  SchemaObject,
-  SchemaObjectType,
-} from 'openapi3-ts/oas31';
+import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 import { camelcase, spinalcase } from 'stringcase';
 
 import { followRef, isEmpty, isRef, methods, pascalcase } from '@sdk-it/core';
@@ -116,16 +112,22 @@ export class TypeScriptGenerator {
           schema.required.push(
             ...operation.parameters.map((param) => param.name),
           );
-          const paramProperties: Record<string, SchemaObject> = {};
+          const properties:Record<string, SchemaObject> = {}
           for (const param of operation.parameters) {
             const paramSchema = isRef(param.schema)
               ? followRef<SchemaObject>(this.#spec, param.schema.$ref)
               : (param.schema ?? ({ type: 'string' } satisfies SchemaObject));
-            paramProperties[param.name] = paramSchema;
+            properties[param.name] = paramSchema;
           }
-          schema.properties ??= {};
-          schema.properties = { ...paramProperties, ...schema.properties };
-          const examplePayload = this.#snippetEmitter.handle(schema);
+
+          const examplePayload = this.#snippetEmitter.handle({
+            ...schema,
+            properties: Object.assign(
+              {},
+              properties,
+              schema.properties,
+            ),
+          });
           payload = JSON.stringify(examplePayload, null, 2);
         }
       }

@@ -28,7 +28,7 @@ export const ResponsesComponent: React.FC<ResponsesComponentProps> = ({
 
   return (
     <div className={className}>
-      <h4 className="text-lg font-semibold">Responses</h4>
+      <h4 className="text-lg font-semibold">Returns</h4>
 
       {Object.entries(responses as Record<string, ResponseObject>).map(
         ([statusCode, response]) => {
