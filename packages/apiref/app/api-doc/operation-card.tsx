@@ -22,10 +22,13 @@ export function OperationCard({
   const jsxEmitter = new JSXEmitter(spec);
 
   return (
-    <div id={operationId} className="grid grid-cols-[55%_minmax(0,100%)] items-start gap-x-8">
+    <div
+      id={operationId}
+      className="grid grid-cols-[55%_minmax(0,100%)] items-start gap-x-8"
+    >
       <div id="left" className="sticky top-0 self-start pt-12">
         <span className="text-3xl font-semibold">
-          {entry.name || operationId}
+          {operation.summary || entry.name || operationId}
         </span>
         <div className="my-4 flex items-center">
           <Badge variant={'secondary'} className="gap-x-1 py-1">

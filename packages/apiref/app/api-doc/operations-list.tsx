@@ -30,7 +30,7 @@ export function OperationsList({
               <h3 className="mb-4 text-3xl font-semibold">{group.title}</h3>
               <MD content={group.description} />
               <Separator className="mt-12" />
-              <div className=" grid gap-6">
+              <div className="grid gap-6">
                 {group.items?.map((item) => {
                   const operationId = item.url.split('/').pop() || '';
                   const { entry, operation } = operationsMap[operationId];
@@ -44,6 +44,7 @@ export function OperationsList({
                   );
                 })}
               </div>
+              <Separator className="mt-12" />
             </div>
           ))}
         </div>

@@ -55,7 +55,7 @@ export const RequestBodyComponent: React.FC<RequestBodyComponentProps> = ({
                 {Object.entries(schema.properties || {}).map(
                   ([propName, propSchema]) => (
                     <>
-                      <Separator className="my-4" />
+                    <Separator className="my-4" />
                       <SchemaProperty
                         key={propName}
                         name={propName}

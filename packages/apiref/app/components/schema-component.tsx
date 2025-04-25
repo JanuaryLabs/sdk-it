@@ -38,29 +38,51 @@ export const SchemaProperty: React.FC<SchemaProps> = ({
     );
   }
 
-  const getTypeDisplay = () => {
-    const types = Array.isArray(schema.type)
-      ? schema.type
-      : schema.type
-        ? [schema.type]
-        : [];
+  const getTypeDisplay = (
+    schemaToDisplay: SchemaObject | ReferenceObject = schema,
+  ): string => {
+    // Handle reference objects
+    if (isRef(schemaToDisplay)) {
+      const refName = schemaToDisplay.$ref.split('/').pop() || 'unknown';
+      return refName;
+    }
 
+    // Handle array types with nested item display
+    if (schemaToDisplay.type === 'array' && schemaToDisplay.items) {
+      // Recursively get the type of the array items
+      const itemDisplay = getTypeDisplay(
+        schemaToDisplay.items as SchemaObject | ReferenceObject,
+      );
+      return `array • ${itemDisplay}`;
+    }
+
+    // Handle enum types
+    if (schemaToDisplay.enum && schemaToDisplay.enum.length > 0) {
+      const valTypes = Array.from(
+        new Set(schemaToDisplay.enum.map((v) => typeof v)),
+      );
+      const baseType = valTypes.join(' | ') || 'unknown';
+      return `enum • ${baseType}`;
+    }
+
+    // Default type display
+    const types = Array.isArray(schemaToDisplay.type)
+      ? schemaToDisplay.type
+      : schemaToDisplay.type
+        ? [schemaToDisplay.type]
+        : [];
     let nullable = false;
     if (types.includes('null')) {
       nullable = true;
     }
-
     const mainTypes = types.filter((t) => t !== 'null');
     let typeDisplay = mainTypes.join(' | ') || 'unknown';
-
-    if (schema.format) {
-      typeDisplay += ` (${schema.format})`;
+    if (schemaToDisplay.format) {
+      typeDisplay += ` (${schemaToDisplay.format})`;
     }
-
     if (nullable) {
       typeDisplay += ' | null';
     }
-
     return typeDisplay;
   };
 
@@ -101,9 +123,9 @@ export const SchemaProperty: React.FC<SchemaProps> = ({
       )}
 
       {schema.enum && schema.enum.length > 0 && (
-        <div className="text-xs">
-          {indent}Enum: [
-          {schema.enum.map((val) => JSON.stringify(val)).join(', ')}]
+        <div className="text-xs text-muted-foreground">
+          {indent}Enum:
+          {schema.enum.map((val) => JSON.stringify(val)).join(', ')}
         </div>
       )}
     </>

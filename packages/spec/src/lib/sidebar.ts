@@ -1,5 +1,7 @@
-import type { OpenAPIObject } from 'openapi3-ts/oas31';
+import type { OpenAPIObject, OperationObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
+
+import { forEachOperation, type TunedOperationObject } from './operation';
 
 export type ChildNavItem = {
   id: string;
@@ -26,12 +28,54 @@ export type CategoryItem = {
 
 export type SidebarData = CategoryItem[];
 
+function createOAIMeta(spec: OpenAPIObject): XOaiMeta {
+  spec.paths ??= {};
+  const navigationGroups: Record<string, NavigationGroup> = {
+    default: { id: 'default', title: 'General' },
+  };
+  const groups: Record<string, Group> = {};
+
+  forEachOperation({ spec }, (entry, operation) => {
+    const tag = entry.tag;
+    groups[tag] ??= {
+      id: tag,
+      title: tag,
+      description: spec.tags?.find((t) => t.name === tag)?.description,
+      navigationGroup: 'default',
+      sections: [],
+    };
+    groups[tag].sections.push({
+      type: 'endpoint',
+      key: operation.operationId,
+      path: entry.path,
+    });
+  });
+
+  return {
+    groups: Object.values(groups),
+    navigationGroups: Object.values(navigationGroups),
+  };
+}
+
+
+function getOperationById(spec: OpenAPIObject, operationId: string) {
+  let operation: TunedOperationObject | undefined;
+  forEachOperation({ spec }, (entry, op) => {
+    if (op.operationId === operationId) {
+      operation = op;
+    }
+  });
+  return operation;
+}
+
+
 export function toSidebar(spec: OpenAPIObject, route: string) {
   const openapi: OpenAPIObject & { 'x-oaiMeta': XOaiMeta } = spec as any;
   const sidebar: SidebarData = [];
   const [activeGroup] = route.split('/');
-  for (const navGroup of openapi['x-oaiMeta'].navigationGroups) {
-    const group = openapi['x-oaiMeta'].groups.filter(
+  const oaiMeta = openapi['x-oaiMeta'] ?? createOAIMeta(spec);
+  for (const navGroup of oaiMeta.navigationGroups) {
+    const group = oaiMeta.groups.filter(
       (group) => group.navigationGroup === navGroup.id,
     );
     sidebar.push({
@@ -47,7 +91,7 @@ export function toSidebar(spec: OpenAPIObject, route: string) {
           .filter((it) => it.type === 'endpoint')
           .map((section) => ({
             id: section.key,
-            title: section.key,
+            title: getOperationById(spec, section.key)?.summary || section.key,
             url: `/${item.id}/${camelcase(section.key)}`,
             isActive: `/${item.id}/${camelcase(section.key)}` === `/${route}`,
           })),
@@ -65,9 +109,9 @@ export interface XOaiMeta {
 export interface Group {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   navigationGroup: string;
-  sections?: Section[];
+  sections: Section[];
   beta?: boolean;
   legacy?: boolean;
 }

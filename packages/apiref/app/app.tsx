@@ -36,7 +36,7 @@ export async function loader({ params }: { params: { '*'?: string } }) {
   //   // 'https://api.openstatus.dev/v1/openapi',
   // );
   const spec = await loadSpec(
-    join(process.cwd(), '../', '../', '.yamls', 'openai.yaml'),
+    join(process.cwd(), '../', '../', '.yamls', 'openstatus.json'),
   );
 
   const operationsMap: Record<
@@ -88,7 +88,7 @@ export async function loader({ params }: { params: { '*'?: string } }) {
       });
 
     const snippet = new HTTPSnippet({
-      url: (spec.servers?.[0]?.url || '') + urlPath,
+      url: (spec.servers?.[0]?.url || 'https://') + urlPath,
       method: entry.method.toUpperCase(),
       comment: operation.description,
       bodySize: -1,
