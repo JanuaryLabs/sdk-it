@@ -23,7 +23,7 @@ export function NavMain({ items }: { items: SidebarData }) {
     <>
       {items.map((category) => (
         <SidebarGroup key={category.category} className="py-0 ">
-          <SidebarGroupLabel className="text-sm text-foreground font-bold uppercase">
+          <SidebarGroupLabel className="text-xs text-foreground font-semibold uppercase">
             {category.category}
           </SidebarGroupLabel>
           <SidebarMenu className="gap-0">

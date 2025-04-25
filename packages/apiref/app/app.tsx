@@ -22,6 +22,7 @@ import {
   SidebarRail,
 } from './shadcn/sidebar';
 import { NavMain } from './sidebar/nav';
+import { SpecProvider } from './spec-context';
 
 type PromisedValue<T> = T extends Promise<infer U> ? U : never;
 
@@ -72,27 +73,29 @@ export default function Page({
   });
 
   return (
-    <SidebarProvider>
-      <Sidebar collapsible="icon">
-        <SidebarHeader>
-          {/* <TeamSwitcher teams={data.teams} /> */}
-        </SidebarHeader>
-        <SidebarContent className="gap-x-2 gap-y-0">
-          <NavMain items={sidebarData} />
-          {/* <NavProjects projects={data.projects} /> */}
-        </SidebarContent>
-        <SidebarFooter>{/* <NavUser user={data.user} /> */}</SidebarFooter>
-        <SidebarRail />
-      </Sidebar>
-      <SidebarInset>
-        <ApiHeader title={spec.info.title} />
-        <ApiContent
-          contentRef={contentRef}
-          info={spec.info}
-          sidebarData={sidebarData}
-          operationsMap={operationsMap}
-        />
-      </SidebarInset>
-    </SidebarProvider>
+    <SpecProvider spec={spec}>
+      <SidebarProvider>
+        <Sidebar collapsible="icon">
+          <SidebarHeader>
+            {/* <TeamSwitcher teams={data.teams} /> */}
+          </SidebarHeader>
+          <SidebarContent className="gap-x-2 gap-y-0">
+            <NavMain items={sidebarData} />
+            {/* <NavProjects projects={data.projects} /> */}
+          </SidebarContent>
+          <SidebarFooter>{/* <NavUser user={data.user} /> */}</SidebarFooter>
+          <SidebarRail />
+        </Sidebar>
+        <SidebarInset>
+          <ApiHeader title={spec.info.title} />
+          <ApiContent
+            contentRef={contentRef}
+            info={spec.info}
+            sidebarData={sidebarData}
+            operationsMap={operationsMap}
+          />
+        </SidebarInset>
+      </SidebarProvider>
+    </SpecProvider>
   );
 }

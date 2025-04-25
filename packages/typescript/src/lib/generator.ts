@@ -78,12 +78,11 @@ export function generateCode(
     const inputs: Operation['inputs'] = {};
 
     const additionalProperties: Record<string, ParameterObject> = {};
-    for (const param of operation.parameters ?? []) {
-      if (isRef(param)) {
-        throw new Error(`Found reference in parameter ${param.$ref}`);
-      }
+    for (const param of operation.parameters) {
       if (!param.schema) {
-        throw new Error(`Schema not found for parameter ${param.name}`);
+        param.schema = {
+          type: 'string',
+        };
       }
       inputs[param.name] = {
         in: param.in,

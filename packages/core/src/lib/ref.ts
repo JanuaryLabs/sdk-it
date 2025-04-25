@@ -1,5 +1,6 @@
 import { get } from 'lodash-es';
 import type {
+  HeaderObject,
   OpenAPIObject,
   ParameterObject,
   ReferenceObject,
@@ -29,12 +30,17 @@ export function parseRef(ref: string) {
   };
 }
 export function followRef<
-  T extends SchemaObject | ParameterObject | RequestBodyObject = SchemaObject,
+  T extends
+    | SchemaObject
+    | HeaderObject
+    | ParameterObject
+    | ReferenceObject
+    | RequestBodyObject = SchemaObject,
 >(spec: OpenAPIObject, ref: string): T {
   const pathParts = cleanRef(ref).split('/');
   const entry = get(spec, pathParts) as T | ReferenceObject;
   if (entry && '$ref' in entry) {
-    return followRef<T>(spec, entry.$ref);
+    return followRef<T>(spec, entry.$ref!);
   }
   return entry;
 }

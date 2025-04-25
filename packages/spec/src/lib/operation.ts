@@ -39,7 +39,7 @@ export type TunedOperationObject = Omit<
   'operationId' | 'parameters' | 'responses'
 > & {
   operationId: string;
-  parameters: (ParameterObject | ReferenceObject)[];
+  parameters: ParameterObject[];
   responses: Record<string, ResponseObject>;
   requestBody: RequestBodyObject | undefined;
 };
@@ -104,7 +104,12 @@ export function forEachOperation<T>(
           },
           {
             ...operation,
-            parameters: [...parameters, ...(operation.parameters ?? [])],
+            parameters: [...parameters, ...(operation.parameters ?? [])].map(
+              (it) =>
+                isRef(it)
+                  ? followRef<ParameterObject>(config.spec, it.$ref)
+                  : it,
+            ),
             operationId: operationName,
             responses: resolveResponses(config.spec, operation),
             requestBody: requestBody,
