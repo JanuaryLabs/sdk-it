@@ -26,8 +26,6 @@ export const RequestBodyComponent: React.FC<RequestBodyComponentProps> = ({
     return null;
   }
 
-  // const contentTypes = Object.keys(requestBody.content);
-
   return (
     <div className={className}>
       <h4 className="text-lg font-semibold">Request Body</h4>

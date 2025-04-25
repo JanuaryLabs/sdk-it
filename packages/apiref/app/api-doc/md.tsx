@@ -16,7 +16,9 @@ export function MD(props: { content?: string; className?: string }) {
     <div className={cn('prose prose-sm max-w-none', props.className)}>
       <Markdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[[rehypeExpressiveCode, {}]]}
+        rehypePlugins={[[rehypeExpressiveCode, {
+          themes: ['one-light'],
+        }]]}
       >
         {props.content}
       </Markdown>
