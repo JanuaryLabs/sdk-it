@@ -1,10 +1,14 @@
 import { template } from 'lodash-es';
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
-import type { OpenAPIObject } from 'openapi3-ts/oas31';
+import type {
+  OpenAPIObject,
+  SchemaObject,
+  SchemaObjectType,
+} from 'openapi3-ts/oas31';
 import { camelcase, spinalcase } from 'stringcase';
 
-import { isEmpty, methods, pascalcase } from '@sdk-it/core';
+import { followRef, isEmpty, isRef, methods, pascalcase } from '@sdk-it/core';
 import {
   type WriteContent,
   getFolderExports,
@@ -94,17 +98,41 @@ export class TypeScriptGenerator {
       const contentTypes = Object.keys(operation.requestBody.content || {});
       if (contentTypes.length > 0) {
         const firstContent = operation.requestBody.content[contentTypes[0]];
-        if (firstContent?.schema) {
-          const examplePayload = this.#snippetEmitter.handle(
-            firstContent.schema,
+        // let schema = firstContent.schema;
+        let schema = isRef(firstContent.schema)
+          ? followRef(this.#spec, firstContent.schema.$ref)
+          : firstContent.schema;
+        if (schema) {
+          if (schema.type !== 'object') {
+            schema = {
+              type: 'object',
+              required: [operation.requestBody.required ? '$body' : ''],
+              properties: {
+                $body: schema,
+              },
+            };
+          }
+          schema.required ??= [];
+          schema.required.push(
+            ...operation.parameters.map((param) => param.name),
           );
+          const paramProperties: Record<string, SchemaObject> = {};
+          for (const param of operation.parameters) {
+            const paramSchema = isRef(param.schema)
+              ? followRef<SchemaObject>(this.#spec, param.schema.$ref)
+              : (param.schema ?? ({ type: 'string' } satisfies SchemaObject));
+            paramProperties[param.name] = paramSchema;
+          }
+          schema.properties ??= {};
+          schema.properties = { ...paramProperties, ...schema.properties };
+          const examplePayload = this.#snippetEmitter.handle(schema);
           payload = JSON.stringify(examplePayload, null, 2);
         }
       }
     }
 
     return [
-      '```typescript showLineNumbers',
+      '```typescript',
       `
 import { ${this.#clientName} } from '${this.#packageName}';
 

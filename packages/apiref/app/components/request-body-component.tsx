@@ -9,7 +9,7 @@ import { followRef, isEmpty, isRef } from '@sdk-it/core';
 
 import { Separator } from '../shadcn/separator';
 import { Description } from './description';
-import { SchemaComponent, SchemaProperty } from './schema-component';
+import { SchemaProperty } from './schema-component';
 
 interface RequestBodyComponentProps {
   requestBody: RequestBodyObject;
@@ -52,10 +52,6 @@ export const RequestBodyComponent: React.FC<RequestBodyComponentProps> = ({
         }
         return (
           <div key={contentType}>
-            {/* <h5 className='font-thin text-base'>
-            Content Type: <code>{contentType}</code>
-          </h5> */}
-
             {schema && (
               <div className="space-y-1">
                 {Object.entries(schema.properties || {}).map(

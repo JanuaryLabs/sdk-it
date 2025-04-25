@@ -5,7 +5,6 @@ import type {
   ParameterLocation,
   ParameterObject,
   ReferenceObject,
-  RequestBodyObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
 import { camelcase, pascalcase, spinalcase } from 'stringcase';

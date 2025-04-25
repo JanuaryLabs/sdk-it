@@ -12,23 +12,6 @@ interface SdkTab {
   content: ReactNode;
 }
 
-// const tabs: SdkTab[] = [
-//   {
-//     name: 'typescript',
-//     value: 'TypeScript',
-//     content: 'pnpm dlx shadcn@latest add tabs',
-//   },
-//   {
-//     name: 'curl',
-//     value: 'CURL',
-//     content: 'pnpm dlx shadcn@latest add tabs',
-//   },
-//   {
-//     name: 'Dart',
-//     value: 'dart',
-//     content: 'npx shadcn@latest add tabs',
-//   },
-// ];
 export default function SdksTabs({ tabs }: { tabs: SdkTab[] }) {
   return (
     <Tabs defaultValue={tabs[0].value} className="w-full">
@@ -46,7 +29,7 @@ export default function SdksTabs({ tabs }: { tabs: SdkTab[] }) {
 
       {tabs.map((tab) => (
         <TabsContent
-          className="mt-0 border border-t-0"
+          className="mt-0 border rounded-b border-t-0"
           key={tab.value}
           value={tab.value}
         >

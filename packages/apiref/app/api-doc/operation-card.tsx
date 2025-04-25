@@ -22,7 +22,7 @@ export function OperationCard({
   const jsxEmitter = new JSXEmitter(spec);
 
   return (
-    <div id={operationId} className="grid grid-cols-2 items-start gap-x-8">
+    <div id={operationId} className="grid grid-cols-[55%_minmax(0,100%)] items-start gap-x-8">
       <div id="left" className="sticky top-0 self-start pt-12">
         <span className="text-3xl font-semibold">
           {entry.name || operationId}
