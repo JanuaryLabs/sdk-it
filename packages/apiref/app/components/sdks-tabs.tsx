@@ -1,9 +1,5 @@
-'use client';
-
-import { Copy } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { Button } from '../shadcn/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../shadcn/tabs';
 
 interface SdkTab {

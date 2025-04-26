@@ -5,7 +5,7 @@ import type {
   ResponseObject,
   ResponsesObject,
 } from 'openapi3-ts/oas31';
-import React, { useState } from 'react';
+import React, { Fragment, useState } from 'react';
 
 import { followRef, isRef } from '@sdk-it/core';
 
@@ -141,7 +141,7 @@ export const ResponsesComponent: React.FC<ResponsesComponentProps> = ({
 
       <div className="">
         {entries.map(([statusCode, response]) => (
-          <>
+          <Fragment key={statusCode}>
             <ResponseItem
               key={statusCode}
               statusCode={statusCode}
@@ -150,7 +150,7 @@ export const ResponsesComponent: React.FC<ResponsesComponentProps> = ({
               collapsible={!single}
             />
             <Separator className="my-2" />
-          </>
+          </Fragment>
         ))}
       </div>
     </div>

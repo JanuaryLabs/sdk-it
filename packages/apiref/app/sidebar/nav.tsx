@@ -22,6 +22,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '../shadcn/sidebar';
+import { Link } from 'react-router';
 
 export function SidebarItem({ item }: { item: NavItem }) {
   return (
@@ -52,9 +53,11 @@ export function SidebarItem({ item }: { item: NavItem }) {
                   isActive={subItem.isActive}
                   size="sm"
                 >
-                  <a href={subItem.url}>
+                  <Link
+
+                    to={subItem.url}>
                     <span>{subItem.title}</span>
-                  </a>
+                  </Link>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>
             ))}

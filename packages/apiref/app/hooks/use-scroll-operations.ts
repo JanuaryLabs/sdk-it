@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
+import { useLocation } from 'react-router';
 
-import type { SidebarData } from '../sidebar/nav';
+import type { SidebarData } from '@sdk-it/spec/sidebar.js';
 
 interface UseScrollOperationsProps {
   sidebarData: SidebarData;
@@ -8,6 +9,7 @@ interface UseScrollOperationsProps {
 
 export function useScrollOperations({ sidebarData }: UseScrollOperationsProps) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
 
   useEffect(() => {
     if (!contentRef.current || sidebarData.length === 0) {
@@ -41,16 +43,17 @@ export function useScrollOperations({ sidebarData }: UseScrollOperationsProps) {
 
   useEffect(() => {
     if (!contentRef.current || sidebarData.length === 0) return;
-    const operationId = window.location.pathname.split('/').pop();
+    const operationId = location.pathname.split('/').pop();
     if (!operationId) return;
     const element = document.getElementById(operationId);
     if (element) {
+      const marginTop = 3 * 16; // 3 * 16px
       contentRef.current.scrollTo({
-        top: element.offsetTop,
+        top: element.offsetTop - marginTop,
         behavior: 'instant',
       });
     }
-  }, [sidebarData]);
+  }, [sidebarData, location]);
 
   return {
     contentRef,

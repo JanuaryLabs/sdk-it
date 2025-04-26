@@ -3,7 +3,7 @@ import type {
   OpenAPIObject,
   RequestBodyObject,
 } from 'openapi3-ts/oas31';
-import React from 'react';
+import React, { Fragment } from 'react';
 
 import { followRef, isEmpty, isRef } from '@sdk-it/core';
 
@@ -54,8 +54,8 @@ export const RequestBodyComponent: React.FC<RequestBodyComponentProps> = ({
               <div className="space-y-1">
                 {Object.entries(schema.properties || {}).map(
                   ([propName, propSchema]) => (
-                    <>
-                    <Separator className="my-4" />
+                    <Fragment key={propName}>
+                      <Separator className="my-4" />
                       <SchemaProperty
                         key={propName}
                         name={propName}
@@ -64,7 +64,7 @@ export const RequestBodyComponent: React.FC<RequestBodyComponentProps> = ({
                         level={0}
                         isNested
                       />
-                    </>
+                    </Fragment>
                   ),
                 )}
               </div>
