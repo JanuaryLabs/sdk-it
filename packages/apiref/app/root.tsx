@@ -1,6 +1,9 @@
 import HTTPSnippet from 'httpsnippet';
-import type { ParameterObject, RequestBodyObject } from 'openapi3-ts/oas31';
-import { join } from 'path';
+import type {
+  OpenAPIObject,
+  ParameterObject,
+  RequestBodyObject,
+} from 'openapi3-ts/oas31';
 import {
   Links,
   type LinksFunction,
@@ -12,7 +15,7 @@ import {
 } from 'react-router';
 
 import { followRef, isRef } from '@sdk-it/core';
-import { loadSpec } from '@sdk-it/spec';
+import { loadRemote } from '@sdk-it/spec/loaders/remote-loader.js';
 import {
   type TunedOperationObject,
   forEachOperation,
@@ -74,13 +77,13 @@ type PromisedValue<T> = T extends Promise<infer U> ? U : never;
 
 export async function loader({ params }: { params: { '*'?: string } }) {
   // console.log(join(process.cwd(),'../','../','.yamls','openai.yaml'));
-  // const spec = await loadRemote<OpenAPIObject>(
-  //   'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-  //   // 'https://api.openstatus.dev/v1/openapi',
-  // );
-  const spec = await loadSpec(
-    join(process.cwd(), '../', '../', '.yamls', 'openstatus.json'),
+  const spec = await loadRemote<OpenAPIObject>(
+    // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
+    'https://api.openstatus.dev/v1/openapi',
   );
+  // const spec = await loadSpec(
+  //   join(process.cwd(), '../', '../', '.yamls', 'openstatus.json'),
+  // );
 
   const operationsMap: Record<
     string,

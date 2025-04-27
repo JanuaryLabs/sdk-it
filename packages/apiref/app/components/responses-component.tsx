@@ -17,7 +17,7 @@ import {
 } from '../shadcn/collapsible';
 import { Separator } from '../shadcn/separator';
 import { Description } from './description';
-import { SchemaComponent } from './schema-component';
+import { SchemaComponent, getTypeDisplay } from './schema-component';
 
 interface ResponseItemProps {
   statusCode: string;
@@ -32,17 +32,24 @@ const ResponseItem: React.FC<ResponseItemProps> = ({
   spec,
   collapsible = false,
 }) => {
+  const [selectedContentType, setSelectedContentType] = useState<string | null>(
+    Object.entries(response.content ?? {})[0]?.[0] ?? null,
+  );
   const [expanded, setExpanded] = useState(false);
   const content = (
     <>
       {response.content &&
         Object.entries(response.content).map(([contentType, mediaType]) => (
-          <div key={contentType} className="response-content-type">
+          <div key={contentType}>
             {mediaType.schema && (
               <div className="response-schema">
-                <SchemaComponent schema={
-                  isRef(mediaType.schema) ? followRef(spec, mediaType.schema.$ref) : mediaType.schema
-                } />
+                <SchemaComponent
+                  schema={
+                    isRef(mediaType.schema)
+                      ? followRef(spec, mediaType.schema.$ref)
+                      : mediaType.schema
+                  }
+                />
               </div>
             )}
             {mediaType.example && (
@@ -107,14 +114,47 @@ const ResponseItem: React.FC<ResponseItemProps> = ({
 
   return (
     <div className="response-item">
-      <h5 className="response-status text-sm">
+      <h5 className={cn('text-sm cursor-pointer items-center flex gap-x-1')}>
         <code>{statusCode}</code>
+        <Type
+          spec={spec}
+          response={response}
+          selectedContentType={selectedContentType}
+        />
         <Description description={response.description} />
       </h5>
       {content}
     </div>
   );
 };
+
+function Type({
+  spec,
+  response,
+  selectedContentType,
+}: {
+  spec: OpenAPIObject;
+  response: ResponseObject;
+  selectedContentType: string | null;
+}) {
+  if (
+    !(
+      response.content &&
+      selectedContentType &&
+      response.content[selectedContentType].schema
+    )
+  ) {
+    return null;
+  }
+  const schema = isRef(response.content[selectedContentType].schema)
+    ? followRef(spec, response.content[selectedContentType].schema.$ref)
+    : response.content[selectedContentType].schema;
+  return (
+    <span className="text-muted-foreground text-xs">
+      {getTypeDisplay(schema)}
+    </span>
+  );
+}
 
 interface ResponsesComponentProps {
   responses: ResponsesObject;
