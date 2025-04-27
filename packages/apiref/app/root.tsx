@@ -1,31 +1,27 @@
 import HTTPSnippet from 'httpsnippet';
 import type { ParameterObject, RequestBodyObject } from 'openapi3-ts/oas31';
 import { join } from 'path';
-import { Links, type LinksFunction, Meta, type MetaFunction, Outlet, Scripts, ScrollRestoration } from 'react-router';
-import { useRouteLoaderData } from 'react-router';
-
-
+import {
+  Links,
+  type LinksFunction,
+  Meta,
+  type MetaFunction,
+  Outlet,
+  Scripts,
+  ScrollRestoration,
+} from 'react-router';
 
 import { followRef, isRef } from '@sdk-it/core';
 import { loadSpec } from '@sdk-it/spec';
-import { type TunedOperationObject, forEachOperation } from '@sdk-it/spec/operation.js';
+import {
+  type TunedOperationObject,
+  forEachOperation,
+} from '@sdk-it/spec/operation.js';
 import { toSidebar } from '@sdk-it/spec/sidebar.js';
 import { TypeScriptGenerator } from '@sdk-it/typescript';
 
-
-
-import { ApiContent } from './api-doc/api-content';
-import { ApiHeader } from './api-doc/api-header';
 import type { AugmentedOperation } from './api-doc/types';
-import { useScrollOperations } from './hooks/use-scroll-operations';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, SidebarProvider, SidebarRail } from './shadcn/sidebar';
-import { NavMain } from './sidebar/nav';
-import { SpecProvider } from './spec-context';
 import './styles.css';
-
-
-
-
 
 export const meta: MetaFunction = (args) => {
   return [
@@ -73,7 +69,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   return <Outlet />;
 }
-
 
 type PromisedValue<T> = T extends Promise<infer U> ? U : never;
 
@@ -135,8 +130,9 @@ export async function loader({ params }: { params: { '*'?: string } }) {
         urlPath = urlPath.replace(`{${param.name}}`, value);
       });
 
+    const url = spec.servers?.[0]?.url;
     const snippet = new HTTPSnippet({
-      url: (spec.servers?.[0]?.url || 'https://') + urlPath,
+      url: (!url || url === '/' ? 'https://' : url) + urlPath,
       method: entry.method.toUpperCase(),
       comment: operation.description,
       bodySize: -1,
@@ -197,7 +193,7 @@ export async function loader({ params }: { params: { '*'?: string } }) {
 
   return {
     spec,
-    sidebar: toSidebar(spec, params['*'] || ''),
+    sidebar: toSidebar(spec),
     operationsMap,
   };
 }

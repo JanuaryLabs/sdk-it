@@ -25,7 +25,7 @@ export default function SdksTabs({ tabs }: { tabs: SdkTab[] }) {
 
       {tabs.map((tab) => (
         <TabsContent
-          className="mt-0 border rounded-b border-t-0 p-1 bg-[#fafafa]"
+          className="mt-0 border rounded-b border-t-0 p-1"
           key={tab.value}
           value={tab.value}
         >

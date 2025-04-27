@@ -1,4 +1,5 @@
-import { ChevronRight, type LucideIcon } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
+import { Link, useParams } from 'react-router';
 
 import { isEmpty } from '@sdk-it/core';
 import type {
@@ -22,13 +23,15 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '../shadcn/sidebar';
-import { Link } from 'react-router';
 
 export function SidebarItem({ item }: { item: NavItem }) {
+  const params = useParams();
+  const route = params['*'] || '/';
+  const [activeGroup, activeOperation] = route.split('/');
   return (
     <Collapsible
       asChild
-      defaultOpen={item.isActive}
+      defaultOpen={activeGroup === item.id}
       className="group/collapsible"
     >
       <SidebarMenuItem>
@@ -50,12 +53,10 @@ export function SidebarItem({ item }: { item: NavItem }) {
                 <SidebarMenuSubButton
                   className="text-sm text-gray-600"
                   asChild
-                  isActive={subItem.isActive}
+                  isActive={activeOperation === subItem.id}
                   size="sm"
                 >
-                  <Link
-
-                    to={subItem.url}>
+                  <Link to={subItem.url}>
                     <span>{subItem.title}</span>
                   </Link>
                 </SidebarMenuSubButton>

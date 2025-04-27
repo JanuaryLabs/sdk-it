@@ -1,13 +1,12 @@
 import type { OpenAPIObject, OperationObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
-import { forEachOperation, type TunedOperationObject } from './operation';
+import { type TunedOperationObject, forEachOperation } from './operation';
 
 export type ChildNavItem = {
   id: string;
   title: string;
   url: string;
-  isActive?: boolean;
 };
 
 export type NavItem = {
@@ -15,7 +14,6 @@ export type NavItem = {
   title: string;
   description?: string;
   url: string;
-  isActive?: boolean;
   items?: ChildNavItem[];
 };
 
@@ -23,7 +21,6 @@ export type CategoryItem = {
   category: string;
   description?: string;
   items: NavItem[];
-  isActive?: boolean;
 };
 
 export type SidebarData = CategoryItem[];
@@ -57,7 +54,6 @@ function createOAIMeta(spec: OpenAPIObject): XOaiMeta {
   };
 }
 
-
 function getOperationById(spec: OpenAPIObject, operationId: string) {
   let operation: TunedOperationObject | undefined;
   forEachOperation({ spec }, (entry, op) => {
@@ -68,11 +64,9 @@ function getOperationById(spec: OpenAPIObject, operationId: string) {
   return operation;
 }
 
-
-export function toSidebar(spec: OpenAPIObject, route: string) {
+export function toSidebar(spec: OpenAPIObject) {
   const openapi: OpenAPIObject & { 'x-oaiMeta': XOaiMeta } = spec as any;
   const sidebar: SidebarData = [];
-  const [activeGroup] = route.split('/');
   const oaiMeta = openapi['x-oaiMeta'] ?? createOAIMeta(spec);
   for (const navGroup of oaiMeta.navigationGroups) {
     const group = oaiMeta.groups.filter(
@@ -80,12 +74,10 @@ export function toSidebar(spec: OpenAPIObject, route: string) {
     );
     sidebar.push({
       category: navGroup.title,
-      isActive: false,
       items: group.map((item) => ({
         id: item.id,
         title: item.title,
         url: `/${item.id}`,
-        isActive: activeGroup === item.id,
         description: item.description,
         items: (item.sections ?? [])
           .filter((it) => it.type === 'endpoint')
@@ -93,7 +85,6 @@ export function toSidebar(spec: OpenAPIObject, route: string) {
             id: section.key,
             title: getOperationById(spec, section.key)?.summary || section.key,
             url: `/${item.id}/${camelcase(section.key)}`,
-            isActive: `/${item.id}/${camelcase(section.key)}` === `/${route}`,
           })),
       })),
     });
