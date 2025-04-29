@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig(() => ({
   root: __dirname,
-  cacheDir: 'node_modules/.vite/packages/apiref',
+  cacheDir: '../../node_modules/.vite/apps/www',
   server: {
     port: 4200,
     host: 'localhost',
@@ -12,11 +12,6 @@ export default defineConfig(() => ({
   preview: {
     port: 4300,
     host: 'localhost',
-  },
-  resolve: {
-    alias: {
-      'node:path': 'rollup-plugin-node-polyfills/polyfills/path',
-    },
   },
   plugins: [tailwindcss(), reactRouter()],
   build: {

@@ -29,6 +29,9 @@
     },
     {
       "path": "./packages/readme"
+    },
+    {
+      "path": "./apps/www"
     }
   ]
 }

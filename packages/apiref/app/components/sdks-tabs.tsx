@@ -11,6 +11,7 @@ interface SdkTab {
 export default function SdksTabs({ tabs }: { tabs: SdkTab[] }) {
   return (
     <Tabs defaultValue={tabs[0].value} className="w-full">
+      {/* use bg-muted/50 */}
       <TabsList className="w-full p-0 bg-background justify-start border-b rounded-none">
         {tabs.map((tab) => (
           <TabsTrigger
