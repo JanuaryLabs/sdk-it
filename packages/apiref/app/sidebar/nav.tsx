@@ -37,13 +37,13 @@ export function SidebarItem({ item }: { item: NavItem }) {
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
           <SidebarMenuButton
-            className="text-sm font-normal"
-            size={'sm'}
+            className="text-sm font-normal justify-between flex items-center"
+            size={'default'}
             tooltip={item.title}
           >
-            <ChevronRight className=" transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
             {/* {item.icon && <item.icon />} */}
             <span>{item.title}</span>
+            <ChevronRight className=" transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
@@ -51,10 +51,9 @@ export function SidebarItem({ item }: { item: NavItem }) {
             {item.items?.map((subItem) => (
               <SidebarMenuSubItem key={subItem.title}>
                 <SidebarMenuSubButton
-                  className="text-sm text-gray-600"
                   asChild
                   isActive={activeOperation === subItem.id}
-                  size="sm"
+                  size="md"
                 >
                   <Link to={subItem.url}>
                     <span>{subItem.title}</span>

@@ -87,7 +87,7 @@ export const SchemaProperty: React.FC<SchemaProps> = ({
 
   return (
     <>
-      {level > 0 && (
+      {
         <>
           <div className="flex gap-x-1 text-sm items-center">
             {indent}
@@ -102,7 +102,7 @@ export const SchemaProperty: React.FC<SchemaProps> = ({
             <Description varient="sm" description={schema.description} />
           </div>
         </>
-      )}
+      }
 
       {schema.properties && (
         <div className="property-children">

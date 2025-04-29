@@ -41,9 +41,13 @@ export const links: LinksFunction = () => [
     href: 'https://fonts.gstatic.com',
     crossOrigin: 'anonymous',
   },
+  // {
+  //   rel: 'stylesheet',
+  //   href: `https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..700;1,300..900&display=swap`,
+  // },
   {
     rel: 'stylesheet',
-    href: `https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..700;1,300..900&display=swap`,
+    href: `https://fonts.googleapis.com/css2?family=Geist:wght@300..700&display=swap`,
   },
   {
     rel: 'stylesheet',
@@ -78,8 +82,8 @@ type PromisedValue<T> = T extends Promise<infer U> ? U : never;
 export async function loader({ params }: { params: { '*'?: string } }) {
   // console.log(join(process.cwd(),'../','../','.yamls','openai.yaml'));
   const spec = await loadRemote<OpenAPIObject>(
-    // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-    'https://api.openstatus.dev/v1/openapi',
+    'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
+    // 'https://api.openstatus.dev/v1/openapi',
   );
   // const spec = await loadSpec(
   //   join(process.cwd(), '../', '../', '.yamls', 'openstatus.json'),

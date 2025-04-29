@@ -30,8 +30,8 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.625rem;
   /* --sidebar: oklch(0.985 0 0); */
-  --sidebar: var(--secondary);
-  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar: #f1f1f1;
+  --sidebar-foreground: #737373;
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.97 0 0);
@@ -113,7 +113,7 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --font-sans: 'Figtree', sans-serif;
+  --font-sans: 'Geist', sans-serif;
   --font-mono: 'Geist Mono', monospace;
   --text-base: 14px;
 }
@@ -126,7 +126,7 @@
     @apply bg-background text-foreground;
   }
   body {
-    font-family: 'Figtree', sans-serif;
+    font-family: 'Geist', sans-serif;
     font-weight: 400;
   }
   body {
@@ -139,7 +139,7 @@
   }
 }
 
-@layer base {
+/* @layer base {
   :root {
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -161,7 +161,7 @@
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
-}
+} */
 
 @layer components {
   .expressive-code pre > code {

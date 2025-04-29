@@ -36,7 +36,7 @@ export default function Page() {
   return (
     <SpecProvider spec={spec}>
       <SidebarProvider>
-        <Sidebar collapsible="icon">
+        <Sidebar collapsible="icon" >
           <SidebarHeader>
             {/* <TeamSwitcher teams={data.teams} /> */}
           </SidebarHeader>
