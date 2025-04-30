@@ -87,7 +87,8 @@ export class TypeScriptGenerator {
       ? `@${spinalcase(this.#clientName.toLowerCase())}/sdk`
       : 'sdk';
   }
-  snippet(entry: OperationEntry, operation: TunedOperationObject) {
+
+  succinct(entry: OperationEntry, operation: TunedOperationObject) {
     let payload = '{}';
     if (!isEmpty(operation.requestBody)) {
       // Find the first content type with schema
@@ -112,7 +113,7 @@ export class TypeScriptGenerator {
           schema.required.push(
             ...operation.parameters.map((param) => param.name),
           );
-          const properties:Record<string, SchemaObject> = {}
+          const properties: Record<string, SchemaObject> = {};
           for (const param of operation.parameters) {
             const paramSchema = isRef(param.schema)
               ? followRef<SchemaObject>(this.#spec, param.schema.$ref)
@@ -122,32 +123,35 @@ export class TypeScriptGenerator {
 
           const examplePayload = this.#snippetEmitter.handle({
             ...schema,
-            properties: Object.assign(
-              {},
-              properties,
-              schema.properties,
-            ),
+            properties: Object.assign({}, properties, schema.properties),
           });
           payload = JSON.stringify(examplePayload, null, 2);
         }
       }
     }
-
+    return `const result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload});`;
+  }
+  snippet(entry: OperationEntry, operation: TunedOperationObject) {
+    const payload = this.succinct(entry, operation);
     return [
       '```typescript',
       `
-import { ${this.#clientName} } from '${this.#packageName}';
-
-const ${camelcase(this.#clientName)} = new ${this.#clientName}({
-  baseUrl: '${this.#spec.servers?.[0]?.url ?? 'http://localhost:3000'}',
-});
-
-const result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload});
+      ${this.client()}
+${payload}
 
 console.log(result.data);
 `,
       '```',
     ].join('\n');
+  }
+
+  client() {
+    return `
+import { ${this.#clientName} } from '${this.#packageName}';
+
+const ${camelcase(this.#clientName)} = new ${this.#clientName}({
+  baseUrl: '${this.#spec.servers?.[0]?.url ?? 'http://localhost:3000'}',
+});`;
   }
 }
 

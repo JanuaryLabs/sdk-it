@@ -1,0 +1,10 @@
+{
+  "name": "@sdk-it/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "zod": "^4.0.0-beta.20250424T163858",
+    "@zod/mini": "^4.0.0-beta.20250424T163858"
+  }
+}
