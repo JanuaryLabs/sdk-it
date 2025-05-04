@@ -21,7 +21,7 @@ export function Hero(props: { className?: string }) {
       <div className="col-span-full flex w-full flex-col items-center justify-center justify-self-center lg:col-span-3 lg:row-span-2 lg:items-start lg:justify-self-start xl:col-span-4">
         <h1 className="mb-8 font-sans md:font-mono">
           <TextGenerateEffect
-            className="text-3xl font-semibold lg:text-4xl"
+            className="text-center text-3xl font-semibold text-balance lg:text-left lg:text-4xl"
             filter={false}
             duration={1.5}
             wordClassMap={{
@@ -83,7 +83,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState(tabs[0].id);
   return (
     <Suspense>
-      <Background className="relative w-full px-6 xl:px-8 2xl:py-24">
+      <Background className="relative mx-auto xl:max-w-full 2xl:max-w-[1400px] px-4 md:px-8 lg:px-8 xl:px-12 2xl:px-0 2xl:py-24">
         <Particles
           className="absolute inset-0"
           quantity={100}
@@ -91,9 +91,9 @@ export default function App() {
           color={'#000000'}
           refresh
         />
-        <Hero className="px-4 md:px-8 lg:px-12" />
+        <Hero />
         <CodeExamples
-          className="mt-8 px-4 md:px-8 lg:px-12"
+          className="mt-8"
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={setActiveTab}

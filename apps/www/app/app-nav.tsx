@@ -53,55 +53,56 @@ export function AppNav(props: { className?: string }) {
         'flex w-full items-center py-3',
         'bg-background dark:bg-background',
         props.className,
-        'fixed top-0 z-50 w-full',
+        'fixed top-0 left-1/2 -translate-x-1/2 z-50 w-full',
         scrolled ? 'border-border/70 border-b' : '',
-        'px-4 md:px-6',
+        'flex w-full items-center',
+        'px-4 md:px-8 lg:px-8 xl:px-12 2xl:px-0',
+        'mx-auto xl:max-w-full 2xl:max-w-[1400px]',
       )}
     >
-      <div className="mx-auto flex w-full max-w-[1400px] items-center">
-        <Logo />
-        <nav className="hidden items-center lg:flex">
-          {items.map((it) => (
-            <NavLink
-              key={it.name}
-              to={it.href}
-              target={it.target}
-              className={cn(
-                buttonVariants({ variant: 'ghost' }),
-                'text-secondary-foreground/70 text-sm font-medium',
-                it.className,
-              )}
-            >
-              {it.name}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="ml-auto flex items-center">
+      <Logo />
+      <nav className="hidden items-center lg:flex">
+        {items.map((it) => (
           <NavLink
-            to="https://cal.com/january-sh/30min"
-            target="_blank"
+            key={it.name}
+            to={it.href}
+            target={it.target}
             className={cn(
-              buttonVariants({ variant: 'default' }),
-              'h-8 px-2.5 py-1 shadow-none',
-              'hidden lg:flex',
-              'mr-3 md:mr-4',
-            )}
-            rel="noreferrer"
-          >
-            Contact
-          </NavLink>
-          <NavLink
-            to="/docs"
-            className={cn(
-              buttonVariants({ variant: 'default' }),
-              'h-8 px-2.5 py-1 shadow-none',
-              'flex lg:hidden',
-              'mr-3 md:mr-4',
+              buttonVariants({ variant: 'ghost' }),
+              'text-secondary-foreground/70 text-sm font-medium',
+              it.className,
             )}
           >
-            Docs
+            {it.name}
           </NavLink>
-          {/* <a
+        ))}
+      </nav>
+      <div className="ml-auto flex items-center">
+        <NavLink
+          to="https://cal.com/january-sh/30min"
+          target="_blank"
+          className={cn(
+            buttonVariants({ variant: 'default' }),
+            'h-8 px-2.5 py-1 shadow-none',
+            'hidden lg:flex',
+            'mr-3 md:mr-4',
+          )}
+          rel="noreferrer"
+        >
+          Contact
+        </NavLink>
+        <NavLink
+          to="/docs"
+          className={cn(
+            buttonVariants({ variant: 'default' }),
+            'h-8 px-2.5 py-1 shadow-none',
+            'flex lg:hidden',
+            'mr-3 md:mr-4',
+          )}
+        >
+          Docs
+        </NavLink>
+        {/* <a
             href="/guides"
             className={cn(
               buttonVariants({ variant: 'default' }),
@@ -112,9 +113,8 @@ export function AppNav(props: { className?: string }) {
           >
             Guides
           </a> */}
-          <div className="flex items-center gap-x-3 md:gap-x-4">
-            <SocialMedia />
-          </div>
+        <div className="flex items-center gap-x-3 md:gap-x-4">
+          <SocialMedia />
         </div>
       </div>
     </header>

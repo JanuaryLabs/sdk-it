@@ -67,14 +67,14 @@ export const VercelTabs = React.forwardRef<HTMLDivElement, TabsProps>(
         <div className="relative">
           {/* Hover Highlight */}
           <div
-            className="absolute h-[30px] transition-all duration-300 ease-out bg-[#0e0f1114] dark:bg-[#ffffff1a] rounded-[6px] flex items-center"
+            className="absolute flex h-[30px] items-center rounded-[6px] bg-[#0e0f1114] transition-all duration-300 ease-out dark:bg-[#ffffff1a]"
             style={{
               ...hoverStyle,
               opacity: hoveredIndex !== null ? 1 : 0,
             }}
           />
 
-          <div className="relative flex space-x-[6px] items-center">
+          <div className="relative mt-6 flex items-center justify-center space-x-[6px] lg:justify-start">
             {tabs.map((tab, index) => (
               <div
                 key={tab.id}
@@ -82,9 +82,9 @@ export const VercelTabs = React.forwardRef<HTMLDivElement, TabsProps>(
                   tabRefs.current[index] = el;
                 }}
                 className={cn(
-                  'px-3 py-2 rounded-[6px] cursor-pointer transition-colors duration-300 h-[30px]',
+                  'h-[30px] cursor-pointer rounded-[6px] px-3 py-2 transition-colors duration-300',
                   index === activeIndex
-                    ? 'transition-all ease-out bg-[#0e0f1114] dark:bg-[#ffffff1a]  flex items-center'
+                    ? 'flex items-center bg-[#0e0f1114] transition-all ease-out dark:bg-[#ffffff1a]'
                     : 'text-[#0e0f1199] dark:text-[#ffffff99]',
                 )}
                 onMouseEnter={() => setHoveredIndex(index)}
@@ -94,7 +94,7 @@ export const VercelTabs = React.forwardRef<HTMLDivElement, TabsProps>(
                   onTabChange?.(tab.id);
                 }}
               >
-                <div className="text-sm font-medium leading-5 whitespace-nowrap flex items-center justify-center h-full">
+                <div className="flex h-full items-center justify-center text-sm leading-5 font-medium whitespace-nowrap">
                   {tab.label}
                 </div>
               </div>
