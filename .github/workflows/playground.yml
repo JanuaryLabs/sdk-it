@@ -1,6 +1,11 @@
 name: Deploy Playground
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      spec_url:
+        description: 'URL of the OpenAPI spec file'
+        required: true
+        default: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml'
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -16,7 +21,7 @@ jobs:
           context: .
           push: false
           build-args:
-            SPEC: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml'
+            SPEC: ${{ github.event.inputs.spec_url }}
             HETZNER_S3_ENDPOINT: ${{ secrets.HETZNER_S3_ENDPOINT }}
             HETZNER_ACCESS_KEY: ${{ secrets.HETZNER_ACCESS_KEY }}
             HETZNER_SECRET_KEY: ${{ secrets.HETZNER_SECRET_KEY }}
