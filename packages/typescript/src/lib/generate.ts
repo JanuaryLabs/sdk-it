@@ -161,7 +161,6 @@ export class TypeScriptGenerator {
       );
       payload = JSON.stringify(examplePayload, null, 2);
     }
-    console.log(payload);
     return `const result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload});`;
   }
   snippet(entry: OperationEntry, operation: TunedOperationObject) {

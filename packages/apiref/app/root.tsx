@@ -80,14 +80,12 @@ export default function App() {
 type PromisedValue<T> = T extends Promise<infer U> ? U : never;
 
 export async function loader({ params }: { params: { '*'?: string } }) {
-  // console.log(join(process.cwd(),'../','../','.yamls','openai.yaml'));
   const spec = await loadRemote<OpenAPIObject>(
-    'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
+    import.meta.env.VITE_SPEC ??
+      (import.meta.env.DEV ? 'https://api.openstatus.dev/v1/openapi' : ''),
+    // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
     // 'https://api.openstatus.dev/v1/openapi',
   );
-  // const spec = await loadSpec(
-  //   join(process.cwd(), '../', '../', '.yamls', 'openstatus.json'),
-  // );
 
   const operationsMap: Record<
     string,

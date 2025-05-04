@@ -12,7 +12,7 @@ import type {
 } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
-import { followRef, isRef } from '@sdk-it/core';
+import { followRef, isRef } from '@sdk-it/core/ref.js';
 
 export const defaults: Partial<GenerateSdkConfig> &
   Required<Pick<GenerateSdkConfig, 'operationId' | 'tag'>> = {

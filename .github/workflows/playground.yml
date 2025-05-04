@@ -11,12 +11,13 @@ concurrency:
   cancel-in-progress: true
 jobs:
   deploy_apiref:
-    runs-on: blacksmith-32vcpu-ubuntu-2204-arm
+    # runs-on: blacksmith-32vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: useblacksmith/build-push-action@v1
+      - uses: docker/setup-buildx-action@v2
+      - uses: docker/build-push-action@v4
         with:
-          setup-only: true
           file: packages/apiref/Dockerfile
           context: .
           push: false
@@ -26,3 +27,15 @@ jobs:
             HETZNER_ACCESS_KEY=${{ secrets.HETZNER_ACCESS_KEY }}
             HETZNER_SECRET_KEY=${{ secrets.HETZNER_SECRET_KEY }}
             HETZNER_BUCKET=apiref
+      # - uses: useblacksmith/build-push-action@v1
+        # with:
+        #   setup-only: true
+        #   file: packages/apiref/Dockerfile
+        #   context: .
+        #   push: false
+        #   build-args: |
+        #     SPEC=${{ github.event.inputs.spec_url }}
+        #     HETZNER_S3_ENDPOINT=${{ secrets.HETZNER_S3_ENDPOINT }}
+        #     HETZNER_ACCESS_KEY=${{ secrets.HETZNER_ACCESS_KEY }}
+        #     HETZNER_SECRET_KEY=${{ secrets.HETZNER_SECRET_KEY }}
+        #     HETZNER_BUCKET=apiref
