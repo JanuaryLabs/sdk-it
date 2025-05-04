@@ -1,13 +1,15 @@
 import type {
   ComponentsObject,
+  OpenAPIObject,
   SecurityRequirementObject,
 } from 'openapi3-ts/oas31';
 
-import { isRef, removeDuplicates } from '@sdk-it/core';
+import { followRef, isRef, removeDuplicates } from '@sdk-it/core';
 
 import { type Options } from './sdk.ts';
 
 export function securityToOptions(
+  spec: OpenAPIObject,
   security: SecurityRequirementObject[],
   securitySchemes: ComponentsObject['securitySchemes'],
   staticIn?: string,
@@ -20,10 +22,10 @@ export function securityToOptions(
       // this means the operation doesn't necessarily require security
       continue;
     }
-    const schema = securitySchemes[name];
-    if (isRef(schema)) {
-      throw new Error(`Ref security schemas are not supported`);
-    }
+    const schema = isRef(securitySchemes[name])
+      ? followRef(spec, securitySchemes[name].$ref)
+      : securitySchemes[name];
+
     if (schema.type === 'http') {
       options['authorization'] = {
         in: staticIn ?? 'header',

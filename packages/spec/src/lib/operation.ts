@@ -1,10 +1,14 @@
 import type {
+  ComponentsObject,
   OpenAPIObject,
   OperationObject,
+  ParameterLocation,
   ParameterObject,
   ReferenceObject,
   RequestBodyObject,
   ResponseObject,
+  SchemaObject,
+  SecurityRequirementObject,
 } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
@@ -463,4 +467,80 @@ export function isStreamingContentType(
 export function isSuccessStatusCode(statusCode: number | string): boolean {
   statusCode = Number(statusCode);
   return statusCode >= 200 && statusCode < 300;
+}
+
+export function patchParameters(
+  spec: OpenAPIObject,
+  objectSchema: SchemaObject,
+  operation: TunedOperationObject,
+) {
+  const securitySchemes = spec.components?.securitySchemes ?? {};
+  const securityOptions = securityToOptions(
+    spec,
+    operation.security ?? [],
+    securitySchemes,
+  );
+
+  objectSchema.properties ??= {};
+  objectSchema.required ??= [];
+  for (const param of operation.parameters) {
+    if (param.required) {
+      objectSchema.required.push(param.name);
+    }
+    objectSchema.properties[param.name] = isRef(param.schema)
+      ? followRef<SchemaObject>(spec, param.schema.$ref)
+      : (param.schema ?? { type: 'string' });
+  }
+  for (const param of securityOptions) {
+    objectSchema.required = (objectSchema.required ?? []).filter(
+      (name) => name !== param.name,
+    );
+    objectSchema.properties[param.name] = isRef(param.schema)
+      ? followRef<SchemaObject>(spec, param.schema.$ref)
+      : (param.schema ?? { type: 'string' });
+  }
+}
+
+export function securityToOptions(
+  spec: OpenAPIObject,
+  security: SecurityRequirementObject[],
+  securitySchemes: ComponentsObject['securitySchemes'],
+  staticIn?: ParameterLocation,
+) {
+  securitySchemes ??= {};
+  const parameters: ParameterObject[] = [];
+  for (const it of security) {
+    const [name] = Object.keys(it);
+    if (!name) {
+      // this means the operation doesn't necessarily require security
+      continue;
+    }
+    const schema = isRef(securitySchemes[name])
+      ? followRef(spec, securitySchemes[name].$ref)
+      : securitySchemes[name];
+
+    if (schema.type === 'http') {
+      parameters.push({
+        in: staticIn ?? 'header',
+        name: 'authorization',
+        schema: { type: 'string' },
+      });
+      continue;
+    }
+    if (schema.type === 'apiKey') {
+      if (!schema.in) {
+        throw new Error(`apiKey security schema must have an "in" field`);
+      }
+      if (!schema.name) {
+        throw new Error(`apiKey security schema must have a "name" field`);
+      }
+      parameters.push({
+        in: staticIn ?? (schema.in as ParameterLocation),
+        name: schema.name,
+        schema: { type: 'string' },
+      });
+      continue;
+    }
+  }
+  return parameters;
 }

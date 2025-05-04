@@ -7,7 +7,6 @@ import type {
   OpenAPIObject,
   OperationObject,
   ReferenceObject,
-  RequestBodyObject,
   ResponseObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
@@ -29,6 +28,7 @@ import {
   isStreamingContentType,
   isSuccessStatusCode,
   parseJsonContentType,
+  patchParameters,
 } from '@sdk-it/spec';
 
 import { DartSerializer, isObjectSchema } from './dart-emitter.ts';
@@ -263,7 +263,7 @@ ${Object.keys(groups)
   .join('\n')}
 
   ${clientName}(this.options) {
-    final interceptors = [BaseUrlInterceptor(() => this.options.baseUrl)];
+    final interceptors = [BaseUrlInterceptor(() => this.options.baseUrl), LoggingInterceptor()];
     final dispatcher = Dispatcher(interceptors);
     final receiver = Receiver(interceptors);
     ${Object.keys(groups)
@@ -347,20 +347,6 @@ class Options {
   });
 }
 
-// function makeRequestBody(spec: OpenAPIObject, operation: OperationObject) {
-//   const requestBody = operation.requestBody;
-//   const params = (operation.parameters ?? []).map((it) =>
-//     isRef(it) ? followRef<ParameterObject>(spec, it.$ref) : it,
-//   );
-//   if (!requestBody) return {
-
-//   }
-//   if (isRef(requestBody)) {
-//     return followRef<RequestBodyObject>(operation, requestBody.$ref);
-//   }
-//   return requestBody;
-// }
-
 function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
   const inputs: Record<string, unknown> = {};
   const inputName = pascalcase(`${operation.operationId} input`);
@@ -368,20 +354,31 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
   let encode = '';
 
   if (!isEmpty(operation.requestBody)) {
-    const requestBody = isRef(operation.requestBody)
-      ? followRef<RequestBodyObject>(spec, operation.requestBody.$ref)
-      : operation.requestBody;
+    for (const type in operation.requestBody.content) {
+      const ctSchema = isRef(operation.requestBody.content[type].schema)
+        ? followRef(spec, operation.requestBody.content[type].schema.$ref)
+        : operation.requestBody.content[type].schema;
 
-    for (const type in requestBody.content) {
-      const ctSchema = isRef(requestBody.content[type].schema)
-        ? followRef(spec, requestBody.content[type].schema.$ref)
-        : requestBody.content[type].schema;
       if (!ctSchema) {
         console.warn(
           `Schema not found for ${type} in ${entry.method} ${entry.path}`,
         );
         continue;
       }
+
+      ctSchema.properties ??= {};
+      ctSchema.required ??= [];
+
+      patchParameters(spec, ctSchema, operation);
+      // if (ctSchema.type !== 'object') {
+      //   ctSchema = {
+      //     type: 'object',
+      //     required: [operation.requestBody.required ? '$body' : ''],
+      //     properties: {
+      //       $body: ctSchema,
+      //     },
+      //   };
+      // }
 
       const serializer = new DartSerializer(spec, (name, content) => {
         inputs[join(`inputs/${name}.dart`)] =
@@ -414,6 +411,20 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
       // Object.assign(inputs, bodyInputs(config, objectSchema));
       // schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
     }
+  } else {
+    const ctSchema: SchemaObject = {
+      type: 'object',
+    };
+    patchParameters(spec, ctSchema, operation);
+
+    const serializer = new DartSerializer(spec, (name, content) => {
+      inputs[join(`inputs/${name}.dart`)] =
+        `import 'dart:io';import 'dart:typed_data';import '../models/index.dart'; import './index.dart';\n\n${content}`;
+    });
+    const serialized = serializer.handle(inputName, ctSchema, true, {
+      alias: isObjectSchema(ctSchema) ? undefined : inputName,
+    });
+    encode = serialized.encode as string;
   }
 
   return { inputs, inputName, contentType, encode };

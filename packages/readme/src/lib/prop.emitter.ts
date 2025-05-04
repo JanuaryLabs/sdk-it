@@ -58,28 +58,29 @@ export class PropEmitter {
     schema: SchemaObject | ReferenceObject,
     required: boolean,
   ): string[] {
+    // get full docs and extract the type line
     const docs = this.handle(schema);
-    const firstLine = docs[0];
-    const rawType = firstLine
+    const rawType = docs[0]
       .replace('**Type:** ', '')
-      .replace(' (nullable)', '');
-    const isNullable = firstLine.includes('(nullable)');
+      .replace(' (nullable)', '|null');
+
+    // detect default if present on the schema
     const defaultVal =
       !isRef(schema) && (schema as SchemaObject).default !== undefined
-        ? JSON.stringify((schema as SchemaObject).default)
-        : undefined;
-    const lines: string[] = [];
-    lines.push(`- \`${name}\``);
-    lines.push(`  **Type:** ${rawType}`);
-    lines.push(`  **Required:** ${required}`);
-    lines.push(`  **Nullable:** ${isNullable}`);
-    if (defaultVal !== undefined) {
-      lines.push(`  **Default:** \`${defaultVal}\``);
-    }
-    docs.slice(1).forEach((line) => {
-      lines.push(`  ${line}`);
-    });
-    return lines;
+        ? ` default: ${JSON.stringify((schema as SchemaObject).default)}`
+        : '';
+
+    // build summary line
+    const reqMark = required ? ' required' : '';
+    const summary = `- \`${name}\` ${rawType}${reqMark}${defaultVal}:`;
+
+    // assemble final lines (skip the type and any default in details)
+    const detailLines = docs
+      .slice(1)
+      .filter((l) => !l.startsWith('**Default:**'))
+      .map((l) => `  ${l}`);
+
+    return [summary, ...detailLines];
   }
 
   /**

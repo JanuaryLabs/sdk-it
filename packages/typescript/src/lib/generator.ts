@@ -90,9 +90,12 @@ export function generateCode(
       additionalProperties[param.name] = param;
     }
 
-    const security = operation.security ?? [];
     const securitySchemes = config.spec.components?.securitySchemes ?? {};
-    const securityOptions = securityToOptions(security, securitySchemes);
+    const securityOptions = securityToOptions(
+      config.spec,
+      operation.security ?? [],
+      securitySchemes,
+    );
 
     Object.assign(inputs, securityOptions);
 

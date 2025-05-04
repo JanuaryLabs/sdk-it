@@ -10,9 +10,11 @@ import {
   getFolderExports,
   writeFiles,
 } from '@sdk-it/core/file-system.js';
-import type {
-  OperationEntry,
-  TunedOperationObject,
+import { toReadme } from '@sdk-it/readme';
+import {
+  type OperationEntry,
+  type TunedOperationObject,
+  patchParameters,
 } from '@sdk-it/spec/operation.js';
 
 import backend from './client.ts';
@@ -24,7 +26,6 @@ import parserTxt from './http/parser.txt';
 import requestTxt from './http/request.txt';
 import responseTxt from './http/response.txt';
 import sendRequestTxt from './http/send-request.txt';
-import { toReadme } from './readme.ts';
 import { generateInputs } from './sdk.ts';
 import type { Style } from './style.ts';
 import { exclude, securityToOptions } from './utils.ts';
@@ -35,7 +36,7 @@ function security(spec: OpenAPIObject) {
   const securitySchemes = components.securitySchemes || {};
   const paths = Object.values(spec.paths ?? {});
 
-  const options = securityToOptions(security, securitySchemes);
+  const options = securityToOptions(spec, security, securitySchemes);
 
   for (const it of paths) {
     for (const method of methods) {
@@ -45,7 +46,12 @@ function security(spec: OpenAPIObject) {
       }
       Object.assign(
         options,
-        securityToOptions(operation.security || [], securitySchemes, 'input'),
+        securityToOptions(
+          spec,
+          operation.security || [],
+          securitySchemes,
+          'input',
+        ),
       );
     }
   }
@@ -88,14 +94,22 @@ export class TypeScriptGenerator {
       : 'sdk';
   }
 
-  succinct(entry: OperationEntry, operation: TunedOperationObject) {
+  succinct(
+    entry: OperationEntry,
+    operation: TunedOperationObject,
+    values: {
+      requestBody?: Record<string, unknown>;
+      pathParameters?: Record<string, unknown>;
+      queryParameters?: Record<string, unknown>;
+      headers?: Record<string, unknown>;
+      cookies?: Record<string, unknown>;
+    },
+  ) {
     let payload = '{}';
     if (!isEmpty(operation.requestBody)) {
-      // Find the first content type with schema
       const contentTypes = Object.keys(operation.requestBody.content || {});
       if (contentTypes.length > 0) {
         const firstContent = operation.requestBody.content[contentTypes[0]];
-        // let schema = firstContent.schema;
         let schema = isRef(firstContent.schema)
           ? followRef(this.#spec, firstContent.schema.$ref)
           : firstContent.schema;
@@ -109,30 +123,49 @@ export class TypeScriptGenerator {
               },
             };
           }
-          schema.required ??= [];
-          schema.required.push(
-            ...operation.parameters.map((param) => param.name),
-          );
           const properties: Record<string, SchemaObject> = {};
-          for (const param of operation.parameters) {
-            const paramSchema = isRef(param.schema)
-              ? followRef<SchemaObject>(this.#spec, param.schema.$ref)
-              : (param.schema ?? ({ type: 'string' } satisfies SchemaObject));
-            properties[param.name] = paramSchema;
-          }
-
+          patchParameters(
+            this.#spec,
+            { type: 'object', properties },
+            operation,
+          );
           const examplePayload = this.#snippetEmitter.handle({
             ...schema,
             properties: Object.assign({}, properties, schema.properties),
           });
+          // merge explicit values into the example payload
+          Object.assign(
+            examplePayload as any,
+            values.requestBody ?? {},
+            values.pathParameters ?? {},
+            values.queryParameters ?? {},
+            values.headers ?? {},
+            values.cookies ?? {},
+          );
           payload = JSON.stringify(examplePayload, null, 2);
         }
       }
+    } else {
+      const properties: Record<string, SchemaObject> = {};
+      patchParameters(this.#spec, { type: 'object', properties }, operation);
+      const examplePayload = this.#snippetEmitter.handle({
+        properties: properties,
+      });
+      // merge explicit values into the example payload
+      Object.assign(
+        examplePayload as any,
+        values.pathParameters ?? {},
+        values.queryParameters ?? {},
+        values.headers ?? {},
+        values.cookies ?? {},
+      );
+      payload = JSON.stringify(examplePayload, null, 2);
     }
+    console.log(payload);
     return `const result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload});`;
   }
   snippet(entry: OperationEntry, operation: TunedOperationObject) {
-    const payload = this.succinct(entry, operation);
+    const payload = this.succinct(entry, operation, {});
     return [
       '```typescript',
       `

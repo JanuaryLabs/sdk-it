@@ -12,6 +12,9 @@
   "include": ["src/**/*.ts", "global.d.ts"],
   "references": [
     {
+      "path": "../readme/tsconfig.lib.json"
+    },
+    {
       "path": "../spec/tsconfig.lib.json"
     },
     {

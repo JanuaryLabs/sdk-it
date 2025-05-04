@@ -8,7 +8,7 @@ import type {
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { isEmpty } from '..';
+import { isEmpty } from './utils.js';
 
 export function isRef(obj: any): obj is ReferenceObject {
   return obj && '$ref' in obj;
@@ -54,13 +54,9 @@ export function distillRef<
     | ReferenceObject
     | RequestBodyObject = SchemaObject,
 >(spec: OpenAPIObject, ref: string): T {
-  const pathParts = cleanRef(ref).split('/');
-  const entry = get(spec, pathParts) as T | ReferenceObject;
-  let def: T;
-  if (entry && '$ref' in entry) {
-    def = followRef<T>(spec, entry.$ref!);
-  } else {
-    def = entry;
+  const def = followRef<T>(spec, ref);
+  if (!def) {
+    return def;
   }
 
   if ('properties' in def) {
