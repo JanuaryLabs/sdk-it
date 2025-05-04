@@ -45,6 +45,11 @@ const specs = [
     flags: ['--readme=true'],
   },
   // {
+  //   name: 'spotify',
+  //   spec: 'https://developer.spotify.com/reference/web-api/open-api-schema.yaml',
+  //   flags: [],
+  // },
+  // {
   //   name: 'UploadThings',
   //   spec: 'https://api.uploadthing.com/openapi-spec.json',
   // },

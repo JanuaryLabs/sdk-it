@@ -74,19 +74,15 @@
           "loader": {
             ".txt": "text"
           }
-        }
-      },
-      "configurations": {
-        "production": {
-          "external": [
-            "@sdk-it/core",
-            "@sdk-it/typescript",
-            "@sdk-it/dart",
-            "@sdk-it/cli",
-            "@sdk-it/generic",
-            "@sdk-it/hono"
-          ]
-        }
+        },
+        "external": [
+          "@sdk-it/core",
+          "@sdk-it/typescript",
+          "@sdk-it/dart",
+          "@sdk-it/cli",
+          "@sdk-it/generic",
+          "@sdk-it/hono"
+        ]
       },
       "cache": true,
       "dependsOn": ["^build"],

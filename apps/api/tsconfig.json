@@ -4,6 +4,18 @@
   "include": [],
   "references": [
     {
+      "path": "../../packages/readme"
+    },
+    {
+      "path": "../../packages/typescript"
+    },
+    {
+      "path": "../../packages/spec"
+    },
+    {
+      "path": "../../packages/core"
+    },
+    {
       "path": "./tsconfig.app.json"
     }
   ]

@@ -1,0 +1,199 @@
+import { Hono } from 'hono';
+import { z } from 'zod';
+
+import { distillRef } from '@sdk-it/core';
+
+import { vectorise } from '../apps/api/src/vectorize';
+import { Convo, tool } from './convo';
+import { print } from './print';
+
+const app = new Hono();
+app.get('/', (c) => c.text('Hello Node.js!'));
+// serve(app, (addressInfo) => {
+//   console.log(`Server is running on http://localhost:${addressInfo.port}`);
+// });
+
+// You are an AI assistant helping users understand and interact with an API defined by an OpenAPI specification.
+// Use the available tools to find operations, generate code snippets, and look up model definitions based on the user's questions.
+// If you are unsure, the user's request is ambiguous, or you need clarification beyond the API spec, use the 'requestHumanAssistance' tool.
+// When finding operations, provide the operationId, method, path, and summary.
+// When generating snippets, confirm the operation first if ambiguous.
+// When getting model definitions, provide the full schema.
+const convo = new Convo(generator, availableOperations, [
+  // tool({
+  //   name: 'apiNotSupported',
+  //   description: 'Tell the user that the API is not supported',
+  //   parameters: z.object({
+  //     reason: z.string().describe('The reason why the API is not supported'),
+  //   }),
+  //   execute: async (args) => {
+  //     console.log('API is not supported:', args.reason);
+  //     process.exit(0);
+  //   },
+  // }),
+  // tool({
+  //   name: 'think',
+  //   description:
+  //     'Use the tool to think about something. It will not obtain new information or make any changes to the repository, but just log the thought. Use it when complex reasoning or brainstorming is needed. For example, if you explore the repo and discover the source of a bug, call this tool to brainstorm several unique ways of fixing the bug, and assess which change(s) are likely to be simplest and most effective. Alternatively, if you receive some test results, call this tool to brainstorm ways to fix the failing tests.',
+  //   parameters: z.object({
+  //     thought: z.string().describe('Your thoughts.'),
+  //   }),
+  //   execute: async (args) => {
+  //     console.log('\n🤔 THINKING:', args.thought);
+  //     return "I've processed this thought. Continue with your reasoning or proceed to action.";
+  //   },
+  // }),
+  // tool({
+  //   name: 'craftPlan',
+  //   description:
+  //     'Use this tool to create a plan if the user inquery/question is not sufficient. It will not obtain new information or make any changes to the repository, but just log the plan. Use it when you need to outline your next steps or actions.',
+  //   parameters: z.object({
+  //     plan: z.string().describe('Your plan.'),
+  //   }),
+  //   execute: async (args) => {
+  //     console.log('\n📝 CRAFTING PLAN:', args.plan);
+  //     return "I've noted this plan. Proceed with your reasoning or actions.";
+  //   },
+  // }),
+  // tool({
+  //   name: 'requestHumanAssistance',
+  //   description:
+  //     "Use this tool when you cannot answer the user's question using the OpenAPI spec or other tools, or if the query is not supported, ambiguous or needs clarification.",
+  //   parameters: z.object({
+  //     whatShouldUserDo: z
+  //       .string()
+  //       .describe('The actionable response to the user, if applicable.'),
+  //   }),
+  //   execute: async (args) => {
+  //     console.log('Requesting human assistance:', args.whatShouldUserDo);
+  //     process.exit(0);
+  //     // return (
+  //     //   'Requesting human assistance for the following reason: ' +
+  //     //   `${args.reason}. User query: ${args.userQuery}`
+  //     // );
+  //   },
+  // }),
+  tool({
+    name: 'getOperations',
+    description: 'Find list of operation in the OpenAPI spec.',
+    parameters: z.object({
+      operationsIds: z
+        .string()
+        .describe('Comma seperated list of  operations IDs to find.'),
+    }),
+    execute: async (args) => {
+      console.log('Finding operation with ID:', args.operationsIds.split(','));
+      return JSON.stringify(
+        args.operationsIds
+          .split(',')
+          .map((id) => id.trim())
+          .map((id) => findOperationById(id))
+          .map((result) => {
+            if (typeof result === 'string') {
+              return result;
+            }
+            return {
+              operationId: result.operation.operationId,
+              method: result.entry.method,
+              parameters: result.operation.parameters,
+              path: result.entry.path,
+              requestBody: result.operation.requestBody,
+              description: result.operation.description,
+              summary: result.operation.summary,
+            };
+          }),
+      );
+    },
+  }),
+  tool({
+    name: 'generateSnippet',
+    description:
+      'Generate a code snippet in TypeScript for the specified operation ID. ',
+    parameters: z.object({
+      operationId: z
+        .string()
+        .describe('The operation ID to generate a snippet for.'),
+      requestBody: z.string().meta({
+        description:
+          'JSON stringifed opereation body to be passed in the request. only if needed.',
+      }),
+      queryParameters: z.string().meta({
+        description:
+          'JSON stringifed object of query parameters to be passed in the request. only if needed.',
+      }),
+      pathParameters: z.string().meta({
+        description:
+          'JSON stringifed object of path parameters to be passed in the request. only if needed.',
+      }),
+      headers: z.string().meta({
+        description:
+          'JSON stringifed object of headers to be passed in the request. only if needed.',
+      }),
+      cookies: z.string().meta({
+        description:
+          'JSON stringifed object of cookies to be passed in the request. only if needed.',
+      }),
+    }),
+    execute: async (args) => {
+      // FIXME: generate the snippet with providede values
+      // otherwise the model keep repeating the same tool call
+      console.log(
+        'Generating snippet for operation with ID:',
+        'operationId',
+        args.operationId,
+        'requestBody',
+        args.requestBody,
+        'queryParameters',
+        args.queryParameters,
+        'pathParameters',
+        args.pathParameters,
+      );
+      const operation = findOperationById(args.operationId);
+      if (typeof operation === 'string') {
+        return operation;
+      }
+      return generator.succinct(operation.entry, operation.operation, {
+        requestBody: JSON.parse(args.requestBody || '{}'),
+        queryParameters: JSON.parse(args.queryParameters || '{}'),
+        pathParameters: JSON.parse(args.pathParameters || '{}'),
+        headers: JSON.parse(args.headers || '{}'),
+        cookies: JSON.parse(args.cookies || '{}'),
+      });
+    },
+  }),
+  tool({
+    name: 'getSchemaDefinition',
+    description: 'Get the schema definition for a given reference path.',
+    parameters: z.object({
+      ref: z
+        .string()
+        .describe(
+          'The complete reference path starting with a hash (e.g., "#/components/schemas/ModelName").',
+        ),
+    }),
+    execute: async (args) => {
+      console.log('Fetching schema definition for:', args.ref);
+      const def = distillRef(spec, args.ref);
+      if (!def) {
+        return `Schema definition not found for: ${args.ref}`;
+      }
+      return JSON.stringify(def);
+    },
+  }),
+]);
+
+function findOperationById(operationId: string) {
+  const name = operationId.split('operation_')[1];
+  if (!name) {
+    return `Invalid operation ID format. Expected format: operation_<operationId>. Received: ${operationId}`;
+  }
+  for (const [entry, operation] of operations) {
+    if (operation.operationId === name) {
+      return { entry, operation };
+    }
+  }
+  return 'Could not find operation with ID: ' + operationId;
+}
+
+await vectorise(spec, generator);
+await print(convo);

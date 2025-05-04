@@ -12,5 +12,19 @@
     "esModuleInterop": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": []
+  "exclude": [],
+  "references": [
+    {
+      "path": "../../packages/readme/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/typescript/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/spec/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/tsconfig.lib.json"
+    }
+  ]
 }
