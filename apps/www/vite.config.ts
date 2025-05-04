@@ -2,9 +2,17 @@ import { reactRouter } from '@react-router/dev/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
-export default defineConfig(() => ({
+export default defineConfig((config) => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/apps/www',
+  resolve:
+    config.command === 'build'
+      ? {
+          alias: {
+            'react-dom/server': 'react-dom/server.node',
+          },
+        }
+      : {},
   server: {
     port: 4200,
     host: 'localhost',

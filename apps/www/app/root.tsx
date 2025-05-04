@@ -1,16 +1,14 @@
-import {
-  Links,
-  type LinksFunction,
-  Meta,
-  type MetaFunction,
-  Outlet,
-  Scripts,
-  ScrollRestoration,
-} from 'react-router';
+import { Links, type LinksFunction, Meta, type MetaFunction, Outlet, Scripts, ScrollRestoration } from 'react-router';
+
+
 
 import '../styles.css';
 import { AppNav } from './app-nav';
-import { cn } from './shadcn';
+import { cn, Toaster, ToastProvider } from './shadcn';
+
+
+
+
 
 export const meta: MetaFunction = () => [
   {
@@ -25,10 +23,9 @@ export const links: LinksFunction = () => [
     href: 'https://fonts.gstatic.com',
     crossOrigin: 'anonymous',
   },
-
   {
     rel: 'stylesheet',
-    href: `https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..700;1,300..900&display=swap`,
+    href: `https://fonts.googleapis.com/css2?family=Geist:wght@300..700&display=swap`,
   },
   {
     rel: 'stylesheet',
@@ -45,6 +42,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body className={cn('flex flex-col h-full')}>
+        <Toaster />
         <AppNav />
         {children}
         <ScrollRestoration />

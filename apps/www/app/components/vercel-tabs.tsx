@@ -82,9 +82,9 @@ export const VercelTabs = React.forwardRef<HTMLDivElement, TabsProps>(
                   tabRefs.current[index] = el;
                 }}
                 className={cn(
-                  'px-3 py-2 cursor-pointer transition-colors duration-300 h-[30px]',
+                  'px-3 py-2 rounded-[6px] cursor-pointer transition-colors duration-300 h-[30px]',
                   index === activeIndex
-                    ? 'transition-all ease-out bg-[#0e0f1114] dark:bg-[#ffffff1a] rounded-[6px] flex items-center'
+                    ? 'transition-all ease-out bg-[#0e0f1114] dark:bg-[#ffffff1a]  flex items-center'
                     : 'text-[#0e0f1199] dark:text-[#ffffff99]',
                 )}
                 onMouseEnter={() => setHoveredIndex(index)}

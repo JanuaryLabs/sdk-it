@@ -1,40 +1,10 @@
 import MonacoEditor, { useMonaco } from '@monaco-editor/react';
 import type monaco from 'monaco-editor';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { cn } from '../shadcn';
 import { EditorContext, EditorLayout } from './editor-layout';
-import { useEditorFormatter } from './use-editor-formatter';
 import { useTheme } from './use-editor-theme';
-
-// export const monaco$ = from(loader.init()).pipe(take(1));
-
-// export const editor$ = monaco$.pipe(
-//   switchMap((monaco) => {
-//     return new Observable<{
-//       editor: monaco.editor.ICodeEditor;
-//       monaco: typeof import('monaco-editor');
-//     }>((observer) => {
-//       const disposable = monaco.editor.onDidCreateEditor((editor) => {
-//         observer.next({ editor, monaco });
-//       });
-//       return () => disposable.dispose();
-//     });
-//   }),
-// );
-// export const model$ = monaco$.pipe(
-//   switchMap((monaco) => {
-//     return new Observable<{
-//       model: monaco.editor.ITextModel;
-//       monaco: typeof import('monaco-editor');
-//     }>((observer) => {
-//       const disposable = monaco.editor.onDidCreateModel((model) => {
-//         observer.next({ model, monaco });
-//       });
-//       return () => disposable.dispose();
-//     });
-//   }),
-// );
 
 export function Editor(props: {
   className?: string;
@@ -58,24 +28,34 @@ export function Editor(props: {
   declarations?: { text: string; filename: string }[];
 }) {
   useTheme('lighter');
-  useEditorFormatter();
+  // useEditorFormatter();
 
   const monaco = useMonaco();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+
+  useEffect(() => {
+    return () => {
+      // Cleanup function to ensure the editor is properly disposed
+      if (editorRef.current) {
+        // Remove any event listeners to avoid callbacks after disposal
+        editorRef.current.getModel()?.dispose();
+        editorRef.current.dispose();
+        editorRef.current = null;
+      }
+    };
+  }, []);
+
   return (
     <EditorContext.Provider value={editorRef.current}>
       <EditorLayout>
         <MonacoEditor
+          value={props.value}
           onMount={async (editor, monaco) => {
             editorRef.current = editor;
             props.onEditor?.(editor, monaco);
+            editor.layout();
           }}
-          beforeMount={async (monaco) => {
-            monaco.editor.addKeybindingRule({
-              keybinding: monaco.KeyMod.CtrlCmd | monaco.KeyCode.Space,
-              command: 'editor.action.triggerSuggest',
-            });
-
+          beforeMount={(monaco) => {
             (props.declarations ?? []).forEach((declaration) => {
               monaco.languages.typescript.typescriptDefaults.addExtraLib(
                 declaration.text
@@ -121,18 +101,19 @@ export function Editor(props: {
           theme="lighter"
           width="100%"
           height="100%"
-          className={cn('w-full h-full', props.className, 'code-editor')}
+          className={cn('h-full w-full', props.className, 'code-editor')}
           defaultLanguage="typescript"
           language={props.language ?? 'typescript'}
           loading=" "
-          path={props.path}
+          saveViewState={true}
           onChange={(value, event) => {
             if (!value) return;
             if (!monaco) return;
             const editor = editorRef.current;
             if (!editor) return;
+
             const model = editor.getModel();
-            if (!model) return;
+            if (!model || model.isDisposed()) return;
 
             const markers = monaco.editor.getModelMarkers({
               owner: 'typescript',
@@ -140,7 +121,6 @@ export function Editor(props: {
             });
             props.onChange?.(value, event, editor, model, markers);
           }}
-          value={props.value}
           options={{
             fontFamily: 'var(--font-mono)',
             cursorSmoothCaretAnimation: 'explicit',

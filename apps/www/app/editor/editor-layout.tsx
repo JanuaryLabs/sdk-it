@@ -30,8 +30,10 @@ export function EditorLayout(props: { children?: React.ReactNode }) {
   }, [monaco, editor]);
 
   return (
+    // props.children
+
     <div ref={ref} style={{ height: '100%', position: 'relative' }}>
-      <div style={{ position: 'absolute' }}>{props.children}</div>
+      <div style={{ position: 'absolute', inset: 0 }}>{props.children}</div>
     </div>
   );
 }
