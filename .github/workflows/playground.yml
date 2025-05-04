@@ -20,9 +20,9 @@ jobs:
           file: packages/apiref/Dockerfile
           context: .
           push: false
-          build-args:
-            SPEC: ${{ github.event.inputs.spec_url }}
-            HETZNER_S3_ENDPOINT: ${{ secrets.HETZNER_S3_ENDPOINT }}
-            HETZNER_ACCESS_KEY: ${{ secrets.HETZNER_ACCESS_KEY }}
-            HETZNER_SECRET_KEY: ${{ secrets.HETZNER_SECRET_KEY }}
-            HETZNER_BUCKET: 'apiref'
+          build-args: |
+            SPEC=${{ github.event.inputs.spec_url }}
+            HETZNER_S3_ENDPOINT=${{ secrets.HETZNER_S3_ENDPOINT }}
+            HETZNER_ACCESS_KEY=${{ secrets.HETZNER_ACCESS_KEY }}
+            HETZNER_SECRET_KEY=${{ secrets.HETZNER_SECRET_KEY }}
+            HETZNER_BUCKET=apiref
