@@ -21,7 +21,6 @@ RUN ./node_modules/.bin/nx run apiref:build:production
 # WORKDIR /extract
 # COPY --from=frontend /app/packages/apiref/dist/client .
 
-
 # host
 # FROM nginxinc/nginx-unprivileged AS start
 # WORKDIR /usr/share/nginx/html
@@ -31,8 +30,6 @@ RUN ./node_modules/.bin/nx run apiref:build:production
 # EXPOSE 8080
 # HEALTHCHECK CMD curl -f http://localhost:8080 || exit 1
 # CMD ["nginx", "-g", "daemon off;"]
-
-
 
 FROM minio/mc AS deploy
 
@@ -49,4 +46,4 @@ ENV MC_HOST="https://${HETZNER_S3_ENDPOINT}" \
 
 # Configure alias and ensure bucket exists
 RUN mc alias set hetzner "${MC_HOST}" "${MC_ACCESS_KEY}" "${MC_SECRET_KEY}" --api "s3v4"
-RUN mc cp --recursive /static hetzner/${HETZNER_BUCKET}/${BASE}
+RUN mc cp --recursive /static/ hetzner/${HETZNER_BUCKET}/${BASE}

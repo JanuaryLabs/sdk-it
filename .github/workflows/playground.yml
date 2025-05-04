@@ -2,6 +2,10 @@ name: Deploy Playground
 on:
   workflow_dispatch:
     inputs:
+      base:
+        description: 'spec name'
+        required: true
+        default: 'demo'
       spec_url:
         description: 'URL of the OpenAPI spec file'
         required: true
@@ -22,6 +26,7 @@ jobs:
           context: .
           push: false
           build-args: |
+            BASE=${{ github.event.inputs.base }}
             SPEC=${{ github.event.inputs.spec_url }}
             HETZNER_S3_ENDPOINT=${{ secrets.HETZNER_S3_ENDPOINT }}
             HETZNER_ACCESS_KEY=${{ secrets.HETZNER_ACCESS_KEY }}
