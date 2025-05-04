@@ -25,6 +25,8 @@ jobs:
           file: packages/apiref/Dockerfile
           context: .
           push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             BASE=${{ github.event.inputs.base }}
             SPEC=${{ github.event.inputs.spec_url }}
