@@ -1,0 +1,23 @@
+name: Deploy Playground
+on:
+  workflow_dispatch: {}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  deploy_apiref:
+    runs-on: blacksmith
+    steps:
+      - uses: actions/checkout@v4
+      - uses: useblacksmith/build-push-action@v1
+        with:
+          setup-only: true
+          file: packages/apiref/Dockerfile
+          context: .
+          push: false
+          build-args:
+            SPEC: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml'
+            HETZNER_S3_ENDPOINT: ${{ secrets.HETZNER_S3_ENDPOINT }}
+            HETZNER_ACCESS_KEY: ${{ secrets.HETZNER_ACCESS_KEY }}
+            HETZNER_SECRET_KEY: ${{ secrets.HETZNER_SECRET_KEY }}
+            HETZNER_BUCKET: 'apiref'
