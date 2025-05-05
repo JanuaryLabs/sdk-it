@@ -1,5 +1,5 @@
 #syntax=docker/dockerfile:1.7-labs
-FROM node:lts AS base
+FROM node:lts-alpine AS base
 
 FROM base AS builder
 WORKDIR /app
