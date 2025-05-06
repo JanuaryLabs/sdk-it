@@ -4,7 +4,11 @@ import { defineConfig } from 'vite';
 
 export default defineConfig((config) => ({
   root: __dirname,
-  base: config.command === 'build' ? `/apiref/${process.env.VITE_BASE}/` : undefined,
+  base: './',
+  // base:
+  //   config.command === 'build'
+  //     ? `/apiref/${process.env.VITE_BASE}/`
+  //     : undefined,
   cacheDir: 'node_modules/.vite/packages/apiref',
   server: {
     port: 4200,
@@ -21,7 +25,7 @@ export default defineConfig((config) => ({
   },
   plugins: [tailwindcss(), reactRouter()],
   build: {
-    sourcemap: true,
+    sourcemap: config.command !== 'build',
     outDir: './dist',
     emptyOutDir: true,
     reportCompressedSize: true,

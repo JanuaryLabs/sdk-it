@@ -1,8 +1,8 @@
 import type { InfoObject } from 'openapi3-ts/oas31';
-import ReactMarkdown from 'react-markdown';
 
 import { Badge } from '../shadcn/badge';
 import { linkifyText } from './format-text';
+import { MD } from './md';
 
 export function ApiInfoSection({ info }: { info: InfoObject }) {
   const markdownDescription = info.description
@@ -19,7 +19,7 @@ export function ApiInfoSection({ info }: { info: InfoObject }) {
 
         {markdownDescription && (
           <div className="prose">
-            <ReactMarkdown>{markdownDescription}</ReactMarkdown>
+            <MD content={markdownDescription} />
           </div>
         )}
 
