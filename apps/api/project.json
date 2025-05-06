@@ -4,7 +4,11 @@
   "sourceRoot": "apps/api/src",
   "projectType": "application",
   "targets": {
+    "client": {
+      "command": "NODE_NO_WARNINGS=1 node --experimental-strip-types {projectRoot}/sdk.ts"
+    },
     "build": {
+      "dependsOn": ["client"],
       "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",
@@ -12,10 +16,11 @@
         "platform": "node",
         "outputPath": "apps/api/dist",
         "format": ["esm"],
-        "bundle": false,
+        "bundle": true,
         "main": "apps/api/src/main.ts",
         "tsConfig": "apps/api/tsconfig.app.json",
         "assets": ["apps/api/src/assets"],
+        "thirdParty": false,
         "esbuildOptions": {
           "sourcemap": true,
           "outExtension": {
@@ -38,8 +43,27 @@
     "serve": {
       "executor": "@nx/js:node",
       "defaultConfiguration": "development",
-      "dependsOn": ["build"],
+      "dependsOn": ["client", "build"],
       "options": {
+        "runtimeArgs": ["--experimental-strip-types"],
+        "buildTarget": "api:build",
+        "runBuildTargetDependencies": false
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "api:build:development"
+        },
+        "production": {
+          "buildTarget": "api:build:production"
+        }
+      }
+    },
+    "bun": {
+      "executor": "@nx/js:node",
+      "defaultConfiguration": "development",
+      "dependsOn": ["client", "build"],
+      "options": {
+        "runtimeArgs": ["--experimental-strip-types"],
         "buildTarget": "api:build",
         "runBuildTargetDependencies": false
       },

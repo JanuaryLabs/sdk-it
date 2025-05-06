@@ -7,13 +7,19 @@
       "path": "../../packages/readme"
     },
     {
-      "path": "../../packages/typescript"
-    },
-    {
       "path": "../../packages/spec"
     },
     {
       "path": "../../packages/core"
+    },
+    {
+      "path": "../../packages/typescript"
+    },
+    {
+      "path": "../../packages/hono"
+    },
+    {
+      "path": "../../packages/generic"
     },
     {
       "path": "./tsconfig.app.json"

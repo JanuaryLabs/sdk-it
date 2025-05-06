@@ -52,3 +52,6 @@ combined.txt
 **/.env
 
 .docker
+
+# sst
+.sst

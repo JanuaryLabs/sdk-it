@@ -73,7 +73,6 @@ const tabs: CodeTab[] = [
     description: 'Learn how to stream data in real-time.',
   },
 ];
-
 export default function App() {
   const a: Record<string, ReactNode> = {
     pagination: <Example key="pagination" snippet={codeSnippets.pagination} />,
@@ -83,7 +82,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState(tabs[0].id);
   return (
     <Suspense>
-      <Background className="relative mx-auto xl:max-w-full 2xl:max-w-[1400px] px-4 md:px-8 lg:px-8 xl:px-12 2xl:px-0 2xl:py-24">
+      <Background className="relative mx-auto px-4 md:px-8 lg:px-8 xl:max-w-full xl:px-12 2xl:max-w-[1400px] 2xl:px-0 2xl:py-24">
         <Particles
           className="absolute inset-0"
           quantity={100}

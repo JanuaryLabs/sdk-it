@@ -1,7 +1,7 @@
 import type { Config } from '@react-router/dev/config';
 
 export default {
-  ssr: false,
+  ssr: true,
   buildDirectory: 'dist',
   serverModuleFormat: 'esm',
   async prerender() {

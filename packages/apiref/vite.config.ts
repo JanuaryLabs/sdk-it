@@ -21,6 +21,7 @@ export default defineConfig((config) => ({
   },
   plugins: [tailwindcss(), reactRouter()],
   build: {
+    sourcemap: true,
     outDir: './dist',
     emptyOutDir: true,
     reportCompressedSize: true,
