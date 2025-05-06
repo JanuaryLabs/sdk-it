@@ -4,11 +4,10 @@ import { defineConfig } from 'vite';
 
 export default defineConfig((config) => ({
   root: __dirname,
-  base: './',
-  // base:
-  //   config.command === 'build'
-  //     ? `/apiref/${process.env.VITE_BASE}/`
-  //     : undefined,
+  base:
+    config.command === 'build'
+      ? `/apiref/${process.env.VITE_BASE}/`
+      : undefined,
   cacheDir: 'node_modules/.vite/packages/apiref',
   server: {
     port: 4200,

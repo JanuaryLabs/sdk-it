@@ -37,13 +37,13 @@ export function SidebarItem({ item }: { item: NavItem }) {
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
           <SidebarMenuButton
-            className="text-sm font-normal justify-between flex items-center"
+            className="flex items-center justify-between text-sm font-normal"
             size={'default'}
             tooltip={item.title}
           >
             {/* {item.icon && <item.icon />} */}
             <span>{item.title}</span>
-            <ChevronRight className=" transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+            <ChevronRight className="transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
@@ -55,7 +55,7 @@ export function SidebarItem({ item }: { item: NavItem }) {
                   isActive={activeOperation === subItem.id}
                   size="md"
                 >
-                  <Link to={subItem.url}>
+                  <Link to={import.meta.env.BASE_URL+subItem.url}>
                     <span>{subItem.title}</span>
                   </Link>
                 </SidebarMenuSubButton>
@@ -70,8 +70,8 @@ export function SidebarItem({ item }: { item: NavItem }) {
 
 export function CategoryNav({ category }: { category: CategoryItem }) {
   return (
-    <SidebarGroup className="py-0 ">
-      <SidebarGroupLabel className="text-xs text-foreground font-semibold uppercase">
+    <SidebarGroup className="py-0">
+      <SidebarGroupLabel className="text-foreground text-xs font-semibold uppercase">
         {category.category}
       </SidebarGroupLabel>
       <SidebarMenu className="gap-0">

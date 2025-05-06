@@ -1,5 +1,6 @@
+import { join } from 'node:path';
 import { useEffect, useRef } from 'react';
-import { useLocation } from 'react-router';
+import { useLocation, useNavigate, useRoutes } from 'react-router';
 
 import type { SidebarData } from '@sdk-it/spec/sidebar.js';
 
@@ -10,6 +11,7 @@ interface UseScrollOperationsProps {
 export function useScrollOperations({ sidebarData }: UseScrollOperationsProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!contentRef.current || sidebarData.length === 0) {
@@ -28,7 +30,11 @@ export function useScrollOperations({ sidebarData }: UseScrollOperationsProps) {
             const rect = element.getBoundingClientRect();
             // If the operation is in view (with some buffer), update the URL
             if (rect.top <= 150 && rect.bottom >= 0) {
-              window.history.replaceState(null, '', subitem.url);
+              window.history.replaceState(
+                null,
+                '',
+                `${import.meta.env.BASE_URL}${subitem.url}`,
+              );
               break;
             }
           }
@@ -39,7 +45,7 @@ export function useScrollOperations({ sidebarData }: UseScrollOperationsProps) {
     const el = contentRef.current;
     el.addEventListener('scroll', handleScroll);
     return () => el.removeEventListener('scroll', handleScroll);
-  }, [sidebarData]);
+  }, [sidebarData, location, navigate]);
 
   useEffect(() => {
     if (!contentRef.current || sidebarData.length === 0) return;

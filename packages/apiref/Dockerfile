@@ -21,7 +21,6 @@ ARG BASE
 WORKDIR /app
 ENV NX_DAEMON=false
 ENV NODE_ENV=production
-ENV NODE_OPTIONS=--max-old-space-size=8192
 ENV VITE_SPEC=${SPEC}
 ENV VITE_BASE=${BASE}
 RUN --mount=type=cache,id=nx,target=/app/.nx ./node_modules/.bin/nx run apiref:build:production
@@ -46,9 +45,3 @@ S5CMD_ENDPOINT_URL="https://${HETZNER_S3_ENDPOINT}"
 RUN /s5cmd \
     --endpoint-url "$S5CMD_ENDPOINT_URL" \
     cp ./ s3://${HETZNER_BUCKET}/${BASE}/
-
-RUN apk add --no-cache procps \
- && echo "--- Host Memory ---" \
- && grep MemTotal /proc/meminfo \
- && free -h \
- && echo "--- Container Limit ---"

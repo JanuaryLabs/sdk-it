@@ -84,7 +84,7 @@ export function toSidebar(spec: OpenAPIObject) {
           .map((section) => ({
             id: section.key,
             title: getOperationById(spec, section.key)?.summary || section.key,
-            url: `/${item.id}/${camelcase(section.key)}`,
+            url: `${item.id}/${camelcase(section.key)}`,
           })),
       })),
     });
