@@ -72,21 +72,34 @@ export function toSidebar(spec: OpenAPIObject) {
     const group = oaiMeta.groups.filter(
       (group) => group.navigationGroup === navGroup.id,
     );
-    sidebar.push({
-      category: navGroup.title,
-      items: group.map((item) => ({
+    if (group.length === 0) continue;
+    const groupItems: NavItem[] = [];
+    for (const item of group) {
+      const subitems: ChildNavItem[] = (item.sections ?? [])
+        .filter((it) => it.type === 'endpoint')
+        .map((section) => {
+          const operation = getOperationById(spec, section.key);
+          const title =
+            operation?.['x-oaiMeta']?.name || operation?.summary || section.key;
+          return {
+            id: section.key,
+            title,
+            url: `${item.id}/${camelcase(section.key)}`,
+          };
+        });
+      if (subitems.length === 0) continue;
+      groupItems.push({
         id: item.id,
         title: item.title,
         url: `/${item.id}`,
         description: item.description,
-        items: (item.sections ?? [])
-          .filter((it) => it.type === 'endpoint')
-          .map((section) => ({
-            id: section.key,
-            title: getOperationById(spec, section.key)?.summary || section.key,
-            url: `${item.id}/${camelcase(section.key)}`,
-          })),
-      })),
+        items: subitems,
+      });
+    }
+    if (groupItems.length === 0) continue;
+    sidebar.push({
+      category: navGroup.title,
+      items: groupItems,
     });
   }
   return sidebar;

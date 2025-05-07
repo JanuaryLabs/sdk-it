@@ -4,6 +4,9 @@ import { parse } from 'yaml';
 export async function loadRemote<T>(location: string): Promise<T> {
   const extName = extname(location);
   const response = await fetch(location);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${location}: ${response.statusText}`);
+  }
   switch (extName) {
     case '.json':
       return response.json() as Promise<T>;
