@@ -59,7 +59,7 @@ export function SearchCmdk() {
           }
         }}
       >
-        <CommandInput placeholder="Type a command or search..." />
+        <CommandInput  placeholder="Type a command or search..." />
         <div className="flex h-full lg:grid-cols-2">
           {/* Left Pane - Search UI */}
           <CommandList className="h-[calc(100%-3rem)] max-h-full w-2/5 lg:w-1/4">
