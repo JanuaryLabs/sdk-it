@@ -36,7 +36,7 @@ export function OperationCard({
           </div>
 
           <div className="prose max-w-none text-sm">
-            <MD content={operation.summary}></MD>
+            <MD id={operationId} content={operation.summary}></MD>
           </div>
 
           <div>{jsxEmitter.handle(operation)}</div>

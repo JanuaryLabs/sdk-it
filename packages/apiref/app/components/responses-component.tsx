@@ -97,7 +97,7 @@ const ResponseItem: React.FC<ResponseItemProps> = ({
         className="response-item"
       >
         <CollapsibleTrigger asChild>
-          <h5 className={cn('text-sm cursor-pointer flex gap-x-2')}>
+          <h5 className={cn('flex cursor-pointer gap-x-2 text-sm')}>
             <code>{statusCode}</code>
             <Description
               description={response.description}
@@ -114,7 +114,7 @@ const ResponseItem: React.FC<ResponseItemProps> = ({
 
   return (
     <div className="response-item">
-      <h5 className={cn('text-sm cursor-pointer items-center flex gap-x-1')}>
+      <h5 className={cn('flex cursor-pointer items-center gap-x-1 text-sm')}>
         <code>{statusCode}</code>
         <Type
           spec={spec}
@@ -138,11 +138,10 @@ function Type({
   selectedContentType: string | null;
 }) {
   if (
-    !(
-      response.content &&
-      selectedContentType &&
-      response.content[selectedContentType].schema
-    )
+    !selectedContentType ||
+    !response.content ||
+    !response.content[selectedContentType] ||
+    !response.content[selectedContentType].schema
   ) {
     return null;
   }

@@ -9,9 +9,10 @@ export function Description(props: {
   return (
     props.description && (
       <MD
+        id=""
         content={props.description}
         className={cn(
-          'text-sm text-muted-foreground',
+          'text-muted-foreground text-sm',
           props.varient === 'sm' ? 'text-xs' : 'text-sm',
           props.className,
         )}

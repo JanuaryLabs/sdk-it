@@ -21,7 +21,9 @@ export function ApiInfoSection() {
 
         {markdownDescription && (
           <div className="prose">
-            <MD content={markdownDescription} />
+            <MD
+            id={'api-info-description'}
+              content={markdownDescription} />
           </div>
         )}
 

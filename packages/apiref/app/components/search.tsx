@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react';
 import React, { Fragment, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { VscCopilot } from 'react-icons/vsc';
 
 import { OperationCard } from '../api-doc/operation-card';
 import { Badge } from '../shadcn/badge';
@@ -12,16 +12,18 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
-  CommandShortcut,
 } from '../shadcn/command';
 import { useRootData } from '../use-root-data';
+import { AskAi } from './ai';
+
+const aiValue = crypto.randomUUID();
 
 export function SearchCmdk() {
+  // const { containerRef } = useScrollToBottom();
   const { sidebar, operationsMap } = useRootData();
   const [open, setOpen] = useState(false);
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(
-    sidebar[0].items[0].items?.[0]?.id ?? null,
+    aiValue,
   );
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -54,15 +56,29 @@ export function SearchCmdk() {
         open={open}
         onOpenChange={(newOpen) => {
           setOpen(newOpen);
-          if (!newOpen) {
-            setSelectedOperationId(null);
-          }
+          // if (!newOpen) {
+          //   setSelectedOperationId(null);
+          // }
         }}
       >
-        <CommandInput  placeholder="Type a command or search..." />
-        <div className="flex h-full lg:grid-cols-2">
+        <CommandInput placeholder="Type a command or search..." />
+        <div className="flex h-full overflow-auto lg:grid-cols-2">
           {/* Left Pane - Search UI */}
-          <CommandList className="h-[calc(100%-3rem)] max-h-full w-2/5 lg:w-1/4">
+          <CommandList className="h-full max-h-full w-2/5 lg:w-1/4">
+            <CommandGroup forceMount={true} heading="Help">
+              <CommandItem
+                value={aiValue}
+                className="cursor-pointer space-x-2"
+                forceMount={true}
+                onSelect={() => {
+                  setSelectedOperationId(aiValue);
+                }}
+                onMouseEnter={() => setSelectedOperationId(aiValue)}
+              >
+                <VscCopilot size={18} />
+                <span>Ask AI</span>
+              </CommandItem>
+            </CommandGroup>
             <CommandEmpty>No results found.</CommandEmpty>
             {sidebar.map((category) => (
               <Fragment key={category.category}>
@@ -102,7 +118,7 @@ export function SearchCmdk() {
                             <div className="flex items-center">
                               <Badge
                                 variant={'ghost'}
-                                className="truncate text-muted-foreground hover:bg-transparent gap-x-1 px-0 text-[10px] font-mono"
+                                className="text-muted-foreground gap-x-1 truncate px-0 font-mono text-[10px] hover:bg-transparent"
                               >
                                 <span>
                                   {operationsMap[
@@ -125,15 +141,21 @@ export function SearchCmdk() {
           </CommandList>
 
           {/* Right Pane - Operation Card */}
-          {selectedOperationId && operationsMap[selectedOperationId] && (
-            <div className="hidden h-[calc(100%-3rem)] w-2/5 overflow-auto border-l pl-4 lg:block lg:w-3/4">
-              <OperationCard
-                entry={operationsMap[selectedOperationId].entry}
-                operationId={selectedOperationId}
-                operation={operationsMap[selectedOperationId].operation}
-              />
+          {selectedOperationId ? (
+            <div className="relative hidden h-full w-2/5 overflow-auto border-l px-4 lg:block lg:w-3/4">
+              {selectedOperationId === aiValue ? (
+                <AskAi className="flex h-full flex-col justify-between" />
+              ) : (
+                operationsMap[selectedOperationId] && (
+                  <OperationCard
+                    entry={operationsMap[selectedOperationId].entry}
+                    operationId={selectedOperationId}
+                    operation={operationsMap[selectedOperationId].operation}
+                  />
+                )
+              )}
             </div>
-          )}
+          ) : null}
         </div>
       </CommandDialog>
     </>

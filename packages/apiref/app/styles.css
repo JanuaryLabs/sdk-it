@@ -165,12 +165,12 @@
 @layer components {
   .expressive-code pre > code {
     overflow-x: overlay !important ;
-    padding: 0 !important;
+    /* padding: 0 !important;
     padding-top: 0.5rem !important;
     padding-bottom: 0.25rem !important;
     .ec-line .code {
       padding: 0 0.25rem !important;
-    }
+    } */
   }
   .api-doc-scrollable {
     scroll-behavior: smooth;
