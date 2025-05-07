@@ -1,4 +1,5 @@
-import { Link, useParams } from 'react-router';
+import { ChevronRight } from 'lucide-react';
+import { useParams } from 'react-router';
 
 import { isEmpty } from '@sdk-it/core';
 import type {
@@ -24,7 +25,6 @@ import {
   SidebarMenuSubItem,
 } from '../shadcn/sidebar';
 import { useRootData } from '../use-root-data';
-import { ChevronRight } from 'lucide-react';
 
 export function SidebarItem({ item }: { item: NavItem }) {
   const params = useParams();
@@ -40,7 +40,7 @@ export function SidebarItem({ item }: { item: NavItem }) {
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
           <SidebarMenuButton
-            className="flex items-center p-2 justify-between text-sm font-normal"
+            className="flex items-center justify-between p-2 text-sm font-normal"
             size={'default'}
             tooltip={item.title}
           >

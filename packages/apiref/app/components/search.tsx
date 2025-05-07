@@ -1,7 +1,9 @@
 import { Search } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { Fragment, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 
+import { OperationCard } from '../api-doc/operation-card';
+import { Badge } from '../shadcn/badge';
 import { Button } from '../shadcn/button';
 import {
   CommandDialog,
@@ -10,15 +12,17 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
   CommandShortcut,
 } from '../shadcn/command';
 import { useRootData } from '../use-root-data';
 
 export function SearchCmdk() {
-  const { sidebar, operationsMap, spec } = useRootData();
-  const navigate = useNavigate();
+  const { sidebar, operationsMap } = useRootData();
   const [open, setOpen] = useState(false);
-
+  const [selectedOperationId, setSelectedOperationId] = useState<string | null>(
+    sidebar[0].items[0].items?.[0]?.id ?? null,
+  );
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
@@ -46,37 +50,91 @@ export function SearchCmdk() {
           <span className="text-xs">⌘</span>K
         </kbd>
       </Button>
-      <CommandDialog open={open} onOpenChange={setOpen}>
+      <CommandDialog
+        open={open}
+        onOpenChange={(newOpen) => {
+          setOpen(newOpen);
+          if (!newOpen) {
+            setSelectedOperationId(null);
+          }
+        }}
+      >
         <CommandInput placeholder="Type a command or search..." />
-        <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
-          {sidebar.map((category) => (
-            <CommandGroup heading={category.category} key={category.category}>
-              {category.items.map((item) => (
-                <React.Fragment key={item.id}>
-                  {/* Parent item as non-selectable header */}
-                  <CommandItem disabled className="pl-2 opacity-80">
-                    <span className="font-medium">{item.title}</span>
-                  </CommandItem>
-                  {/* Child endpoints */}
-                  {item.items?.map((child) => (
-                    <CommandItem
-                      key={child.id}
-                      className="pl-6"
-                      onSelect={() => {
-                        setOpen(false);
-                        navigate(import.meta.env.BASE_URL + child.url);
-                      }}
-                    >
-                      <span>{child.title}</span>
-                      <CommandShortcut>{child.url}</CommandShortcut>
-                    </CommandItem>
+        <div className="flex h-full lg:grid-cols-2">
+          {/* Left Pane - Search UI */}
+          <CommandList className="h-[calc(100%-3rem)] max-h-full w-2/5 lg:w-1/4">
+            <CommandEmpty>No results found.</CommandEmpty>
+            {sidebar.map((category) => (
+              <Fragment key={category.category}>
+                <CommandGroup heading={category.category}>
+                  {category.items.map((item) => (
+                    <React.Fragment key={item.id}>
+                      {/* <CommandItem disabled className="pl-2 opacity-80">
+                        <span className="font-medium">{item.title}</span>
+                      </CommandItem> */}
+                      {item.items?.map((child) => {
+                        const operationId = child.url.split('/').pop() || '';
+                        return (
+                          <CommandItem
+                            key={child.id}
+                            className="flex flex-col items-start gap-0 p-0 pl-6"
+                            onSelect={() => {
+                              window.history.replaceState(
+                                null,
+                                '',
+                                `${import.meta.env.BASE_URL}${child.url}`,
+                              );
+                              const element = document.getElementById(child.id);
+                              if (element) {
+                                element.scrollIntoView({
+                                  behavior: 'instant',
+                                  block: 'start',
+                                  inline: 'nearest',
+                                });
+                              }
+                              setOpen(false);
+                            }}
+                            onMouseEnter={() =>
+                              setSelectedOperationId(operationId)
+                            }
+                          >
+                            <span>{child.title}</span>
+                            <div className="flex items-center">
+                              <Badge
+                                variant={'ghost'}
+                                className="truncate text-muted-foreground hover:bg-transparent gap-x-1 px-0 text-[10px] font-mono"
+                              >
+                                <span>
+                                  {operationsMap[
+                                    operationId
+                                  ].entry.method.toUpperCase()}
+                                </span>
+                                <span className="font-normal">
+                                  {operationsMap[operationId].entry.path}
+                                </span>
+                              </Badge>
+                            </div>
+                          </CommandItem>
+                        );
+                      })}
+                    </React.Fragment>
                   ))}
-                </React.Fragment>
-              ))}
-            </CommandGroup>
-          ))}
-        </CommandList>
+                </CommandGroup>
+              </Fragment>
+            ))}
+          </CommandList>
+
+          {/* Right Pane - Operation Card */}
+          {selectedOperationId && operationsMap[selectedOperationId] && (
+            <div className="hidden h-[calc(100%-3rem)] w-2/5 overflow-auto border-l pl-4 lg:block lg:w-3/4">
+              <OperationCard
+                entry={operationsMap[selectedOperationId].entry}
+                operationId={selectedOperationId}
+                operation={operationsMap[selectedOperationId].operation}
+              />
+            </div>
+          )}
+        </div>
       </CommandDialog>
     </>
   );
