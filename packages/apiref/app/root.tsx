@@ -4,6 +4,7 @@ import type {
   ParameterObject,
   RequestBodyObject,
 } from 'openapi3-ts/oas31';
+import type { ShouldRevalidateFunctionArgs } from 'react-router';
 import {
   Links,
   type LinksFunction,
@@ -45,9 +46,13 @@ export const links: LinksFunction = () => [
   //   rel: 'stylesheet',
   //   href: `https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..700;1,300..900&display=swap`,
   // },
+  // {
+  //   rel: 'stylesheet',
+  //   href: `https://fonts.googleapis.com/css2?family=Geist:wght@300..700&display=swap`,
+  // },
   {
     rel: 'stylesheet',
-    href: `https://fonts.googleapis.com/css2?family=Geist:wght@300..700&display=swap`,
+    href: `https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap`,
   },
   {
     rel: 'stylesheet',
@@ -64,7 +69,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
       </head>
-      <body>
+      <body className="invisible">
         {children}
         <ScrollRestoration />
         <Scripts />
@@ -77,15 +82,24 @@ export default function App() {
   return <Outlet />;
 }
 
-type PromisedValue<T> = T extends Promise<infer U> ? U : never;
+export async function loader({
+  request,
+  params,
+}: {
+  request: Request;
+  params: { '*'?: string };
+}) {
+  // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
+  // 'https://api.openstatus.dev/v1/openapi',
 
-export async function loader({ params }: { params: { '*'?: string } }) {
-  const spec = await loadRemote<OpenAPIObject>(
+  const urlObj = new URL(request.url);
+  const specUrl =
+    urlObj.searchParams.get('spec') ??
     import.meta.env.VITE_SPEC ??
-      (import.meta.env.DEV ? 'https://api.openstatus.dev/v1/openapi' : ''),
-    // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-    // 'https://api.openstatus.dev/v1/openapi',
-  );
+    (import.meta.env.DEV
+      ? 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml'
+      : '');
+  const spec = await loadRemote<OpenAPIObject>(specUrl);
 
   const operationsMap: Record<
     string,
@@ -170,14 +184,15 @@ export async function loader({ params }: { params: { '*'?: string } }) {
       }),
     });
 
-    const curlOutput = snippet.convert('shell', 'curl', {
-      indent: '\t',
-      short: true,
-    });
-    if (curlOutput === false) {
-      throw new Error(`Failed to convert to curl for ${operationId}`);
-    }
+    // const curlOutput = snippet.convert('shell', 'curl', {
+    //   indent: '\t',
+    //   short: true,
+    // });
+    // if (curlOutput === false) {
+    //   throw new Error(`Failed to convert to curl for ${operationId}`);
+    // }
 
+    const curlOutput = '';
     operationsMap[operationId] = {
       entry: {
         ...entry,
@@ -201,4 +216,11 @@ export async function loader({ params }: { params: { '*'?: string } }) {
     sidebar: toSidebar(spec),
     operationsMap,
   };
+}
+// export function ErrorBoundary(a: any) {
+//   return redirect('/');
+// }
+
+export function shouldRevalidate(arg: ShouldRevalidateFunctionArgs) {
+  return false;
 }

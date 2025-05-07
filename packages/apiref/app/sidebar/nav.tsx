@@ -1,4 +1,3 @@
-import { ChevronRight } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 
 import { isEmpty } from '@sdk-it/core';
@@ -8,6 +7,7 @@ import type {
   SidebarData,
 } from '@sdk-it/spec/sidebar.js';
 
+import { Badge } from '../shadcn/badge';
 import {
   Collapsible,
   CollapsibleContent,
@@ -23,11 +23,13 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '../shadcn/sidebar';
+import { useRootData } from '../use-root-data';
 
 export function SidebarItem({ item }: { item: NavItem }) {
   const params = useParams();
   const route = params['*'] || '/';
   const [activeGroup, activeOperation] = route.split('/');
+  const { operationsMap } = useRootData();
   return (
     <Collapsible
       asChild
@@ -43,7 +45,7 @@ export function SidebarItem({ item }: { item: NavItem }) {
           >
             {/* {item.icon && <item.icon />} */}
             <span>{item.title}</span>
-            <ChevronRight className="transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+            {/* <ChevronRight className="transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" /> */}
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
@@ -55,9 +57,37 @@ export function SidebarItem({ item }: { item: NavItem }) {
                   isActive={activeOperation === subItem.id}
                   size="md"
                 >
-                  <Link to={import.meta.env.BASE_URL+subItem.url}>
+                  <a
+                    href={import.meta.env.BASE_URL + subItem.url}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.history.replaceState(
+                        null,
+                        '',
+                        `${import.meta.env.BASE_URL}${subItem.url}`,
+                      );
+                      const element = document.getElementById(subItem.id);
+                      if (element) {
+                        element.scrollIntoView({
+                          behavior: 'instant',
+                          block: 'start',
+                          inline: 'nearest',
+                        });
+                      }
+                    }}
+                  >
+                    {subItem.id in operationsMap && (
+                      <Badge
+                        variant={'ghost'}
+                        className="px-0 hover:bg-transparent"
+                      >
+                        <code>
+                          {operationsMap[subItem.id].entry.method.toUpperCase()}
+                        </code>
+                      </Badge>
+                    )}
                     <span>{subItem.title}</span>
-                  </Link>
+                  </a>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>
             ))}

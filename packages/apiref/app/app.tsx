@@ -1,8 +1,8 @@
 import { Loader } from 'lucide-react';
-import { useRouteLoaderData } from 'react-router';
 
 import { ApiContent } from './api-doc/api-content';
 import { ApiHeader } from './api-doc/api-header';
+import { SearchCmdk } from './components/search';
 import { useScrollOperations } from './hooks/use-scroll-operations';
 import {
   Sidebar,
@@ -15,33 +15,26 @@ import {
 } from './shadcn/sidebar';
 import { NavMain } from './sidebar/nav';
 import { SpecProvider } from './spec-context';
-
-type PromisedValue<T> = T extends Promise<infer U> ? U : never;
+import { useRootData } from './use-root-data';
 
 export function HydrateFallback() {
   return <Loader className="animate-spin" />;
 }
 
 export default function Page() {
-  const {
-    sidebar: sidebarData,
-    spec,
-    operationsMap,
-  } = useRouteLoaderData('root');
-
-  const { contentRef } = useScrollOperations({
-    sidebarData,
-  });
+  const { spec, sidebar } = useRootData();
+  useScrollOperations();
 
   return (
     <SpecProvider spec={spec}>
       <SidebarProvider>
-        <Sidebar collapsible="icon" >
+        <Sidebar collapsible="icon">
           <SidebarHeader>
             {/* <TeamSwitcher teams={data.teams} /> */}
+            <SearchCmdk />
           </SidebarHeader>
           <SidebarContent className="gap-x-2 gap-y-0">
-            <NavMain items={sidebarData} />
+            <NavMain items={sidebar} />
             {/* <NavProjects projects={data.projects} /> */}
           </SidebarContent>
           <SidebarFooter>{/* <NavUser user={data.user} /> */}</SidebarFooter>
@@ -49,12 +42,7 @@ export default function Page() {
         </Sidebar>
         <SidebarInset>
           <ApiHeader title={spec.info.title} />
-          <ApiContent
-            contentRef={contentRef}
-            info={spec.info}
-            sidebarData={sidebarData}
-            operationsMap={operationsMap}
-          />
+          <ApiContent />
         </SidebarInset>
       </SidebarProvider>
     </SpecProvider>

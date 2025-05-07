@@ -1,10 +1,12 @@
-import type { InfoObject } from 'openapi3-ts/oas31';
-
 import { Badge } from '../shadcn/badge';
+import { useRootData } from '../use-root-data';
 import { linkifyText } from './format-text';
 import { MD } from './md';
 
-export function ApiInfoSection({ info }: { info: InfoObject }) {
+export function ApiInfoSection() {
+  const {
+    spec: { info },
+  } = useRootData();
   const markdownDescription = info.description
     ? linkifyText(info.description)
     : '';

@@ -5,9 +5,9 @@ import { defineConfig } from 'vite';
 export default defineConfig((config) => ({
   root: __dirname,
   base:
-    config.command === 'build'
+    config.command === 'build' && process.env.VITE_BASE
       ? `/apiref/${process.env.VITE_BASE}/`
-      : undefined,
+      : '/',
   cacheDir: 'node_modules/.vite/packages/apiref',
   server: {
     port: 4200,

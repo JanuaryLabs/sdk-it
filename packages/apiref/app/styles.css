@@ -113,7 +113,7 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --font-sans: 'Geist', sans-serif;
+  --font-sans: 'Open Sans', sans-serif;
   --font-mono: 'Geist Mono', monospace;
   --text-base: 14px;
 }

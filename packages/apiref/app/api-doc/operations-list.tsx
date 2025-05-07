@@ -1,32 +1,32 @@
-import type { TunedOperationObject } from '@sdk-it/spec/operation.js';
-import type { CategoryItem } from '@sdk-it/spec/sidebar.js';
+import { motion } from 'motion/react';
+import { useEffect, useState } from 'react';
 
 import { Separator } from '../shadcn/separator';
+import { useRootData } from '../use-root-data';
 import { MD } from './md';
 import { OperationCard } from './operation-card';
-import type { AugmentedOperation } from './types';
 
-interface OperationsListProps {
-  sidebarData: CategoryItem[];
-  operationsMap: Record<
-    string,
-    { entry: AugmentedOperation; operation: TunedOperationObject }
-  >;
+function useMounted() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  return mounted;
 }
 
-export function OperationsList({
-  sidebarData,
-  operationsMap,
-}: OperationsListProps) {
+export function OperationsList() {
+  const { sidebar: sidebarData, operationsMap } = useRootData();
+  const mounted = useMounted();
+
   return (
-    <div className="mx-auto max-w-6xl p-8 api-doc-content">
+    <div className="api-doc-content mx-auto max-w-6xl p-8">
       {sidebarData.map((category) => (
-        <div key={category.category} className="mb-12 api-doc-section">
+        <div key={category.category} className="api-doc-section mb-12">
           {/* <h2 className="mb-6 text-2xl font-bold">{category.category}</h2>
           <MD content={category.description} /> */}
 
           {category.items.map((group) => (
-            <div key={group.title} className="mb-8 api-doc-section">
+            <div key={group.title} className="api-doc-section mb-8">
               <h3 className="mb-4 text-3xl font-semibold">{group.title}</h3>
               <MD content={group.description} />
               <Separator className="mt-12" />
@@ -35,12 +35,28 @@ export function OperationsList({
                   const operationId = item.url.split('/').pop() || '';
                   const { entry, operation } = operationsMap[operationId];
                   return (
-                    <OperationCard
+                    <motion.div
                       key={operationId}
-                      entry={entry}
-                      operationId={operationId}
-                      operation={operation}
-                    />
+                      id={operationId}
+                      viewport={{
+                        amount: 'some',
+                        margin: '0px 0px -50% 0px',
+                      }}
+                      onViewportEnter={() => {
+                        if (!mounted) return;
+                        window.history.replaceState(
+                          null,
+                          '',
+                          `${import.meta.env.BASE_URL}${item.url}`,
+                        );
+                      }}
+                    >
+                      <OperationCard
+                        entry={entry}
+                        operationId={operationId}
+                        operation={operation}
+                      />
+                    </motion.div>
                   );
                 })}
               </div>

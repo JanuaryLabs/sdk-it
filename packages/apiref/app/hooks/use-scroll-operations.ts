@@ -1,67 +1,35 @@
-import { join } from 'node:path';
-import { useEffect, useRef } from 'react';
-import { useLocation, useNavigate, useRoutes } from 'react-router';
+import { useLayoutEffect, useRef } from 'react';
+import { useParams } from 'react-router';
 
-import type { SidebarData } from '@sdk-it/spec/sidebar.js';
+export function useScrollOperations() {
+  const params = useParams();
+  const ref = useRef<HTMLElement | null>(null);
 
-interface UseScrollOperationsProps {
-  sidebarData: SidebarData;
-}
-
-export function useScrollOperations({ sidebarData }: UseScrollOperationsProps) {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!contentRef.current || sidebarData.length === 0) {
-      return;
-    }
-
-    const handleScroll = () => {
-      if (!contentRef.current) return;
-
-      for (const category of sidebarData) {
-        for (const item of category.items) {
-          for (const subitem of item.items ?? []) {
-            const element = document.getElementById(subitem.id);
-            if (!element) continue;
-
-            const rect = element.getBoundingClientRect();
-            // If the operation is in view (with some buffer), update the URL
-            if (rect.top <= 150 && rect.bottom >= 0) {
-              window.history.replaceState(
-                null,
-                '',
-                `${import.meta.env.BASE_URL}${subitem.url}`,
-              );
-              break;
-            }
-          }
-        }
+  useLayoutEffect(
+    () => {
+      if (!params.operationId) {
+        document.body.classList.remove('invisible');
+        return;
       }
-    };
-
-    const el = contentRef.current;
-    el.addEventListener('scroll', handleScroll);
-    return () => el.removeEventListener('scroll', handleScroll);
-  }, [sidebarData, location, navigate]);
-
-  useEffect(() => {
-    if (!contentRef.current || sidebarData.length === 0) return;
-    const operationId = location.pathname.split('/').pop();
-    if (!operationId) return;
-    const element = document.getElementById(operationId);
-    if (element) {
-      const marginTop = 3 * 16; // 3 * 16px
-      contentRef.current.scrollTo({
-        top: element.offsetTop - marginTop,
+      const operation = params.operationId;
+      const element = document.getElementById(operation);
+      if (!element) {
+        document.body.classList.remove('invisible');
+        return;
+      }
+      element.scrollIntoView({
         behavior: 'instant',
+        block: 'start',
+        inline: 'nearest',
       });
-    }
-  }, [sidebarData, location]);
+      document.body.classList.remove('invisible');
+    },
+    [
+      // only scroll on page open
+    ],
+  );
 
   return {
-    contentRef,
+    contentRef: ref,
   };
 }

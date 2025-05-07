@@ -1,7 +1,7 @@
 import type { TunedOperationObject } from '@sdk-it/spec/operation.js';
 
 import { JSXEmitter } from '../components/jsx-emitter';
-import SdksTabs from '../components/sdks-tabs';
+import SdksTabs, { EditorTabs } from '../components/sdks-tabs';
 import { Badge } from '../shadcn/badge';
 import { useSpec } from '../spec-context';
 import { MD } from './md';
@@ -23,7 +23,6 @@ export function OperationCard({
 
   return (
     <div
-      id={operationId}
       className="grid grid-cols-[55%_minmax(0,100%)] items-start gap-x-8"
     >
       <div id="left" className="sticky top-0 self-start pt-12">
@@ -44,14 +43,15 @@ export function OperationCard({
         <div>{jsxEmitter.handle(operation)}</div>
       </div>
 
-      <div id="right" className="sticky top-0 self-start pt-12">
-        <SdksTabs
+      <div id="right" className="sticky top-0 h-full self-start rounded pt-12">
+        {/* <EditorTabs
+          className="bg-muted/50 border-b  border"
           tabs={entry.snippets.map((snippet) => ({
             name: snippet.language,
             value: snippet.language,
             content: <MD content={snippet.code} />,
           }))}
-        />
+        /> */}
       </div>
     </div>
   );

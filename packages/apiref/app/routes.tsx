@@ -1,7 +1,12 @@
 import { type RouteConfig, index, route } from '@react-router/dev/routes';
 
 export default [
-  // route('*?', './app.tsx', { id: 'app' }),
   index('./app.tsx', { id: 'app-root' }), // exact "/"
-  route('*', './app.tsx'),
+  route('embed', './embed.tsx', { id: 'embed' }), // /embed
+  route('/:group/:operationId', './app.tsx', {
+    id: 'operation',
+  }),
+  route('*', './app.tsx', {
+    id: 'catch-all',
+  }), // catch all
 ] satisfies RouteConfig;
