@@ -1,6 +1,8 @@
+import { Search } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 
+import { Button } from '../shadcn/button';
 import {
   CommandDialog,
   CommandEmpty,
@@ -31,12 +33,19 @@ export function SearchCmdk() {
 
   return (
     <>
-      <p className="text-muted-foreground text-sm">
-        Press{' '}
+      <Button
+        variant={'ghost'}
+        className="bg-border text-muted-foreground hover:bg-sidebar-primary/10 flex items-center justify-between px-3"
+        onClick={() => setOpen((open) => !open)}
+      >
+        <div className="flex items-center gap-2">
+          <Search />
+          Search
+        </div>
         <kbd className="bg-muted text-muted-foreground pointer-events-none inline-flex h-5 items-center gap-1 rounded border px-1.5 font-mono text-[10px] font-medium opacity-100 select-none">
-          <span className="text-xs">⌘</span>J
+          <span className="text-xs">⌘</span>K
         </kbd>
-      </p>
+      </Button>
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput placeholder="Type a command or search..." />
         <CommandList>

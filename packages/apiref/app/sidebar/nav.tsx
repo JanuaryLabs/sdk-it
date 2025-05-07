@@ -24,6 +24,7 @@ import {
   SidebarMenuSubItem,
 } from '../shadcn/sidebar';
 import { useRootData } from '../use-root-data';
+import { ChevronRight } from 'lucide-react';
 
 export function SidebarItem({ item }: { item: NavItem }) {
   const params = useParams();
@@ -39,13 +40,13 @@ export function SidebarItem({ item }: { item: NavItem }) {
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
           <SidebarMenuButton
-            className="flex items-center justify-between text-sm font-normal"
+            className="flex items-center p-2 justify-between text-sm font-normal"
             size={'default'}
             tooltip={item.title}
           >
             {/* {item.icon && <item.icon />} */}
             <span>{item.title}</span>
-            {/* <ChevronRight className="transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" /> */}
+            <ChevronRight className="transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent>

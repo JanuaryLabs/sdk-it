@@ -30,7 +30,6 @@ export default function Page() {
       <SidebarProvider>
         <Sidebar collapsible="icon">
           <SidebarHeader>
-            {/* <TeamSwitcher teams={data.teams} /> */}
             <SearchCmdk />
           </SidebarHeader>
           <SidebarContent className="gap-x-2 gap-y-0">
