@@ -1,10 +1,6 @@
 #syntax=docker/dockerfile:1.7-labs
 FROM node:lts-alpine AS base
 
-ARG TARGETPLATFORM
-ENV TARGETPLATFORM=${TARGETPLATFORM:-linux/amd64}
-RUN echo "I am building for $TARGETPLATFORM"
-
 FROM base AS builder
 WORKDIR /app
 COPY package-lock.json* .

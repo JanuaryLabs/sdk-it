@@ -9,6 +9,7 @@ import React, {
   useState,
 } from 'react';
 import { AiOutlineArrowDown } from 'react-icons/ai';
+import { useLocalStorage } from 'usehooks-ts';
 
 import { MD } from '../api-doc/md';
 import {
@@ -22,7 +23,7 @@ import {
 } from '../components/credenza';
 import { MessageInput } from '../hooks/message-input';
 import { useScrollToBottom } from '../hooks/use-scroll-to-bottom';
-import { Button, Input, Separator } from '../shadcn';
+import { Button } from '../shadcn';
 import { cn } from '../shadcn/cn';
 import { TextShimmer } from './text-shimmer';
 
@@ -50,6 +51,10 @@ export function AI(props: PropsWithChildren<{ open: boolean }>) {
 }
 
 export function AskAi(props: { className?: string }) {
+  const [storedMessages, setStoredMessages] = useLocalStorage<Message[]>(
+    'messages',
+    [],
+  );
   const {
     messages,
     input,
@@ -63,7 +68,9 @@ export function AskAi(props: { className?: string }) {
     stop,
   } = useChat({
     api: 'http://localhost:3000',
+    // initialMessages: storedMessages,
   });
+
   return (
     <div
       className={cn(
@@ -199,6 +206,11 @@ export function ChatList(
       scrollToBottom();
     }
   }, [props.status, scrollToBottom]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [scrollToBottom, props.messages]);
+
   const isWaiting = useMemo(() => {
     if (props.status === 'submitted') {
       return true;

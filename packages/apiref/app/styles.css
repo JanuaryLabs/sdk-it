@@ -163,87 +163,12 @@
 } */
 
 @layer components {
-  .expressive-code pre > code {
-    overflow-x: overlay !important ;
-    /* padding: 0 !important;
-    padding-top: 0.5rem !important;
-    padding-bottom: 0.25rem !important;
-    .ec-line .code {
-      padding: 0 0.25rem !important;
-    } */
-  }
-  .api-doc-scrollable {
-    scroll-behavior: smooth;
-    scroll-padding-top: 2rem;
-  }
-
-  .operation-card {
-    position: relative;
-    transition: all 0.2s ease-in-out;
-  }
-
-  .operation-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  }
-
-  .operation-card::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    box-shadow: 0 0 0 2px transparent;
-    border-radius: inherit;
-    pointer-events: none;
-    transition: all 0.2s ease;
-  }
-
-  .operation-card:target::after {
-    box-shadow: 0 0 0 2px var(--primary);
-  }
-
-  .method-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 60px;
-    font-weight: 500;
-  }
-
   .api-doc-content {
     padding-bottom: 3rem;
   }
 
   .api-doc-section:not(:last-child) {
     margin-bottom: 2.5rem;
-  }
-
-  /* HTTP Method Colors */
-  .method-get {
-    background-color: rgb(219 234 254);
-    color: rgb(30 64 175);
-  }
-
-  .method-post {
-    background-color: rgb(220 252 231);
-    color: rgb(22 101 52);
-  }
-
-  .method-put {
-    background-color: rgb(254 249 195);
-    color: rgb(133 77 14);
-  }
-
-  .method-delete {
-    background-color: rgb(254 226 226);
-    color: rgb(153 27 27);
-  }
-
-  .method-patch {
-    background-color: rgb(243 232 255);
-    color: rgb(107 33 168);
   }
 
   /* Scrollbar styling */

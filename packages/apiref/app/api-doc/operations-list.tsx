@@ -52,8 +52,8 @@ export function OperationsList() {
                       }}
                     >
                       <OperationCard
+                        key={`${operationId}-card`}
                         entry={entry}
-                        operationId={operationId}
                         operation={operation}
                       />
                     </motion.div>

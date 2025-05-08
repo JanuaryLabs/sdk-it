@@ -1,31 +1,24 @@
 import HTTPSnippet from 'httpsnippet';
-import type {
-  OpenAPIObject,
-  ParameterObject,
-  RequestBodyObject,
-} from 'openapi3-ts/oas31';
+import type { OpenAPIObject, ParameterObject, RequestBodyObject } from 'openapi3-ts/oas31';
 import type { ShouldRevalidateFunctionArgs } from 'react-router';
-import {
-  Links,
-  type LinksFunction,
-  Meta,
-  type MetaFunction,
-  Outlet,
-  Scripts,
-  ScrollRestoration,
-} from 'react-router';
+import { Links, type LinksFunction, Meta, type MetaFunction, Outlet, Scripts, ScrollRestoration } from 'react-router';
+
+
 
 import { followRef, isRef } from '@sdk-it/core';
 import { loadRemote } from '@sdk-it/spec/loaders/remote-loader.js';
-import {
-  type TunedOperationObject,
-  forEachOperation,
-} from '@sdk-it/spec/operation.js';
+import { type TunedOperationObject, forEachOperation } from '@sdk-it/spec/operation.js';
 import { toSidebar } from '@sdk-it/spec/sidebar.js';
 import { TypeScriptGenerator } from '@sdk-it/typescript';
 
+
+
 import type { AugmentedOperation } from './api-doc/types';
 import './styles.css';
+
+
+
+
 
 export const meta: MetaFunction = (args) => {
   return [
@@ -96,9 +89,7 @@ export async function loader({
   const specUrl =
     urlObj.searchParams.get('spec') ??
     import.meta.env.VITE_SPEC ??
-    (import.meta.env.DEV
-      ? 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml'
-      : '');
+    (import.meta.env.DEV ? 'https://api.openstatus.dev/v1/openapi' : '');
   const spec = await loadRemote<OpenAPIObject>(specUrl);
 
   const operationsMap: Record<
@@ -184,15 +175,15 @@ export async function loader({
       }),
     });
 
-    // const curlOutput = snippet.convert('shell', 'curl', {
-    //   indent: '\t',
-    //   short: true,
-    // });
-    // if (curlOutput === false) {
-    //   throw new Error(`Failed to convert to curl for ${operationId}`);
-    // }
+    const curlOutput = snippet.convert('shell', 'curl', {
+      indent: '\t',
+      short: true,
+    });
+    if (curlOutput === false) {
+      throw new Error(`Failed to convert to curl for ${operationId}`);
+    }
 
-    const curlOutput = '';
+    // const curlOutput = '';
     operationsMap[operationId] = {
       entry: {
         ...entry,

@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
+
 import type { TunedOperationObject } from '@sdk-it/spec/operation.js';
 
 import { JSXEmitter } from '../components/jsx-emitter';
-import SdksTabs, { EditorTabs } from '../components/sdks-tabs';
+import { EditorTabs } from '../components/sdks-tabs';
 import { Badge } from '../shadcn/badge';
 import { useSpec } from '../spec-context';
 import { MD } from './md';
@@ -10,21 +12,33 @@ import type { AugmentedOperation } from './types';
 interface OperationCardProps {
   entry: AugmentedOperation;
   operation: TunedOperationObject;
-  operationId: string;
 }
 
-export function OperationCard({
-  entry,
-  operation,
-  operationId,
-}: OperationCardProps) {
+export function OperationCard({ entry, operation }: OperationCardProps) {
   const { spec } = useSpec();
-  const jsxEmitter = new JSXEmitter(spec);
+
+  const operationContent = useMemo(
+    () => new JSXEmitter(spec).handle(operation),
+    [operation, spec],
+  );
+
+  const tabsConfig = useMemo(() => {
+    return entry.snippets.map((snippet) => ({
+      name: snippet.language,
+      value: snippet.language,
+      content: (
+        <MD
+          id={`${operation.operationId}-${snippet.language}`}
+          content={snippet.code}
+        />
+      ),
+    }));
+  }, [entry.snippets, operation.operationId]);
 
   return (
     <div className="pt-12">
       <span className="text-3xl font-semibold">
-        {entry.name || operationId}
+        {entry.name || operation.operationId}
       </span>
       <div className="grid grid-cols-[55%_minmax(0,100%)] items-start gap-x-8">
         <div id="left" className="sticky top-0 self-start">
@@ -36,21 +50,17 @@ export function OperationCard({
           </div>
 
           <div className="prose max-w-none text-sm">
-            <MD id={operationId} content={operation.summary}></MD>
+            <MD id={operation.operationId} content={operation.summary}></MD>
           </div>
 
-          <div>{jsxEmitter.handle(operation)}</div>
+          <div>{operationContent}</div>
         </div>
 
         <div id="right" className="sticky top-0 h-full self-start rounded">
-          {/* <EditorTabs
-          className="bg-muted/50 border-b  border"
-          tabs={entry.snippets.map((snippet) => ({
-            name: snippet.language,
-            value: snippet.language,
-            content: <MD content={snippet.code} />,
-          }))}
-        /> */}
+          <EditorTabs
+            className="bg-muted/50 border border-b"
+            tabs={tabsConfig}
+          />
         </div>
       </div>
     </div>

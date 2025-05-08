@@ -62,9 +62,9 @@ export function SearchCmdk() {
         }}
       >
         <CommandInput placeholder="Type a command or search..." />
-        <div className="flex h-full overflow-auto lg:grid-cols-2">
+        <div className="flex h-full overflow-auto">
           {/* Left Pane - Search UI */}
-          <CommandList className="h-full max-h-full w-2/5 lg:w-1/4">
+          <CommandList className="h-full max-h-full w-2/5 sm:w-1/4">
             <CommandGroup forceMount={true} heading="Help">
               <CommandItem
                 value={aiValue}
@@ -142,14 +142,16 @@ export function SearchCmdk() {
 
           {/* Right Pane - Operation Card */}
           {selectedOperationId ? (
-            <div className="relative hidden h-full w-2/5 overflow-auto border-l px-4 lg:block lg:w-3/4">
+            <div className="relative h-full w-2/5 overflow-auto border-l px-4 sm:block sm:w-3/4">
               {selectedOperationId === aiValue ? (
-                <AskAi className="flex h-full flex-col justify-between" />
+                <AskAi
+                  key={'ai'}
+                  className="flex h-full flex-col justify-between"
+                />
               ) : (
                 operationsMap[selectedOperationId] && (
                   <OperationCard
                     entry={operationsMap[selectedOperationId].entry}
-                    operationId={selectedOperationId}
                     operation={operationsMap[selectedOperationId].operation}
                   />
                 )
