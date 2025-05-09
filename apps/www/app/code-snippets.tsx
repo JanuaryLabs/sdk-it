@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { BiLogoFlutter, BiLogoTypescript } from 'react-icons/bi';
+import { SiOpenapiinitiative } from 'react-icons/si';
+import { camelcase } from 'stringcase';
 
 import { Editor } from './editor/editor';
 import {
@@ -10,6 +12,13 @@ import {
   TabsTrigger,
   cn,
 } from './shadcn';
+
+type SdkInfo = {
+  url: string;
+  title: string;
+  name: string;
+  clientName: string;
+};
 
 interface EditorTabsProps {
   activeLanguage: string;
@@ -67,6 +76,13 @@ function EditorTabs({
             <BiLogoFlutter size={20} />
             Dart
           </TabsTrigger>
+          <TabsTrigger
+            value="spec"
+            className="data-[state=active]:bg-muted data-[state=active]:after:bg-primary relative gap-x-1 overflow-hidden rounded-none py-2 after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 data-[state=active]:shadow-none"
+          >
+            <SiOpenapiinitiative size={20} />
+            Spec
+          </TabsTrigger>
         </TabsList>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
@@ -75,14 +91,14 @@ function EditorTabs({
 }
 
 export default {
-  pagination: {
-    typescript: `import { Openstatus } from '@openstatus/sdk';
+  pagination: (sdkInfo: SdkInfo) => ({
+    typescript: `import { ${sdkInfo.clientName} } from '${sdkInfo.name}';
 
-const openstatus = new Openstatus({
+const ${camelcase(sdkInfo.clientName)} = ${sdkInfo.clientName}({
   baseUrl: 'http://localhost:3000',
 });
 
-const result = await openstatus.request('GET /monitors', {
+const result = await ${camelcase(sdkInfo.clientName)}.request('GET /monitors', {
   page: 1,
   limit: 10
 });
@@ -105,16 +121,16 @@ void main() async {
 
   print(result.data);
 }`,
-  },
-  fileupload: {
-    typescript: `import { Openstatus } from '@openstatus/sdk';
+  }),
+  fileupload: (sdkInfo: SdkInfo) => ({
+    typescript: `import { ${sdkInfo.clientName} } from '${sdkInfo.name}';
 
-const openstatus = new Openstatus({
+const ${camelcase(sdkInfo.clientName)} = new ${sdkInfo.clientName}({
   baseUrl: 'http://localhost:3000',
 });
 
 const file = new File(['file content'], 'example.txt');
-const result = await openstatus.request('POST /upload', {
+const result = await ${camelcase(sdkInfo.clientName)}.request('POST /upload', {
   content: file
 });
 
@@ -136,15 +152,15 @@ void main() async {
 
   print(result.data);
 }`,
-  },
-  streaming: {
+  }),
+  streaming: (sdkInfo: SdkInfo) => ({
     typescript: `import { Openstatus } from '@openstatus/sdk';
 
-const openstatus = new Openstatus({
+const ${camelcase(sdkInfo.clientName)} = new ${sdkInfo.clientName}({
   baseUrl: 'http://localhost:3000',
 });
 
-const stream = await openstatus.request('GET /stream', {
+const stream = await ${camelcase(sdkInfo.clientName)}.request('GET /stream', {
   responseType: 'stream'
 });
 
@@ -168,5 +184,5 @@ void main() async {
     print(chunk);
   }
 }`,
-  },
+  }),
 };

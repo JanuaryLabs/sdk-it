@@ -1,25 +1,34 @@
+import type { PostPlaygroundOutput200 } from '@local/client';
 import { type ReactNode, Suspense, useState } from 'react';
+import { useReadLocalStorage } from 'usehooks-ts';
 
 import codeSnippets, { Example } from './code-snippets';
-import { AIV2 } from './components/ai';
 import Background from './components/background';
 import { CodeExamples, type CodeTab } from './components/code-examples';
 import { Particles } from './components/particles';
 import SpecBox from './components/spec-box';
 import { TextGenerateEffect } from './components/text-generate-effect';
-import { VercelTabs } from './components/vercel-tabs';
 import { Button, EyeCatchingButton, cn } from './shadcn';
+import {
+  Credenza,
+  CredenzaBody,
+  CredenzaContent,
+  CredenzaDescription,
+  CredenzaHeader,
+  CredenzaTitle,
+  CredenzaTrigger,
+} from './shadcn/lib/ui/credenza';
 
 export function Hero(props: { className?: string }) {
   return (
     <div
       className={cn(
-        'scroll-target mx-auto grid w-full snap-start grid-cols-4 items-start gap-2 md:gap-8 md:gap-y-2 lg:grid-cols-5 lg:grid-rows-[auto_auto_auto] lg:gap-12 lg:gap-y-0 xl:grid-cols-7',
+        'scroll-target mx-auto grid w-full snap-start grid-cols-4 items-start gap-2 md:gap-8 md:gap-y-2 lg:grid-cols-7 lg:grid-rows-[auto_auto] lg:gap-12 lg:gap-y-0',
         props.className,
       )}
     >
-      <div className="col-span-full flex w-full flex-col items-center justify-center justify-self-center lg:col-span-3 lg:row-span-2 lg:items-start lg:justify-self-start xl:col-span-4">
-        <h1 className="mb-8 font-sans md:font-mono">
+      <div className="col-span-full flex w-full flex-col items-center justify-center justify-self-center lg:col-span-4 lg:row-span-1 lg:items-start lg:justify-self-start">
+        <h1 className="mb-4 font-sans md:font-mono">
           <TextGenerateEffect
             className="text-center text-3xl font-semibold text-balance lg:text-left lg:text-4xl"
             filter={false}
@@ -33,14 +42,14 @@ export function Hero(props: { className?: string }) {
             words={'Turn your OpenAPI spec into premium developer experience'}
           />
         </h1>
-        <h2 className="text-muted-foreground text-center leading-tight text-balance sm:text-lg lg:max-w-none lg:text-left">
+        <h2 className="text-muted-foreground mb-6 text-center leading-tight text-balance sm:text-lg lg:max-w-none lg:text-left">
           Cut costs, reduce maintenance, and boost productivity with type-safe
           client libraries, documentation, and agent tools — all generated
           automatically.
         </h2>
       </div>
-      <div className="col-span-full inline-flex flex-col items-center justify-center gap-4 sm:flex-row lg:col-span-3 lg:row-start-3 lg:mb-0 lg:justify-start xl:col-span-4">
-        <div className="mt-4 flex flex-col items-center gap-4 md:flex-row lg:gap-8">
+      <div className="col-span-full inline-flex flex-col items-center justify-center gap-4 sm:flex-row lg:col-span-3 lg:row-start-2 lg:mb-0 lg:justify-start xl:col-span-4">
+        <div className="flex flex-col items-center gap-4 md:flex-row lg:gap-8">
           <Button size={'lg'}>
             <a href="/">Get started</a>
           </Button>
@@ -55,29 +64,53 @@ export function Hero(props: { className?: string }) {
     </div>
   );
 }
-
 const tabs: CodeTab[] = [
   {
     id: 'pagination',
     label: 'Pagination',
-    description: 'Learn how to paginate through large datasets efficiently.',
+    description:
+      'Fetch large lists efficiently with cursor- or offset-based pagination.',
   },
   {
     id: 'fileupload',
     label: 'File Upload',
-    description: 'Learn how to upload files using the API.',
+    description:
+      'Upload files via multipart/form-data with built-in progress tracking.',
   },
   {
     id: 'streaming',
     label: 'Streaming',
-    description: 'Learn how to stream data in real-time.',
+    description:
+      'Stream large payloads or real-time data without blocking the main thread.',
+  },
+  {
+    id: 'sse',
+    label: 'Server-Sent Events',
+    description:
+      'Subscribe to real-time server push events with automatic reconnection.',
   },
 ];
+
 export default function App() {
+  const sdkInfo = useReadLocalStorage<PostPlaygroundOutput200 | null>(
+    'ts-sdk-info',
+  ) ?? {
+    url: '',
+    name: '@scope/client',
+    title: '',
+    clientName: 'Client',
+  };
   const a: Record<string, ReactNode> = {
-    pagination: <Example key="pagination" snippet={codeSnippets.pagination} />,
-    fileupload: <Example key="fileupload" snippet={codeSnippets.fileupload} />,
-    streaming: <Example key="streaming" snippet={codeSnippets.streaming} />,
+    pagination: (
+      <Example key="pagination" snippet={codeSnippets.pagination(sdkInfo)} />
+    ),
+    fileupload: (
+      <Example key="fileupload" snippet={codeSnippets.fileupload(sdkInfo)} />
+    ),
+    streaming: (
+      <Example key="streaming" snippet={codeSnippets.streaming(sdkInfo)} />
+    ),
+    sse: <Example key="sse" snippet={codeSnippets.streaming(sdkInfo)} />,
   };
   const [activeTab, setActiveTab] = useState(tabs[0].id);
   return (
@@ -106,9 +139,44 @@ export default function App() {
 
 export function SpecBoxDemo() {
   const [selectedTab, setSelectedTab] = useState('generate-sdk');
+  const [open, setOpen] = useState(false);
+  const [sdkInfo, setSdkInfo] = useState<PostPlaygroundOutput200 | undefined>();
   return (
     <div className="z-10 w-full max-w-xl lg:max-w-none">
-      <VercelTabs
+      <SpecBox
+        onGenerate={(info) => {
+          setOpen(true);
+          setSdkInfo(info);
+        }}
+      />
+      <Credenza open={open} onOpenChange={setOpen}>
+        <CredenzaTrigger asChild>
+          <div></div>
+        </CredenzaTrigger>
+        <CredenzaContent className="h-screen max-h-[calc(100dvh)] max-w-screen min-w-full gap-0 p-0 rounded-none">
+          {/* <CredenzaHeader>
+            <CredenzaTitle>Ask AI</CredenzaTitle>
+            <CredenzaDescription>
+              Hi! I'm an AI assistant trained on documentation, code, and other
+              content. I can answer questions about{' '}
+              <span className="text-foreground font-bold">SDK-IT</span>, what's
+              on your mind?
+            </CredenzaDescription>
+          </CredenzaHeader> */}
+          <CredenzaBody>
+            <iframe
+              title="Embedded Content"
+              width="100%"
+              style={{ height: '100%' }}
+              src={`http://localhost:3002/embed?spec=${sdkInfo?.url}`}
+              frameBorder="0"
+              allowFullScreen
+            ></iframe>
+          </CredenzaBody>
+        </CredenzaContent>
+      </Credenza>
+
+      {/* <VercelTabs
         className="mb-4"
         tabs={[
           { label: 'Talk with Spec', id: 'ask-ai' },
@@ -118,9 +186,9 @@ export function SpecBoxDemo() {
         onTabChange={setSelectedTab}
       />
       <SpecBox />
-      <AIV2 open={selectedTab === 'ask-ai'}>
+      <AI open={selectedTab === 'ask-ai'}>
         <div></div>
-      </AIV2>
+      </AI> */}
     </div>
   );
 }

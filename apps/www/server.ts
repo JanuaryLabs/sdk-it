@@ -21,7 +21,7 @@ app.use(async (c) => {
   return createRequestHandler(
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    await import('./build/server/index.js'),
+    await import('./dist/server/index.js'),
   )(c.req.raw);
 });
 

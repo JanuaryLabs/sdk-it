@@ -1,8 +1,9 @@
-import { SdkIt } from '@local/client';
+import { type PostPlaygroundOutput200, SdkIt } from '@local/client';
 import { Paperclip } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { type FileRejection, useDropzone } from 'react-dropzone';
 import { toast } from 'sonner';
+import { useLocalStorage } from 'usehooks-ts';
 import { z } from 'zod';
 
 import { Button, cn } from '../shadcn';
@@ -11,32 +12,117 @@ import { Loader } from './loading-text';
 const client = new SdkIt({
   baseUrl: 'http://localhost:3000',
 });
-export default function SpecBox(props: {
+
+async function toSdks(file: File) {
+  const result = await client.request('POST /generate', {
+    specFile: file,
+  });
+  const decoder = new TextDecoder('utf-8');
+  const chunks = await Array.fromAsync(result);
+
+  let fullText = '';
+  for (const chunk of chunks) {
+    fullText += decoder.decode(chunk, { stream: true });
+  }
+  fullText += decoder.decode();
+  const lines = fullText.split('\n');
+
+  return lines
+    .map((line) => line.trim())
+    .filter((line) => line)
+    .map((l) => {
+      try {
+        return JSON.parse(l);
+      } catch (e) {
+        console.log('Failed to parse JSON line:', l);
+        console.error(e);
+        return null; // Return null for lines that fail to parse
+      }
+    })
+    .filter((obj) => obj !== null); // Filter out nulls (failed parses)
+}
+
+export default function SpecBox({
+  onGenerate,
+  ...props
+}: {
   className?: string;
   projectId?: number;
+  onGenerate: (sdkInfo: PostPlaygroundOutput200) => void;
 }) {
+  const [boxValue, setBoxValue] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const generate = useCallback(() => {
-    if (!file) {
+  const [content, setContent] = useLocalStorage<any[]>('ts-sdk', [], {
+    initializeWithValue: false,
+  });
+  const [sdkInfo, setSdkInfo] = useLocalStorage<PostPlaygroundOutput200 | null>(
+    'ts-sdk-info',
+    null,
+    {
+      initializeWithValue: false,
+    },
+  );
+  const generate = useCallback(async () => {
+    setLoading(true);
+    let specFile = file;
+    if (!specFile && !boxValue) {
+      toast.error(
+        'Please upload a OpenAPI/Swagger file, paste content or enter a URL.',
+      );
+      setLoading(false);
       return;
     }
-    toast.promise(
-      async () => {
-        const r = await client.request('POST /generate', {
-          specFile: file,
+    if (!specFile) {
+      if (z.string().url().safeParse(boxValue)) {
+        const spec = await client.request('GET /fetch', {
+          url: boxValue,
+        });
+        if (!spec) {
+          toast.error('Invalid OpenAPI spec.', {
+            description: 'Please enter a valid OpenAPI/Swagger spec URL.',
+          });
+          setLoading(false);
+          return;
+        }
+        specFile = new File([JSON.stringify(spec)], 'spec.json', {
+          type: 'application/json',
+        });
+      } else {
+        toast.error('Invalid URL.', {
+          description: 'Please enter a valid OpenAPI/Swagger spec URL.',
         });
         setLoading(false);
+        return;
+      }
+    }
+
+    toast.promise(
+      async () => {
+        try {
+          const result = await client.request('POST /playground', {
+            specFile,
+          });
+
+          setSdkInfo(result);
+          onGenerate(result);
+
+          // setContent(await toSdks(specFile));
+        } catch (error) {
+          console.error(error);
+          throw error;
+        } finally {
+          setLoading(false);
+        }
       },
       {
         loading: 'Generating...',
         success: 'Files uploaded successfully',
         error: 'Failed to upload files',
-        duration: 2000,
+        duration: 5000,
       },
     );
-    setLoading(true);
-  }, [file]);
+  }, [file, setSdkInfo, onGenerate, boxValue]);
 
   const onDrop = useCallback(
     async (acceptedFiles: File[], fileRejections: FileRejection[]) => {
@@ -82,7 +168,7 @@ export default function SpecBox(props: {
   });
 
   return (
-    <div
+    <form
       {...getRootProps()} // Apply dropzone props to the whole component
       className={cn(
         props.className,
@@ -92,16 +178,21 @@ export default function SpecBox(props: {
           : !loading &&
               'border-neutral-200 bg-gray-50 focus-within:border-gray-400 hover:border-gray-400 focus:border-gray-400 focus-visible:border-gray-400',
       )}
+      onSubmit={(e) => {
+        e.preventDefault();
+      }}
     >
       <textarea
         disabled={loading}
         placeholder="Enter OpenAPI spec url, upload file, or paste the spec here..."
         rows={3}
         className="text-neutral-n11 placeholder-neutral-n7 w-full resize-none bg-white px-6 py-4 text-lg focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-        defaultValue={''}
+        value={boxValue}
+        onChange={(e) => {
+          setBoxValue(e.target.value);
+        }}
         onClick={(e) => {
           e.stopPropagation();
-          z.string().url().safeParse(e.currentTarget.value); // Validate URL
         }} // Prevent dropzone click handler on textarea
       />
       <div className="p-3 pt-1">
@@ -115,6 +206,7 @@ export default function SpecBox(props: {
               variant={'outline'}
               size={'sm'}
               className="shadow-none"
+              type="button"
               onClick={(e) => {
                 e.stopPropagation(); // Prevent event bubbling to parent dropzone
                 open(); // Manually open the file dialog
@@ -125,10 +217,19 @@ export default function SpecBox(props: {
             </Button>
           </div>
           <Button
-            onClick={() => generate()}
+            onClick={async () => {
+              generate();
+              // const result = await client.request('POST /playground', {
+              //   specFile: new File(['{}'], 'spec.json', {
+              //     type: 'application/json',
+              //   }),
+              // });
+              // onGenerate(result);
+            }}
             disabled={loading}
             variant={'secondary'}
             className="border"
+            type="submit"
           >
             {loading ? (
               <Loader size="lg" text="Generating" variant={'loading-dots'} />
@@ -138,6 +239,6 @@ export default function SpecBox(props: {
           </Button>
         </div>
       </div>
-    </div>
+    </form>
   );
 }

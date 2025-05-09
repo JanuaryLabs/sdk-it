@@ -2,12 +2,7 @@ import { type UseChatHelpers, useChat } from '@ai-sdk/react';
 import type { Message } from 'ai/react';
 import { Dot } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import React, {
-  type PropsWithChildren,
-  Suspense,
-  useEffect,
-  useState,
-} from 'react';
+import React, { type PropsWithChildren, useEffect, useState } from 'react';
 import { AiOutlineArrowDown } from 'react-icons/ai';
 
 import { Button, Input, Separator } from '../shadcn';
@@ -21,10 +16,10 @@ import {
   CredenzaTitle,
   CredenzaTrigger,
 } from '../shadcn/lib/ui/credenza';
-import { MarkdownRenderer } from './md';
+import { MD } from './md';
 import { TextShimmer } from './text-shimmer';
 
-export function AIV2(props: PropsWithChildren<{ open: boolean }>) {
+export function AI(props: PropsWithChildren<{ open: boolean }>) {
   const {
     messages,
     input,
@@ -296,10 +291,7 @@ export function AssistantMessage(props: { message: Message }) {
                 </div>
               );
             })}
-        <MarkdownRenderer
-          content={props.message.content}
-          id={props.message.id}
-        />
+        <MD content={props.message.content} id={props.message.id} />
       </div>
     </div>
   );
