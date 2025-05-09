@@ -9,8 +9,8 @@ import { generate } from '@sdk-it/typescript';
 
 const { paths, components } = await analyze('apps/api/tsconfig.app.json', {
   responseAnalyzer: {
-    ...responseAnalyzer,
     ...genericResponseAnalyzer,
+    ...responseAnalyzer,
   },
   onOperation: (sourceFile, method, path, operation) => {
     operation.responses ??= {};
@@ -64,7 +64,6 @@ const spec = {
   },
 };
 
-// console.dir(spec, {depth:Infinity})
 await generate(spec, {
   mode: 'full',
   name: 'SdkIt',

@@ -7,12 +7,19 @@ import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import { logger as requestLogger } from 'hono/logger';
 import { requestId } from 'hono/request-id';
-import { streamSSE } from 'hono/streaming';
+import { streamText } from 'hono/streaming';
 import { Client } from 'minio';
+import { tmpdir } from 'node:os';
+import { join, relative } from 'node:path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import pWaitFor from 'p-wait-for';
 import { buffer, json } from 'stream/consumers';
 import { z } from 'zod';
+
+import { pascalcase } from '@sdk-it/core';
+import * as tsDart from '@sdk-it/dart';
+import { loadRemote } from '@sdk-it/spec/loaders/remote-loader.js';
+import * as tsSdk from '@sdk-it/typescript';
 
 import { talk } from './groq.js';
 import { validate } from './middlewares/validator.js';
@@ -55,6 +62,23 @@ app.post('/signed-url', async (c) => {
 });
 
 /**
+ * @openai fetchSpec
+ */
+
+app.get(
+  '/fetch',
+  validate((payload) => ({
+    url: {
+      select: payload.query.url,
+      against: z.string().url(),
+    },
+  })),
+  async (c) => {
+    return c.json((await loadRemote(c.var.input.url)) as any);
+  },
+);
+
+/**
  * @openai generate
  */
 app.post(
@@ -79,37 +103,167 @@ app.post(
     },
   })),
   async (c) => {
-    const base = randomDigits(6);
-    console.log('Received file:', c.var.input.specFile);
     const spec = (await json(c.var.input.specFile.stream())) as OpenAPIObject;
-    const url = await uploadFile(c.var.input.specFile, base);
+    const files: { isFolder: boolean; filePath: string }[] = [];
+    const sdkPath = join(tmpdir(), crypto.randomUUID());
 
-    // // await t.generate(spec, {});
-    // // await d.generate(spec, {});
-    // return c.json({
-    //   url: url,
-    //   title: spec.info.title,
-    // });
-    return streamSSE(c, async (stream) => {
-      await triggerAndTrack(base, url, (status, conclusion) => {
-        console.log(`Status: ${status}`);
-        console.log(`Conclusion: ${conclusion}`);
-        stream.writeSSE({
-          data: JSON.stringify({ status, conclusion }),
-          event: 'workflow-status',
-          id: base,
-        });
+    return streamText(c, async (stream) => {
+      await tsSdk.generate(spec, {
+        output: sdkPath,
+        name: pascalcase(spec.info.title),
+        writer: (dir, contents) => {
+          Object.entries(contents).forEach(([file, content]) => {
+            files.push({
+              filePath: join(dir, file),
+              isFolder: false,
+            });
+            stream.writeln(
+              JSON.stringify({
+                filePath: relative(sdkPath, join(dir, file)),
+                content:
+                  typeof content === 'string' ? content : content?.content,
+                language: 'typescript',
+              }),
+            );
+          });
+          return Promise.resolve();
+        },
+        readFolder: async (folder) => {
+          const folderFiles = files.filter((f) => {
+            if (!f.filePath.startsWith(folder)) {
+              return false;
+            }
+            // Ensure it's not the folder itself
+            if (f.filePath === folder) {
+              return false;
+            }
+            // Get path relative to the folder
+            const relativePath = f.filePath.substring(folder.length + 1); // +1 for the separator
+            // Direct children should not have any more separators in their relative path
+            return !relativePath.includes('/') && !relativePath.includes('\\');
+          });
+          return folderFiles.map((file) => {
+            const name =
+              file.filePath.split('/').pop() ||
+              file.filePath.split('\\').pop() ||
+              '';
+            return {
+              fileName: name,
+              filePath: file.filePath,
+              isFolder: file.isFolder,
+            };
+          });
+        },
       });
-      //   while (true) {
-      //   const message = `It is ${new Date().toISOString()}`;
-      //   await stream.writeSSE({
-      //     data: message,
-      //     event: 'time-update',
-      //     id: base,
-      //   });
-      //   await stream.sleep(1000);
+      await tsDart.generate(spec, {
+        output: sdkPath,
+        name: pascalcase(spec.info.title),
+        writer: (dir, contents) => {
+          Object.entries(contents).forEach(([file, content]) => {
+            files.push({
+              filePath: join(dir, file),
+              isFolder: false,
+            });
+            stream.writeln(
+              JSON.stringify({
+                filePath: relative(sdkPath, join(dir, file)),
+                content:
+                  typeof content === 'string' ? content : content?.content,
+                language: 'dart',
+              }),
+            );
+          });
+          return Promise.resolve();
+        },
+        readFolder: async (folder) => {
+          const folderFiles = files.filter((f) => {
+            if (!f.filePath.startsWith(folder)) {
+              return false;
+            }
+            // Ensure it's not the folder itself
+            if (f.filePath === folder) {
+              return false;
+            }
+            // Get path relative to the folder
+            const relativePath = f.filePath.substring(folder.length + 1); // +1 for the separator
+            // Direct children should not have any more separators in their relative path
+            return !relativePath.includes('/') && !relativePath.includes('\\');
+          });
+          return folderFiles.map((file) => {
+            const name =
+              file.filePath.split('/').pop() ||
+              file.filePath.split('\\').pop() ||
+              '';
+            return {
+              fileName: name,
+              filePath: file.filePath,
+              isFolder: file.isFolder,
+            };
+          });
+        },
+      });
+      return stream.close();
+      // for await (const file of glob(join(sdkPath, '**/*'), {
+      //   withFileTypes: true,
+      // })) {
+      //   stream.writeln(
+      //     JSON.stringify({
+      //       fileName: relative(sdkPath, join(file.parentPath, file.name)),
+      //       content: file.isDirectory()
+      //         ? null
+      //         : await readFile(join(file.parentPath, file.name), 'utf-8'),
+      //     }),
+      //   );
       // }
     });
+    // return streamSSE(c, async (stream) => {
+    //   for await (const file of glob(join(sdkPath, '**/*'))) {
+    //     console.log(file);
+    //     stream.writeSSE({
+    //       data: file,
+    //     });
+    //   }
+    // });
+  },
+);
+
+/**
+ * @openai playground
+ * @tags playground
+ */
+app.post(
+  '/playground',
+  validate('multipart/form-data', (payload) => ({
+    specFile: {
+      select: payload.body.specFile,
+      against: z.instanceof(File).superRefine((file, ctx) => {
+        if (file.type !== 'application/json') {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'File must be a JSON file',
+          });
+          return false;
+        }
+        return true;
+      }),
+    },
+  })),
+  async (c) => {
+    // const base = randomDigits(6);
+    // const url = await uploadFile(c.var.input.specFile, base);
+    const url =
+    'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml';
+    // const spec = (await json(c.var.input.specFile.stream())) as OpenAPIObject;
+    const spec = await loadRemote(url) as OpenAPIObject
+    return c.json(
+      {
+        url: url,
+        title: spec.info.title,
+        name: `@${pascalcase(spec.info.title)}/sdk`,
+        clientName: pascalcase(spec.info.title),
+      },
+      200,
+    );
   },
 );
 

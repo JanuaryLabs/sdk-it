@@ -7,6 +7,9 @@
       "path": "../../packages/readme"
     },
     {
+      "path": "../../packages/dart"
+    },
+    {
       "path": "../../packages/spec"
     },
     {

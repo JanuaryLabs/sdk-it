@@ -18,6 +18,9 @@
       "path": "../../packages/readme/tsconfig.lib.json"
     },
     {
+      "path": "../../packages/dart/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/spec/tsconfig.lib.json"
     },
     {
