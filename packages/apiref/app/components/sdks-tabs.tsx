@@ -81,7 +81,7 @@ export function EditorTabs({
       </ScrollArea>
       {tabs.map((tab) => (
         <TabsContent
-          className="mt-0 overflow-auto rounded-b border border-t-0 bg-white p-4 font-mono"
+          className="mt-0 rounded-b border border-t-0 text-sm"
           key={tab.value}
           value={tab.value}
         >

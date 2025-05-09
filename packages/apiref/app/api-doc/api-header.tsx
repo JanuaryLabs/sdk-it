@@ -17,10 +17,10 @@ export function ApiHeader({ title }: ApiHeaderProps) {
       <div className="flex items-center gap-2 px-3">
         <Breadcrumb>
           <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">
+            {/* <BreadcrumbItem className="hidden md:block">
               <BreadcrumbLink href="#">API Reference</BreadcrumbLink>
             </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
+            <BreadcrumbSeparator className="hidden md:block" /> */}
             <BreadcrumbItem>
               <BreadcrumbPage>{title}</BreadcrumbPage>
             </BreadcrumbItem>

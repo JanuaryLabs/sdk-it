@@ -5,6 +5,7 @@ import type { TunedOperationObject } from '@sdk-it/spec/operation.js';
 import { JSXEmitter } from '../components/jsx-emitter';
 import { EditorTabs } from '../components/sdks-tabs';
 import { Badge } from '../shadcn/badge';
+import { cn } from '../shadcn/cn';
 import { useSpec } from '../spec-context';
 import { MD } from './md';
 import type { AugmentedOperation } from './types';
@@ -12,9 +13,14 @@ import type { AugmentedOperation } from './types';
 interface OperationCardProps {
   entry: AugmentedOperation;
   operation: TunedOperationObject;
+  className?: string;
 }
 
-export function OperationCard({ entry, operation }: OperationCardProps) {
+export function OperationCard({
+  entry,
+  operation,
+  className,
+}: OperationCardProps) {
   const { spec } = useSpec();
 
   const operationContent = useMemo(
@@ -36,7 +42,7 @@ export function OperationCard({ entry, operation }: OperationCardProps) {
   }, [entry.snippets, operation.operationId]);
 
   return (
-    <div className="pt-12">
+    <div className={cn('pt-12', className)}>
       <span className="text-3xl font-semibold">
         {entry.name || operation.operationId}
       </span>
@@ -56,7 +62,7 @@ export function OperationCard({ entry, operation }: OperationCardProps) {
           <div>{operationContent}</div>
         </div>
 
-        <div id="right" className="sticky top-0 h-full self-start rounded">
+        <div id="right" className="h-full self-start rounded">
           <EditorTabs
             className="bg-muted/50 border border-b"
             tabs={tabsConfig}

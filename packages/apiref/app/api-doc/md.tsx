@@ -2,6 +2,7 @@ import rehypeShiki, { type RehypeShikiOptions } from '@shikijs/rehype';
 import { marked } from 'marked';
 import { lazy, memo, useMemo } from 'react';
 import remarkGfm from 'remark-gfm';
+import { cn } from '../shadcn/cn';
 
 const ReactMarkdown = lazy(() =>
   import('react-markdown').then((mod) => ({ default: mod.MarkdownHooks })),
@@ -18,17 +19,18 @@ function parseMarkdownIntoBlocks(markdown?: string): string[] {
 const MemoizedMarkdownBlock = memo(
   ({ content, className }: { content: string; className?: string }) => {
     return (
-      <div>
+      <div className={cn('', className)}>
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[
             [
               rehypeShiki,
               {
-                themes: {
-                  light: 'min-light',
-                  dark: 'vesper',
-                },
+                // themes: {
+                //   light: 'min-light',
+                //   dark: 'vesper',
+                // },
+                theme:'vesper'
               } satisfies RehypeShikiOptions,
               // {
               //   themes: ['min-light'],

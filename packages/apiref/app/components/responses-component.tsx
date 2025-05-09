@@ -114,7 +114,7 @@ const ResponseItem: React.FC<ResponseItemProps> = ({
 
   return (
     <div className="response-item">
-      <h5 className={cn('flex cursor-pointer items-center gap-x-1 text-sm')}>
+      <h5 className={cn('flex cursor-pointer flex-wrap items-center gap-x-1 text-sm')}>
         <code>{statusCode}</code>
         <Type
           spec={spec}

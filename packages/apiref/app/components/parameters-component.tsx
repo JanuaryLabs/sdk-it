@@ -34,7 +34,7 @@ export const ParametersComponent: React.FC<ParametersComponentProps> = ({
           return (
             <div key={index}>
               <Separator className="my-4" />
-              <div className="flex items-center gap-x-1 mb-0.5">
+              <div className="flex items-center flex-wrap gap-x-1 mb-0.5">
                 <code className="text-sm">{parameter.name}</code>
                 {parameter.schema && (
                   <SchemaComponent

@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react';
-import React, { Fragment, useEffect, useState } from 'react';
+import React, { Fragment, useState } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { VscCopilot } from 'react-icons/vsc';
 
 import { OperationCard } from '../api-doc/operation-card';
@@ -25,30 +26,21 @@ export function SearchCmdk() {
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(
     aiValue,
   );
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen((open) => !open);
-      }
-    };
-
-    document.addEventListener('keydown', down);
-    return () => document.removeEventListener('keydown', down);
-  }, []);
+  useHotkeys('mod+k', () => setOpen((open) => !open));
 
   return (
     <>
       <Button
         variant={'ghost'}
-        className="bg-border text-muted-foreground hover:bg-sidebar-primary/10 flex items-center justify-between px-3"
+        size={'lg'}
+        className="text-muted-foreground hover:bg-sidebar-primary/10 flex items-center justify-between border px-3 font-normal"
         onClick={() => setOpen((open) => !open)}
       >
         <div className="flex items-center gap-2">
           <Search />
-          Search
+          Find something...
         </div>
-        <kbd className="bg-muted text-muted-foreground pointer-events-none inline-flex h-5 items-center gap-1 rounded border px-1.5 font-mono text-[10px] font-medium opacity-100 select-none">
+        <kbd className="pointer-events-none inline-flex h-5 items-center gap-1 rounded border px-1.5 font-mono text-[10px] font-medium opacity-100 select-none">
           <span className="text-xs">⌘</span>K
         </kbd>
       </Button>
@@ -151,6 +143,7 @@ export function SearchCmdk() {
               ) : (
                 operationsMap[selectedOperationId] && (
                   <OperationCard
+                    className="text-sm"
                     entry={operationsMap[selectedOperationId].entry}
                     operation={operationsMap[selectedOperationId].operation}
                   />

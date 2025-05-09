@@ -66,13 +66,13 @@ export const SchemaProperty: React.FC<SchemaProps> = ({
   required = false,
   level = 0,
 }) => {
-  const indent = '\u00A0\u00A0'.repeat(level);
+  const indent = `${'\u00A0\u00A0'.repeat(level)}${' '.repeat(2)}`;
   const isRequiredText = required ? ' required' : ' optional';
 
   if (isRef(schema)) {
     const refName = schema.$ref.split('/').pop();
     return (
-      <div className="flex gap-x-1 text-sm items-center">
+      <div className="flex items-center flex-wrap gap-x-1 text-sm">
         {name && (
           <code className="property-name">
             {indent}
@@ -80,7 +80,7 @@ export const SchemaProperty: React.FC<SchemaProps> = ({
           </code>
         )}
         <span className="text-muted-foreground text-xs">{refName}</span>
-        <span className="text-red-500 text-xs">{isRequiredText}</span>
+        <span className="text-xs text-red-500">{isRequiredText}</span>
       </div>
     );
   }
@@ -89,15 +89,15 @@ export const SchemaProperty: React.FC<SchemaProps> = ({
     <>
       {
         <>
-          <div className="flex gap-x-1 text-sm items-center">
+          <div className="flex items-center gap-x-1 text-sm">
             {indent}
             <code className="property-name">{name}</code>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-muted-foreground text-xs">
               {getTypeDisplay(schema)}
             </span>
-            <span className="text-red-500 text-xs">{isRequiredText}</span>
+            <span className="text-xs text-red-500">{isRequiredText}</span>
           </div>
-          <div className="flex gap-x-1">
+          <div>
             {indent}
             <Description varient="sm" description={schema.description} />
           </div>
@@ -126,7 +126,7 @@ export const SchemaProperty: React.FC<SchemaProps> = ({
       )}
 
       {schema.enum && schema.enum.length > 0 && (
-        <div className="text-xs text-muted-foreground">
+        <div className="text-muted-foreground text-xs">
           {indent}Enum:
           {schema.enum.map((val) => JSON.stringify(val)).join(', ')}
         </div>

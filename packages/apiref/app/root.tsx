@@ -89,7 +89,9 @@ export async function loader({
   const specUrl =
     urlObj.searchParams.get('spec') ??
     import.meta.env.VITE_SPEC ??
-    (import.meta.env.DEV ? 'https://api.openstatus.dev/v1/openapi' : '');
+    (import.meta.env.DEV
+      ? 'https://developer.spotify.com/reference/web-api/open-api-schema.yaml'
+      : '');
   const spec = await loadRemote<OpenAPIObject>(specUrl);
 
   const operationsMap: Record<

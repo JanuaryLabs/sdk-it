@@ -30,7 +30,7 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.625rem;
   /* --sidebar: oklch(0.985 0 0); */
-  --sidebar: #f1f1f1;
+  --sidebar: #fff;
   --sidebar-foreground: #737373;
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -163,6 +163,9 @@
 } */
 
 @layer components {
+  .shiki{
+@apply p-4 overflow-auto;
+  }
   .api-doc-content {
     padding-bottom: 3rem;
   }

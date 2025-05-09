@@ -2,11 +2,11 @@ import { Loader } from 'lucide-react';
 
 import { ApiContent } from './api-doc/api-content';
 import { ApiHeader } from './api-doc/api-header';
+import { SearchCmdk } from './components/search';
 import { useScrollOperations } from './hooks/use-scroll-operations';
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarInset,
   SidebarProvider,
@@ -27,16 +27,14 @@ export default function Embed() {
   return (
     <SpecProvider spec={spec}>
       <SidebarProvider>
-        <Sidebar collapsible="icon">
+        <Sidebar collapsible="none">
           <SidebarHeader>
-            {/* <TeamSwitcher teams={data.teams} /> */}
+            <SearchCmdk />
           </SidebarHeader>
           <SidebarContent className="gap-x-2 gap-y-0">
             <NavMain items={sidebar} />
-            {/* <NavProjects projects={data.projects} /> */}
           </SidebarContent>
-          <SidebarFooter>{/* <NavUser user={data.user} /> */}</SidebarFooter>
-          <SidebarRail />
+          {/* <SidebarFooter></SidebarFooter> */}
         </Sidebar>
         <SidebarInset>
           <ApiHeader title={spec.info.title} />

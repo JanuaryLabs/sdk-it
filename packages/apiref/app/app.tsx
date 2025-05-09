@@ -7,7 +7,6 @@ import { useScrollOperations } from './hooks/use-scroll-operations';
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarInset,
   SidebarProvider,
@@ -34,10 +33,8 @@ export default function Page() {
           </SidebarHeader>
           <SidebarContent className="gap-x-2 gap-y-0">
             <NavMain items={sidebar} />
-            {/* <NavProjects projects={data.projects} /> */}
           </SidebarContent>
-          <SidebarFooter>{/* <NavUser user={data.user} /> */}</SidebarFooter>
-          <SidebarRail />
+          {/* <SidebarFooter></SidebarFooter> */}
         </Sidebar>
         <SidebarInset>
           <ApiHeader title={spec.info.title} />
