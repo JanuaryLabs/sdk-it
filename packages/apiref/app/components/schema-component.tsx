@@ -72,7 +72,7 @@ export const SchemaProperty: React.FC<SchemaProps> = ({
   if (isRef(schema)) {
     const refName = schema.$ref.split('/').pop();
     return (
-      <div className="flex items-center flex-wrap gap-x-1 text-sm">
+      <div className="flex flex-wrap items-center gap-x-1 text-sm">
         {name && (
           <code className="property-name">
             {indent}
@@ -97,30 +97,29 @@ export const SchemaProperty: React.FC<SchemaProps> = ({
             </span>
             <span className="text-xs text-red-500">{isRequiredText}</span>
           </div>
-          <div>
-            {indent}
-            <Description varient="sm" description={schema.description} />
-          </div>
+          {schema.description && (
+            <div>
+              {indent}
+              <Description varient="sm" description={schema.description} />
+            </div>
+          )}
         </>
       }
 
-      {schema.properties && (
-        <div className="property-children">
-          {Object.entries(schema.properties).map(([propName, propSchema]) => (
-            <SchemaProperty
-              key={propName}
-              name={propName}
-              schema={propSchema}
-              required={(schema.required || []).includes(propName)}
-              level={level + 1}
-              isNested
-            />
-          ))}
-        </div>
-      )}
+      {schema.properties &&
+        Object.entries(schema.properties).map(([propName, propSchema]) => (
+          <SchemaProperty
+            key={propName}
+            name={propName}
+            schema={propSchema}
+            required={(schema.required || []).includes(propName)}
+            level={level + 1}
+            isNested
+          />
+        ))}
 
       {schema.items && schema.type === 'array' && (
-        <div className="property-items">
+        <div>
           <SchemaProperty schema={schema.items} level={level + 1} isNested />
         </div>
       )}

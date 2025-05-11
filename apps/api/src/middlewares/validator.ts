@@ -117,6 +117,15 @@ export function validate<T extends ValidatorConfig>(
 
   return createMiddleware(async (c, next) => {
     const ct = c.req.header('content-type');
+    if (c.req.method === 'GET' && ct) {
+      throw new HTTPException(415, {
+        message: 'Unsupported Media Type',
+        cause: {
+          code: 'api/unsupported-media-type',
+          details: `GET requests cannot have a content type header`,
+        },
+      });
+    }
     if (expectedContentType) {
       verifyContentType(ct, expectedContentType);
     }
@@ -165,17 +174,17 @@ export function validate<T extends ValidatorConfig>(
       {} as Record<string, unknown>,
     );
 
-    const parsed = await parse(schema, input);
+    const parsed = parse(schema, input);
     c.set('input', parsed as ExtractInput<T>);
     await next();
   });
 }
 
-export async function parse<T extends z.ZodRawShape>(
+export function parse<T extends z.ZodRawShape>(
   schema: z.ZodObject<T>,
   input: unknown,
 ) {
-  const result = await schema.safeParseAsync(input);
+  const result = schema.safeParse(input);
   if (!result.success) {
     const error = new HTTPException(400, {
       message: 'Validation failed',
@@ -185,7 +194,7 @@ export async function parse<T extends z.ZodRawShape>(
         errors: result.error.flatten((issue) => ({
           message: issue.message,
           code: issue.code,
-          fatal: issue.fatal,
+          fatel: issue.fatal,
           path: issue.path.join('.'),
         })).fieldErrors,
       },

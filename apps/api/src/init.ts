@@ -13,7 +13,7 @@ import { TypeScriptGenerator } from '@sdk-it/typescript';
 //   },
 // ]);
 const specUrl =
-  'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml';
+  'https://nowa-server-dev-412327058882.europe-west1.run.app/swagger/v1/swagger.json';
 export const spec = await loadSpec(specUrl);
 console.log('\nLoaded spec:', spec.info.title, spec.info.version, '\n');
 
@@ -26,7 +26,7 @@ const operations = forEachOperation(
 export const availableOperations = operations
   .map(
     ([entry, operation]) =>
-      `operationId: operation_${operation.operationId}\nmethod: ${entry.method} http method\nendpoint: ${entry.path}\nsummary: ${operation.summary || 'N/A'}\ndescription: ${operation.description || 'N/A'}`,
+      `operationId: operation_${operation.operationId}\nsdk style: '${entry.method.toUpperCase()} ${entry.path}' \nmethod: ${entry.method} http method\nendpoint: ${entry.path}\nsummary: ${operation.summary || 'N/A'}\ndescription: ${operation.description || 'N/A'}`,
   )
   .join('\n')
   .trim();

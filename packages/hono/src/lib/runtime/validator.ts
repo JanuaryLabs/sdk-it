@@ -117,6 +117,15 @@ export function validate<T extends ValidatorConfig>(
 
   return createMiddleware(async (c, next) => {
     const ct = c.req.header('content-type');
+    if (c.req.method === 'GET' && ct) {
+      throw new HTTPException(415, {
+        message: 'Unsupported Media Type',
+        cause: {
+          code: 'api/unsupported-media-type',
+          details: `GET requests cannot have a content type header`,
+        },
+      });
+    }
     if (expectedContentType) {
       verifyContentType(ct, expectedContentType);
     }

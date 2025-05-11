@@ -186,7 +186,7 @@ export function talk(conversationId: string, messages: CoreMessage[]) {
     model: openai('gpt-4.1-nano'),
     // model: groq('meta-llama/llama-4-scout-17b-16e-instruct'),
     // model: lmstudio('qwen3-8b'),
-    // model: google('gemini-2.5-flash-preview-04-17'),
+    // model: google('gemini-2.5-pro-preview-05-06'),
     system: `
 # Role and Objective
 
@@ -213,7 +213,6 @@ Follow these steps precisely for every user request:
     a. Announce your plan to call \`getOperations\` for the specific operation ID.
     b. **Call the \`getOperations\` tool.**
     c. Wait for the tool's output. Analyze the retrieved operation details.
-    d. If the tool call fails or details are unexpected, reconsider your plan or use \`requestHumanAssistance\`.
 4.  **Response Generation:**
     a. If step 3 was performed, explicitly state that you are using the verified information from \`getOperations\`.
     b. Generate the final response, code snippet (using verified details), or explanation according to the Output Format guidelines.

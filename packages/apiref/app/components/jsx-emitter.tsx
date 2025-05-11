@@ -29,7 +29,7 @@ export class JSXEmitter {
         )}
 
         {operation.parameters.length > 0 && (
-          <div className="space-y-6 mt-6">
+          <div className="mt-6 space-y-6">
             <ParametersComponent
               parameters={operation.parameters}
               type="path"
@@ -62,7 +62,6 @@ export class JSXEmitter {
           <ResponsesComponent
             className="mt-6"
             responses={operation.responses}
-            spec={this.#spec}
           />
         )}
       </div>

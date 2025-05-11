@@ -6,7 +6,7 @@ import { JSXEmitter } from '../components/jsx-emitter';
 import { EditorTabs } from '../components/sdks-tabs';
 import { Badge } from '../shadcn/badge';
 import { cn } from '../shadcn/cn';
-import { useSpec } from '../spec-context';
+import { useRootData } from '../use-root-data';
 import { MD } from './md';
 import type { AugmentedOperation } from './types';
 
@@ -15,17 +15,19 @@ interface OperationCardProps {
   operation: TunedOperationObject;
   className?: string;
 }
-
+function useEmitter() {
+  const { spec } = useRootData();
+  return useMemo(() => new JSXEmitter(spec), [spec]);
+}
 export function OperationCard({
   entry,
   operation,
   className,
 }: OperationCardProps) {
-  const { spec } = useSpec();
-
+  const emitter = useEmitter();
   const operationContent = useMemo(
-    () => new JSXEmitter(spec).handle(operation),
-    [operation, spec],
+    () => emitter.handle(operation),
+    [operation, emitter],
   );
 
   const tabsConfig = useMemo(() => {

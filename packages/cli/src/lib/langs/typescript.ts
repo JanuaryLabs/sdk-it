@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { execFile, execSync, spawnSync } from 'node:child_process';
 
+import { writeFiles } from '@sdk-it/core/file-system.js';
 import { loadSpec } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
 
@@ -71,6 +72,7 @@ export default new Command('typescript')
   .action(async (options: Options) => {
     const spec = await loadSpec(options.spec);
     await generate(spec, {
+      writer: writeFiles,
       output: options.output,
       mode: options.mode || 'minimal',
       name: options.name,

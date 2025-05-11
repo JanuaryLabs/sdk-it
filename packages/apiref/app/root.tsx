@@ -90,7 +90,7 @@ export async function loader({
     urlObj.searchParams.get('spec') ??
     import.meta.env.VITE_SPEC ??
     (import.meta.env.DEV
-      ? 'https://developer.spotify.com/reference/web-api/open-api-schema.yaml'
+      ? 'https://raw.githubusercontent.com/readmeio/oas-examples/main/3.1/json/petstore.json'
       : '');
   const spec = await loadRemote<OpenAPIObject>(specUrl);
 

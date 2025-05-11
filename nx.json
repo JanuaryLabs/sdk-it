@@ -59,6 +59,10 @@
       }
     }
   ],
+  "workspaceLayout": {
+    "appsDir": "apps",
+    "libsDir": "packages"
+  },
   "targetDefaults": {
     "@nx/esbuild:esbuild": {
       "options": {
@@ -87,6 +91,12 @@
       "cache": true,
       "dependsOn": ["^build"],
       "inputs": ["production", "^production"]
+    },
+    "build": {
+      "dependsOn": [{ "target": "client", "projects": "self" }]
+    },
+    "dev": {
+      "dependsOn": [{ "target": "client", "projects": "self" }]
     }
   },
   "release": {

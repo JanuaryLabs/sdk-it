@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --experimental-strip-types ./e2e/index.ts",
-    "postinstall": "NODE_NO_WARNINGS=1 node --experimental-strip-types apps/api/sdk.ts"
+    "client": "NODE_NO_WARNINGS=1 node --experimental-strip-types apps/api/sdk.ts"
   },
   "repository": "https://github.com/JanuaryLabs/sdk-it",
   "private": true,
@@ -20,6 +20,7 @@
     "@nx/vite": "20.8.1",
     "@nx/web": "20.8.1",
     "@react-router/dev": "^7.5.3",
+    "@shikijs/rehype": "^3.4.0",
     "@swc-node/register": "~1.9.1",
     "@swc/cli": "~0.6.0",
     "@swc/core": "~1.5.7",
@@ -45,6 +46,7 @@
     "nx": "20.8.1",
     "prettier": "^3.5.3",
     "prettier-plugin-tailwindcss": "^0.6.11",
+    "shiki": "^3.4.0",
     "tslib": "^2.3.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.19.0",
@@ -68,11 +70,6 @@
     }
   },
   "dependencies": {
-    "@ai-sdk/google": "^1.2.14",
-    "@ai-sdk/openai": "^1.3.21",
-    "@ai-sdk/openai-compatible": "^0.2.13",
-    "@aws-sdk/client-s3": "^3.802.0",
-    "@aws-sdk/s3-request-presigner": "^3.802.0",
     "@expressive-code/plugin-line-numbers": "^0.41.2",
     "@hono/node-server": "^1.14.1",
     "@monaco-editor/react": "^4.7.0-rc.0",
@@ -108,14 +105,15 @@
     "piscina": "^5.0.0",
     "prismjs": "^1.30.0",
     "react-dropzone": "^14.3.8",
+    "react-hotkeys-hook": "^5.0.1",
     "react-icons": "^5.5.0",
     "react-use": "^17.6.0",
+    "react-use-measure": "^2.1.7",
     "rehype-highlight": "^7.0.2",
     "rehype-pretty-code": "^0.14.1",
     "remark-prism": "^1.3.6",
     "rollup-plugin-node-polyfills": "^0.2.1",
     "rxjs": "^7.8.2",
-    "shiki": "^3.3.0",
     "sonner": "^2.0.3",
     "sooner": "^1.1.4",
     "sst": "3.14.11",
