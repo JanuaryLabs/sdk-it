@@ -1,4 +1,3 @@
-import type { Dirent } from 'node:fs';
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, extname, isAbsolute, join } from 'node:path';
 
@@ -27,6 +26,11 @@ export type WriteContent = Record<
   null | string | { content: string; ignoreIfExists?: boolean }
 >;
 
+export type ReadFolderFn = (
+  folder: string,
+) => Promise<{ filePath: string; fileName: string; isFolder: boolean }[]>;
+export type Writer = (dir: string, contents: WriteContent) => Promise<void>;
+
 export async function writeFiles(dir: string, contents: WriteContent) {
   await Promise.all(
     Object.entries(contents).map(async ([file, content]) => {
@@ -50,30 +54,38 @@ export async function writeFiles(dir: string, contents: WriteContent) {
   );
 }
 
+/**
+ * @deprecated use getFolderExportsV2 instead
+ */
 export async function getFolderExports(
   folder: string,
+  readFolder: ReadFolderFn,
   includeExtension = true,
   extensions = ['ts'],
-  ignore: (dirent: Dirent) => boolean = () => false,
+  ignore: (config: {
+    filePath: string;
+    fileName: string;
+    isFolder: boolean;
+  }) => boolean = () => false,
 ) {
-  const files = await readdir(folder, { withFileTypes: true });
+  const files = await readFolder(folder);
   const exports: string[] = [];
   for (const file of files) {
     if (ignore(file)) {
       continue;
     }
-    if (file.isDirectory()) {
-      if (await exist(`${file.parentPath}/${file.name}/index.ts`)) {
+    if (file.isFolder) {
+      if (await exist(`${file.filePath}/index.ts`)) {
         exports.push(
-          `export * from './${file.name}/index${includeExtension ? '.ts' : ''}';`,
+          `export * from './${file.fileName}/index${includeExtension ? '.ts' : ''}';`,
         );
       }
     } else if (
-      file.name !== 'index.ts' &&
-      extensions.includes(getExt(file.name))
+      file.fileName !== 'index.ts' &&
+      extensions.includes(getExt(file.fileName))
     ) {
       exports.push(
-        `export * from './${includeExtension ? file.name : file.name.replace(extname(file.name), '')}';`,
+        `export * from './${includeExtension ? file.fileName : file.fileName.replace(extname(file.fileName), '')}';`,
       );
     }
   }
@@ -82,10 +94,15 @@ export async function getFolderExports(
 
 export async function getFolderExportsV2(
   folder: string,
+  readFolder: ReadFolderFn,
   options: {
     includeExtension?: boolean;
     extensions: string;
-    ignore?: (dirent: Dirent) => boolean;
+    ignore?: (fileInfo: {
+      filePath: string;
+      fileName: string;
+      isFolder: boolean;
+    }) => boolean;
     exportSyntax: string;
   } = {
     extensions: 'ts',
@@ -98,28 +115,24 @@ export async function getFolderExportsV2(
   if (!(await exist(folder))) {
     return '';
   }
-  const files = await readdir(folder, { withFileTypes: true });
+  const files = await readFolder(folder);
   const exports: string[] = [];
   for (const file of files) {
     if (options.ignore?.(file)) {
       continue;
     }
-    if (file.isDirectory()) {
-      if (
-        await exist(
-          `${file.parentPath}/${file.name}/index.${options.extensions}`,
-        )
-      ) {
+    if (file.isFolder) {
+      if (await exist(`${file.filePath}/index.${options.extensions}`)) {
         exports.push(
-          `${options.exportSyntax} './${file.name}/index${options.includeExtension ? `.${options.extensions}` : ''}';`,
+          `${options.exportSyntax} './${file.fileName}/index${options.includeExtension ? `.${options.extensions}` : ''}';`,
         );
       }
     } else if (
-      file.name !== `index.${options.extensions}` &&
-      options.extensions.includes(getExt(file.name))
+      file.fileName !== `index.${options.extensions}` &&
+      options.extensions.includes(getExt(file.fileName))
     ) {
       exports.push(
-        `${options.exportSyntax} './${options.includeExtension ? file.name : file.name.replace(extname(file.name), '')}';`,
+        `${options.exportSyntax} './${options.includeExtension ? file.fileName : file.fileName.replace(extname(file.fileName), '')}';`,
       );
     }
   }

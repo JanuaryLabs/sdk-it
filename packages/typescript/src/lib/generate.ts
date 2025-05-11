@@ -1,4 +1,5 @@
 import { template } from 'lodash-es';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
@@ -6,7 +7,9 @@ import { camelcase, spinalcase } from 'stringcase';
 
 import { followRef, isEmpty, isRef, methods, pascalcase } from '@sdk-it/core';
 import {
+  type ReadFolderFn,
   type WriteContent,
+  type Writer,
   getFolderExports,
   writeFiles,
 } from '@sdk-it/core/file-system.js';
@@ -64,6 +67,8 @@ export interface TypeScriptGeneratorOptions {
   output: string;
   useTsExtension?: boolean;
   name?: string;
+  writer?: Writer;
+  readFolder?: ReadFolderFn;
   /**
    * full: generate a full project including package.json and tsconfig.json. useful for monorepo/workspaces
    * minimal: generate only the client sdk
@@ -167,8 +172,7 @@ export class TypeScriptGenerator {
     const payload = this.succinct(entry, operation, {});
     return [
       '```typescript',
-      `
-      ${this.client()}
+      `${this.client()}
 ${payload}
 
 console.log(result.data);
@@ -178,8 +182,7 @@ console.log(result.data);
   }
 
   client() {
-    return `
-import { ${this.#clientName} } from '${this.#packageName}';
+    return `import { ${this.#clientName} } from '${this.#packageName}';
 
 const ${camelcase(this.#clientName)} = new ${this.#clientName}({
   baseUrl: '${this.#spec.servers?.[0]?.url ?? 'http://localhost:3000'}',
@@ -203,6 +206,18 @@ export async function generate(
   );
 
   settings.useTsExtension ??= true;
+  // FIXME: there should not be default here
+  // instead export this function from the cli package with
+  // defaults for programmatic usage
+  settings.writer ??= writeFiles;
+  settings.readFolder ??= async (folder: string) => {
+    const files = await readdir(folder, { withFileTypes: true });
+    return files.map((file) => ({
+      fileName: file.name,
+      filePath: join(file.parentPath, file.name),
+      isFolder: file.isDirectory(),
+    }));
+  };
   const makeImport = (moduleSpecifier: string) => {
     return settings.useTsExtension ? `${moduleSpecifier}.ts` : moduleSpecifier;
   };
@@ -229,13 +244,13 @@ export async function generate(
 
   console.log('Writing to', output);
 
-  await writeFiles(output, {
+  await settings.writer(output, {
     'outputs/.gitkeep': '',
     'inputs/.gitkeep': '',
     'models/.getkeep': '',
   });
 
-  await writeFiles(join(output, 'http'), {
+  await settings.writer(join(output, 'http'), {
     'interceptors.ts': `
     import type { RequestConfig, HeadersInit } from './${makeImport('request')}';
     ${interceptors}`,
@@ -253,9 +268,9 @@ ${template(sendRequestTxt, {})({ throwError: !style.errorAsValue, outputType: st
     'request.ts': requestTxt,
   });
 
-  await writeFiles(join(output, 'outputs'), outputs);
+  await settings.writer(join(output, 'outputs'), outputs);
   const modelsImports = Object.entries(commonSchemas).map(([name]) => name);
-  await writeFiles(output, {
+  await settings.writer(output, {
     'client.ts': backend(
       {
         name: clientName,
@@ -282,37 +297,56 @@ ${template(sendRequestTxt, {})({ throwError: !style.errorAsValue, outputType: st
   });
 
   const folders = [
-    getFolderExports(join(output, 'outputs'), settings.useTsExtension),
+    getFolderExports(
+      join(output, 'outputs'),
+      settings.readFolder,
+      settings.useTsExtension,
+    ),
     getFolderExports(
       join(output, 'inputs'),
+      settings.readFolder,
       settings.useTsExtension,
       ['ts'],
-      (dirent) => dirent.isDirectory() && ['schemas'].includes(dirent.name),
+      (dirent) => dirent.isFolder && ['schemas'].includes(dirent.fileName),
     ),
-    getFolderExports(join(output, 'api'), settings.useTsExtension),
+    getFolderExports(
+      join(output, 'api'),
+      settings.readFolder,
+      settings.useTsExtension,
+    ),
     getFolderExports(
       join(output, 'http'),
+      settings.readFolder,
       settings.useTsExtension,
       ['ts'],
-      (dirent) => !['response.ts', 'parser.ts'].includes(dirent.name),
+      (dirent) => !['response.ts', 'parser.ts'].includes(dirent.fileName),
     ),
   ];
   if (modelsImports.length) {
     folders.push(
-      getFolderExports(join(output, 'models'), settings.useTsExtension),
+      getFolderExports(
+        join(output, 'models'),
+        settings.readFolder,
+        settings.useTsExtension,
+      ),
     );
   }
   const [outputIndex, inputsIndex, apiIndex, httpIndex, modelsIndex] =
     await Promise.all(folders);
-  await writeFiles(output, {
+  await settings.writer(output, {
     'api/index.ts': apiIndex,
     'outputs/index.ts': outputIndex,
     'inputs/index.ts': inputsIndex || null,
     'http/index.ts': httpIndex,
     ...(modelsImports.length ? { 'models/index.ts': modelsIndex } : {}),
   });
-  await writeFiles(output, {
-    'index.ts': await getFolderExports(output, settings.useTsExtension, ['ts']),
+  await settings.writer(output, {
+    'index.ts': await getFolderExports(
+      output,
+      settings.readFolder,
+      settings.useTsExtension,
+      ['ts'],
+    ),
   });
   if (settings.mode === 'full') {
     const configFiles: WriteContent = {
@@ -374,7 +408,7 @@ ${template(sendRequestTxt, {})({ throwError: !style.errorAsValue, outputType: st
         }),
       };
     }
-    await writeFiles(settings.output, configFiles);
+    await settings.writer(settings.output, configFiles);
   }
 
   await settings.formatCode?.({

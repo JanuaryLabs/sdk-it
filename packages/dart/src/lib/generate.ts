@@ -1,7 +1,7 @@
 import { parse as partContentType } from 'fast-content-type-parse';
 import { merge } from 'lodash-es';
 import assert from 'node:assert';
-import { writeFile } from 'node:fs/promises';
+import { readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
   OpenAPIObject,
@@ -21,7 +21,12 @@ import {
   pascalcase,
   snakecase,
 } from '@sdk-it/core';
-import { getFolderExportsV2, writeFiles } from '@sdk-it/core/file-system.js';
+import {
+  type ReadFolderFn,
+  type Writer,
+  getFolderExportsV2,
+  writeFiles,
+} from '@sdk-it/core/file-system.js';
 import {
   type Operation,
   forEachOperation,
@@ -123,6 +128,8 @@ export async function generate(
   settings: {
     output: string;
     name?: string;
+    writer?: Writer;
+    readFolder?: ReadFolderFn;
     /**
      * full: generate a full project including package.json and tsconfig.json. useful for monorepo/workspaces
      * minimal: generate only the client sdk
@@ -131,6 +138,15 @@ export async function generate(
     formatCode?: (options: { output: string }) => void | Promise<void>;
   },
 ) {
+  settings.writer ??= writeFiles;
+  settings.readFolder ??= async (folder: string) => {
+    const files = await readdir(folder, { withFileTypes: true });
+    return files.map((file) => ({
+      fileName: file.name,
+      filePath: join(file.parentPath, file.name),
+      isFolder: file.isDirectory(),
+    }));
+  };
   const clientName = settings.name || 'Client';
   const output = join(settings.output, 'lib');
   const groups: Record<
@@ -289,41 +305,57 @@ class Options {
 }
 
   `;
-  await writeFiles(output, {
+  await settings.writer(output, {
     ...models,
     ...inputs,
     ...outputs,
   });
 
-  await writeFiles(output, {
-    'models/index.dart': await getFolderExportsV2(join(output, 'models'), {
-      exportSyntax: 'export',
-      extensions: 'dart',
-    }),
-    'inputs/index.dart': await getFolderExportsV2(join(output, 'inputs'), {
-      exportSyntax: 'export',
-      extensions: 'dart',
-    }),
-    'outputs/index.dart': await getFolderExportsV2(join(output, 'outputs'), {
-      exportSyntax: 'export',
-      extensions: 'dart',
-    }),
+  await settings.writer(output, {
+    'models/index.dart': await getFolderExportsV2(
+      join(output, 'models'),
+      settings.readFolder,
+      {
+        exportSyntax: 'export',
+        extensions: 'dart',
+      },
+    ),
+    'inputs/index.dart': await getFolderExportsV2(
+      join(output, 'inputs'),
+      settings.readFolder,
+      {
+        exportSyntax: 'export',
+        extensions: 'dart',
+      },
+    ),
+    'outputs/index.dart': await getFolderExportsV2(
+      join(output, 'outputs'),
+      settings.readFolder,
+      {
+        exportSyntax: 'export',
+        extensions: 'dart',
+      },
+    ),
     'interceptors.dart': interceptorsTxt,
     'http.dart': dispatcherTxt,
     'responses.dart': responsesTxt,
     ...clazzez,
   });
-  await writeFiles(output, {
-    'package.dart': `${await getFolderExportsV2(join(output), {
-      exportSyntax: 'export',
-      extensions: 'dart',
-      ignore(dirent) {
-        return dirent.isFile() && dirent.name === 'package.dart';
+  await settings.writer(output, {
+    'package.dart': `${await getFolderExportsV2(
+      join(output),
+      settings.readFolder,
+      {
+        exportSyntax: 'export',
+        extensions: 'dart',
+        ignore(dirent) {
+          return !dirent.isFolder && dirent.fileName === 'package.dart';
+        },
       },
-    })}${client}`,
+    )}${client}`,
   });
 
-  await writeFiles(settings.output, {
+  await settings.writer(settings.output, {
     'pubspec.yaml': {
       ignoreIfExists: true,
       content: yaml.stringify({

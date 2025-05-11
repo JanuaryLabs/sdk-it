@@ -2,6 +2,7 @@ import rehypeShiki, { type RehypeShikiOptions } from '@shikijs/rehype';
 import { marked } from 'marked';
 import { lazy, memo, useMemo } from 'react';
 import remarkGfm from 'remark-gfm';
+
 import { cn } from '../shadcn/cn';
 
 const ReactMarkdown = lazy(() =>
@@ -26,18 +27,11 @@ const MemoizedMarkdownBlock = memo(
             [
               rehypeShiki,
               {
-                // themes: {
-                //   light: 'min-light',
-                //   dark: 'vesper',
-                // },
-                theme:'vesper'
+                themes: {
+                  light: 'min-light',
+                  dark: 'vesper',
+                },
               } satisfies RehypeShikiOptions,
-              // {
-              //   themes: ['min-light'],
-              // },
-              // {
-              //   themes: ['vesper', 'snazzy-light'],
-              // } satisfies RehypeExpressiveCodeOptions,
             ],
           ]}
         >
