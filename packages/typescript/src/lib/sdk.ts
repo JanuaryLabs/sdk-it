@@ -195,13 +195,19 @@ export function toEndpoint(
           schema: ${schemaRef}${addTypeParser ? `.${type}` : ''},
           output:[${outputs.join(',')}],
           toRequest(input: z.infer<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>) {
-            const endpoint = '${endpoint}';
-                return toRequest(endpoint, ${operation.outgoingContentType || 'nobody'}(input, {
-                inputHeaders: [${inputHeaders}],
-                inputQuery: [${inputQuery}],
-                inputBody: [${inputBody}],
-                inputParams: [${inputParams}],
-              }));
+           return toRequest('${endpoint}', ${operation.outgoingContentType || 'empty'}(input, {
+              inputHeaders: [${inputHeaders}],
+              inputQuery: [${inputQuery}],
+              inputBody: [${inputBody}],
+              inputParams: [${inputParams}],
+            }));},
+          dispatch(input: z.infer<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>,options: {
+            signal?: AbortSignal;
+            interceptors: Interceptor[];
+            fetch: z.infer<typeof fetchType>;
+          }) {
+            const dispatcher = new Dispatcher(options.interceptors, options.fetch);
+            return dispatcher.send(this.toRequest(input), this.output);
             },
           }`,
     );

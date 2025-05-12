@@ -66,7 +66,12 @@ export class ${spec.name} {
     options?: { signal?: AbortSignal, headers?: HeadersInit },
   ) ${style.errorAsValue ? `: Promise<readonly [Endpoints[E]['output'], Endpoints[E]['error'] | null]>` : `: Promise<Endpoints[E]['output']>`} {
     const route = schemas[endpoint];
-    const result = await dispatch(Object.assign(this.#defaultInputs, input), route, {
+    const withDefaultInputs = Object.assign(this.#defaultInputs, input);
+    const [parsedInput, parseError] = parseInput(route.schema, withDefaultInputs);
+    if (parseError) {
+      ${style.errorAsValue ? 'return [null as never, parseError as never] as const;' : 'throw parseError;'}
+    }
+    const result = await route.dispatch(parsedInput as never, {
       fetch: this.options.fetch,
       interceptors: [
         createHeadersInterceptor(() => this.defaultHeaders, options?.headers ?? {}),
@@ -74,7 +79,7 @@ export class ${spec.name} {
       ],
       signal: options?.signal,
     });
-    return ${style.errorAsValue ? `result as [Endpoints[E]['output'], Endpoints[E]['error'] | null]` : `result as Endpoints[E]['output']`};
+    return ${style.errorAsValue ? `result as [Endpoints[E]['output'], Endpoints[E]['error'] | null]` : `result`};
   }
 
   async prepare<E extends keyof Endpoints>(
@@ -115,7 +120,7 @@ export class ${spec.name} {
         config = await interceptor.before(config);
       }
     }
-    const prepared = { ...config, parse: (response: Response) => parse(route, response) };
+    const prepared = { ...config, parse: (response: Response) => parse(route.output, response) };
     return ${style.errorAsValue ? '[prepared, null as never] as const;' : 'prepared'}
   }
 

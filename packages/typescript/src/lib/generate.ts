@@ -23,6 +23,7 @@ import {
 import backend from './client.ts';
 import { SnippetEmitter } from './emitters/snippet.ts';
 import { generateCode } from './generator.ts';
+import dispatcherTxt from './http/dispatcher.txt';
 import interceptors from './http/interceptors.txt';
 import parseResponse from './http/parse-response.txt';
 import parserTxt from './http/parser.txt';
@@ -190,6 +191,15 @@ const ${camelcase(this.#clientName)} = new ${this.#clientName}({
   }
 }
 
+export function augmentSpec(spec: OpenAPIObject) {
+  for (const [path, pathItem] of Object.entries(spec.paths ?? {})) {
+    const { parameters = [], ...methods } = pathItem;
+
+    // Convert Express-style routes (:param) to OpenAPI-style routes ({param})
+    const fixedPath = path.replace(/:([^/]+)/g, '{$1}');
+  }
+}
+
 export async function generate(
   spec: OpenAPIObject,
   settings: TypeScriptGeneratorOptions,
@@ -251,6 +261,7 @@ export async function generate(
   });
 
   await settings.writer(join(output, 'http'), {
+    'dispatcher.ts': dispatcherTxt,
     'interceptors.ts': `
     import type { RequestConfig, HeadersInit } from './${makeImport('request')}';
     ${interceptors}`,

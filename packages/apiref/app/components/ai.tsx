@@ -74,7 +74,7 @@ export function AskAi(props: { className?: string }) {
   return (
     <div
       className={cn(
-        'prose-sm prose-p:my-1 prose-ol:my-1 mx-auto w-full py-4 text-sm',
+        'prose prose-p:my-1 prose-ol:my-1 mx-auto w-full min-w-auto max-w-full py-4 text-sm',
         props.className,
       )}
     >

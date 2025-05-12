@@ -1,3 +1,25 @@
+import z from 'zod';
+
+import { type Interceptor } from '../http/interceptors.ts';
+import { type RequestConfig } from '../http/request.ts';
+import { buffered } from './parse-response.ts';
+import { APIError, APIResponse, type BadRequest, type Ok } from './response.ts';
+
+export type Unionize<T> = T extends [infer Single extends OutputType]
+  ? InstanceType<Single>
+  : T extends readonly [...infer Tuple extends OutputType[]]
+    ? { [I in keyof Tuple]: InstanceType<Tuple[I]> }[number]
+    : never;
+
+export type InstanceType<T> =
+  T extends Type<infer U>
+    ? U
+    : T extends { type: Type<infer U> }
+      ? U
+      : T extends Array<unknown>
+        ? Unionize<T>
+        : never;
+
 export interface Type<T> {
   new (...args: any[]): T;
 }
@@ -8,62 +30,16 @@ export type OutputType =
   | Type<APIResponse>
   | { parser: Parser; type: Type<APIResponse> };
 
-export interface RequestSchema {
-  schema: z.ZodType;
-  toRequest: (input: any) => RequestConfig;
-  output: OutputType[];
-}
-
 export const fetchType = z
   .function()
   .args(z.instanceof(Request))
   .returns(z.promise(z.instanceof(Response)))
   .optional();
 
-export async function dispatch(
-  input: unknown,
-  route: RequestSchema,
-  options: {
-    fetch?: z.infer<typeof fetchType>;
-    interceptors?: Interceptor[];
-    signal?: AbortSignal;
-  },
-) {
-  const { interceptors = [] } = options;
-  const [parsedInput, parseError] = parseInput(route.schema, input);
-  if (parseError) {
-    <% if(throwError) { %>
-      throw parseError;
-    <% } else { %>
-      return [null as never, parseError as never] as const;
-    <% } %>
-  }
-
-  let config = route.toRequest(parsedInput as never);
-  for (const interceptor of interceptors) {
-    if (interceptor.before) {
-      config = await interceptor.before(config);
-    }
-  }
-
-  let response = await (options.fetch ?? fetch)(
-    new Request(config.url, config.init),
-    {
-      ...config.init,
-      signal: options.signal,
-    },
-  );
-
-  for (let i = interceptors.length - 1; i >= 0; i--) {
-    const interceptor = interceptors[i];
-    if (interceptor.after) {
-      response = await interceptor.after(response.clone());
-    }
-  }
-  return await parse(route.output, response);
-}
-
-export async function parse(outputs: OutputType[], response: Response) {
+export async function parse<T extends OutputType[]>(
+  outputs: T,
+  response: Response,
+): Promise<InstanceType<T>> {
   let output: typeof APIResponse | null = null;
   let parser: Parser = buffered;
   for (const outputType of outputs) {
@@ -82,6 +58,7 @@ export async function parse(outputs: OutputType[], response: Response) {
       }
     }
   }
+
 
   if (response.ok) {
     const apiresponse = (output || APIResponse).create(
@@ -120,4 +97,42 @@ export function isTypeOf<T extends Type<APIResponse>>(
     return false;
   }
   return isTypeOf(prototype, baseType);
+}
+
+export class Dispatcher {
+  #interceptors: Interceptor[] = [];
+  #fetch: z.infer<typeof fetchType>;
+  constructor(interceptors: Interceptor[], fetch?: z.infer<typeof fetchType>) {
+    this.#interceptors = interceptors;
+    this.#fetch = fetch;
+  }
+
+  async send<T extends OutputType[]>(
+    config: RequestConfig,
+    outputs: T,
+    signal?: AbortSignal,
+  ): Promise<InstanceType<T>> {
+    for (const interceptor of this.#interceptors) {
+      if (interceptor.before) {
+        config = await interceptor.before(config);
+      }
+    }
+
+    let response = await (this.#fetch ?? fetch)(
+      new Request(config.url, config.init),
+      {
+        ...config.init,
+        signal: signal,
+      },
+    );
+
+    for (let i = this.#interceptors.length - 1; i >= 0; i--) {
+      const interceptor = this.#interceptors[i];
+      if (interceptor.after) {
+        response = await interceptor.after(response.clone());
+      }
+    }
+
+    return await parse(outputs, response);
+  }
 }

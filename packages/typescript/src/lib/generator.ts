@@ -326,9 +326,11 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
                   ...imps,
                   `import z from 'zod';`,
                   `import * as http from '${config.makeImport('../http/response')}';`,
-                  `import { toRequest, json, urlencoded, nobody, formdata, createUrl } from '${config.makeImport('../http/request')}';`,
+                  `import { toRequest, json, urlencoded, empty, formdata, createUrl, type HeadersInit } from '${config.makeImport('../http/request')}';`,
                   `import { chunked, buffered } from "${config.makeImport('../http/parse-response')}";`,
                   `import * as ${camelcase(name)} from '../inputs/${config.makeImport(spinalcase(name))}';`,
+                  `import { createBaseUrlInterceptor, createHeadersInterceptor, type Interceptor } from '${config.makeImport('../http/interceptors')}';`,
+                  `import { Dispatcher, fetchType } from '${config.makeImport('../http/dispatcher')}';`,
                 ].join(
                   '\n',
                 )}\nexport default {\n${endpoint.flatMap((it) => it.schemas).join(',\n')}\n}`,

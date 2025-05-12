@@ -139,7 +139,7 @@ class UrlencodedSerializer extends Serializer {
   }
 }
 
-class NoBodySerializer extends Serializer {
+class EmptySerializer extends Serializer {
   getBody(): BodyInit | null {
     return null;
   }
@@ -169,8 +169,8 @@ export function json(input: Input, props: Props) {
 export function urlencoded(input: Input, props: Props) {
   return new UrlencodedSerializer(input, props).serialize();
 }
-export function nobody(input: Input, props: Props) {
-  return new NoBodySerializer(input, props).serialize();
+export function empty(input: Input, props: Props) {
+  return new EmptySerializer(input, props).serialize();
 }
 export function formdata(input: Input, props: Props) {
   return new FormDataSerializer(input, props).serialize();

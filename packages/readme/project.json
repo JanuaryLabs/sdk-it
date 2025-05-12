@@ -1,5 +1,5 @@
 {
-  "name": "readme",
+  "name": "@sdk-it/readme",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "packages/readme/src",
   "projectType": "library",

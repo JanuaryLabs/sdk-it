@@ -38,6 +38,9 @@
     },
     {
       "path": "./apps/api"
+    },
+    {
+      "path": "./packages/client"
     }
   ]
 }

@@ -27,10 +27,7 @@ const MemoizedMarkdownBlock = memo(
             [
               rehypeShiki,
               {
-                themes: {
-                  light: 'min-light',
-                  dark: 'vesper',
-                },
+                theme: 'vesper ',
               } satisfies RehypeShikiOptions,
             ],
           ]}

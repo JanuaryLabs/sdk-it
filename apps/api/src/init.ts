@@ -2,6 +2,10 @@ import { forEachOperation } from '@sdk-it/spec';
 import { loadSpec } from '@sdk-it/spec/loaders/load-spec.js';
 import { TypeScriptGenerator } from '@sdk-it/typescript';
 
+
+
+
+
 // const { specUrl } = await inquirer.prompt([
 //   {
 //     type: 'input',
@@ -13,7 +17,7 @@ import { TypeScriptGenerator } from '@sdk-it/typescript';
 //   },
 // ]);
 const specUrl =
-  'https://nowa-server-dev-412327058882.europe-west1.run.app/swagger/v1/swagger.json';
+  'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json';
 export const spec = await loadSpec(specUrl);
 console.log('\nLoaded spec:', spec.info.title, spec.info.version, '\n');
 
