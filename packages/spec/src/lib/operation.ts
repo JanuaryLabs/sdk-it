@@ -12,7 +12,124 @@ import type {
 } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
+import type { Method } from '@sdk-it/core/paths.js';
 import { followRef, isRef } from '@sdk-it/core/ref.js';
+
+import {
+  type PaginationGuess,
+  guessPagination,
+} from './pagination/pagination.js';
+
+export function augmentSpec(config: GenerateSdkConfig) {
+  config.spec.paths ??= {};
+  for (const [path, pathItem] of Object.entries(config.spec.paths)) {
+    const { parameters = [], ...methods } = pathItem;
+
+    // Convert Express-style routes (:param) to OpenAPI-style routes ({param})
+    const fixedPath = path.replace(/:([^/]+)/g, '{$1}');
+    for (const [method, operation] of Object.entries(methods) as [
+      Method,
+      OperationObject,
+    ][]) {
+      const formatOperationId = config.operationId ?? defaults.operationId;
+      const formatTag = config.tag ?? defaults.tag;
+      const operationId = formatOperationId(operation, fixedPath, method);
+      const operationTag = formatTag(operation, fixedPath);
+      const requestBody = isRef(operation.requestBody)
+        ? followRef<RequestBodyObject>(config.spec, operation.requestBody.$ref)
+        : operation.requestBody;
+      const responses = resolveResponses(config.spec, operation);
+      const tunedOperation: TunedOperationObject = {
+        ...operation,
+        parameters: [...parameters, ...(operation.parameters ?? [])].map(
+          (it) =>
+            isRef(it) ? followRef<ParameterObject>(config.spec, it.$ref) : it,
+        ),
+        tags: [operationTag],
+        operationId: operationId,
+        responses: responses,
+        requestBody: requestBody,
+      };
+      const schema = getResponseContentSchema(
+        config.spec,
+        responses['200'],
+        'application/json',
+      );
+
+      const pagination = guessPagination(
+        tunedOperation,
+        tunedOperation.requestBody
+          ? getRequestContentSchema(
+              config.spec,
+              tunedOperation.requestBody,
+              'application/json',
+            )
+          : undefined,
+        schema,
+      );
+      if (pagination && pagination.type !== 'none' && schema) {
+        // console.dir({
+        //   [`${method.toUpperCase()} ${fixedPath}`]: {
+        //     ...pagination,
+        //   },
+        // });
+        tunedOperation['x-pagination'] = {
+          ...pagination,
+        };
+      }
+
+      Object.assign(config.spec.paths[fixedPath], {
+        [method]: tunedOperation,
+      });
+    }
+  }
+  return config.spec;
+}
+
+export type OperationPagination = PaginationGuess & {
+  items: string;
+};
+
+function getResponseContentSchema(
+  spec: OpenAPIObject,
+  response: ResponseObject,
+  type: string,
+) {
+  if (!response) {
+    return undefined;
+  }
+  const content = response.content;
+  if (!content) {
+    return undefined;
+  }
+  for (const contentType in content) {
+    if (contentType.toLowerCase() === type.toLowerCase()) {
+      return isRef(content[contentType].schema)
+        ? followRef<SchemaObject>(spec, content[contentType].schema.$ref)
+        : content[contentType].schema;
+    }
+  }
+  return undefined;
+}
+
+function getRequestContentSchema(
+  spec: OpenAPIObject,
+  requestBody: RequestBodyObject,
+  type: string,
+) {
+  const content = requestBody.content;
+  if (!content) {
+    return undefined;
+  }
+  for (const contentType in content) {
+    if (contentType.toLowerCase() === type.toLowerCase()) {
+      return isRef(content[contentType].schema)
+        ? followRef<SchemaObject>(spec, content[contentType].schema.$ref)
+        : content[contentType].schema;
+    }
+  }
+  return undefined;
+}
 
 export const defaults: Partial<GenerateSdkConfig> &
   Required<Pick<GenerateSdkConfig, 'operationId' | 'tag'>> = {
@@ -80,44 +197,23 @@ export function forEachOperation<T>(
   for (const [path, pathItem] of Object.entries(config.spec.paths ?? {})) {
     const { parameters = [], ...methods } = pathItem;
 
-    // Convert Express-style routes (:param) to OpenAPI-style routes ({param})
-    const fixedPath = path.replace(/:([^/]+)/g, '{$1}');
-
     for (const [method, operation] of Object.entries(methods) as [
       string,
       OperationObject,
     ][]) {
-      const formatOperationId = config.operationId ?? defaults.operationId;
-      const formatTag = config.tag ?? defaults.tag;
-      const operationName = formatOperationId(operation, fixedPath, method);
-      const operationTag = formatTag(operation, fixedPath);
       const metadata = operation['x-oaiMeta'] ?? {};
-
-      const requestBody = isRef(operation.requestBody)
-        ? followRef<RequestBodyObject>(config.spec, operation.requestBody.$ref)
-        : operation.requestBody;
+      const operationTag = operation.tags?.[0] as string;
 
       result.push(
         callback(
           {
             name: metadata.name,
             method,
-            path: fixedPath,
+            path: path,
             groupName: operationTag,
             tag: operationTag,
           },
-          {
-            ...operation,
-            parameters: [...parameters, ...(operation.parameters ?? [])].map(
-              (it) =>
-                isRef(it)
-                  ? followRef<ParameterObject>(config.spec, it.$ref)
-                  : it,
-            ),
-            operationId: operationName,
-            responses: resolveResponses(config.spec, operation),
-            requestBody: requestBody,
-          },
+          operation as TunedOperationObject,
         ),
       );
     }
