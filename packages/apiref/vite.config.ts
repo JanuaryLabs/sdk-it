@@ -20,6 +20,7 @@ export default defineConfig((config) => ({
   resolve: {
     alias: {
       'node:path': 'rollup-plugin-node-polyfills/polyfills/path',
+      'decode-named-character-reference': './entities.ts',
     },
   },
   plugins: [tailwindcss(), reactRouter()],

@@ -1,3 +1,5 @@
+import { execFile } from 'node:child_process';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import {
@@ -64,13 +66,32 @@ const spec = {
   },
 };
 
-await generate(spec, {
-  mode: 'full',
-  name: 'SdkIt',
-  output: join(process.cwd(), 'node_modules/@local/client'),
-  style: {
-    errorAsValue: false,
+// await rm(join(process.cwd(), 'node_modules/@local/client'), {
+//   recursive: true,
+//   force: true,
+// });
+await writeFile(
+  join(process.cwd(), 'openapi.json'),
+  JSON.stringify(spec, null, 2),
+  'utf-8',
+);
+await generate(
+  // await loadSpec(join(cwd(), '.yamls', 'hetzner.json')),
+  spec,
+  // await loadSpec('https://api.uploadthing.com/openapi-spec.json'),
+  {
+    mode: 'full',
+    name: 'SdkIt',
+    output: join(process.cwd(), 'packages/client'),
+    // output: join(process.cwd(), 'node_modules/@local/client'),
+    style: {
+      outputType: 'default',
+      errorAsValue: false,
+    },
+    formatCode: ({ output, env }) => {
+      execFile('prettier', ['openapi.json', output, '--write'], { env: env });
+    },
   },
-});
+);
 
 console.log('OpenAPI client generated successfully!');

@@ -70,7 +70,7 @@ export function EditorTabs({
             <TabsTrigger
               key={tab.value}
               value={tab.value}
-              className="data-[state=active]:bg-muted data-[state=active]:after:bg-primary relative gap-x-1 overflow-hidden rounded-none py-2 after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 data-[state=active]:shadow-none"
+              className="data-[state=active]:text-[#99FFE4] text-white data-[state=active]:after:bg-primary relative gap-x-1 overflow-hidden rounded-none py-2 after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 data-[state=active]:bg-inherit data-[state=active]:shadow-none"
             >
               {langIconMap[tab.value as keyof typeof langIconMap]}
               <code className="text-xs">{tab.name}</code>

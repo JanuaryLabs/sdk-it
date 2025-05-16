@@ -8,30 +8,23 @@ import { HTTPException } from 'hono/http-exception';
 import { logger as requestLogger } from 'hono/logger';
 import { requestId } from 'hono/request-id';
 import { streamText } from 'hono/streaming';
-import { Client } from 'minio';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
+import { cwd } from 'node:process';
+import OpenAI from 'openai';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import pWaitFor from 'p-wait-for';
-import { buffer, json } from 'stream/consumers';
+import { json } from 'stream/consumers';
 import { z } from 'zod';
 
 import { pascalcase } from '@sdk-it/core';
 import * as tsDart from '@sdk-it/dart';
+import { forEachOperation, loadSpec } from '@sdk-it/spec';
 import { loadRemote } from '@sdk-it/spec/loaders/remote-loader.js';
 import * as tsSdk from '@sdk-it/typescript';
 
 import { talk } from './groq.js';
 import { validate } from './middlewares/validator.js';
-
-export const minio = new Client({
-  endPoint: 'fsn1.your-objectstorage.com',
-  port: 443,
-  useSSL: true,
-  accessKey: 'H3ND25VTX3ZWXFSTJVYH',
-  secretKey: 'aNqWDOj2cF6YVhnWMC2WBNPg8Ih0KrjsolEzTFQT',
-  region: 'eu-central',
-});
 
 const app = new Hono().use(
   contextStorage(),
@@ -49,6 +42,54 @@ app.post('/', async (c) => {
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN,
 });
+
+/**
+ * @openai publish
+ */
+app.post(
+  '/publish',
+  validate((payload) => ({
+    specUrl: {
+      select: payload.body.specUrl,
+      against: z.string().url(),
+    },
+  })),
+  async (c) => {
+    const specUrl = c.var.input.specUrl;
+    const spec = await loadRemote<OpenAPIObject>(specUrl);
+    // FIXME: should publish to a registry
+    await tsSdk.generate(spec, {
+      mode: 'full',
+      name: 'SdkIt',
+      output: join(process.cwd(), 'packages/client'),
+      style: {
+        errorAsValue: false,
+      },
+    });
+    return c.json({
+      message: 'SDK published successfully',
+      specUrl,
+    });
+  },
+);
+
+/**
+ * @openai annotate
+ * @description Annotate the spec with additional information like code snippets, pagination, descriptions, examples, etc.
+ * using LLM.
+ */
+app.post(
+  '/augment',
+  validate((payload) => ({
+    specUrl: {
+      select: payload.body.specUrl,
+      against: z.string().url(),
+    },
+  })),
+  async (c) => {
+    throw new Error('Not implemented');
+  },
+);
 
 app.post('/signed-url', async (c) => {
   // const cmd = new PutObjectCommand({
@@ -74,7 +115,7 @@ app.get(
     },
   })),
   async (c) => {
-    return c.json((await loadRemote(c.var.input.url)) as any);
+    return c.json((await loadSpec(c.var.input.url)) as any);
   },
 );
 
@@ -252,9 +293,9 @@ app.post(
     // const base = randomDigits(6);
     // const url = await uploadFile(c.var.input.specFile, base);
     const url =
-    'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml';
+      'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml';
     // const spec = (await json(c.var.input.specFile.stream())) as OpenAPIObject;
-    const spec = await loadRemote(url) as OpenAPIObject
+    const spec = (await loadSpec(url)) as OpenAPIObject;
     return c.json(
       {
         url: url,
@@ -266,19 +307,65 @@ app.post(
     );
   },
 );
+/**
+ * @openai operationsPagination
+ * @tags operations
+ */
+app.get(
+  '/operations',
+  validate((payload) => ({
+    page: {
+      select: payload.query.page,
+      against: z.coerce.number().int().min(1).default(1),
+    },
+    pageSize: {
+      select: payload.query.pageSize,
+      against: z.coerce.number().int().min(1).max(100).default(20),
+    },
+  })),
+  async (c) => {
+    const { page, pageSize } = c.var.input;
 
-async function uploadFile(file: File, name: string) {
-  const bucket = 'apiref';
-  const fileName = `specs/${name}.json`;
-  await minio.putObject(
-    bucket,
-    fileName,
-    await buffer(file.stream()),
-    undefined,
-    { 'Content-Type': file.type },
-  );
-  return `https://fsn1.your-objectstorage.com/${bucket}/${fileName}`;
-}
+    const spec = await loadSpec(
+      // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
+      join(cwd(), '.yamls', 'hetzner.json'),
+    );
+
+    const operations = forEachOperation({ spec }, (entry, operation) => {
+      return {
+        operationId: operation.operationId,
+        method: entry.method.toUpperCase(),
+        path: entry.path,
+        tag: entry.tag,
+        summary: operation.summary,
+        description: operation.description,
+      };
+    });
+
+    // Calculate pagination values
+    const totalItems = operations.length;
+    const totalPages = Math.ceil(totalItems / pageSize);
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, totalItems);
+
+    // Get paginated subset of operations
+    const paginatedOperations = operations.slice(startIndex, endIndex);
+
+    return c.json({
+      operations: paginatedOperations.map(
+        (operation) => `${operation.method} ${operation.path}`,
+      ),
+      pagination: {
+        page,
+        pageSize,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    });
+  },
+);
 
 app.onError((error, context) => {
   if (process.env.NODE_ENV === 'development') {
@@ -301,7 +388,7 @@ app.onError((error, context) => {
     500,
   );
 });
-serve(app, (addressInfo) => {
+serve(app, async (addressInfo) => {
   console.log(`Server is running on http://localhost:${addressInfo.port}`);
 });
 
@@ -310,6 +397,9 @@ function randomDigits(length = 6): string {
     .map((b) => (b % 10).toString())
     .join('');
 }
+
+const openai = new OpenAI();
+const page = await openai.vectorStores.list();
 
 const owner = 'JanuaryLabs';
 const repo = 'sdk-it';

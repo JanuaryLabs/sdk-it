@@ -163,8 +163,8 @@
 } */
 
 @layer components {
-  .shiki{
-@apply p-4 overflow-auto;
+  .shiki {
+    @apply overflow-auto p-4;
   }
   .api-doc-content {
     padding-bottom: 3rem;

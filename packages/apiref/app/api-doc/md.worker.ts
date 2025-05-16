@@ -1,0 +1,35 @@
+import rehypeShiki, { type RehypeShikiOptions } from '@shikijs/rehype';
+import rehypeStringify from 'rehype-stringify';
+import remarkParse from 'remark-parse';
+import remarkRehype from 'remark-rehype';
+import { unified } from 'unified';
+
+onmessage = (event) => {
+  (async () => {
+    const { id, content: markdown } = event.data;
+    const file = await unified()
+      .use(remarkParse)
+      .use(remarkRehype, { allowDangerousHtml: true })
+      .use(rehypeShiki, {
+        theme: 'vesper',
+        langs: ['typescript', 'dart', 'shell'],
+      } satisfies RehypeShikiOptions)
+      .use(rehypeStringify)
+      .process(markdown);
+    const htmlContent = file.toString();
+
+    if (htmlContent?.length === 0 && markdown?.length > 0) {
+      console.warn(
+        `[Worker ${id}] Warning: Markdown was processed into empty HTML. Original markdown:`,
+        markdown,
+      );
+    }
+    if (file.messages.length > 0) {
+      console.warn(
+        `[Worker ${id}] Messages from unified processing:`,
+        file.messages,
+      );
+    }
+    postMessage({ id, content: htmlContent.toString() });
+  })();
+};

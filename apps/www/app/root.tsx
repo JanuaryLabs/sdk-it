@@ -1,14 +1,16 @@
-import { Links, type LinksFunction, Meta, type MetaFunction, Outlet, Scripts, ScrollRestoration } from 'react-router';
-
-
+import {
+  Links,
+  type LinksFunction,
+  Meta,
+  type MetaFunction,
+  Outlet,
+  Scripts,
+  ScrollRestoration,
+} from 'react-router';
 
 import '../styles.css';
 import { AppNav } from './app-nav';
-import { cn, Toaster, ToastProvider } from './shadcn';
-
-
-
-
+import { Toaster, cn } from './shadcn';
 
 export const meta: MetaFunction = () => [
   {
@@ -41,7 +43,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
       </head>
-      <body className={cn('flex flex-col h-full')}>
+      <body className={cn('flex h-full flex-col')}>
         <Toaster />
         <AppNav />
         {children}

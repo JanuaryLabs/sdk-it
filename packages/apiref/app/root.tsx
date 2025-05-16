@@ -1,24 +1,32 @@
 import HTTPSnippet from 'httpsnippet';
-import type { OpenAPIObject, ParameterObject, RequestBodyObject } from 'openapi3-ts/oas31';
+import type {
+  OpenAPIObject,
+  ParameterObject,
+  RequestBodyObject,
+} from 'openapi3-ts/oas31';
 import type { ShouldRevalidateFunctionArgs } from 'react-router';
-import { Links, type LinksFunction, Meta, type MetaFunction, Outlet, Scripts, ScrollRestoration } from 'react-router';
-
-
+import {
+  Links,
+  type LinksFunction,
+  Meta,
+  type MetaFunction,
+  Outlet,
+  Scripts,
+  ScrollRestoration,
+} from 'react-router';
 
 import { followRef, isRef } from '@sdk-it/core';
 import { loadRemote } from '@sdk-it/spec/loaders/remote-loader.js';
-import { type TunedOperationObject, forEachOperation } from '@sdk-it/spec/operation.js';
+import {
+  type TunedOperationObject,
+  augmentSpec,
+  forEachOperation,
+} from '@sdk-it/spec/operation.js';
 import { toSidebar } from '@sdk-it/spec/sidebar.js';
 import { TypeScriptGenerator } from '@sdk-it/typescript';
 
-
-
 import type { AugmentedOperation } from './api-doc/types';
 import './styles.css';
-
-
-
-
 
 export const meta: MetaFunction = (args) => {
   return [
@@ -55,7 +63,7 @@ export const links: LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -90,9 +98,10 @@ export async function loader({
     urlObj.searchParams.get('spec') ??
     import.meta.env.VITE_SPEC ??
     (import.meta.env.DEV
-      ? 'https://raw.githubusercontent.com/readmeio/oas-examples/main/3.1/json/petstore.json'
+       ? 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml'
+        // ?'https://raw.githubusercontent.com/readmeio/oas-examples/main/3.1/json/petstore.json'
       : '');
-  const spec = await loadRemote<OpenAPIObject>(specUrl);
+  const spec = augmentSpec({ spec: await loadRemote<OpenAPIObject>(specUrl) });
 
   const operationsMap: Record<
     string,
