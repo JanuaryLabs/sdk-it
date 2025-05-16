@@ -52,7 +52,7 @@ export class TypeScriptEmitter {
       }
     }
 
-    return `{ ${propEntries.join('; ')} }`;
+    return `${propEntries.length ? `{ ${propEntries.join('; ')} }` : 'unknown'}`;
   }
 
   /**

@@ -165,12 +165,27 @@ export function toEndpoint(
       const statusCode = +status;
       return statusCode >= 200 && statusCode < 300;
     }).length > 1;
-  for (const status in specOperation.responses) {
+  const responseWithAtLeast200 = statusesCount
+    ? specOperation.responses
+    : Object.assign(
+        {
+          '200': {
+            description: 'OK',
+            content: {
+              'application/json': {
+                schema: { type: 'object' },
+              },
+            },
+          },
+        },
+        specOperation.responses,
+      );
+  for (const status in responseWithAtLeast200) {
     const handled = handleResponse(
       spec,
       operation.name,
       status,
-      specOperation.responses[status],
+      responseWithAtLeast200[status],
       utils,
       true,
       // statusesCount,
