@@ -17,6 +17,7 @@ import { toReadme } from '@sdk-it/readme';
 import {
   type OperationEntry,
   type TunedOperationObject,
+  augmentSpec,
   patchParameters,
 } from '@sdk-it/spec/operation.js';
 
@@ -29,7 +30,7 @@ import parseResponse from './http/parse-response.txt';
 import parserTxt from './http/parser.txt';
 import requestTxt from './http/request.txt';
 import responseTxt from './http/response.txt';
-import sendRequestTxt from './http/send-request.txt';
+import paginationTxt from './pagination.txt';
 import { generateInputs } from './sdk.ts';
 import type { Style } from './style.ts';
 import { exclude, securityToOptions } from './utils.ts';
@@ -191,19 +192,11 @@ const ${camelcase(this.#clientName)} = new ${this.#clientName}({
   }
 }
 
-export function augmentSpec(spec: OpenAPIObject) {
-  for (const [path, pathItem] of Object.entries(spec.paths ?? {})) {
-    const { parameters = [], ...methods } = pathItem;
-
-    // Convert Express-style routes (:param) to OpenAPI-style routes ({param})
-    const fixedPath = path.replace(/:([^/]+)/g, '{$1}');
-  }
-}
-
 export async function generate(
   spec: OpenAPIObject,
   settings: TypeScriptGeneratorOptions,
 ) {
+  spec = 'x-sdk-augmented' in spec ? spec : augmentSpec({ spec });
   const generator = new TypeScriptGenerator(spec, settings);
   const style = Object.assign(
     {},
@@ -261,22 +254,22 @@ export async function generate(
   });
 
   await settings.writer(join(output, 'http'), {
-    'dispatcher.ts': dispatcherTxt,
-    'interceptors.ts': `
-    import type { RequestConfig, HeadersInit } from './${makeImport('request')}';
-    ${interceptors}`,
     'parse-response.ts': parseResponse,
-    'send-request.ts': `import z from 'zod';
-import type { Interceptor } from './${makeImport('interceptors')}';
-import { buffered } from './${makeImport('parse-response')}';
-import { parseInput } from './${makeImport('parser')}';
-import type { RequestConfig } from './${makeImport('request')}';
-import { APIError, APIResponse } from './${makeImport('response')}';
-
-${template(sendRequestTxt, {})({ throwError: !style.errorAsValue, outputType: style.outputType })}`,
     'response.ts': responseTxt,
     'parser.ts': parserTxt,
     'request.ts': requestTxt,
+
+    'dispatcher.ts': `import z from 'zod';
+import { type Interceptor } from '${makeImport('../http/interceptors')}';
+import { type RequestConfig } from '${makeImport('../http/request')}';
+import { buffered } from '${makeImport('./parse-response')}';
+import { APIError, APIResponse, type SuccessfulResponse } from '${makeImport('./response')}';
+
+${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: style.outputType })}`,
+
+    'interceptors.ts': `
+    import type { RequestConfig, HeadersInit } from './${makeImport('request')}';
+    ${interceptors}`,
   });
 
   await settings.writer(join(output, 'outputs'), outputs);
@@ -346,6 +339,7 @@ ${template(sendRequestTxt, {})({ throwError: !style.errorAsValue, outputType: st
     await Promise.all(folders);
   await settings.writer(output, {
     'api/index.ts': apiIndex,
+    'pagination.ts': paginationTxt,
     'outputs/index.ts': outputIndex,
     'inputs/index.ts': inputsIndex || null,
     'http/index.ts': httpIndex,

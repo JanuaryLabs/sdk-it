@@ -1,5 +1,6 @@
+export type OutputStyle = 'default' | 'status';
 export type Style = {
   name?: 'github';
-  outputType?: 'default' | 'status';
+  outputType?: OutputStyle;
   errorAsValue?: boolean;
 };

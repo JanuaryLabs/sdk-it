@@ -22,6 +22,7 @@ import {
   type Spec,
   toEndpoint,
 } from './sdk.ts';
+import type { Style } from './style.ts';
 import endpointsTxt from './styles/github/endpoints.txt';
 import {
   importsToString,
@@ -49,7 +50,7 @@ export function generateCode(
      * No support for jsdoc in vscode
      * @issue https://github.com/microsoft/TypeScript/issues/38106
      */
-    style?: { name?: 'github'; outputType?: 'default' | 'status' };
+    style: Style;
     makeImport: (module: string) => string;
   },
 ) {
@@ -213,12 +214,13 @@ export function generateCode(
         schemas,
         inputs,
       },
-      { makeImport: config.makeImport },
+      { makeImport: config.makeImport, style: config.style.outputType },
     );
 
     const output = [
       `import z from 'zod';`,
-      `import type * as http from '../http';`,
+      `import type * as http from '${config.makeImport('../http/index')}';`,
+      `import { Pagination } from "${config.makeImport('../pagination')}";`,
     ];
     const responses = endpoint.responses.flatMap((it) => it.responses);
     const responsesImports = endpoint.responses.flatMap((it) =>
@@ -278,7 +280,6 @@ export function generateCode(
     'import z from "zod";',
     `import type { ParseError } from '${config.makeImport('../http/parser')}';`,
     `import type { ServerError } from '${config.makeImport('../http/response')}';`,
-    `import type { OutputType, Parser, Type } from '../http/send-request.ts';`,
   ];
   return {
     groups,
@@ -294,12 +295,9 @@ import type { ParseError } from '${config.makeImport('../http/parser')}';
 import type { ProblematicResponse, SuccessfulResponse } from '${config.makeImport(
         '../http/response',
       )}';
-import type { OutputType, Parser, Type } from '${config.makeImport(
-        '../http/send-request',
-      )}';
 
 import schemas from '${config.makeImport('./schemas')}';
-
+import type { Unionize } from '${config.makeImport('../http/dispatcher')}';
       ${template(endpointsTxt)({ outputType: config.style?.outputType })}`,
       [`${join('api', 'schemas.ts')}`]:
         `${allSchemas.map((it) => it.import).join('\n')}
@@ -330,7 +328,8 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
                   `import { chunked, buffered } from "${config.makeImport('../http/parse-response')}";`,
                   `import * as ${camelcase(name)} from '../inputs/${config.makeImport(spinalcase(name))}';`,
                   `import { createBaseUrlInterceptor, createHeadersInterceptor, type Interceptor } from '${config.makeImport('../http/interceptors')}';`,
-                  `import { Dispatcher, fetchType } from '${config.makeImport('../http/dispatcher')}';`,
+                  `import { Dispatcher, fetchType, type InstanceType } from '${config.makeImport('../http/dispatcher')}';`,
+                  `import { Pagination } from "${config.makeImport('../pagination')}";`,
                 ].join(
                   '\n',
                 )}\nexport default {\n${endpoint.flatMap((it) => it.schemas).join(',\n')}\n}`,

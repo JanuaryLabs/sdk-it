@@ -1,18 +1,3 @@
-type Output<T extends OutputType> = T extends {
-  parser: Parser;
-  type: Type<unknown>;
-}
-  ? InstanceType<T['type']>
-  : T extends Type<unknown>
-    ? InstanceType<T>
-    : never;
-
-type Unionize<T> = T extends [infer Single extends OutputType]
-  ? Output<Single>
-  : T extends readonly [...infer Tuple extends OutputType[]]
-    ? { [I in keyof Tuple]: Output<Tuple[I]> }[number]
-    : never;
-
 type EndpointOutput<K extends keyof typeof schemas> = Extract<
   Unionize<(typeof schemas)[K]['output']>,
   SuccessfulResponse

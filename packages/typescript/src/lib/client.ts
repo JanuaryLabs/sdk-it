@@ -35,11 +35,9 @@ export default (spec: Omit<Spec, 'operations'>, style: Style) => {
     },
   };
 
-  return `
+  return `import z from 'zod';
 import type { HeadersInit, RequestConfig } from './http/${spec.makeImport('request')}';
-import { fetchType, dispatch, parse } from './http/${spec.makeImport('send-request')}';
-import z from 'zod';
-import type { Endpoints } from './api/${spec.makeImport('endpoints')}';
+import { fetchType, parse } from './http/${spec.makeImport('dispatcher')}';
 import schemas from './api/${spec.makeImport('schemas')}';
 import {
   createBaseUrlInterceptor,
@@ -60,13 +58,13 @@ export class ${spec.name} {
     this.options = optionsSchema.parse(options);
   }
 
-  async request<E extends keyof Endpoints>(
+  async request<const E extends keyof typeof schemas>(
     endpoint: E,
-    input: Endpoints[E]['input'],
+    input: z.infer<(typeof schemas)[E]['schema']>,
     options?: { signal?: AbortSignal, headers?: HeadersInit },
-  ) ${style.errorAsValue ? `: Promise<readonly [Endpoints[E]['output'], Endpoints[E]['error'] | null]>` : `: Promise<Endpoints[E]['output']>`} {
+  ) ${style.errorAsValue ? `: Promise<readonly [Endpoints[E]['output'], Endpoints[E]['error'] | null]>` : `: Promise<ReturnType<(typeof schemas)[E]['dispatch']>>`} {
     const route = schemas[endpoint];
-    const withDefaultInputs = Object.assign(this.#defaultInputs, input);
+    const withDefaultInputs = Object.assign({}, this.#defaultInputs, input);
     const [parsedInput, parseError] = parseInput(route.schema, withDefaultInputs);
     if (parseError) {
       ${style.errorAsValue ? 'return [null as never, parseError as never] as const;' : 'throw parseError;'}
@@ -79,12 +77,12 @@ export class ${spec.name} {
       ],
       signal: options?.signal,
     });
-    return ${style.errorAsValue ? `result as [Endpoints[E]['output'], Endpoints[E]['error'] | null]` : `result`};
+    return ${style.errorAsValue ? `result as [Endpoints[E]['output'], Endpoints[E]['error'] | null]` : `result as ReturnType<(typeof schemas)[E]['dispatch']>;`};
   }
 
-  async prepare<E extends keyof Endpoints>(
+  async prepare<const E extends keyof typeof schemas>(
     endpoint: E,
-    input: Endpoints[E]['input'],
+    input: z.infer<(typeof schemas)[E]['schema']>,
     options?: { headers?: HeadersInit },
   ): ${
     style.errorAsValue
@@ -121,7 +119,7 @@ export class ${spec.name} {
       }
     }
     const prepared = { ...config, parse: (response: Response) => parse(route.output, response) };
-    return ${style.errorAsValue ? '[prepared, null as never] as const;' : 'prepared'}
+    return ${style.errorAsValue ? '[prepared, null as never] as const;' : 'prepared as any'}
   }
 
   get defaultHeaders() {

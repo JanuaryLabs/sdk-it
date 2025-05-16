@@ -29,6 +29,7 @@ import {
 } from '@sdk-it/core/file-system.js';
 import {
   type Operation,
+  augmentSpec,
   forEachOperation,
   isStreamingContentType,
   isSuccessStatusCode,
@@ -138,6 +139,7 @@ export async function generate(
     formatCode?: (options: { output: string }) => void | Promise<void>;
   },
 ) {
+  spec = 'x-sdk-augmented' in spec ? spec : augmentSpec({ spec });
   settings.writer ??= writeFiles;
   settings.readFolder ??= async (folder: string) => {
     const files = await readdir(folder, { withFileTypes: true });

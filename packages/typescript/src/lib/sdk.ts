@@ -1,15 +1,15 @@
 import { get } from 'lodash-es';
-import type {
-  OpenAPIObject,
-  OperationObject,
-  ReferenceObject,
-  ResponseObject,
-} from 'openapi3-ts/oas31';
+import type { OpenAPIObject, ResponseObject } from 'openapi3-ts/oas31';
 import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
-import { followRef, isRef, toLitObject } from '@sdk-it/core';
+import { isRef, toLitObject } from '@sdk-it/core';
+import type {
+  OperationPagination,
+  TunedOperationObject,
+} from '@sdk-it/spec/operation.js';
 
 import { TypeScriptEmitter } from './emitters/interface.ts';
+import type { OutputStyle } from './style.ts';
 import { type Import, type MakeImportFn } from './utils.ts';
 
 export type Parser = 'chunked' | 'buffered';
@@ -120,10 +120,11 @@ export function generateInputs(
 export function toEndpoint(
   groupName: string,
   spec: OpenAPIObject,
-  specOperation: OperationObject,
+  specOperation: TunedOperationObject,
   operation: Operation,
   utils: {
     makeImport: MakeImportFn;
+    style?: OutputStyle;
   },
 ) {
   const schemaName = camelcase(`${operation.name} schema`);
@@ -165,14 +166,11 @@ export function toEndpoint(
       return statusCode >= 200 && statusCode < 300;
     }).length > 1;
   for (const status in specOperation.responses) {
-    const response = isRef(specOperation.responses[status] as ReferenceObject)
-      ? followRef<ResponseObject>(spec, specOperation.responses[status].$ref)
-      : (specOperation.responses[status] as ResponseObject);
     const handled = handleResponse(
       spec,
       operation.name,
       status,
-      response,
+      specOperation.responses[status],
       utils,
       true,
       // statusesCount,
@@ -189,7 +187,6 @@ export function toEndpoint(
     }
 
     const endpoint = `${typePrefix}${operation.trigger.method.toUpperCase()} ${operation.trigger.path}`;
-
     schemas.push(
       `"${endpoint}": {
           schema: ${schemaRef}${addTypeParser ? `.${type}` : ''},
@@ -201,18 +198,50 @@ export function toEndpoint(
               inputBody: [${inputBody}],
               inputParams: [${inputParams}],
             }));},
-          dispatch(input: z.infer<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>,options: {
+         async dispatch(input: z.infer<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>,options: {
             signal?: AbortSignal;
             interceptors: Interceptor[];
             fetch: z.infer<typeof fetchType>;
-          }) {
-            const dispatcher = new Dispatcher(options.interceptors, options.fetch);
-            return dispatcher.send(this.toRequest(input), this.output);
-            },
-          }`,
+          })${specOperation['x-pagination'] ? paginationOperation(specOperation, utils.style) : normalOperation(utils.style)}`,
     );
   }
   return { responses, schemas };
+}
+
+function normalOperation(style?: OutputStyle) {
+  return `{
+            const dispatcher = new Dispatcher(options.interceptors, options.fetch);
+            const result = await dispatcher.send(this.toRequest(input), this.output);
+            return ${style === 'status' ? 'result' : 'result.data;'}
+            },
+          }`;
+}
+
+function paginationOperation(
+  operation: TunedOperationObject,
+  style?: OutputStyle,
+) {
+  const pagination = operation['x-pagination'] as OperationPagination;
+  if (pagination.type !== 'page') {
+    throw new Error(
+      `Pagination type ${pagination.type} is not supported. Only page is supported`,
+    );
+  }
+  return `{const pagination = new Pagination(input, async (nextPageParams) => {
+        const dispatcher = new Dispatcher(options.interceptors, options.fetch);
+        const result = await dispatcher.send(
+          this.toRequest({...input, ...nextPageParams}),
+          this.output,
+        );
+        return {
+          data: result.data.${pagination.items},
+          meta: {
+            hasMore: result.data.${pagination.hasMore},
+          },
+        };
+      });
+      await pagination.getNextPage();
+      return ${style === 'status' ? 'new http.Ok(pagination);' : 'pagination'}}}`;
 }
 
 const statusCodeToResponseMap: Record<string, string> = {
