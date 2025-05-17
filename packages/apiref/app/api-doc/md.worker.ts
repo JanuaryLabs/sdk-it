@@ -4,20 +4,19 @@ import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
 import { unified } from 'unified';
 
+const processor = unified()
+  .use(remarkParse)
+  .use(remarkRehype, { allowDangerousHtml: true })
+  .use(rehypeShiki, {
+    theme: 'vesper',
+    langs: ['typescript', 'dart', 'shell'],
+  } satisfies RehypeShikiOptions)
+  .use(rehypeStringify);
 onmessage = (event) => {
   (async () => {
     const { id, content: markdown } = event.data;
-    const file = await unified()
-      .use(remarkParse)
-      .use(remarkRehype, { allowDangerousHtml: true })
-      .use(rehypeShiki, {
-        theme: 'vesper',
-        langs: ['typescript', 'dart', 'shell'],
-      } satisfies RehypeShikiOptions)
-      .use(rehypeStringify)
-      .process(markdown);
+    const file = await processor.process(markdown);
     const htmlContent = file.toString();
-
     if (htmlContent?.length === 0 && markdown?.length > 0) {
       console.warn(
         `[Worker ${id}] Warning: Markdown was processed into empty HTML. Original markdown:`,

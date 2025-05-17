@@ -1,31 +1,34 @@
-export type PaginationParams = {
-  page: number;
-  pageSize: number;
+export type CursorPaginationParams = {
+  cursor: string | null;
 };
+
+export interface CursorMetadata extends Metadata {
+  nextCursor: string | null;
+}
 
 export interface Metadata {
   hasMore: boolean;
 }
 
-export type PaginationResult<T, M extends Metadata> = {
+export type PaginationResult<T, M extends CursorMetadata> = {
   data: T[];
   meta: M;
 };
 
-export type FetchFn<T, M extends Metadata> = (
-  input: PaginationParams,
-) => Promise<PaginationResult<T, M>>;
-
 /**
  * @experimental
  */
-export class Pagination<T, M extends Metadata> {
+export type FetchFn<T, M extends CursorMetadata> = (
+  input: CursorPaginationParams,
+) => Promise<PaginationResult<T, M>>;
+
+export class CursorPagination<T, M extends CursorMetadata> {
   #meta: PaginationResult<T, M>['meta'] | null = null;
-  #params: PaginationParams;
+  #params: CursorPaginationParams;
   #currentPage: Page<T> | null = null;
   readonly #fetchFn: FetchFn<T, M>;
 
-  constructor(initialParams: PaginationParams, fetchFn: FetchFn<T, M>) {
+  constructor(initialParams: CursorPaginationParams, fetchFn: FetchFn<T, M>) {
     this.#fetchFn = fetchFn;
     this.#params = initialParams;
   }
@@ -36,7 +39,7 @@ export class Pagination<T, M extends Metadata> {
     this.#meta = result.meta;
     this.#params = {
       ...this.#params,
-      page: this.#params.page + 1,
+      cursor: result.meta.nextCursor,
     };
     return this;
   }
@@ -82,6 +85,17 @@ export class Pagination<T, M extends Metadata> {
       );
     }
     return this.#meta;
+  }
+
+  reset(params?: Partial<CursorPaginationParams>) {
+    this.#meta = null;
+    this.#currentPage = null;
+    if (params) {
+      this.#params = { ...this.#params, ...params };
+    } else {
+      this.#params.cursor = null;
+    }
+    return this;
   }
 }
 

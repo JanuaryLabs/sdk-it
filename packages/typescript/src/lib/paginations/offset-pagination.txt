@@ -1,6 +1,6 @@
-export type PaginationParams = {
-  page: number;
-  pageSize: number;
+export type OffsetPaginationParams = {
+  offset: number;
+  limit: number;
 };
 
 export interface Metadata {
@@ -13,19 +13,19 @@ export type PaginationResult<T, M extends Metadata> = {
 };
 
 export type FetchFn<T, M extends Metadata> = (
-  input: PaginationParams,
+  input: OffsetPaginationParams,
 ) => Promise<PaginationResult<T, M>>;
 
 /**
  * @experimental
  */
-export class Pagination<T, M extends Metadata> {
+export class OffsetPagination<T, M extends Metadata> {
   #meta: PaginationResult<T, M>['meta'] | null = null;
-  #params: PaginationParams;
+  #params: OffsetPaginationParams;
   #currentPage: Page<T> | null = null;
   readonly #fetchFn: FetchFn<T, M>;
 
-  constructor(initialParams: PaginationParams, fetchFn: FetchFn<T, M>) {
+  constructor(initialParams: OffsetPaginationParams, fetchFn: FetchFn<T, M>) {
     this.#fetchFn = fetchFn;
     this.#params = initialParams;
   }
@@ -36,7 +36,7 @@ export class Pagination<T, M extends Metadata> {
     this.#meta = result.meta;
     this.#params = {
       ...this.#params,
-      page: this.#params.page + 1,
+      offset: this.#params.offset + this.#params.limit,
     };
     return this;
   }
@@ -82,6 +82,17 @@ export class Pagination<T, M extends Metadata> {
       );
     }
     return this.#meta;
+  }
+
+  reset(params?: Partial<OffsetPaginationParams>) {
+    this.#meta = null;
+    this.#currentPage = null;
+    if (params) {
+      this.#params = { ...this.#params, ...params };
+    } else {
+      this.#params.offset = 0;
+    }
+    return this;
   }
 }
 

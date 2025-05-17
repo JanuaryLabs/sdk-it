@@ -16,6 +16,9 @@ export type FetchFn<T, M extends Metadata> = (
   input: PaginationParams,
 ) => Promise<PaginationResult<T, M>>;
 
+/**
+ * @experimental
+ */
 export class Pagination<T, M extends Metadata> {
   #meta: PaginationResult<T, M>['meta'] | null = null;
   #params: PaginationParams;

@@ -30,7 +30,7 @@ import parseResponse from './http/parse-response.txt';
 import parserTxt from './http/parser.txt';
 import requestTxt from './http/request.txt';
 import responseTxt from './http/response.txt';
-import paginationTxt from './pagination.txt';
+import paginationTxt from './paginations/page-pagination.txt';
 import { generateInputs } from './sdk.ts';
 import type { Style } from './style.ts';
 import { exclude, securityToOptions } from './utils.ts';

@@ -74,6 +74,7 @@
     "@expressive-code/plugin-line-numbers": "^0.41.2",
     "@hono/node-server": "^1.14.1",
     "@monaco-editor/react": "^4.7.0-rc.0",
+    "@novu/api": "^1.0.0",
     "@octokit/core": "^6.1.5",
     "@radix-ui/react-toast": "^1.2.11",
     "@react-hooks-library/core": "^0.6.2",
