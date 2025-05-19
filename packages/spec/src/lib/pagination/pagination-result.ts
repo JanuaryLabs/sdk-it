@@ -1,4 +1,4 @@
-import type { SchemaObject } from 'openapi3-ts/oas31';
+import type { SchemaObject, SchemasObject } from 'openapi3-ts/oas31';
 import pluralize from 'pluralize';
 
 const PRIMARY_TOP_TIER_KEYWORDS: string[] = [
@@ -98,6 +98,7 @@ const HAS_MORE_POSITIVE_REGEX_PATTERNS: string[] = [
   '\\bcontinuation\\b', // e.g., continuationAvailable, has_continuation_token
   '\\bmore_?results\\b',
   '\\bpage_?available\\b',
+  '\\bnext(?:_?(page))?\\b',
 ];
 const COMPILED_HAS_MORE_POSITIVE_REGEXES: RegExp[] =
   HAS_MORE_POSITIVE_REGEX_PATTERNS.map((p) => new RegExp(p, 'i'));
@@ -213,7 +214,10 @@ function guess(properties: Record<string, SchemaObject>) {
   for (const propName in properties) {
     if (Object.prototype.hasOwnProperty.call(properties, propName)) {
       const propSchema = properties[propName] as SchemaObject;
-      if (propSchema && propSchema.type === 'boolean') {
+      if (
+        (propSchema && propSchema.type === 'boolean') ||
+        propSchema.type === 'integer'
+      ) {
         booleanPropertyNames.push(propName);
       }
     }
@@ -295,22 +299,17 @@ function guess(properties: Record<string, SchemaObject>) {
  * @returns The name of the most likely boolean property indicating "has more",
  *          or null if no suitable boolean property is found.
  */
-export function getHasMoreName(
-  properties: Record<string, SchemaObject>,
-): string | null {
+export function getHasMoreName(properties: SchemasObject): string | null {
   const rootGuess = guess(properties);
   if (rootGuess) {
     return rootGuess;
   }
   for (const propName in properties) {
-    if (Object.prototype.hasOwnProperty.call(properties, propName)) {
-      const propSchema = properties[propName] as SchemaObject;
-      if (propSchema && propSchema.type === 'object' && propSchema.properties) {
-        return (
-          propName +
-          '.' +
-          getHasMoreName(propSchema.properties as Record<string, SchemaObject>)
-        );
+    const propSchema = properties[propName];
+    if (propSchema.type === 'object' && propSchema.properties) {
+      const nested = getHasMoreName(propSchema.properties as SchemasObject);
+      if (nested) {
+        return propName + '.' + nested;
       }
     }
   }
