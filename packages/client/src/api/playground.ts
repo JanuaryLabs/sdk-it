@@ -28,7 +28,11 @@ import {
   type PostPlaygroundOutput200,
   type PostPlaygroundOutput400,
 } from '../outputs/post-playground.ts';
-import { Pagination } from '../pagination.ts';
+import {
+  CursorPagination,
+  OffsetPagination,
+  Pagination,
+} from '../pagination/index.ts';
 
 export default {
   'POST /playground': {

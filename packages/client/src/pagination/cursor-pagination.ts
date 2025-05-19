@@ -1,9 +1,9 @@
 type CursorPaginationParams = {
-  cursor?: string;
+  cursor?: string | null;
 };
 
 interface CursorMetadata extends Metadata {
-  nextCursor?: string;
+  nextCursor?: string | null;
 }
 
 interface Metadata {
@@ -28,14 +28,9 @@ export class CursorPagination<T, M extends CursorMetadata> {
   #currentPage: Page<T> | null = null;
   readonly #fetchFn: FetchFn<T, M>;
 
-  constructor(
-    initialParams: PartialNullable<CursorPaginationParams>,
-    fetchFn: FetchFn<T, M>,
-  ) {
+  constructor(initialParams: CursorPaginationParams, fetchFn: FetchFn<T, M>) {
     this.#fetchFn = fetchFn;
-    this.#params = {
-      cursor: initialParams.cursor ?? undefined,
-    };
+    this.#params = initialParams;
   }
 
   async getNextPage() {
@@ -91,6 +86,17 @@ export class CursorPagination<T, M extends CursorMetadata> {
     }
     return this.#meta;
   }
+
+  reset(params?: Partial<CursorPaginationParams>) {
+    this.#meta = null;
+    this.#currentPage = null;
+    if (params) {
+      this.#params = { ...this.#params, ...params };
+    } else {
+      this.#params.cursor = null;
+    }
+    return this;
+  }
 }
 
 class Page<T> {
@@ -99,7 +105,3 @@ class Page<T> {
     this.data = data;
   }
 }
-
-type PartialNullable<T> = {
-  [K in keyof T]?: T[K] | null;
-};

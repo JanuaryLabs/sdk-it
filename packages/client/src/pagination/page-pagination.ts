@@ -1,41 +1,33 @@
-type CursorPaginationParams = {
-  cursor?: string;
+type PaginationParams = {
+  page: number;
+  pageSize?: number;
 };
-
-interface CursorMetadata extends Metadata {
-  nextCursor?: string;
-}
 
 interface Metadata {
   hasMore?: boolean;
 }
 
-type PaginationResult<T, M extends CursorMetadata> = {
+type PaginationResult<T, M extends Metadata> = {
   data: T[];
   meta: M;
 };
 
-type FetchFn<T, M extends CursorMetadata> = (
-  input: CursorPaginationParams,
+type FetchFn<T, M extends Metadata> = (
+  input: PaginationParams,
 ) => Promise<PaginationResult<T, M>>;
 
 /**
  * @experimental
  */
-export class CursorPagination<T, M extends CursorMetadata> {
+export class Pagination<T, M extends Metadata> {
   #meta: PaginationResult<T, M>['meta'] | null = null;
-  #params: CursorPaginationParams;
+  #params: PaginationParams;
   #currentPage: Page<T> | null = null;
   readonly #fetchFn: FetchFn<T, M>;
 
-  constructor(
-    initialParams: PartialNullable<CursorPaginationParams>,
-    fetchFn: FetchFn<T, M>,
-  ) {
+  constructor(initialParams: PaginationParams, fetchFn: FetchFn<T, M>) {
     this.#fetchFn = fetchFn;
-    this.#params = {
-      cursor: initialParams.cursor ?? undefined,
-    };
+    this.#params = initialParams;
   }
 
   async getNextPage() {
@@ -44,7 +36,7 @@ export class CursorPagination<T, M extends CursorMetadata> {
     this.#meta = result.meta;
     this.#params = {
       ...this.#params,
-      cursor: result.meta.nextCursor,
+      page: this.#params.page + 1,
     };
     return this;
   }
@@ -99,7 +91,3 @@ class Page<T> {
     this.data = data;
   }
 }
-
-type PartialNullable<T> = {
-  [K in keyof T]?: T[K] | null;
-};

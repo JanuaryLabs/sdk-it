@@ -28,7 +28,11 @@ import {
   type PostAugmentOutput200,
   type PostAugmentOutput400,
 } from '../outputs/post-augment.ts';
-import { Pagination } from '../pagination.ts';
+import {
+  CursorPagination,
+  OffsetPagination,
+  Pagination,
+} from '../pagination/index.ts';
 
 export default {
   'POST /augment': {

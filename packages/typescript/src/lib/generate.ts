@@ -30,6 +30,8 @@ import parseResponse from './http/parse-response.txt';
 import parserTxt from './http/parser.txt';
 import requestTxt from './http/request.txt';
 import responseTxt from './http/response.txt';
+import cursorPaginationTxt from './paginations/cursor-pagination.txt';
+import offsetPaginationTxt from './paginations/offset-pagination.txt';
 import paginationTxt from './paginations/page-pagination.txt';
 import { generateInputs } from './sdk.ts';
 import type { Style } from './style.ts';
@@ -337,9 +339,23 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
   }
   const [outputIndex, inputsIndex, apiIndex, httpIndex, modelsIndex] =
     await Promise.all(folders);
+
+  await settings.writer(join(output, 'pagination'), {
+    'cursor-pagination.ts': cursorPaginationTxt,
+    'offset-pagination.ts': offsetPaginationTxt,
+    'page-pagination.ts': paginationTxt,
+  });
+
+  await settings.writer(join(output, 'pagination'), {
+    'index.ts': await getFolderExports(
+      join(output, 'pagination'),
+      settings.readFolder,
+      settings.useTsExtension,
+      ['ts'],
+    ),
+  });
   await settings.writer(output, {
     'api/index.ts': apiIndex,
-    'pagination.ts': paginationTxt,
     'outputs/index.ts': outputIndex,
     'inputs/index.ts': inputsIndex || null,
     'http/index.ts': httpIndex,
@@ -351,6 +367,7 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
       settings.readFolder,
       settings.useTsExtension,
       ['ts'],
+      (config) => config.fileName.endsWith('pagination'),
     ),
   });
   if (settings.mode === 'full') {

@@ -237,15 +237,23 @@ function paginationOperation(
   style?: OutputStyle,
 ) {
   const pagination = operation['x-pagination'] as OperationPagination;
-  if (pagination.type !== 'page') {
-    throw new Error(
-      `Pagination type ${pagination.type} is not supported. Only page is supported`,
-    );
-  }
-  return `{const pagination = new Pagination(input, async (nextPageParams) => {
+
+  if (pagination.type === 'offset') {
+    const sameInputNames =
+      pagination.limitParamName === 'limit' &&
+      pagination.offsetParamName === 'offset';
+    const initialParams = sameInputNames
+      ? 'input'
+      : `{...input, limit: input.${pagination.limitParamName}, offset: input.${pagination.offsetParamName}}`;
+
+    const nextPageParams = sameInputNames
+      ? '...nextPageParams'
+      : `${pagination.offsetParamName}: nextPageParams.offset, ${pagination.limitParamName}: nextPageParams.limit`;
+
+    return `{const pagination = new OffsetPagination(${initialParams}, async (nextPageParams) => {
         const dispatcher = new Dispatcher(options.interceptors, options.fetch);
         const result = await dispatcher.send(
-          this.toRequest({...input, ...nextPageParams}),
+          this.toRequest({...input, ${nextPageParams}}),
           this.output,
         );
         return {
@@ -257,6 +265,60 @@ function paginationOperation(
       });
       await pagination.getNextPage();
       return ${style === 'status' ? 'new http.Ok(pagination);' : 'pagination'}}}`;
+  }
+  if (pagination.type === 'cursor') {
+    const sameInputNames = pagination.cursorParamName === 'cursor';
+    const initialParams = sameInputNames
+      ? 'input'
+      : `{...input, cursor: input.${pagination.cursorParamName}}`;
+
+    const nextPageParams = sameInputNames
+      ? '...nextPageParams'
+      : `${pagination.cursorParamName}: nextPageParams.cursor`;
+
+    return `{const pagination = new CursorPagination(${initialParams}, async (nextPageParams) => {
+        const dispatcher = new Dispatcher(options.interceptors, options.fetch);
+        const result = await dispatcher.send(
+          this.toRequest({...input, ${nextPageParams}}),
+          this.output,
+        );
+        return {
+          data: result.data.${pagination.items},
+          meta: {
+            hasMore: result.data.${pagination.hasMore},
+          },
+        };
+      });
+      await pagination.getNextPage();
+      return ${style === 'status' ? 'new http.Ok(pagination);' : 'pagination'}}}`;
+  }
+  if (pagination.type === 'page') {
+    const sameInputNames =
+      pagination.pageNumberParamName === 'page' &&
+      pagination.pageSizeParamName === 'pageSize';
+    const initialParams = sameInputNames
+      ? 'input'
+      : `{...input, page: input.${pagination.pageNumberParamName}, pageSize: input.${pagination.pageSizeParamName}}`;
+    const nextPageParams = sameInputNames
+      ? '...nextPageParams'
+      : `${pagination.pageNumberParamName}: nextPageParams.page, ${pagination.pageSizeParamName}: nextPageParams.pageSize`;
+    return `{const pagination = new Pagination(${initialParams}, async (nextPageParams) => {
+        const dispatcher = new Dispatcher(options.interceptors, options.fetch);
+        const result = await dispatcher.send(
+          this.toRequest({...input, ${nextPageParams}}),
+          this.output,
+        );
+        return {
+          data: result.data.${pagination.items},
+          meta: {
+            hasMore: result.data.${pagination.hasMore},
+          },
+        };
+      });
+      await pagination.getNextPage();
+      return ${style === 'status' ? 'new http.Ok(pagination);' : 'pagination'}}}`;
+  }
+  return normalOperation(style);
 }
 
 const statusCodeToResponseMap: Record<string, string> = {

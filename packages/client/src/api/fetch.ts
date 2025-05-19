@@ -28,7 +28,11 @@ import {
   type GetFetchOutput200,
   type GetFetchOutput400,
 } from '../outputs/get-fetch.ts';
-import { Pagination } from '../pagination.ts';
+import {
+  CursorPagination,
+  OffsetPagination,
+  Pagination,
+} from '../pagination/index.ts';
 
 export default {
   'GET /fetch': {

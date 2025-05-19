@@ -28,7 +28,11 @@ import {
   type PostPublishOutput200,
   type PostPublishOutput400,
 } from '../outputs/post-publish.ts';
-import { Pagination } from '../pagination.ts';
+import {
+  CursorPagination,
+  OffsetPagination,
+  Pagination,
+} from '../pagination/index.ts';
 
 export default {
   'POST /publish': {

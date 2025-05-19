@@ -28,7 +28,11 @@ import {
   type PostGenerateOutput200,
   type PostGenerateOutput400,
 } from '../outputs/post-generate.ts';
-import { Pagination } from '../pagination.ts';
+import {
+  CursorPagination,
+  OffsetPagination,
+  Pagination,
+} from '../pagination/index.ts';
 
 export default {
   'POST /generate': {

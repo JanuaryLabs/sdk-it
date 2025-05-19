@@ -124,9 +124,9 @@ for await (const page of pagination) {
 }
 
 console.log('hasMore', pagination.metadata);
-
+// import { OpenAI } from 'openai';
 // const openai = await new OpenAI({
 //   apiKey: process.env.OPENAI_API_KEY,
-// }).vectorStores.list();
-
-// openai.iterPages
+// })
+// const stores = await openai.vectorStores.list()
+// const b = await openai.getNextPage()

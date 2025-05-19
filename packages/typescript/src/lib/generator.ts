@@ -220,7 +220,6 @@ export function generateCode(
     const output = [
       `import z from 'zod';`,
       `import type * as http from '${config.makeImport('../http/index')}';`,
-      `import { Pagination } from "${config.makeImport('../pagination')}";`,
     ];
     const responses = endpoint.responses.flatMap((it) => it.responses);
     const responsesImports = endpoint.responses.flatMap((it) =>
@@ -329,7 +328,7 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
                   `import * as ${camelcase(name)} from '../inputs/${config.makeImport(spinalcase(name))}';`,
                   `import { createBaseUrlInterceptor, createHeadersInterceptor, type Interceptor } from '${config.makeImport('../http/interceptors')}';`,
                   `import { Dispatcher, fetchType, type InstanceType } from '${config.makeImport('../http/dispatcher')}';`,
-                  `import { Pagination } from "${config.makeImport('../pagination')}";`,
+                  `import { Pagination, OffsetPagination, CursorPagination } from "${config.makeImport('../pagination/index')}";`,
                 ].join(
                   '\n',
                 )}\nexport default {\n${endpoint.flatMap((it) => it.schemas).join(',\n')}\n}`,

@@ -28,7 +28,11 @@ import {
   type GetOperationsOutput200,
   type GetOperationsOutput400,
 } from '../outputs/get-operations.ts';
-import { Pagination } from '../pagination.ts';
+import {
+  CursorPagination,
+  OffsetPagination,
+  Pagination,
+} from '../pagination/index.ts';
 
 export default {
   'GET /operations': {

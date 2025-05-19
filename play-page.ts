@@ -9,27 +9,11 @@ const client = new SdkIt({
   baseUrl: 'http://localhost:3000',
 });
 
-const products = await client.request('GET /products', {
+const operationsPagination = await client.request('GET /operations', {
   page: 1,
   pageSize: 2,
 });
-console.log(products.getCurrentPage());
-await products.getNextPage();
-console.log(products.getCurrentPage());
 
-await pagination.getNextPage();
-console.log(pagination.getCurrentPage());
-await pagination.getNextPage();
-console.log(pagination.getCurrentPage());
-
-for await (const page of resulpaginationt.data) {
-  console.dir(page);
-}
+const operations = operationsPagination.getCurrentPage();
 
 // console.log('hasMore', pagination.metadata);
-
-// const openai = await new OpenAI({
-//   apiKey: process.env.OPENAI_API_KEY,
-// }).vectorStores.list();
-
-// openai.iterPages

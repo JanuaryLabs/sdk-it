@@ -58,7 +58,6 @@
     "apps/*"
   ],
   "nx": {
-    "includedScripts": [],
     "targets": {
       "local-registry": {
         "executor": "@nx/js:verdaccio",
