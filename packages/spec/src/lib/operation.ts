@@ -4,6 +4,7 @@ import type {
   OperationObject,
   ParameterLocation,
   ParameterObject,
+  PathsObject,
   ReferenceObject,
   RequestBodyObject,
   ResponseObject,
@@ -22,6 +23,7 @@ import {
 
 export function augmentSpec(config: GenerateSdkConfig) {
   config.spec.paths ??= {};
+  const paths: PathsObject = {};
   for (const [path, pathItem] of Object.entries(config.spec.paths)) {
     const { parameters = [], ...methods } = pathItem;
 
@@ -38,7 +40,6 @@ export function augmentSpec(config: GenerateSdkConfig) {
       const requestBody = isRef(operation.requestBody)
         ? followRef<RequestBodyObject>(config.spec, operation.requestBody.$ref)
         : operation.requestBody;
-      const responses = resolveResponses(config.spec, operation);
       const tunedOperation: TunedOperationObject = {
         ...operation,
         parameters: [...parameters, ...(operation.parameters ?? [])].map(
@@ -47,48 +48,63 @@ export function augmentSpec(config: GenerateSdkConfig) {
         ),
         tags: [operationTag],
         operationId: operationId,
-        responses: responses,
+        responses: resolveResponses(config.spec, operation),
         requestBody: requestBody,
       };
-      const schema = getResponseContentSchema(
+
+      tunedOperation['x-pagination'] = toPagination(
         config.spec,
-        responses['200'],
-        'application/json',
-      );
-
-      const pagination = guessPagination(
         tunedOperation,
-        tunedOperation.requestBody
-          ? getRequestContentSchema(
-              config.spec,
-              tunedOperation.requestBody,
-              'application/json',
-            )
-          : undefined,
-        schema,
       );
-      if (pagination && pagination.type !== 'none' && schema) {
-        // console.dir({
-        //   [`${method.toUpperCase()} ${fixedPath}`]: {
-        //     ...pagination,
-        //   },
-        // });
-        tunedOperation['x-pagination'] = {
-          ...pagination,
-        };
-      }
 
-      Object.assign(config.spec.paths[fixedPath], {
-        [method]: tunedOperation,
+      Object.assign(paths, {
+        [fixedPath]: {
+          ...paths[fixedPath],
+          [method]: tunedOperation,
+        },
       });
     }
   }
-  return config.spec;
+  return { ...config.spec, paths };
 }
 
 export type OperationPagination = PaginationGuess & {
   items: string;
 };
+
+function toPagination(
+  spec: OpenAPIObject,
+  tunedOperation: TunedOperationObject,
+) {
+  if (tunedOperation['x-pagination']) {
+    return tunedOperation['x-pagination'];
+  }
+  const schema = getResponseContentSchema(
+    spec,
+    tunedOperation.responses['200'],
+    'application/json',
+  );
+  const pagination = guessPagination(
+    tunedOperation,
+    tunedOperation.requestBody
+      ? getRequestContentSchema(
+          spec,
+          tunedOperation.requestBody,
+          'application/json',
+        )
+      : undefined,
+    schema,
+  );
+  if (pagination && pagination.type !== 'none' && schema) {
+    // console.dir({
+    //   [`${method.toUpperCase()} ${fixedPath}`]: {
+    //     ...pagination,
+    //   },
+    // });
+    return pagination;
+  }
+  return undefined;
+}
 
 function getResponseContentSchema(
   spec: OpenAPIObject,

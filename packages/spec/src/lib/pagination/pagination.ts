@@ -1,5 +1,6 @@
 import type { SchemaObject } from 'openapi3-ts/oas31';
 
+import { isRef } from '@sdk-it/core/ref.js';
 import { isEmpty } from '@sdk-it/core/utils.js';
 
 import type { TunedOperationObject } from '../operation';
@@ -94,7 +95,8 @@ export const CURSOR_REGEXES: RegExp[] = [
   /\b(next|prev|previous)_?(?:page_?)?token\b/i, // e.g., next_page_token, nextPageToken, prev_token
   /\b(next|prev|previous)_?cursor\b/i, // e.g., next_cursor, previousCursor
   /\bcontinuation(?:_?token)?\b/i, // e.g., continuation, continuation_token
-  /\bpage_?token\b/i, // e.g., page_token, pagetoken (often for next page)
+  /\bpage(?:_?(token|id))?\b/i, // e.g., after, after_cursor
+
   /\bstart_?(?:key|cursor|token|after)\b/i, // e.g., start_key, startCursor, startToken, startAfter
 ];
 
@@ -157,7 +159,12 @@ function isOffsetPagination(
 function isPagePagination(
   operation: TunedOperationObject,
 ): PagePaginationResult | null {
-  const queryParams = operation.parameters.filter((p) => p.in === 'query');
+  const queryParams = operation.parameters
+    .filter((p) => p.in === 'query')
+    .filter(
+      (it) => it.schema && !isRef(it.schema) && it.schema.type === 'integer',
+    );
+
   if (queryParams.length < 2) return null;
 
   const pageNoMatch = findParamAndKeyword(queryParams, PAGE_NUMBER_REGEXES);
