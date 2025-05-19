@@ -64,7 +64,7 @@ export default new Command('typescript')
     '--error-as-value <errorAsValue>',
     'Treat errors as values instead of throwing them',
     (value) => (value === 'false' ? false : true),
-    true,
+    false,
   )
   .option('--no-default-formatter', 'Do not use the default formatter')
   .option('--no-install', 'Do not install dependencies')
