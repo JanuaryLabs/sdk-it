@@ -1,6 +1,7 @@
-import type { PostPlaygroundOutput200 } from '@local/client';
 import { type ReactNode, Suspense, useState } from 'react';
 import { useReadLocalStorage } from 'usehooks-ts';
+
+import type { PostPlaygroundOutput200 } from '@sdk-it/client';
 
 import codeSnippets, { Example } from './code-snippets';
 import Background from './components/background';
@@ -153,7 +154,7 @@ export function SpecBoxDemo() {
         <CredenzaTrigger asChild>
           <div></div>
         </CredenzaTrigger>
-        <CredenzaContent className="h-screen max-h-[calc(100dvh)] max-w-screen min-w-full gap-0 p-0 rounded-none">
+        <CredenzaContent className="h-screen max-h-[calc(100dvh)] max-w-screen min-w-full gap-0 rounded-none p-0">
           {/* <CredenzaHeader>
             <CredenzaTitle>Ask AI</CredenzaTitle>
             <CredenzaDescription>

@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "lib": ["DOM", "DOM.Iterable", "ESNext", "DOM.AsyncIterable"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable", "DOM.AsyncIterable"],
     "types": ["@react-router/node", "vite/client", "node"],
     "esModuleInterop": true,
     "jsx": "react-jsx",

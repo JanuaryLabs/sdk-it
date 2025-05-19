@@ -1,10 +1,11 @@
-import { type PostPlaygroundOutput200, SdkIt } from '@local/client';
 import { Paperclip } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { type FileRejection, useDropzone } from 'react-dropzone';
 import { toast } from 'sonner';
 import { useLocalStorage } from 'usehooks-ts';
 import { z } from 'zod';
+
+import { type PostPlaygroundOutput200, SdkIt } from '@sdk-it/client';
 
 import { Button, cn } from '../shadcn';
 import { Loader } from './loading-text';

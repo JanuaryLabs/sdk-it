@@ -42,46 +42,46 @@ const specs = [
   {
     name: 'openstatus',
     spec: 'https://api.openstatus.dev/v1/openapi',
-    flags: ['--readme=true'],
+    flags: ['--readme=true',],
   },
-  // {
-  //   name: 'spotify',
-  //   spec: 'https://developer.spotify.com/reference/web-api/open-api-schema.yaml',
-  //   flags: [],
-  // },
-  // {
-  //   name: 'UploadThings',
-  //   spec: 'https://api.uploadthing.com/openapi-spec.json',
-  // },
-  // {
-  //   name: 'Nowa',
-  //   spec: 'https://nowa-server-dev-412327058882.europe-west1.run.app/swagger/v1/swagger.json',
-  // },
-  // {
-  //   name: 'Problem',
-  //   spec: join(process.cwd(), '.yamls', 'problem.json'),
-  //   flags: ['--no-install'],
-  // },
-  // {
-  //   spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-  //   name: 'openai',
-  //   flags: ['--error-as-value=true', '--output-type=status'],
-  // },
-  // {
-  //   spec: 'https://raw.githubusercontent.com/figma/rest-api-spec/refs/heads/main/openapi/openapi.yaml',
-  //   name: 'figma',
-  //   flags: ['--error-as-value=false', '--output-type=status'],
-  // },
-  // {
-  //   spec: 'https://docs.hetzner.cloud/spec.json',
-  //   name: 'hetzner',
-  //   flags: ['--output-type=default'],
-  // },
-  // {
-  //   spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
-  //   name: 'discord',
-  //   flags: ['--error-as-value=true'],
-  // },
+  {
+    name: 'spotify',
+    spec: 'https://developer.spotify.com/reference/web-api/open-api-schema.yaml',
+    flags: [],
+  },
+  {
+    name: 'UploadThings',
+    spec: 'https://api.uploadthing.com/openapi-spec.json',
+  },
+  {
+    name: 'Nowa',
+    spec: 'https://nowa-server-dev-412327058882.europe-west1.run.app/swagger/v1/swagger.json',
+  },
+  {
+    name: 'OpenAPIWithRecursiveSchemas',
+    spec: join(process.cwd(), '.yamls', 'problem.json'),
+    flags: ['--no-install'],
+  },
+  {
+    spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
+    name: 'openai',
+    flags: [ '--output-type=status'],
+  },
+  {
+    spec: 'https://raw.githubusercontent.com/figma/rest-api-spec/refs/heads/main/openapi/openapi.yaml',
+    name: 'figma',
+    flags: ['--output-type=status'],
+  },
+  {
+    spec: 'https://docs.hetzner.cloud/spec.json',
+    name: 'hetzner',
+    flags: ['--output-type=default'],
+  },
+  {
+    spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
+    name: 'discord',
+    flags: [],
+  },
 ];
 
 for (const { spec, name, flags } of specs) {

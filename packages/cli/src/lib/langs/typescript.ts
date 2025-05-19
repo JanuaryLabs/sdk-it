@@ -56,8 +56,11 @@ export default new Command('typescript')
     'Install dependencies using npm (only in full mode)',
     true,
   )
-  .option('--readme <readme>', 'Generate a README file', (value) =>
-    value === 'false' ? false : true,
+  .option(
+    '--readme <readme>',
+    'Generate a README file',
+    (value) => (value === 'false' ? false : true),
+    true,
   )
   .option('--output-type <outputType>', 'Endpoint output type', 'default')
   .option(
