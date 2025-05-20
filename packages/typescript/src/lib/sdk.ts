@@ -311,7 +311,7 @@ function paginationOperation(
         return {
           data: result.data.${pagination.items},
           meta: {
-            hasMore: result.data.${pagination.hasMore},
+            hasMore: Boolean(result.data.${pagination.hasMore}),
           },
         };
       });
