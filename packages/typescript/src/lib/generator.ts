@@ -214,7 +214,7 @@ export function generateCode(
         schemas,
         inputs,
       },
-      { makeImport: config.makeImport, style: config.style.outputType },
+      { makeImport: config.makeImport, style: config.style },
     );
 
     const output = [

@@ -2,10 +2,6 @@ import { forEachOperation } from '@sdk-it/spec';
 import { loadSpec } from '@sdk-it/spec/loaders/load-spec.js';
 import { TypeScriptGenerator } from '@sdk-it/typescript';
 
-
-
-
-
 // const { specUrl } = await inquirer.prompt([
 //   {
 //     type: 'input',

@@ -62,7 +62,7 @@ export class ${spec.name} {
     endpoint: E,
     input: z.infer<(typeof schemas)[E]['schema']>,
     options?: { signal?: AbortSignal, headers?: HeadersInit },
-  ) ${style.errorAsValue ? `: Promise<readonly [Endpoints[E]['output'], Endpoints[E]['error'] | null]>` : `: Promise<ReturnType<(typeof schemas)[E]['dispatch']>>`} {
+  ) ${style.errorAsValue ? `: Promise<ReturnType<(typeof schemas)[E]['dispatch']>| [never, ParseError<(typeof schemas)[E]['schema']>]>` : `: Promise<ReturnType<(typeof schemas)[E]['dispatch']>>`} {
     const route = schemas[endpoint];
     const withDefaultInputs = Object.assign({}, this.#defaultInputs, input);
     const [parsedInput, parseError] = parseInput(route.schema, withDefaultInputs);
@@ -77,7 +77,7 @@ export class ${spec.name} {
       ],
       signal: options?.signal,
     });
-    return ${style.errorAsValue ? `result as [Endpoints[E]['output'], Endpoints[E]['error'] | null]` : `result as ReturnType<(typeof schemas)[E]['dispatch']>;`};
+    return result as Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>;
   }
 
   async prepare<const E extends keyof typeof schemas>(
@@ -118,7 +118,7 @@ export class ${spec.name} {
         config = await interceptor.before(config);
       }
     }
-    const prepared = { ...config, parse: (response: Response) => parse(route.output, response) };
+    const prepared = { ...config, parse: (response: Response) => parse(route.output, response) as never };
     return ${style.errorAsValue ? '[prepared, null as never] as const;' : 'prepared as any'}
   }
 

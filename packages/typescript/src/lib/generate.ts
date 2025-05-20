@@ -263,7 +263,7 @@ export async function generate(
 import { type Interceptor } from '${makeImport('../http/interceptors')}';
 import { type RequestConfig } from '${makeImport('../http/request')}';
 import { buffered } from '${makeImport('./parse-response')}';
-import { APIError, APIResponse, type SuccessfulResponse } from '${makeImport('./response')}';
+import { APIError, APIResponse, type SuccessfulResponse, type ProblematicResponse } from '${makeImport('./response')}';
 
 ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: style.outputType })}`,
 

@@ -9,7 +9,7 @@ import type {
 } from '@sdk-it/spec/operation.js';
 
 import { TypeScriptEmitter } from './emitters/interface.ts';
-import type { OutputStyle } from './style.ts';
+import type { Style } from './style.ts';
 import { type Import, type MakeImportFn } from './utils.ts';
 
 export type Parser = 'chunked' | 'buffered';
@@ -124,7 +124,7 @@ export function toEndpoint(
   operation: Operation,
   utils: {
     makeImport: MakeImportFn;
-    style?: OutputStyle;
+    style?: Style;
   },
 ) {
   const schemaName = camelcase(`${operation.name} schema`);
@@ -223,20 +223,18 @@ export function toEndpoint(
   return { responses, schemas };
 }
 
-function normalOperation(style?: OutputStyle) {
+function normalOperation(style?: Style) {
   return `{
             const dispatcher = new Dispatcher(options.interceptors, options.fetch);
             const result = await dispatcher.send(this.toRequest(input), this.output);
-            return ${style === 'status' ? 'result' : 'result.data;'}
+            return ${style?.outputType === 'status' ? 'result' : style?.errorAsValue ? `result` : 'result.data;'}
             },
           }`;
 }
 
-function paginationOperation(
-  operation: TunedOperationObject,
-  style?: OutputStyle,
-) {
+function paginationOperation(operation: TunedOperationObject, style?: Style) {
   const pagination = operation['x-pagination'] as OperationPagination;
+  const data = `${style?.errorAsValue ? `result[0]${style.outputType === 'status' ? '' : ''}` : `${style?.outputType === 'default' ? 'result.data' : 'result'}`}`;
 
   if (pagination.type === 'offset') {
     const sameInputNames =
@@ -249,22 +247,25 @@ function paginationOperation(
     const nextPageParams = sameInputNames
       ? '...nextPageParams'
       : `${pagination.offsetParamName}: nextPageParams.offset, ${pagination.limitParamName}: nextPageParams.limit`;
-
-    return `{const pagination = new OffsetPagination(${initialParams}, async (nextPageParams) => {
+    const logic = `const pagination = new OffsetPagination(${initialParams}, async (nextPageParams) => {
         const dispatcher = new Dispatcher(options.interceptors, options.fetch);
         const result = await dispatcher.send(
           this.toRequest({...input, ${nextPageParams}}),
           this.output,
         );
         return {
-          data: result.data.${pagination.items},
+          data: ${data}.${pagination.items},
           meta: {
-            hasMore: result.data.${pagination.hasMore},
+            hasMore: Boolean(${data}.${pagination.hasMore}),
           },
         };
       });
       await pagination.getNextPage();
-      return ${style === 'status' ? 'new http.Ok(pagination);' : 'pagination'}}}`;
+      return ${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}}
+      `;
+    return style?.errorAsValue
+      ? `{try {${logic}} catch (error) {return [null as never, error] as const;}}}`
+      : `{${logic}}`;
   }
   if (pagination.type === 'cursor') {
     const sameInputNames = pagination.cursorParamName === 'cursor';
@@ -275,22 +276,27 @@ function paginationOperation(
     const nextPageParams = sameInputNames
       ? '...nextPageParams'
       : `${pagination.cursorParamName}: nextPageParams.cursor`;
-
-    return `{const pagination = new CursorPagination(${initialParams}, async (nextPageParams) => {
+    const logic = `
+      const pagination = new CursorPagination(${initialParams}, async (nextPageParams) => {
         const dispatcher = new Dispatcher(options.interceptors, options.fetch);
         const result = await dispatcher.send(
           this.toRequest({...input, ${nextPageParams}}),
           this.output,
         );
+        ${style?.errorAsValue ? `if (result[1]) {throw result[1];}` : ''}
         return {
-          data: result.data.${pagination.items},
+          data: ${data}.${pagination.items},
           meta: {
-            hasMore: result.data.${pagination.hasMore},
+            hasMore: Boolean(${data}.${pagination.hasMore}),
           },
         };
       });
-      await pagination.getNextPage();
-      return ${style === 'status' ? 'new http.Ok(pagination);' : 'pagination'}}}`;
+
+      return ${style?.outputType === 'status' ? (style.errorAsValue ? '[new http.Ok(await pagination.getNextPage())]' : 'await pagination.getNextPage();') : 'await pagination.getNextPage();'}
+`;
+    return style?.errorAsValue
+      ? `{try {${logic}} catch (error) {return [null as never, error] as const;}}}`
+      : `{${logic}}`;
   }
   if (pagination.type === 'page') {
     const sameInputNames =
@@ -302,21 +308,29 @@ function paginationOperation(
     const nextPageParams = sameInputNames
       ? '...nextPageParams'
       : `${pagination.pageNumberParamName}: nextPageParams.page, ${pagination.pageSizeParamName}: nextPageParams.pageSize`;
-    return `{const pagination = new Pagination(${initialParams}, async (nextPageParams) => {
+
+    const logic = `
+      const pagination = new Pagination(${initialParams}, async (nextPageParams) => {
         const dispatcher = new Dispatcher(options.interceptors, options.fetch);
         const result = await dispatcher.send(
           this.toRequest({...input, ${nextPageParams}}),
           this.output,
         );
+        ${style?.errorAsValue ? `if (result[1]) {throw result[1];}` : ''}
         return {
-          data: result.data.${pagination.items},
+          data: ${data}.${pagination.items},
           meta: {
-            hasMore: Boolean(result.data.${pagination.hasMore}),
+            hasMore: Boolean(${data}.${pagination.hasMore}),
           },
         };
       });
-      await pagination.getNextPage();
-      return ${style === 'status' ? 'new http.Ok(pagination);' : 'pagination'}}}`;
+
+      return ${style?.outputType === 'status' ? (style.errorAsValue ? '[new http.Ok(await pagination.getNextPage())]' : 'new http.Ok(await pagination.getNextPage());') : 'await pagination.getNextPage()'};
+    `;
+
+    return style?.errorAsValue
+      ? `{try {${logic}} catch (error) {return [null as never, error] as const;}}}`
+      : `{${logic}}`;
   }
   return normalOperation(style);
 }

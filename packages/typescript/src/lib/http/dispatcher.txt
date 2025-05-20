@@ -32,7 +32,18 @@ export const fetchType = z
 export async function parse<T extends OutputType[]>(
   outputs: T,
   response: Response,
-) {
+) <% if(!throwError) { %>
+: Promise<
+  [
+    Extract<InstanceType<T>, SuccessfulResponse>['data'],
+    Extract<InstanceType<T>, ProblematicResponse>['data'],
+  ]
+>
+  <% } %>
+
+
+
+ {
   let output: typeof APIResponse | null = null;
   let parser: Parser = buffered;
   for (const outputType of outputs) {
@@ -59,9 +70,9 @@ export async function parse<T extends OutputType[]>(
       await parser(response),
     );
     <% if(throwError) { %>
-      return <% if (outputType === 'default') { %>apiresponse as Extract<InstanceType<T>, SuccessfulResponse>;<% } else { %>apiresponse as Extract<InstanceType<T>, SuccessfulResponse>;<% } %>;
+      return <% if (outputType === 'default') { %>apiresponse as Extract<InstanceType<T>, SuccessfulResponse><% } else { %>apiresponse as Extract<InstanceType<T>, SuccessfulResponse>;<% } %>;
     <% } else { %>
-      return [<% if (outputType === 'default') { %>apiresponse.data<% } else { %>apiresponse as Extract<InstanceType<T>, SuccessfulResponse>;<% } %> , null] as const;
+      return [<% if (outputType === 'default') { %>apiresponse.data as Extract<InstanceType<T>, SuccessfulResponse>['data']<% } else { %>apiresponse as Extract<InstanceType<T>, SuccessfulResponse><% } %>, null] as const;
     <% } %>
   }
 <% if(throwError) { %>
@@ -74,7 +85,7 @@ export async function parse<T extends OutputType[]>(
     response.status,
     await parser(response),
   );
-  return [null as never, data as never] as const;
+  return [null, data] as const;
 <% } %>
 }
 

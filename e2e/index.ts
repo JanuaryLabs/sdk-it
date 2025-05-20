@@ -42,7 +42,7 @@ const specs = [
   {
     name: 'openstatus',
     spec: 'https://api.openstatus.dev/v1/openapi',
-    flags: ['--readme=true',],
+    flags: ['--readme=true', '--error-as-value=true'],
   },
   {
     name: 'spotify',
@@ -56,16 +56,16 @@ const specs = [
   {
     name: 'Nowa',
     spec: 'https://nowa-server-dev-412327058882.europe-west1.run.app/swagger/v1/swagger.json',
+    flags: ['--output-type=default'],
   },
   {
     name: 'OpenAPIWithRecursiveSchemas',
     spec: join(process.cwd(), '.yamls', 'problem.json'),
-    flags: ['--no-install'],
   },
   {
     spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
     name: 'openai',
-    flags: [ '--output-type=status'],
+    flags: ['--output-type=status', '--error-as-value=true'],
   },
   {
     spec: 'https://raw.githubusercontent.com/figma/rest-api-spec/refs/heads/main/openapi/openapi.yaml',
@@ -75,12 +75,12 @@ const specs = [
   {
     spec: 'https://docs.hetzner.cloud/spec.json',
     name: 'hetzner',
-    flags: ['--output-type=default'],
+    flags: ['--output-type=default', '--error-as-value=true'],
   },
   {
     spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
     name: 'discord',
-    flags: [],
+    flags: ['--error-as-value=true'],
   },
 ];
 
@@ -98,6 +98,7 @@ for (const { spec, name, flags } of specs) {
     `--name ${name}`,
     '--mode full',
     '--no-install',
+    '--no-default-formatter',
     ...(flags ?? []),
   ];
   // invoke TS compiler script via Node for cross‑platform compatibility
