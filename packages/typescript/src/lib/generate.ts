@@ -236,12 +236,10 @@ export async function generate(
   const output =
     settings.mode === 'full' ? join(settings.output, 'src') : settings.output;
   const options = security(spec);
-  const clientName = settings.name?.trim()
-    ? pascalcase(settings.name)
-    : 'Client';
+  const clientName = pascalcase((settings.name || 'client').trim());
 
   const packageName = settings.name
-    ? `@${spinalcase(clientName.toLowerCase())}/sdk`
+    ? `@${spinalcase(settings.name.trim().toLowerCase())}/sdk`
     : 'sdk';
 
   // FIXME: inputs, outputs should be generated before hand.
@@ -382,6 +380,9 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
             main: './src/index.ts',
             module: './src/index.ts',
             types: './src/index.ts',
+            publishConfig: {
+              access: 'public',
+            },
             exports: {
               './package.json': './package.json',
               '.': {
