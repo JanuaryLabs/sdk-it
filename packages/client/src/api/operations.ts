@@ -66,10 +66,11 @@ export default {
           this.toRequest({ ...input, ...nextPageParams }),
           this.output,
         );
+
         return {
           data: result.data.operations,
           meta: {
-            hasMore: result.data.pagination.hasNextPage,
+            hasMore: Boolean(result.data.pagination.hasNextPage),
           },
         };
       });

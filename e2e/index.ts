@@ -68,6 +68,21 @@ const specs = [
     flags: ['--output-type=status', '--error-as-value=true'],
   },
   {
+    spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
+    name: 'openai',
+    flags: ['--output-type=status', '--error-as-value=false'],
+  },
+  {
+    spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
+    name: 'openai',
+    flags: ['--output-type=default', '--error-as-value=true'],
+  },
+  {
+    spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
+    name: 'openai',
+    flags: ['--output-type=default', '--error-as-value=false'],
+  },
+  {
     spec: 'https://raw.githubusercontent.com/figma/rest-api-spec/refs/heads/main/openapi/openapi.yaml',
     name: 'figma',
     flags: ['--output-type=status'],
@@ -78,9 +93,19 @@ const specs = [
     flags: ['--output-type=default', '--error-as-value=true'],
   },
   {
+    spec: 'https://docs.hetzner.cloud/spec.json',
+    name: 'hetzner',
+    flags: ['--output-type=status', '--error-as-value=true'],
+  },
+  {
     spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
     name: 'discord',
-    flags: ['--error-as-value=true'],
+    flags: ['--error-as-value=true', '--output-type=status'],
+  },
+  {
+    spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
+    name: 'discord',
+    flags: ['--error-as-value=false', '--output-type=status'],
   },
 ];
 

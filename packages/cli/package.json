@@ -23,7 +23,10 @@
     "@sdk-it/dart": "0.20.0",
     "@sdk-it/spec": "0.20.0",
     "commander": "^13.1.0",
-    "@sdk-it/core": "0.20.0"
+    "@sdk-it/core": "0.20.0",
+    "libnpmpublish": "^11.0.0",
+    "openapi3-ts": "4.4.0",
+    "registry-auth-token": "^5.1.0"
   },
   "publishConfig": {
     "access": "public"

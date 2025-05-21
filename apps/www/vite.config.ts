@@ -5,11 +5,13 @@ import { defineConfig } from 'vite';
 export default defineConfig((config) => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/apps/www',
+  worker: {
+    format: 'es',
+  },
   server: {
     port: 4200,
     host: 'localhost',
   },
-
   preview: {
     port: 4300,
     host: 'localhost',

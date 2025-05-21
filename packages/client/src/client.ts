@@ -6,7 +6,7 @@ import {
   createBaseUrlInterceptor,
   createHeadersInterceptor,
 } from './http/interceptors.ts';
-import { parseInput } from './http/parser.ts';
+import { type ParseError, parseInput } from './http/parser.ts';
 import type { HeadersInit, RequestConfig } from './http/request.ts';
 
 export const servers = ['/', 'http://localhost:3000'] as const;
@@ -32,7 +32,7 @@ export class SdkIt {
     endpoint: E,
     input: z.infer<(typeof schemas)[E]['schema']>,
     options?: { signal?: AbortSignal; headers?: HeadersInit },
-  ): Promise<ReturnType<(typeof schemas)[E]['dispatch']>> {
+  ): Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>> {
     const route = schemas[endpoint];
     const withDefaultInputs = Object.assign({}, this.#defaultInputs, input);
     const [parsedInput, parseError] = parseInput(
@@ -53,7 +53,7 @@ export class SdkIt {
       ],
       signal: options?.signal,
     });
-    return result as ReturnType<(typeof schemas)[E]['dispatch']>;
+    return result as Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>;
   }
 
   async prepare<const E extends keyof typeof schemas>(
@@ -87,7 +87,7 @@ export class SdkIt {
     }
     const prepared = {
       ...config,
-      parse: (response: Response) => parse(route.output, response),
+      parse: (response: Response) => parse(route.output, response) as never,
     };
     return prepared as any;
   }

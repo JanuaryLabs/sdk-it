@@ -27,6 +27,7 @@
     "lodash-es": "^4.17.21",
     "npm-run-path": "6.0.0",
     "rxjs": "^7.8.2",
-    "@sdk-it/spec": "0.20.0"
+    "@sdk-it/spec": "0.20.0",
+    "@sdk-it/readme": "0.20.0"
   }
 }

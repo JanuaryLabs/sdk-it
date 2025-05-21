@@ -9,6 +9,9 @@ export default defineConfig((config) => ({
       ? `/apiref/${process.env.VITE_BASE}/`
       : '/',
   cacheDir: 'node_modules/.vite/packages/apiref',
+  worker: {
+    format: 'es',
+  },
   server: {
     port: 4200,
     host: 'localhost',

@@ -71,7 +71,7 @@
         "tsConfig": "{projectRoot}/tsconfig.lib.json",
         "format": ["esm"],
         "declarationRootDir": "{projectRoot}/src",
-        "deleteOutputPath": true,
+        "deleteOutputPath": false,
         "minify": false,
         "sourcemap": true,
         "esbuildOptions": {
@@ -119,7 +119,7 @@
     },
     "releaseTagPattern": "release/{version}",
     "version": {
-      "preVersionCommand": "npx nx run-many -t build --prod && npm run test",
+      "preVersionCommand": "NX_DAEMON=false npx nx run-many --exclude www -t build --prod && npm run test",
       "conventionalCommits": true
     }
   },

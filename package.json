@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --experimental-strip-types ./e2e/index.ts",
-    "client": "NODE_NO_WARNINGS=1 node --experimental-strip-types apps/api/sdk.ts"
+    "client": "bun apps/api/sdk.ts"
   },
   "repository": "https://github.com/JanuaryLabs/sdk-it",
   "private": true,
@@ -129,7 +129,6 @@
     "shiki-codegen": "^3.4.2",
     "sonner": "^2.0.3",
     "sooner": "^1.1.4",
-    "sst": "3.14.11",
     "stringcase": "^4.3.1",
     "unified": "^11.0.5",
     "vaul": "^1.1.2",

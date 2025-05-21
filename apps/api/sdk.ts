@@ -66,10 +66,6 @@ const spec = {
   },
 };
 
-// await rm(join(process.cwd(), 'node_modules/@local/client'), {
-//   recursive: true,
-//   force: true,
-// });
 await writeFile(
   join(process.cwd(), 'openapi.json'),
   JSON.stringify(spec, null, 2),

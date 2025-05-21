@@ -29,6 +29,7 @@
     "openapi3-ts": "4.4.0",
     "yaml": "^2.7.0",
     "stringcase": "^4.3.1",
-    "@sdk-it/core": "0.20.0"
+    "@sdk-it/core": "0.20.0",
+    "pluralize": "^8.0.0"
   }
 }

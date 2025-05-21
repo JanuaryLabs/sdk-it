@@ -3,7 +3,12 @@ import z from 'zod';
 import { type Interceptor } from '../http/interceptors.ts';
 import { type RequestConfig } from '../http/request.ts';
 import { buffered } from './parse-response.ts';
-import { APIError, APIResponse, type SuccessfulResponse } from './response.ts';
+import {
+  APIError,
+  APIResponse,
+  type ProblematicResponse,
+  type SuccessfulResponse,
+} from './response.ts';
 
 export type Unionize<T> = T extends [infer Single extends OutputType]
   ? InstanceType<Single>

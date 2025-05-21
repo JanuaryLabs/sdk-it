@@ -234,7 +234,7 @@ function normalOperation(style?: Style) {
 
 function paginationOperation(operation: TunedOperationObject, style?: Style) {
   const pagination = operation['x-pagination'] as OperationPagination;
-  const data = `${style?.errorAsValue ? `result[0]${style.outputType === 'status' ? '' : ''}` : `${style?.outputType === 'default' ? 'result.data' : 'result'}`}`;
+  const data = `${style?.errorAsValue ? `result[0]${style.outputType === 'status' ? '' : ''}` : `${style?.outputType === 'default' ? 'result.data' : 'result.data'}`}`;
 
   if (pagination.type === 'offset') {
     const sameInputNames =
@@ -261,11 +261,11 @@ function paginationOperation(operation: TunedOperationObject, style?: Style) {
         };
       });
       await pagination.getNextPage();
-      return ${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}}
+      return ${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}
       `;
     return style?.errorAsValue
       ? `{try {${logic}} catch (error) {return [null as never, error] as const;}}}`
-      : `{${logic}}`;
+      : `{${logic}}}`;
   }
   if (pagination.type === 'cursor') {
     const sameInputNames = pagination.cursorParamName === 'cursor';
@@ -291,12 +291,12 @@ function paginationOperation(operation: TunedOperationObject, style?: Style) {
           },
         };
       });
-
-      return ${style?.outputType === 'status' ? (style.errorAsValue ? '[new http.Ok(await pagination.getNextPage())]' : 'await pagination.getNextPage();') : 'await pagination.getNextPage();'}
-`;
+      await pagination.getNextPage();
+      return ${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}
+      `;
     return style?.errorAsValue
       ? `{try {${logic}} catch (error) {return [null as never, error] as const;}}}`
-      : `{${logic}}`;
+      : `{${logic}}}`;
   }
   if (pagination.type === 'page') {
     const sameInputNames =
@@ -324,13 +324,12 @@ function paginationOperation(operation: TunedOperationObject, style?: Style) {
           },
         };
       });
-
-      return ${style?.outputType === 'status' ? (style.errorAsValue ? '[new http.Ok(await pagination.getNextPage())]' : 'new http.Ok(await pagination.getNextPage());') : 'await pagination.getNextPage()'};
-    `;
-
+      await pagination.getNextPage();
+      return ${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}
+      `;
     return style?.errorAsValue
       ? `{try {${logic}} catch (error) {return [null as never, error] as const;}}}`
-      : `{${logic}}`;
+      : `{${logic}}}`;
   }
   return normalOperation(style);
 }

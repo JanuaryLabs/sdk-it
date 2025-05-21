@@ -191,11 +191,13 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
 
   const metadata = await readJson(join(settings.output, 'metadata.json'));
   metadata.content.generatedFiles = Array.from(writtenFiles);
-  metadata.content.updatedAt = new Date().toISOString();
+  metadata.content.userFiles ??= [];
   await metadata.write(metadata.content);
 
   if (settings.cleanup !== false && metadata.content.generatedFiles) {
-    const keep = new Set<string>(metadata.content.generatedFiles as string[]);
+    const generated = metadata.content.generatedFiles as string[];
+    const user = metadata.content.userFiles as string[];
+    const keep = new Set<string>([...generated, ...user]);
     const actualFiles = await readFolder(settings.output, true);
     const toRemove = actualFiles
       .filter((f) => !keep.has(addLeadingSlash(f)))
@@ -291,9 +293,9 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
             exports: {
               './package.json': './package.json',
               '.': {
+                types: './src/index.ts',
                 import: './src/index.ts',
                 default: './src/index.ts',
-                types: './src/index.ts',
               },
             },
             dependencies: {
