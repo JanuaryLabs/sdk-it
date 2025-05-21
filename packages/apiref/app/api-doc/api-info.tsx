@@ -16,7 +16,7 @@ export function ApiInfoSection() {
         <h1 className="mb-2 text-3xl font-bold">{info.title}</h1>
 
         <MD
-          className="prose"
+          className="prose dark:prose-invert"
           id={'api-info-description'}
           content={info.description}
         />

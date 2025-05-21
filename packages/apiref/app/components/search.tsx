@@ -110,7 +110,7 @@ export function SearchCmdk() {
                             <div className="flex items-center">
                               <Badge
                                 variant={'ghost'}
-                                className="text-muted-foreground gap-x-1 truncate px-0 font-mono text-[10px] hover:bg-transparent"
+                                className="text-muted-foreground line-clamp-2 gap-x-1 px-0 font-mono text-[10px] hover:bg-transparent"
                               >
                                 <span>
                                   {operationsMap[

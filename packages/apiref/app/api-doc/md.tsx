@@ -1,7 +1,4 @@
-import rehypeShiki, { type RehypeShikiOptions } from '@shikijs/rehype';
-import { marked } from 'marked';
-import { lazy, memo, useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import remarkGfm from 'remark-gfm';
+import { useEffect } from 'react';
 // const ReactMarkdown = lazy(() =>
 //   import('react-markdown').then((mod) => ({ default: mod.MarkdownHooks })),
 // );
@@ -67,14 +64,7 @@ import remarkGfm from 'remark-gfm';
 // MD.displayName = 'MD';
 import useSWR from 'swr';
 
-
-
-import { cn } from '../shadcn/cn';
 import { cleanupWorkerCallback, runWorker } from './use-markdown-worker';
-
-
-
-
 
 export function MD({
   content,

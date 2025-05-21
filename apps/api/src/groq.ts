@@ -28,15 +28,27 @@ import {
 } from './init.js';
 
 const tools = {
-  craftPlan: tool({
+  // craftPlan: tool({
+  //   description:
+  //     'Use this tool to create a plan if the user inquery/question is not sufficient. It will not obtain new information or make any changes to the repository, but just log the plan. Use it when you need to outline your next steps or actions.',
+  //   parameters: z.object({
+  //     plan: z.string().describe('Your plan.'),
+  //   }),
+  //   execute: async (args) => {
+  //     console.log('\n📝 CRAFTING PLAN:', args.plan);
+  //     return `My plan is ${args.plan}. I will proceed with the next steps.`;
+  //     // return "I've noted this plan. Proceed with your reasoning or actions.";
+  //   },
+  // }),
+  createTodo: tool({
     description:
-      'Use this tool to create a plan if the user inquery/question is not sufficient. It will not obtain new information or make any changes to the repository, but just log the plan. Use it when you need to outline your next steps or actions.',
+      'Create a TODO item in the repository. It will not obtain new information or make any changes to the repository, but just log the TODO item. Use it when you need to outline your next steps or actions.',
     parameters: z.object({
-      plan: z.string().describe('Your plan.'),
+      todoList: z.string().describe('Your TODO list.'),
     }),
     execute: async (args) => {
-      console.log('\n📝 CRAFTING PLAN:', args.plan);
-      return `My plan is ${args.plan}. I will proceed with the next steps.`;
+      console.log('\n📝 CREATING TODO:', args.todoList);
+      return `My TODO list is ${args.todoList}. I will proceed with the next steps.`;
       // return "I've noted this plan. Proceed with your reasoning or actions.";
     },
   }),
@@ -183,10 +195,10 @@ const lmstudio = createOpenAICompatible({
 export function talk(conversationId: string, messages: CoreMessage[]) {
   const result = streamText({
     experimental_transform: smoothStream({ chunking: 'line' }),
-    model: openai('gpt-4.1-nano'),
+    // model: openai('gpt-4.1-nano'),
     // model: groq('meta-llama/llama-4-scout-17b-16e-instruct'),
     // model: lmstudio('qwen3-8b'),
-    // model: google('gemini-2.5-pro-preview-05-06'),
+    model: google('gemini-2.5-flash-preview-04-17'),
     system: `
 # Role and Objective
 
@@ -206,7 +218,7 @@ You are a specialized AI assistant designed to help users understand and interac
 
 Follow these steps precisely for every user request:
 
-1.  **Planing**: **For any request requiring code generation or specific operation details, your first action must be to generate a step-by-step plan using "craftPlan" tool.**
+1.  **Planing**: **For any request requiring code generation or specific operation details, your first action must be to generate a step-by-step plan using "createTodo" tool.**
 1.  **Query Analysis:** Break down the user's request to understand the core intent. Identify what API operation(s) might be relevant.
 2.  **Verification Check:** Determine if fulfilling the request requires generating a code snippet for a specific operation OR explaining its detailed parameters, request body, or response structure.
 3.  **Mandatory Tool Call (If Verification Check is YES):**
@@ -296,71 +308,4 @@ Always generate code snippets using the \`generateSnippet\` tool no matter what 
     },
   });
   return result;
-}
-
-async function print() {
-  const conversationId = generateId();
-  const messages: CoreMessage[] = [];
-  while (true) {
-    // 1. Prompt user
-    const { question } = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'question',
-        message: '> ',
-        default: 'Hello! How can I assist you today?',
-        // default: 'correlate checks with api',
-      },
-    ]);
-    messages.push({ role: 'user', content: question });
-    const result = talk(conversationId, messages);
-
-    const steps: TextStreamPart<typeof tools>[] = [];
-    for await (const chunk of result.fullStream) {
-      steps.push(chunk);
-      if (chunk.type === 'step-finish') {
-        if (chunk.finishReason === 'tool-calls') {
-          const tool = steps.findIndex(
-            (step) =>
-              step.type === 'step-start' && chunk.messageId === step.messageId,
-          );
-          if (tool !== -1) {
-            const toolCall = steps[tool + 1] as MyToolCall;
-            const toolResult = steps[tool + 2] as MyToolResult;
-            if (!toolResult || toolResult.type !== 'tool-result') {
-              // if (toolCall.toolName === 'askForName') {
-              //   const { name } = await inquirer.prompt([
-              //     {
-              //       type: 'input',
-              //       name: 'name',
-              //       message: 'What is your name?',
-              //     },
-              //   ]);
-              //   talk(conversationId, [
-              //     ...messages,
-              //     {
-              //       role: 'tool',
-              //       content: [
-              //         {
-              //           result: name,
-              //           toolCallId: toolCall.toolCallId,
-              //           toolName: toolCall.toolName,
-              //           type: 'tool-result',
-              //         },
-              //       ],
-              //     },
-              //   ]);
-              // }
-              continue;
-            }
-          }
-        }
-      }
-    }
-
-    for await (const chunk of result.textStream) {
-      process.stdout.write(chunk);
-    }
-    // ReadStream.fromWeb(result.textStream).pipe(process.stdout);
-  }
 }

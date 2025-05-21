@@ -57,7 +57,7 @@ export function OperationCard({
             </Badge>
           </div>
 
-          <div className="prose max-w-none text-sm">
+          <div className="prose dark:prose-invert max-w-none text-sm">
             <MD id={operation.operationId} content={operation.summary}></MD>
           </div>
 
@@ -66,7 +66,7 @@ export function OperationCard({
 
         <div id="right" className="h-full self-start rounded">
           <EditorTabs
-            className="bg-[#101010] border border-b"
+            className="border border-b bg-[#101010]"
             tabs={tabsConfig}
           />
         </div>

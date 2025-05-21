@@ -13,7 +13,7 @@ import { TypeScriptGenerator } from '@sdk-it/typescript';
 //   },
 // ]);
 const specUrl =
-  'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json';
+  '/Users/ezzabuzaid/Desktop/January/sdk-it/.yamls/openstatus.json';
 export const spec = await loadSpec(specUrl);
 console.log('\nLoaded spec:', spec.info.title, spec.info.version, '\n');
 

@@ -26,6 +26,7 @@ import { useScrollToBottom } from '../hooks/use-scroll-to-bottom';
 import { Button } from '../shadcn';
 import { cn } from '../shadcn/cn';
 import { TextShimmer } from './text-shimmer';
+import useElementHeight from './use-element-height';
 
 export function AI(props: PropsWithChildren<{ open: boolean }>) {
   const [open, setOpen] = useState(() => props.open);
@@ -55,6 +56,7 @@ export function AskAi(props: { className?: string }) {
     'messages',
     [],
   );
+  const [height, setHeight] = useState();
   const {
     messages,
     input,
@@ -64,23 +66,28 @@ export function AskAi(props: { className?: string }) {
     handleInputChange,
     handleSubmit,
     status,
-    isLoading,
     stop,
   } = useChat({
     api: 'http://localhost:3000',
     // initialMessages: storedMessages,
   });
+  const [elementRef, scrollByHeight] = useElementHeight<HTMLDivElement>();
 
   return (
     <div
       className={cn(
-        'prose prose-p:my-1 prose-ol:my-1 mx-auto w-full min-w-auto max-w-full py-4 text-sm',
+        'prose prose-p:my-1 dark:prose-invert prose-ol:my-1 mx-auto w-full max-w-full min-w-auto py-4 text-sm',
         props.className,
       )}
     >
-      <div className="relative flex flex-col overflow-auto">
+      <div ref={elementRef} className="relative flex flex-col overflow-auto">
         <div className="flex h-full flex-col items-start">
-          <ChatList status={status} messages={messages} append={append} />
+          <ChatList
+            scrollByHeight={scrollByHeight}
+            status={status}
+            messages={messages}
+            append={append}
+          />
         </div>
       </div>
       {/* <Separator /> */}
@@ -190,8 +197,12 @@ export function ChatList(
     messages: Message[];
     append: UseChatHelpers['append'];
     status: UseChatHelpers['status'];
+    scrollByHeight: number;
   }>,
 ) {
+  const [containerHeight, setContainerHeight] = useState<number | undefined>(
+    undefined,
+  );
   const {
     isAtBottom,
     scrollToBottom,
@@ -206,6 +217,25 @@ export function ChatList(
       scrollToBottom();
     }
   }, [props.status, scrollToBottom]);
+
+  // move the last message to top on submit
+  useEffect(() => {
+    if (props.status === 'submitted' && messagesContainerRef.current) {
+      const el = messagesContainerRef.current;
+      const lastMessage = messagesEndRef.current;
+      if (!lastMessage) {
+        return;
+      }
+      // Calculate height based on the last message's position
+      const lastMessageBottom =
+        lastMessage.offsetTop + lastMessage.offsetHeight;
+      const additionalSpace =
+        Math.min(props.scrollByHeight, el.clientHeight) - 100;
+      const neededHeight = lastMessageBottom + additionalSpace;
+      setContainerHeight(neededHeight);
+      scrollToBottom();
+    }
+  }, [props.status, props.scrollByHeight, scrollToBottom]);
 
   useEffect(() => {
     scrollToBottom();
@@ -244,10 +274,34 @@ export function ChatList(
     return false;
   }, [props.messages, props.status]);
 
+  const lastCallName = useMemo(() => {
+    if (props.status === 'ready') {
+      return null;
+    }
+    const lastMessage = props.messages.at(-1);
+    if (!lastMessage) {
+      return null;
+    }
+    const lastCall = (lastMessage.parts ?? []).findLast(
+      (it) => it.type === 'tool-invocation',
+    );
+    if (!lastCall) {
+      return null;
+    }
+    if (lastCall.type !== 'tool-invocation') {
+      return null;
+    }
+    return lastCall.toolInvocation.toolName;
+  }, [props.messages, props.status]);
+
   return (
     <div
       ref={messagesContainerRef}
-      className="relative flex h-full min-w-0 flex-1 flex-col gap-2"
+      className="relative flex min-w-0 flex-1 flex-col gap-2"
+      style={{
+        minHeight: containerHeight ? `${containerHeight}px` : undefined,
+        transition: 'height 0.3s ease-out',
+      }}
     >
       {props.messages.length === 0 && (
         <SuggestedPrompts
@@ -259,7 +313,7 @@ export function ChatList(
           }}
         />
       )}
-      {props.messages.map((message) => (
+      {props.messages.map((message, index) => (
         <React.Fragment key={message.id}>
           {message.role === 'user' ? (
             <UserMessage message={message.content} />
@@ -269,13 +323,18 @@ export function ChatList(
         </React.Fragment>
       ))}
 
-      {isWaiting && (
-        <div className="border-l pl-4 text-sm">
+      {(isWaiting || lastCallName) && (
+        <div className="flex flex-col border-l pl-4 text-sm">
           <TextShimmer className="font-mono text-sm" as="span">
             Thinking...
           </TextShimmer>
         </div>
       )}
+      {/* {lastCallName && (
+        <TextShimmer className="font-mono text-sm" as="span">
+          {lastCallName}
+        </TextShimmer>
+      )} */}
       <AnimatePresence>
         {!isAtBottom && (
           <motion.div
@@ -376,7 +435,7 @@ export function AssistantMessage(props: { message: Message }) {
                 </div>
               );
             })}
-        <MD content={props.message.content} id={props.message.id} />
+        <MD content={props.message.content} id={props.message.content} />
       </div>
     </div>
   );
@@ -384,7 +443,7 @@ export function AssistantMessage(props: { message: Message }) {
 
 export function UserMessage({ message }: { message: string }) {
   return (
-    <div className="bg-background sticky top-0 z-10 block py-4 text-sm font-semibold text-[#204300]">
+    <div className="bg-background text-primary dark:text-primary sticky top-0 z-10 block py-4 text-sm font-semibold">
       {message}
     </div>
   );
