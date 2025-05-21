@@ -62,7 +62,7 @@ export class ${spec.name} {
     endpoint: E,
     input: z.infer<(typeof schemas)[E]['schema']>,
     options?: { signal?: AbortSignal, headers?: HeadersInit },
-  ) ${style.errorAsValue ? `: Promise<ReturnType<(typeof schemas)[E]['dispatch']>| [never, ParseError<(typeof schemas)[E]['schema']>]>` : `: Promise<ReturnType<(typeof schemas)[E]['dispatch']>>`} {
+  ) ${style.errorAsValue ? `: Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>| [never, ParseError<(typeof schemas)[E]['schema']>]>` : `: Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>>`} {
     const route = schemas[endpoint];
     const withDefaultInputs = Object.assign({}, this.#defaultInputs, input);
     const [parsedInput, parseError] = parseInput(route.schema, withDefaultInputs);
