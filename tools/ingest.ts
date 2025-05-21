@@ -6,6 +6,7 @@ import { promisify } from 'util';
 const asyncExec = promisify(exec);
 
 const excludeFiles = ['contributing.md', 'combined.txt', 'ingest.ts'];
+const excludeDirs = ['apps/api/', 'packages/apiref/app/shadcn/'];
 const OUTPUT_FILE = 'combined.txt';
 
 // Grab all relevant files from Git
@@ -20,7 +21,8 @@ const lines = stdout
     (line) =>
       line &&
       /\.(ts|txt|md|mdx)$/.test(line) &&
-      !excludeFiles.some((it) => line.endsWith(it.toLowerCase())),
+      !excludeDirs.some((dir) => line.startsWith(dir)) &&
+      !excludeFiles.some((it) => line.toLowerCase().endsWith(it.toLowerCase())),
   );
 
 // Clear or create output file

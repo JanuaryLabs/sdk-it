@@ -1,5 +1,5 @@
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
-import { dirname, extname, isAbsolute, join } from 'node:path';
+import { dirname, extname, isAbsolute, join, normalize } from 'node:path';
 
 export async function getFile(filePath: string) {
   if (await exist(filePath)) {
@@ -14,11 +14,28 @@ export async function exist(file: string): Promise<boolean> {
     .catch(() => false);
 }
 
-export async function readFolder(path: string) {
-  if (await exist(path)) {
-    return readdir(path);
+export async function readFolder(
+  path: string,
+  recursive = false,
+): Promise<string[]> {
+  if (!(await exist(path))) {
+    return [];
   }
-  return [] as string[];
+  const entries = await readdir(path, { withFileTypes: true });
+  const results: string[] = [];
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      if (recursive) {
+        const subFiles = await readFolder(join(path, entry.name), true);
+        for (const sub of subFiles) {
+          results.push(`${entry.name}/${sub}`);
+        }
+      }
+    } else {
+      results.push(entry.name);
+    }
+  }
+  return results;
 }
 
 export type WriteContent = Record<
@@ -124,7 +141,9 @@ export async function getFolderExportsV2(
     if (file.isFolder) {
       if (await exist(`${file.filePath}/index.${options.extensions}`)) {
         exports.push(
-          `${options.exportSyntax} './${file.fileName}/index${options.includeExtension ? `.${options.extensions}` : ''}';`,
+          `${options.exportSyntax} './${file.fileName}/index${
+            options.includeExtension ? `.${options.extensions}` : ''
+          }';`,
         );
       }
     } else if (
@@ -158,3 +177,14 @@ export const getExt = (fileName?: string) => {
   }
   return ext || 'txt';
 };
+
+export function addLeadingSlash(path: string) {
+  return normalize(join('/', path));
+}
+
+export function removeTrialingSlashes(path: string, keepLastOne = false) {
+  while (path.endsWith('/')) {
+    path = path.slice(0, -1);
+  }
+  return path + (keepLastOne ? '/' : '');
+}

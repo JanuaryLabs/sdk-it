@@ -1,28 +1,23 @@
 import { template } from 'lodash-es';
-import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readFile, readdir, unlink, writeFile } from 'node:fs/promises';
+import { join, relative, sep } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
-import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
-import { camelcase, spinalcase } from 'stringcase';
+import type { OpenAPIObject } from 'openapi3-ts/oas31';
+import { spinalcase } from 'stringcase';
 
-import { followRef, isEmpty, isRef, methods, pascalcase } from '@sdk-it/core';
+import { methods, pascalcase } from '@sdk-it/core';
 import {
-  type ReadFolderFn,
   type WriteContent,
-  type Writer,
+  addLeadingSlash,
+  exist,
   getFolderExports,
+  readFolder,
   writeFiles,
 } from '@sdk-it/core/file-system.js';
 import { toReadme } from '@sdk-it/readme';
-import {
-  type OperationEntry,
-  type TunedOperationObject,
-  augmentSpec,
-  patchParameters,
-} from '@sdk-it/spec/operation.js';
+import { augmentSpec } from '@sdk-it/spec/operation.js';
 
 import backend from './client.ts';
-import { SnippetEmitter } from './emitters/snippet.ts';
 import { generateCode } from './generator.ts';
 import dispatcherTxt from './http/dispatcher.txt';
 import interceptors from './http/interceptors.txt';
@@ -30,12 +25,20 @@ import parseResponse from './http/parse-response.txt';
 import parserTxt from './http/parser.txt';
 import requestTxt from './http/request.txt';
 import responseTxt from './http/response.txt';
+import type { TypeScriptGeneratorOptions } from './options.ts';
 import cursorPaginationTxt from './paginations/cursor-pagination.txt';
 import offsetPaginationTxt from './paginations/offset-pagination.txt';
 import paginationTxt from './paginations/page-pagination.txt';
 import { generateInputs } from './sdk.ts';
-import type { Style } from './style.ts';
+import { TypeScriptGenerator } from './typescript-snippet.ts';
 import { exclude, securityToOptions } from './utils.ts';
+
+const ALWAYS_AVAILABLE_FILES = [
+  /readme\.md$/i, // match readme.md, case-insensitive
+  /^tsconfig.*\.json$/, // match any tsconfig*.json
+  /package\.json$/, // exact package.json
+  /metadata\.json$/, // exact metadata.json
+];
 
 function security(spec: OpenAPIObject) {
   const security = spec.security || [];
@@ -65,135 +68,6 @@ function security(spec: OpenAPIObject) {
   return options;
 }
 
-export interface TypeScriptGeneratorOptions {
-  readme?: boolean;
-  style?: Style;
-  output: string;
-  useTsExtension?: boolean;
-  name?: string;
-  writer?: Writer;
-  readFolder?: ReadFolderFn;
-  /**
-   * full: generate a full project including package.json and tsconfig.json. useful for monorepo/workspaces
-   * minimal: generate only the client sdk
-   */
-  mode?: 'full' | 'minimal';
-  formatCode?: (options: {
-    output: string;
-    env: ReturnType<typeof npmRunPathEnv>;
-  }) => void | Promise<void>;
-}
-
-export class TypeScriptGenerator {
-  #spec: OpenAPIObject;
-  #settings: TypeScriptGeneratorOptions;
-  #snippetEmitter: SnippetEmitter;
-  #clientName: string;
-  #packageName: string;
-  constructor(spec: OpenAPIObject, settings: TypeScriptGeneratorOptions) {
-    this.#spec = spec;
-    this.#settings = settings;
-    this.#snippetEmitter = new SnippetEmitter(spec);
-    this.#clientName = settings.name?.trim()
-      ? pascalcase(settings.name)
-      : 'Client';
-
-    this.#packageName = settings.name
-      ? `@${spinalcase(this.#clientName.toLowerCase())}/sdk`
-      : 'sdk';
-  }
-
-  succinct(
-    entry: OperationEntry,
-    operation: TunedOperationObject,
-    values: {
-      requestBody?: Record<string, unknown>;
-      pathParameters?: Record<string, unknown>;
-      queryParameters?: Record<string, unknown>;
-      headers?: Record<string, unknown>;
-      cookies?: Record<string, unknown>;
-    },
-  ) {
-    let payload = '{}';
-    if (!isEmpty(operation.requestBody)) {
-      const contentTypes = Object.keys(operation.requestBody.content || {});
-      if (contentTypes.length > 0) {
-        const firstContent = operation.requestBody.content[contentTypes[0]];
-        let schema = isRef(firstContent.schema)
-          ? followRef(this.#spec, firstContent.schema.$ref)
-          : firstContent.schema;
-        if (schema) {
-          if (schema.type !== 'object') {
-            schema = {
-              type: 'object',
-              required: [operation.requestBody.required ? '$body' : ''],
-              properties: {
-                $body: schema,
-              },
-            };
-          }
-          const properties: Record<string, SchemaObject> = {};
-          patchParameters(
-            this.#spec,
-            { type: 'object', properties },
-            operation,
-          );
-          const examplePayload = this.#snippetEmitter.handle({
-            ...schema,
-            properties: Object.assign({}, properties, schema.properties),
-          });
-          // merge explicit values into the example payload
-          Object.assign(
-            examplePayload as any,
-            values.requestBody ?? {},
-            values.pathParameters ?? {},
-            values.queryParameters ?? {},
-            values.headers ?? {},
-            values.cookies ?? {},
-          );
-          payload = JSON.stringify(examplePayload, null, 2);
-        }
-      }
-    } else {
-      const properties: Record<string, SchemaObject> = {};
-      patchParameters(this.#spec, { type: 'object', properties }, operation);
-      const examplePayload = this.#snippetEmitter.handle({
-        properties: properties,
-      });
-      // merge explicit values into the example payload
-      Object.assign(
-        examplePayload as any,
-        values.pathParameters ?? {},
-        values.queryParameters ?? {},
-        values.headers ?? {},
-        values.cookies ?? {},
-      );
-      payload = JSON.stringify(examplePayload, null, 2);
-    }
-    return `const result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload});`;
-  }
-  snippet(entry: OperationEntry, operation: TunedOperationObject) {
-    const payload = this.succinct(entry, operation, {});
-    return [
-      '```typescript',
-      `${this.client()}
-${payload}
-
-console.log(result.data);
-`,
-      '```',
-    ].join('\n');
-  }
-
-  client() {
-    return `import { ${this.#clientName} } from '${this.#packageName}';
-
-const ${camelcase(this.#clientName)} = new ${this.#clientName}({
-  baseUrl: '${this.#spec.servers?.[0]?.url ?? 'http://localhost:3000'}',
-});`;
-  }
-}
-
 export async function generate(
   spec: OpenAPIObject,
   settings: TypeScriptGeneratorOptions,
@@ -209,12 +83,26 @@ export async function generate(
     },
     settings.style ?? {},
   );
+  const output =
+    settings.mode === 'full' ? join(settings.output, 'src') : settings.output;
 
   settings.useTsExtension ??= true;
   // FIXME: there should not be default here
   // instead export this function from the cli package with
   // defaults for programmatic usage
+  const writtenFiles = new Set<string>();
   settings.writer ??= writeFiles;
+  const originalWriter = settings.writer;
+  settings.writer = async (dir: string, contents: WriteContent) => {
+    await originalWriter(dir, contents);
+    for (const file of Object.keys(contents)) {
+      if (contents[file] !== null) {
+        writtenFiles.add(
+          addLeadingSlash(`${relative(settings.output, dir)}/${file}`),
+        );
+      }
+    }
+  };
   settings.readFolder ??= async (folder: string) => {
     const files = await readdir(folder, { withFileTypes: true });
     return files.map((file) => ({
@@ -233,8 +121,6 @@ export async function generate(
       makeImport,
     },
   );
-  const output =
-    settings.mode === 'full' ? join(settings.output, 'src') : settings.output;
   const options = security(spec);
   const clientName = pascalcase((settings.name || 'client').trim());
 
@@ -244,8 +130,6 @@ export async function generate(
 
   // FIXME: inputs, outputs should be generated before hand.
   const inputFiles = generateInputs(groups, commonZod, makeImport);
-
-  console.log('Writing to', output);
 
   await settings.writer(output, {
     'outputs/.gitkeep': '',
@@ -258,7 +142,6 @@ export async function generate(
     'response.ts': responseTxt,
     'parser.ts': parserTxt,
     'request.ts': requestTxt,
-
     'dispatcher.ts': `import z from 'zod';
 import { type Interceptor } from '${makeImport('../http/interceptors')}';
 import { type RequestConfig } from '${makeImport('../http/request')}';
@@ -300,6 +183,34 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
     ),
   });
 
+  await settings.writer(join(output, 'pagination'), {
+    'cursor-pagination.ts': cursorPaginationTxt,
+    'offset-pagination.ts': offsetPaginationTxt,
+    'page-pagination.ts': paginationTxt,
+  });
+
+  const metadata = await readJson(join(settings.output, 'metadata.json'));
+  metadata.content.generatedFiles = Array.from(writtenFiles);
+  metadata.content.updatedAt = new Date().toISOString();
+  await metadata.write(metadata.content);
+
+  if (settings.cleanup !== false && metadata.content.generatedFiles) {
+    const keep = new Set<string>(metadata.content.generatedFiles as string[]);
+    const actualFiles = await readFolder(settings.output, true);
+    const toRemove = actualFiles
+      .filter((f) => !keep.has(addLeadingSlash(f)))
+      .filter(
+        (f) => !ALWAYS_AVAILABLE_FILES.some((pattern) => pattern.test(f)),
+      );
+    for (const file of toRemove) {
+      if (file.endsWith(`${sep}index.ts`)) {
+        continue;
+      }
+      const filePath = join(settings.output, file);
+      await unlink(filePath);
+    }
+  }
+
   const folders = [
     getFolderExports(
       join(output, 'outputs'),
@@ -337,12 +248,6 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
   }
   const [outputIndex, inputsIndex, apiIndex, httpIndex, modelsIndex] =
     await Promise.all(folders);
-
-  await settings.writer(join(output, 'pagination'), {
-    'cursor-pagination.ts': cursorPaginationTxt,
-    'offset-pagination.ts': offsetPaginationTxt,
-    'page-pagination.ts': paginationTxt,
-  });
 
   await settings.writer(join(output, 'pagination'), {
     'index.ts': await getFolderExports(
@@ -438,4 +343,15 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
     output: output,
     env: npmRunPathEnv(),
   });
+}
+
+export async function readJson(path: string) {
+  const content = (await exist(path))
+    ? JSON.parse(await readFile(path, 'utf-8'))
+    : { content: {} };
+  return {
+    content,
+    write: (value: Record<string, any> = content) =>
+      writeFile(path, JSON.stringify(value, null, 2), 'utf-8'),
+  };
 }

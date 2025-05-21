@@ -6,7 +6,7 @@ import {
   createBaseUrlInterceptor,
   createHeadersInterceptor,
 } from './http/interceptors.ts';
-import { type ParseError, parseInput } from './http/parser.ts';
+import { parseInput } from './http/parser.ts';
 import type { HeadersInit, RequestConfig } from './http/request.ts';
 
 export const servers = ['/', 'http://localhost:3000'] as const;
