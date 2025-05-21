@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/dart",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -22,10 +22,10 @@
   ],
   "dependencies": {
     "openapi3-ts": "4.4.0",
-    "@sdk-it/core": "0.20.0",
+    "@sdk-it/core": "0.21.0",
     "lodash-es": "^4.17.21",
     "stringcase": "^4.3.1",
-    "@sdk-it/spec": "0.20.0",
+    "@sdk-it/spec": "0.21.0",
     "fast-content-type-parse": "^3.0.0",
     "yaml": "^2.7.0"
   }
