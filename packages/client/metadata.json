@@ -1,6 +1,9 @@
 {
   "content": {},
   "userFiles": [
+    "/dist/**",
+    "/build/**",
+    "/readme.md",
     "/project.json",
     "/eslint.config.mjs"
   ],
@@ -39,6 +42,5 @@
     "/src/pagination/cursor-pagination.ts",
     "/src/pagination/offset-pagination.ts",
     "/src/pagination/page-pagination.ts"
-  ],
-  "updatedAt": "2025-05-21T12:52:21.035Z"
+  ]
 }

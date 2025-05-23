@@ -1,6 +1,7 @@
 import { template } from 'lodash-es';
+import micromatch from 'micromatch';
 import { readFile, readdir, unlink, writeFile } from 'node:fs/promises';
-import { join, relative, sep } from 'node:path';
+import { join, relative } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { spinalcase } from 'stringcase';
@@ -34,10 +35,10 @@ import { TypeScriptGenerator } from './typescript-snippet.ts';
 import { exclude, securityToOptions } from './utils.ts';
 
 const ALWAYS_AVAILABLE_FILES = [
-  /readme\.md$/i, // match readme.md, case-insensitive
-  /^tsconfig.*\.json$/, // match any tsconfig*.json
-  /package\.json$/, // exact package.json
-  /metadata\.json$/, // exact metadata.json
+  '/tsconfig*.json',
+  '/package.json',
+  '/metadata.json',
+  '/**/index.ts',
 ];
 
 function security(spec: OpenAPIObject) {
@@ -191,21 +192,16 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
 
   const metadata = await readJson(join(settings.output, 'metadata.json'));
   metadata.content.generatedFiles = Array.from(writtenFiles);
-  metadata.content.userFiles ??= [];
+  metadata.content.userFiles ??= ['/dist/**', '/build/**', '/readme.md'];
   await metadata.write(metadata.content);
 
   if (settings.cleanup !== false && metadata.content.generatedFiles) {
     const generated = metadata.content.generatedFiles as string[];
     const user = metadata.content.userFiles as string[];
-    const keep = new Set<string>([...generated, ...user]);
+    const keep = [...generated, ...user, ...ALWAYS_AVAILABLE_FILES];
     const actualFiles = await readFolder(settings.output, true);
-    const toRemove = actualFiles
-      .filter((f) => !keep.has(addLeadingSlash(f)))
-      .filter(
-        (f) => !ALWAYS_AVAILABLE_FILES.some((pattern) => pattern.test(f)),
-      );
-    for (const file of toRemove) {
-      if (file.endsWith(`${sep}index.ts`)) {
+    for (const file of actualFiles) {
+      if (micromatch.isMatch(addLeadingSlash(file), keep)) {
         continue;
       }
       const filePath = join(settings.output, file);
@@ -350,7 +346,7 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
 export async function readJson(path: string) {
   const content = (await exist(path))
     ? JSON.parse(await readFile(path, 'utf-8'))
-    : { content: {} };
+    : {};
   return {
     content,
     write: (value: Record<string, any> = content) =>

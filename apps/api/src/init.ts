@@ -13,7 +13,7 @@ import { TypeScriptGenerator } from '@sdk-it/typescript';
 //   },
 // ]);
 const specUrl =
-  '/Users/ezzabuzaid/Desktop/January/sdk-it/.yamls/openstatus.json';
+  'https://raw.githubusercontent.com/figma/rest-api-spec/refs/heads/main/openapi/openapi.yaml';
 export const spec = await loadSpec(specUrl);
 console.log('\nLoaded spec:', spec.info.title, spec.info.version, '\n');
 

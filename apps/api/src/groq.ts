@@ -1,3 +1,4 @@
+import { anthropic } from '@ai-sdk/anthropic';
 import { google } from '@ai-sdk/google';
 import { groq } from '@ai-sdk/groq';
 import { openai } from '@ai-sdk/openai';
@@ -198,7 +199,8 @@ export function talk(conversationId: string, messages: CoreMessage[]) {
     // model: openai('gpt-4.1-nano'),
     // model: groq('meta-llama/llama-4-scout-17b-16e-instruct'),
     // model: lmstudio('qwen3-8b'),
-    model: google('gemini-2.5-flash-preview-04-17'),
+    model: google('gemini-2.5-flash-preview-05-20'),
+    // model: anthropic('claude-4-sonnet-20250514'),
     system: `
 # Role and Objective
 

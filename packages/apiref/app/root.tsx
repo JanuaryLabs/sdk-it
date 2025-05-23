@@ -59,11 +59,15 @@ export const links: LinksFunction = () => [
     rel: 'stylesheet',
     href: `https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..700&display=swap`,
   },
+  {
+    rel: 'stylesheet',
+    href: `https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap`,
+  },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="light">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -98,9 +102,9 @@ export async function loader({
     urlObj.searchParams.get('spec') ??
     import.meta.env.VITE_SPEC ??
     (import.meta.env.DEV
-       ? 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml'
-        // ?'https://raw.githubusercontent.com/readmeio/oas-examples/main/3.1/json/petstore.json'
-      : '');
+      ? 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml'
+      : // ?'https://raw.githubusercontent.com/readmeio/oas-examples/main/3.1/json/petstore.json'
+        '');
   const spec = augmentSpec({ spec: await loadRemote<OpenAPIObject>(specUrl) });
 
   const operationsMap: Record<

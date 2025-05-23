@@ -12,6 +12,7 @@ import { AiOutlineArrowDown } from 'react-icons/ai';
 import { useLocalStorage } from 'usehooks-ts';
 
 import { MD } from '../api-doc/md';
+import { StillMarkdown } from '../api-doc/still-markdown';
 import {
   Credenza,
   CredenzaBody,
@@ -237,10 +238,6 @@ export function ChatList(
     }
   }, [props.status, props.scrollByHeight, scrollToBottom]);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [scrollToBottom, props.messages]);
-
   const isWaiting = useMemo(() => {
     if (props.status === 'submitted') {
       return true;
@@ -435,7 +432,7 @@ export function AssistantMessage(props: { message: Message }) {
                 </div>
               );
             })}
-        <MD content={props.message.content} id={props.message.content} />
+        <StillMarkdown content={props.message.content} id={props.message.id} />
       </div>
     </div>
   );

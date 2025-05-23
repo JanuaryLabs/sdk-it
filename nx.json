@@ -93,10 +93,16 @@
       "inputs": ["production", "^production"]
     },
     "build": {
-      "dependsOn": [{ "target": "client", "projects": "@sdk-it/source" }]
+      "dependsOn": [
+        { "target": "client", "projects": "@sdk-it/source" },
+        "^build"
+      ]
     },
     "dev": {
-      "dependsOn": [{ "target": "client", "projects": "@sdk-it/source" }]
+      "dependsOn": [
+        { "target": "client", "projects": "@sdk-it/source" },
+        "^build"
+      ]
     }
   },
   "release": {
