@@ -8,7 +8,9 @@ import type {
   ReferenceObject,
   RequestBodyObject,
   ResponseObject,
+  ResponsesObject,
   SchemaObject,
+  SchemasObject,
   SecurityRequirementObject,
 } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
@@ -173,8 +175,9 @@ export const defaults: Partial<GenerateSdkConfig> &
 
 export type TunedOperationObject = Omit<
   OperationObject,
-  'operationId' | 'parameters' | 'responses'
+  'operationId' | 'tags' | 'parameters' | 'responses'
 > & {
+  tags: string[];
   operationId: string;
   parameters: ParameterObject[];
   responses: Record<string, ResponseObject>;
@@ -655,4 +658,61 @@ export function securityToOptions(
     }
   }
   return parameters;
+}
+
+export function createOperation(options: {
+  name: string;
+  group: string;
+  parameters: {
+    query?: Record<string, { schema: SchemaObject; required?: boolean }>;
+    path?: Record<string, { schema: SchemaObject; required?: boolean }>;
+    header?: Record<string, { schema: SchemaObject; required?: boolean }>;
+    cookie?: Record<string, { schema: SchemaObject; required?: boolean }>;
+  };
+  response: Record<string, SchemasObject>;
+}): TunedOperationObject {
+  const parameters: ParameterObject[] = [];
+
+  const locations = ['query', 'path', 'header', 'cookie'] as const;
+  for (const location of locations) {
+    const locationParams = options.parameters[location];
+    if (locationParams) {
+      for (const [name, param] of Object.entries(locationParams)) {
+        parameters.push({
+          name,
+          in: location,
+          required: param.required ?? false,
+          schema: param.schema,
+        });
+      }
+    }
+  }
+
+  const responses: ResponsesObject = {};
+
+  for (const [key, schema] of Object.entries(options.response)) {
+    const [statusCode, contentType] = key.split('-');
+
+    responses[statusCode] ??= {
+      description: `Response for ${statusCode}`,
+      content: {},
+    };
+
+    if (contentType && responses[statusCode].content) {
+      responses[statusCode].content![contentType] = {
+        schema: {
+          type: 'object',
+          properties: schema,
+        },
+      };
+    }
+  }
+
+  return {
+    operationId: options.name,
+    tags: [options.group],
+    parameters,
+    responses,
+    requestBody: undefined, // No request body in this operation
+  };
 }

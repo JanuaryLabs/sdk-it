@@ -1,14 +1,15 @@
+import rehypeShiki, { type RehypeShikiOptions } from '@shikijs/rehype';
 import { marked } from 'marked';
 import { lazy, memo, useMemo } from 'react';
-import rehypeExpressiveCode, {
-  type RehypeExpressiveCodeOptions,
-} from 'rehype-expressive-code';
 import remarkGfm from 'remark-gfm';
+
+import { cn } from '../shadcn';
 
 const ReactMarkdown = lazy(() =>
   import('react-markdown').then((mod) => ({ default: mod.MarkdownHooks })),
 );
-function parseMarkdownIntoBlocks(markdown: string): string[] {
+
+function parseMarkdownIntoBlocks(markdown?: string): string[] {
   if (!markdown) {
     return [];
   }
@@ -17,21 +18,23 @@ function parseMarkdownIntoBlocks(markdown: string): string[] {
 }
 
 const MemoizedMarkdownBlock = memo(
-  ({ content }: { content: string }) => {
+  ({ content, className }: { content: string; className?: string }) => {
     return (
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[
-          [
-            rehypeExpressiveCode,
-            {
-              themes: ['vesper', 'snazzy-light'],
-            } satisfies RehypeExpressiveCodeOptions,
-          ],
-        ]}
-      >
-        {content}
-      </ReactMarkdown>
+      <div className={cn('', className)}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[
+            [
+              rehypeShiki,
+              {
+                theme: 'one-light',
+              } satisfies RehypeShikiOptions,
+            ],
+          ]}
+        >
+          {content}
+        </ReactMarkdown>
+      </div>
     );
   },
   (prevProps, nextProps) => {
@@ -42,12 +45,26 @@ const MemoizedMarkdownBlock = memo(
 
 MemoizedMarkdownBlock.displayName = 'MemoizedMarkdownBlock';
 
-export const MD = memo(({ content, id }: { content: string; id: string }) => {
-  const blocks = useMemo(() => parseMarkdownIntoBlocks(content), [content]);
+export const StillMarkdown = memo(
+  ({
+    content,
+    className,
+    id,
+  }: {
+    content?: string;
+    className?: string;
+    id: string;
+  }) => {
+    const blocks = useMemo(() => parseMarkdownIntoBlocks(content), [content]);
 
-  return blocks.map((block, index) => (
-    <MemoizedMarkdownBlock content={block} key={`${id}-block_${index}`} />
-  ));
-});
+    return blocks.map((block, index) => (
+      <MemoizedMarkdownBlock
+        className={className}
+        content={block}
+        key={`${id}-block_${index}`}
+      />
+    ));
+  },
+);
 
-MD.displayName = 'MD';
+StillMarkdown.displayName = 'StillMarkdown';

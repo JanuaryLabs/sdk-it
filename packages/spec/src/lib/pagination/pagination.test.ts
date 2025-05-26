@@ -15,6 +15,7 @@ import {
 
 function createOperation(params: ParameterObject[]): TunedOperationObject {
   return {
+    tags: ['test'],
     operationId: 'testOperation',
     parameters: params,
     requestBody: undefined,

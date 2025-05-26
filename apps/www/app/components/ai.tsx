@@ -16,7 +16,7 @@ import {
   CredenzaTitle,
   CredenzaTrigger,
 } from '../shadcn/lib/ui/credenza';
-import { MD } from './md';
+import { StillMarkdown } from './md';
 import { TextShimmer } from './text-shimmer';
 
 export function AI(props: PropsWithChildren<{ open: boolean }>) {
@@ -291,7 +291,7 @@ export function AssistantMessage(props: { message: Message }) {
                 </div>
               );
             })}
-        <MD content={props.message.content} id={props.message.id} />
+        <StillMarkdown content={props.message.content} id={props.message.id} />
       </div>
     </div>
   );

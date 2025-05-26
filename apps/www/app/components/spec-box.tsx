@@ -177,7 +177,7 @@ export default function SpecBox({
         isDragActive
           ? 'border-blue-500 bg-blue-50'
           : !loading &&
-              'border-neutral-200 bg-gray-50 focus-within:border-gray-400 hover:border-gray-400 focus:border-gray-400 focus-visible:border-gray-400',
+              'border-neutral-200 bg-gray-50 dark:bg-neutral-800 focus-within:border-gray-400 hover:border-gray-400 focus:border-gray-400 focus-visible:border-gray-400',
       )}
       onSubmit={(e) => {
         e.preventDefault();
@@ -187,7 +187,7 @@ export default function SpecBox({
         disabled={loading}
         placeholder="Enter OpenAPI spec url, upload file, or paste the spec here..."
         rows={3}
-        className="text-neutral-n11 placeholder-neutral-n7 w-full resize-none bg-white px-6 py-4 text-lg focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        className="text-neutral-n11 placeholder-neutral-n7 w-full resize-none bg-white dark:bg-background px-6 py-4 text-lg focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         value={boxValue}
         onChange={(e) => {
           setBoxValue(e.target.value);

@@ -71,7 +71,7 @@
         "tsConfig": "{projectRoot}/tsconfig.lib.json",
         "format": ["esm"],
         "declarationRootDir": "{projectRoot}/src",
-        "deleteOutputPath": false,
+        "deleteOutputPath": true,
         "minify": false,
         "sourcemap": true,
         "esbuildOptions": {
@@ -80,7 +80,9 @@
           }
         },
         "external": [
+          "@sdk-it/readme",
           "@sdk-it/core",
+          "@sdk-it/spec",
           "@sdk-it/typescript",
           "@sdk-it/dart",
           "@sdk-it/cli",

@@ -99,17 +99,24 @@ export class TypeScriptGenerator {
     }
     return `const result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload});`;
   }
-  snippet(entry: OperationEntry, operation: TunedOperationObject) {
+  snippet(
+    entry: OperationEntry,
+    operation: TunedOperationObject,
+    config: Record<string, unknown> = {},
+  ) {
     const payload = this.succinct(entry, operation, {});
-    return [
-      '```typescript',
-      `${this.client()}
-${payload}
-
-console.log(result.data);
-`,
-      '```',
-    ].join('\n');
+    const content: string[] = [
+      this.client(),
+      '',
+      payload,
+      '',
+      `console.log(result.data);`,
+    ];
+    if (config.frame) {
+      content.unshift('```typescript');
+      content.push('```');
+    }
+    return content.join('\n');
   }
 
   client() {
@@ -119,4 +126,15 @@ const ${camelcase(this.#clientName)} = new ${this.#clientName}({
   baseUrl: '${this.#spec.servers?.[0]?.url ?? 'http://localhost:3000'}',
 });`;
   }
+}
+
+export function generateSnippet(
+  spec: OpenAPIObject,
+  settings: TypeScriptGeneratorOptions,
+  entry: OperationEntry,
+  operation: TunedOperationObject,
+  config: Record<string, unknown> = {},
+): string {
+  const generator = new TypeScriptGenerator(spec, settings);
+  return generator.snippet(entry, operation, config);
 }

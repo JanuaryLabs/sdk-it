@@ -153,7 +153,6 @@ export function Editor(props: {
             props.onChange?.(value, event, editor, model, markers);
           }}
           options={{
-
             fontFamily: 'var(--font-mono)',
             cursorSmoothCaretAnimation: 'explicit',
             readOnly: props.readonly,

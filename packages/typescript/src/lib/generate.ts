@@ -1,5 +1,4 @@
 import { template } from 'lodash-es';
-import micromatch from 'micromatch';
 import { readFile, readdir, unlink, writeFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
@@ -73,6 +72,7 @@ export async function generate(
   spec: OpenAPIObject,
   settings: TypeScriptGeneratorOptions,
 ) {
+  const micromatch = await import('micromatch');
   spec = 'x-sdk-augmented' in spec ? spec : augmentSpec({ spec });
   const generator = new TypeScriptGenerator(spec, settings);
   const style = Object.assign(

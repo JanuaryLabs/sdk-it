@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+
 import { cn } from '../shadcn';
 
 interface MousePosition {
@@ -55,7 +56,7 @@ function hexToRgb(hex: string): number[] {
   return [red, green, blue];
 }
 
-const Particles: React.FC<ParticlesProps> = ({
+export const Particles: React.FC<ParticlesProps> = ({
   className = '',
   quantity = 100,
   staticity = 50,
@@ -277,5 +278,3 @@ const Particles: React.FC<ParticlesProps> = ({
     </div>
   );
 };
-
-export { Particles };

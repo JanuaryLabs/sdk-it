@@ -42,7 +42,12 @@ const specs = [
   {
     name: 'openstatus',
     spec: 'https://api.openstatus.dev/v1/openapi',
-    flags: ['--readme=true', '--error-as-value=true'],
+    flags: ['--readme=false', '--error-as-value=true'],
+  },
+  {
+    name: 'Turso',
+    spec: 'https://raw.githubusercontent.com/tursodatabase/turso-docs/refs/heads/main/api-reference/openapi.json',
+    flags: [],
   },
   {
     name: 'spotify',

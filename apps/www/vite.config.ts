@@ -19,6 +19,8 @@ export default defineConfig((config) => ({
   resolve: {
     alias: {
       'node:path': 'rollup-plugin-node-polyfills/polyfills/path',
+      util: './util.ts',
+      'node:util': './util.ts',
     },
   },
   plugins: [tailwindcss(), reactRouter()],
@@ -32,5 +34,9 @@ export default defineConfig((config) => ({
   },
   define: {
     'import.meta.vitest': undefined,
+    process: JSON.stringify({
+      platform: 'browser',
+      env: JSON.stringify({}),
+    }),
   },
 }));

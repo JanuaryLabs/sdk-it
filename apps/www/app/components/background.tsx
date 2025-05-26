@@ -72,11 +72,11 @@ export function GridBackgroundDemo(
   return (
     <div
       className={cn(
-        'bg-grid-small-black/[0.1] dark:bg-grid-small-white/[0.1] relative w-full bg-white dark:bg-black',
+        'bg-grid-small-black/[0.1] dark:bg-grid-small-white/[0.1] relative w-full bg-background dark:bg-background',
         props.className,
       )}
     >
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] dark:bg-black"></div>
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] dark:bg-background"></div>
       {props.children}
     </div>
   );

@@ -28,6 +28,7 @@
     "npm-run-path": "6.0.0",
     "rxjs": "^7.8.2",
     "@sdk-it/spec": "0.21.0",
-    "@sdk-it/readme": "0.21.0"
+    "@sdk-it/readme": "0.21.0",
+    "micromatch": "4.0.8"
   }
 }

@@ -5,8 +5,19 @@ import { promisify } from 'util';
 
 const asyncExec = promisify(exec);
 
-const excludeFiles = ['contributing.md', 'combined.txt', 'ingest.ts'];
-const excludeDirs = ['apps/api/', 'packages/apiref/app/shadcn/'];
+const excludeFiles = [
+  'contributing.md',
+  'prompt.md',
+  'combined.txt',
+  'ingest.ts',
+];
+const excludeDirs = [
+  'apps/api/',
+  'apps/www/',
+  'archive/',
+  'packages/apiref/app/shadcn/',
+  '.github/',
+];
 const OUTPUT_FILE = 'combined.txt';
 
 // Grab all relevant files from Git
