@@ -119,6 +119,7 @@
     "piscina": "^5.0.0",
     "pluralize": "^8.0.0",
     "prismjs": "^1.30.0",
+    "react-cookie": "^8.0.1",
     "react-dropzone": "^14.3.8",
     "react-hotkeys-hook": "^5.0.1",
     "react-icons": "^5.5.0",

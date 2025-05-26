@@ -51,7 +51,7 @@ export function Hero(props: { className?: string }) {
   return (
     <div
       className={cn(
-        'scroll-target mx-auto grid w-full snap-start grid-cols-4 items-start gap-8 lg:grid-cols-7 lg:grid-rows-[auto_auto] lg:gap-12',
+        'scroll-target mx-auto grid w-full snap-start grid-cols-4 items-start gap-8 lg:grid-cols-7 lg:grid-rows-[auto_auto]',
         props.className,
       )}
     >
@@ -70,7 +70,7 @@ export function Hero(props: { className?: string }) {
             words={'Turn your OpenAPI spec into premium developer experience'}
           />
         </h1>
-        <h2 className="text-muted-foreground leading-tight text-balance sm:text-lg lg:mb-6 lg:max-w-none lg:text-left">
+        <h2 className="text-muted-foreground leading-tight text-balance sm:text-lg lg:max-w-none lg:text-left">
           Cut costs, reduce maintenance, and boost productivity with type-safe
           client libraries, documentation, and agent tools — all generated
           automatically.
@@ -192,7 +192,7 @@ export function SpecBoxDemo() {
 }
 
 export function StaticPlayground() {
-  const data = useRootData();
+  const { operations: data } = useRootData();
   const sdkInfo = useReadLocalStorage<PostPlaygroundOutput200 | null>(
     'ts-sdk-info',
   ) ?? {

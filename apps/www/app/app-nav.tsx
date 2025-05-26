@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { AiOutlineThunderbolt } from 'react-icons/ai';
 import { NavLink } from 'react-router';
 
+import { ThemeToggle } from './components/toggle-theme';
 import { buttonVariants, cn } from './shadcn';
 
 function Logo() {
   return (
     <NavLink to="/" className="mr-6 flex items-center gap-x-2">
       <AiOutlineThunderbolt className="size-5" />
-      <p className="font-mono font-bold md:text-lg">SDK-IT</p>
+      <p className="!text-primary font-mono font-bold md:text-lg">SDK-IT</p>
     </NavLink>
   );
 }
@@ -53,7 +54,7 @@ export function AppNav(props: { className?: string }) {
         'flex w-full items-center py-3',
         'bg-background dark:bg-background',
         props.className,
-        'fixed top-0 left-1/2 -translate-x-1/2 z-50 w-full',
+        'fixed top-0 left-1/2 z-50 w-full -translate-x-1/2',
         scrolled ? 'border-border/70 border-b' : '',
         'flex w-full items-center',
         'px-4 md:px-8 lg:px-8 xl:px-12 2xl:px-0',
@@ -69,7 +70,7 @@ export function AppNav(props: { className?: string }) {
             target={it.target}
             className={cn(
               buttonVariants({ variant: 'ghost' }),
-              'text-secondary-foreground/70 text-sm font-medium',
+              'text-secondary-foreground/70 dark:text-foreground text-sm font-medium',
               it.className,
             )}
           >
@@ -115,6 +116,7 @@ export function AppNav(props: { className?: string }) {
           </a> */}
         <div className="flex items-center gap-x-3 md:gap-x-4">
           <SocialMedia />
+          <ThemeToggle />
         </div>
       </div>
     </header>
@@ -153,8 +155,7 @@ function SocialMedia() {
           xmlns="http://www.w3.org/2000/svg"
           width="24"
           height="24"
-          fill="#0a66c2"
-          className="mercado-match"
+          className="fill-[#0a66c2] transition-colors duration-200 hover:fill-[#004182] dark:fill-[#4a9eff] dark:hover:fill-[#66b3ff]"
           data-supported-dps="24x24"
           viewBox="0 0 24 24"
         >
@@ -170,8 +171,7 @@ function SocialMedia() {
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 127.14 96.36"
-          fill="#5865F2"
-          className="size-6"
+          className="size-6 fill-[#5865F2] transition-colors duration-200 hover:fill-[#4752c4] dark:fill-[#7289da] dark:hover:fill-[#8fa1e5]"
         >
           <g data-name="图层 2">
             <g data-name="Discord Logos">

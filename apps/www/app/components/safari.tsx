@@ -16,7 +16,7 @@ export function Safari({
 }: SafariProps) {
   return (
     <div className={cn('w-full', className)} {...props}>
-      <div className="flex items-center justify-between rounded-t-lg border-b border-gray-300 bg-muted px-3 py-4 dark:border-gray-600 dark:bg-gray-900">
+      <div className="bg-muted flex items-center justify-between rounded-t-lg border-b px-3 py-4">
         <div className="flex items-center space-x-3">
           <button className="group flex h-3 w-3 items-center justify-center rounded-full bg-green-500 hover:bg-green-400">
             <Square className="h-1.5 w-1.5 text-green-900 opacity-0 transition-opacity group-hover:opacity-100" />

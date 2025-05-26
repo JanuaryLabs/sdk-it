@@ -18,6 +18,7 @@ import {
 import '../styles.css';
 import { AppNav } from './app-nav';
 import { Toaster, cn } from './shadcn';
+import { useRootData } from './use-root-data';
 
 export const meta: MetaFunction = () => [
   {
@@ -40,8 +41,14 @@ export const links: LinksFunction = () => [
     rel: 'stylesheet',
     href: `https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..700&display=swap`,
   },
+  {
+    rel: 'stylesheet',
+    href: `https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap`,
+  },
 ];
 export function Layout({ children }: { children: React.ReactNode }) {
+  const { isDark } = useRootData();
+
   return (
     <html lang="en">
       <head>
@@ -50,7 +57,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
       </head>
-      <body className={cn('flex h-full flex-col')}>
+      <body className={cn('flex h-full flex-col', isDark ? 'dark' : '')}>
         <Toaster />
         <AppNav />
         {children}
@@ -66,6 +73,8 @@ export default function App() {
 }
 
 export async function loader({ request }: { request: Request }) {
+  const isDark = (request.headers.get('Cookie') || '').includes('theme=true');
+
   const { generateSnippet } = await import('@sdk-it/typescript');
   function snippet(
     path: string,
@@ -104,15 +113,12 @@ export async function loader({ request }: { request: Request }) {
               required: true,
               schema: {
                 type: 'integer',
-                minimum: 1,
               },
             },
             pageSize: {
               required: true,
               schema: {
                 type: 'integer',
-                minimum: 1,
-                maximum: 100,
               },
             },
           },
@@ -522,5 +528,8 @@ export async function loader({ request }: { request: Request }) {
     },
   };
 
-  return operations;
+  return {
+    isDark,
+    operations,
+  };
 }

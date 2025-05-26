@@ -27,7 +27,12 @@ const MemoizedMarkdownBlock = memo(
             [
               rehypeShiki,
               {
-                theme: 'one-light',
+                defaultColor: 'light',
+                cssVariablePrefix: '--shiki-',
+                themes: {
+                  light: 'min-light',
+                  dark: 'min-dark',
+                },
               } satisfies RehypeShikiOptions,
             ],
           ]}
