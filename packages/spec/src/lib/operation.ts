@@ -10,7 +10,6 @@ import type {
   ResponseObject,
   ResponsesObject,
   SchemaObject,
-  SchemasObject,
   SecurityRequirementObject,
 } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
@@ -27,7 +26,7 @@ export function augmentSpec(config: GenerateSdkConfig) {
   config.spec.paths ??= {};
   const paths: PathsObject = {};
   for (const [path, pathItem] of Object.entries(config.spec.paths)) {
-    const { parameters = [], ...methods } = pathItem;
+    const { ...methods } = pathItem;
 
     // Convert Express-style routes (:param) to OpenAPI-style routes ({param})
     const fixedPath = path.replace(/:([^/]+)/g, '{$1}');
@@ -44,9 +43,11 @@ export function augmentSpec(config: GenerateSdkConfig) {
         : operation.requestBody;
       const tunedOperation: TunedOperationObject = {
         ...operation,
-        parameters: [...parameters, ...(operation.parameters ?? [])].map(
-          (it) =>
-            isRef(it) ? followRef<ParameterObject>(config.spec, it.$ref) : it,
+        parameters: [
+          ...(pathItem.parameters ?? []),
+          ...(operation.parameters ?? []),
+        ].map((it) =>
+          isRef(it) ? followRef<ParameterObject>(config.spec, it.$ref) : it,
         ),
         tags: [operationTag],
         operationId: operationId,
@@ -214,7 +215,7 @@ export function forEachOperation<T>(
 ) {
   const result: T[] = [];
   for (const [path, pathItem] of Object.entries(config.spec.paths ?? {})) {
-    const { parameters = [], ...methods } = pathItem;
+    const { ...methods } = pathItem;
 
     for (const [method, operation] of Object.entries(methods) as [
       string,
@@ -669,7 +670,8 @@ export function createOperation(options: {
     header?: Record<string, { schema: SchemaObject; required?: boolean }>;
     cookie?: Record<string, { schema: SchemaObject; required?: boolean }>;
   };
-  response: Record<string, SchemasObject>;
+  response: Record<string, SchemaObject | Record<string, SchemaObject>>; // Key is statusCode-contentType
+  request?: Record<string, SchemaObject>;
 }): TunedOperationObject {
   const parameters: ParameterObject[] = [];
 
@@ -691,19 +693,38 @@ export function createOperation(options: {
   const responses: ResponsesObject = {};
 
   for (const [key, schema] of Object.entries(options.response)) {
-    const [statusCode, contentType] = key.split('-');
-
+    const [statusCode, contentType] = key.split(/-(.*)/); // Split on the first dash
+    if (!contentType) {
+      throw new Error(
+        `Response key "${key}" must be in the format "statusCode-contentType"`,
+      );
+    }
     responses[statusCode] ??= {
       description: `Response for ${statusCode}`,
       content: {},
+      headers: {},
     };
 
-    if (contentType && responses[statusCode].content) {
-      responses[statusCode].content![contentType] = {
-        schema: {
-          type: 'object',
-          properties: schema,
-        },
+    if (contentType === 'headers') {
+      responses[statusCode].headers = schema;
+    } else {
+      responses[statusCode].content[contentType] = {
+        schema: schema,
+      };
+    }
+  }
+
+  let requestBody: RequestBodyObject | undefined = undefined;
+
+  if (options.request) {
+    requestBody = {
+      description: 'Request body',
+      content: {},
+    };
+
+    for (const [contentType, schema] of Object.entries(options.request)) {
+      requestBody.content[contentType] = {
+        schema: schema,
       };
     }
   }
@@ -713,6 +734,6 @@ export function createOperation(options: {
     tags: [options.group],
     parameters,
     responses,
-    requestBody: undefined, // No request body in this operation
+    requestBody,
   };
 }

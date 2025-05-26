@@ -102,7 +102,7 @@ export class SnippetEmitter {
         return 'example.com';
       case 'binary':
       case 'byte':
-        return '[binary data]';
+        return `new Blob(['example'], { type: 'text/plain' })`;
       default:
         if (schema.enum && schema.enum.length > 0) {
           return String(schema.enum[0]);

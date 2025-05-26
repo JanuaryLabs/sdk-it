@@ -72,7 +72,7 @@ export async function generate(
   spec: OpenAPIObject,
   settings: TypeScriptGeneratorOptions,
 ) {
-  const micromatch = await import('micromatch');
+  const { default: micromatch } = await import('micromatch');
   spec = 'x-sdk-augmented' in spec ? spec : augmentSpec({ spec });
   const generator = new TypeScriptGenerator(spec, settings);
   const style = Object.assign(

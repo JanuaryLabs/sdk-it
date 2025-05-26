@@ -1,12 +1,4 @@
 import { useState } from 'react';
-import { useReadLocalStorage } from 'usehooks-ts';
-
-import type { PostPlaygroundOutput200 } from '@sdk-it/client';
-
-import { Example } from './code-snippets';
-import Background from './components/background';
-import { Particles } from './components/particles';
-import { Safari } from './components/safari';
 // export function Right() {
 //   const [activeTab, setActiveTab] = useState<TabId>(tabs[0].id as TabId);
 //   const [activeLanguage, setActiveLanguage] = useState<Language>('typescript');
@@ -35,6 +27,15 @@ import { Safari } from './components/safari';
 //   );
 // }
 
+import { titlecase } from 'stringcase';
+import { useReadLocalStorage } from 'usehooks-ts';
+
+import type { PostPlaygroundOutput200 } from '@sdk-it/client';
+
+import { Example } from './code-snippets';
+import Background from './components/background';
+import { Particles } from './components/particles';
+import { Safari } from './components/safari';
 import SpecBox from './components/spec-box';
 import { TextGenerateEffect } from './components/text-generate-effect';
 import { TreeView } from './components/tree';
@@ -207,8 +208,8 @@ export function StaticPlayground() {
 
   const treeData = Object.entries(data).reduce(
     (acc, [key, value]) => {
-      const [folder, file] = key.split('/');
-
+      const [folderName, file] = key.split('/');
+      const folder = titlecase(folderName);
       acc[folder] ??= {
         id: folder,
         type: 'folder' as const,
@@ -240,8 +241,8 @@ export function StaticPlayground() {
   return (
     <div className="mt-8 w-full rounded-lg border">
       <Safari className="h-auto w-full" />
-      <div className="relative grid w-full grid-cols-1 gap-x-4 lg:grid-cols-7 lg:gap-12">
-        <div className="col-span-full p-4 lg:col-span-2">
+      <div className="relative grid w-full grid-cols-1 gap-x-4 xl:grid-cols-9 lg:grid-cols-7 lg:gap-12">
+        <div className="col-span-full px-2 py-2 lg:col-span-2">
           <TreeView
             onLeafSelect={(item) => {
               setActiveTab(item.id as keyof typeof data);

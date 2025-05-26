@@ -1,24 +1,20 @@
-import {
-  Links,
-  type LinksFunction,
-  Meta,
-  type MetaFunction,
-  Outlet,
-  Scripts,
-  ScrollRestoration,
-} from 'react-router';
+import { Links, type LinksFunction, Meta, type MetaFunction, Outlet, Scripts, ScrollRestoration } from 'react-router';
+
+
 
 import { createOperation } from '@sdk-it/spec';
-import {
-  type TunedOperationObject,
-  augmentSpec,
-  forEachOperation,
-} from '@sdk-it/spec/operation.js';
+import { type TunedOperationObject, augmentSpec, forEachOperation } from '@sdk-it/spec/operation.js';
+
+
 
 import '../styles.css';
 import { AppNav } from './app-nav';
 import { Toaster, cn } from './shadcn';
 import { useRootData } from './use-root-data';
+
+
+
+
 
 export const meta: MetaFunction = () => [
   {
@@ -125,22 +121,25 @@ export async function loader({ request }: { request: Request }) {
         },
         response: {
           '200-application/json': {
-            items: {
-              type: 'array',
+            type: 'object',
+            properties: {
               items: {
-                type: 'object',
-                properties: {
-                  id: { type: 'string' },
-                  name: { type: 'string' },
-                  createdAt: { type: 'string', format: 'date-time' },
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    name: { type: 'string' },
+                    createdAt: { type: 'string', format: 'date-time' },
+                  },
                 },
               },
-            },
-            total: {
-              type: 'integer',
-            },
-            hasMore: {
-              type: 'boolean',
+              total: {
+                type: 'integer',
+              },
+              hasMore: {
+                type: 'boolean',
+              },
             },
           },
         },
@@ -172,22 +171,25 @@ export async function loader({ request }: { request: Request }) {
         },
         response: {
           '200-application/json': {
-            items: {
-              type: 'array',
+            type: 'object',
+            properties: {
               items: {
-                type: 'object',
-                properties: {
-                  id: { type: 'string' },
-                  name: { type: 'string' },
-                  createdAt: { type: 'string', format: 'date-time' },
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    name: { type: 'string' },
+                    createdAt: { type: 'string', format: 'date-time' },
+                  },
                 },
               },
-            },
-            nextCursor: {
-              type: ['string', 'null'],
-            },
-            hasMore: {
-              type: 'boolean',
+              nextCursor: {
+                type: ['string', 'null'],
+              },
+              hasMore: {
+                type: 'boolean',
+              },
             },
           },
         },
@@ -219,22 +221,25 @@ export async function loader({ request }: { request: Request }) {
         },
         response: {
           '200-application/json': {
-            items: {
-              type: 'array',
+            type: 'object',
+            properties: {
               items: {
-                type: 'object',
-                properties: {
-                  id: { type: 'string' },
-                  name: { type: 'string' },
-                  createdAt: { type: 'string', format: 'date-time' },
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    name: { type: 'string' },
+                    createdAt: { type: 'string', format: 'date-time' },
+                  },
                 },
               },
-            },
-            total: {
-              type: 'integer',
-            },
-            hasMore: {
-              type: 'boolean',
+              total: {
+                type: 'integer',
+              },
+              hasMore: {
+                type: 'boolean',
+              },
             },
           },
         },
@@ -243,62 +248,7 @@ export async function loader({ request }: { request: Request }) {
         return snippet('/pagination/offset', 'get', this.spec);
       },
     },
-    'filedownload/streaming': {
-      title: 'Streaming File Download',
-      spec: createOperation({
-        name: 'downloadFile',
-        group: 'filedownload',
-        parameters: {
-          path: {
-            fileId: {
-              required: true,
-              schema: {
-                type: 'string',
-              },
-            },
-          },
-          header: {
-            'Accept-Encoding': {
-              required: false,
-              schema: {
-                type: 'string',
-                enum: ['gzip', 'deflate', 'br'],
-              },
-            },
-          },
-        },
-        response: {
-          '200-application/octet-stream': {},
-        },
-      }),
-      get typescript() {
-        return snippet('/filedownload/streaming', 'get', this.spec);
-      },
-    },
-    'filedownload/buffer': {
-      title: 'Buffer File Download',
-      spec: createOperation({
-        name: 'downloadFileBuffer',
-        group: 'filedownload',
-        parameters: {
-          path: {
-            fileId: {
-              required: true,
-              schema: {
-                type: 'string',
-              },
-            },
-          },
-        },
-        response: {
-          '200-application/octet-stream': {},
-        },
-      }),
-      get typescript() {
-        return snippet('/filedownload/buffer', 'get', this.spec);
-      },
-    },
-    'fileupload/streaming': {
+    'FileUpload/streaming': {
       title: 'Streaming File Upload',
       spec: createOperation({
         name: 'uploadFileStream',
@@ -322,15 +272,18 @@ export async function loader({ request }: { request: Request }) {
         },
         response: {
           '200-application/json': {
-            fileId: {
-              type: 'string',
-            },
-            size: {
-              type: 'integer',
-            },
-            uploadedAt: {
-              type: 'string',
-              format: 'date-time',
+            type: 'object',
+            properties: {
+              fileId: {
+                type: 'string',
+              },
+              size: {
+                type: 'integer',
+              },
+              uploadedAt: {
+                type: 'string',
+                format: 'date-time',
+              },
             },
           },
         },
@@ -339,7 +292,7 @@ export async function loader({ request }: { request: Request }) {
         return snippet('/fileupload/streaming', 'post', this.spec);
       },
     },
-    'fileupload/multipart': {
+    'FileUpload/multipart': {
       title: 'Multipart File Upload',
       spec: createOperation({
         name: 'uploadFileMultipart',
@@ -357,15 +310,33 @@ export async function loader({ request }: { request: Request }) {
         },
         response: {
           '200-application/json': {
-            files: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  fileId: { type: 'string' },
-                  filename: { type: 'string' },
-                  size: { type: 'integer' },
-                  uploadedAt: { type: 'string', format: 'date-time' },
+            type: 'object',
+            properties: {
+              files: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    fileId: { type: 'string' },
+                    filename: { type: 'string' },
+                    size: { type: 'integer' },
+                    uploadedAt: { type: 'string', format: 'date-time' },
+                  },
+                },
+              },
+            },
+          },
+        },
+        request: {
+          'multipart/form-data': {
+            type: 'object',
+            required: ['files'],
+            properties: {
+              files: {
+                type: 'array',
+                items: {
+                  type: 'string',
+                  format: 'binary',
                 },
               },
             },
@@ -392,22 +363,21 @@ export async function loader({ request }: { request: Request }) {
               },
             },
           },
-          header: {
-            Accept: {
-              required: false,
-              schema: {
-                type: 'string',
-                default: 'application/json',
-              },
-            },
-          },
         },
         response: {
+          '200-headers': {
+            'Transfer-Encoding': {
+              type: 'string',
+            },
+          },
           '200-application/json': {
-            data: {
-              type: 'array',
-              items: {
-                type: 'object',
+            type: 'object',
+            properties: {
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                },
               },
             },
           },
@@ -455,6 +425,32 @@ export async function loader({ request }: { request: Request }) {
         return snippet('/streaming/sse', 'get', this.spec);
       },
     },
+    'streaming/filedownload': {
+      title: 'Streaming File Download',
+      spec: createOperation({
+        name: 'downloadFile',
+        group: 'filedownload',
+        parameters: {
+          path: {
+            fileId: {
+              required: true,
+              schema: {
+                type: 'string',
+              },
+            },
+          },
+        },
+        response: {
+          '200-application/octet-stream': {
+            type: 'string',
+            format: 'binary',
+          },
+        },
+      }),
+      get typescript() {
+        return snippet('/filedownload/streaming', 'get', this.spec);
+      },
+    },
     'authentication/bearer': {
       title: 'Bearer Token Authentication',
       spec: createOperation({
@@ -473,15 +469,18 @@ export async function loader({ request }: { request: Request }) {
         },
         response: {
           '200-application/json': {
-            message: {
-              type: 'string',
-            },
-            user: {
-              type: 'object',
-              properties: {
-                id: { type: 'string' },
-                username: { type: 'string' },
-                email: { type: 'string', format: 'email' },
+            type: 'object',
+            properties: {
+              message: {
+                type: 'string',
+              },
+              user: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  username: { type: 'string' },
+                  email: { type: 'string', format: 'email' },
+                },
               },
             },
           },
@@ -508,15 +507,18 @@ export async function loader({ request }: { request: Request }) {
         },
         response: {
           '200-application/json': {
-            message: {
-              type: 'string',
-            },
-            apiKeyInfo: {
-              type: 'object',
-              properties: {
-                keyId: { type: 'string' },
-                permissions: { type: 'array', items: { type: 'string' } },
-                expiresAt: { type: 'string', format: 'date-time' },
+            type: 'object',
+            properties: {
+              message: {
+                type: 'string',
+              },
+              apiKeyInfo: {
+                type: 'object',
+                properties: {
+                  keyId: { type: 'string' },
+                  permissions: { type: 'array', items: { type: 'string' } },
+                  expiresAt: { type: 'string', format: 'date-time' },
+                },
               },
             },
           },

@@ -137,7 +137,7 @@ function TreeItemComponent({
         <CollapsibleTrigger asChild>
           <div
             className={cn(
-              'hover:bg-accent/50 flex w-full cursor-pointer items-center gap-2 rounded-md py-2 transition-colors',
+              'hover:bg-accent/50 flex w-full cursor-pointer items-center gap-2 rounded-md py-2 px-2 transition-colors',
               isSelected && 'bg-accent',
               'text-sm',
             )}

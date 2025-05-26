@@ -1,4 +1,8 @@
-import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
+import type {
+  OpenAPIObject,
+  ResponseObject,
+  SchemaObject,
+} from 'openapi3-ts/oas31';
 import { camelcase, spinalcase } from 'stringcase';
 
 import { followRef, isEmpty, isRef, pascalcase } from '@sdk-it/core';
@@ -61,43 +65,68 @@ export class TypeScriptGenerator {
             };
           }
           const properties: Record<string, SchemaObject> = {};
-          patchParameters(
-            this.#spec,
-            { type: 'object', properties },
-            operation,
-          );
+          patchParameters(this.#spec, schema, operation);
           const examplePayload = this.#snippetEmitter.handle({
             ...schema,
             properties: Object.assign({}, properties, schema.properties),
           });
           // merge explicit values into the example payload
           Object.assign(
-            examplePayload as any,
+            examplePayload as Record<string, unknown>,
             values.requestBody ?? {},
             values.pathParameters ?? {},
             values.queryParameters ?? {},
             values.headers ?? {},
             values.cookies ?? {},
           );
-          payload = JSON.stringify(examplePayload, null, 2);
+          payload = examplePayload as any;
         }
       }
     } else {
-      const properties: Record<string, SchemaObject> = {};
-      patchParameters(this.#spec, { type: 'object', properties }, operation);
-      const examplePayload = this.#snippetEmitter.handle({
-        properties: properties,
-      });
+      const requestBody: SchemaObject = { type: 'object', properties: {} };
+      patchParameters(this.#spec, requestBody, operation);
+      const examplePayload = this.#snippetEmitter.handle(requestBody);
       // merge explicit values into the example payload
       Object.assign(
-        examplePayload as any,
+        examplePayload as Record<string, unknown>,
         values.pathParameters ?? {},
         values.queryParameters ?? {},
         values.headers ?? {},
         values.cookies ?? {},
       );
-      payload = JSON.stringify(examplePayload, null, 2);
+      payload = examplePayload as any;
     }
+    payload = JSON.stringify(
+      payload,
+      (key, value) => {
+        if (value.startsWith && value.startsWith('new')) {
+          return `__REPLACE_${Math.random().toString(36).substring(2, 11)}__${value}__REPLACE_END__`;
+        }
+        return value;
+      },
+      2,
+    ).replace(/"__REPLACE_[^"]*__([^"]*?)__REPLACE_END__"/g, '$1');
+
+    let successResponse: ResponseObject | undefined;
+    for (const status in operation.responses) {
+      if (status.startsWith('2')) {
+        successResponse = operation.responses[status] as ResponseObject;
+        break;
+      }
+    }
+
+    if (successResponse) {
+      if (successResponse.headers?.['Transfer-Encoding']) {
+        return this.#httpStreaming(entry, payload);
+      }
+      if (
+        successResponse.content &&
+        successResponse.content['application/octet-stream']
+      ) {
+        return this.#streamDownload(entry, payload);
+      }
+    }
+
     if (!isEmpty(operation['x-pagination'])) {
       return this.#pagination(operation, entry, payload);
     }
@@ -133,7 +162,21 @@ export class TypeScriptGenerator {
   #normal(entry: OperationEntry, payload: string) {
     return {
       content: `const result = ${this.#ddd(entry, payload)};`,
-      footer: 'console.log(result.data);',
+      footer: 'console.log(result.data)',
+    };
+  }
+
+  #streamDownload(entry: OperationEntry, payload: string) {
+    return {
+      content: `const stream = ${this.#ddd(entry, payload)}`,
+      footer: `await writeFile('./report.pdf', stream);`,
+    };
+  }
+
+  #httpStreaming(entry: OperationEntry, payload: string) {
+    return {
+      content: `const stream = ${this.#ddd(entry, payload)}`,
+      footer: `for await (const chunk of stream) {\n\tconsole.log(chunk);\n}`,
     };
   }
 
