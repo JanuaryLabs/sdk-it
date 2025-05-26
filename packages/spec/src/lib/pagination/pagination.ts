@@ -71,7 +71,7 @@ export const GENERIC_LIMIT_PARAM_REGEXES: RegExp[] = [
 export const PAGE_NUMBER_REGEXES: RegExp[] = [
   /^page$/i, // Exact match for "page"
   /^p$/i, // Exact match for "p" (common shorthand)
-  /\bpage_?(?:number|num|idx|index)\b/i, // e.g., page_number, pageNumber, page_num, page_idx
+  /\bpage_?(?:number|no|num|idx|index)\b/i, // e.g., page_number, pageNumber, page_num, page_idx
 ];
 
 // Regexes for parameters indicating page size (when used with page number)

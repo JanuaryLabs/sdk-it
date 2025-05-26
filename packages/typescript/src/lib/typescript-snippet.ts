@@ -4,6 +4,7 @@ import { camelcase, spinalcase } from 'stringcase';
 import { followRef, isEmpty, isRef, pascalcase } from '@sdk-it/core';
 import {
   type OperationEntry,
+  type OperationPagination,
   type TunedOperationObject,
   patchParameters,
 } from '@sdk-it/spec/operation.js';
@@ -97,20 +98,61 @@ export class TypeScriptGenerator {
       );
       payload = JSON.stringify(examplePayload, null, 2);
     }
-    return `const result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload});`;
+    if (!isEmpty(operation['x-pagination'])) {
+      return this.#pagination(operation, entry, payload);
+    }
+    return this.#normal(entry, payload);
   }
+
+  #pagination(
+    opeartion: TunedOperationObject,
+    entry: OperationEntry,
+    payload: string,
+  ) {
+    const pagination: OperationPagination = opeartion['x-pagination'];
+    switch (pagination.type) {
+      case 'page':
+        return {
+          content: `const result = ${this.#ddd(entry, payload)}`,
+          footer: `for await (const page of result) {\n\tconsole.log(page);\n}`,
+        };
+      case 'offset':
+        return {
+          content: `const result = ${this.#ddd(entry, payload)}`,
+          footer: `for await (const page of result) {\n\tconsole.log(page);\n}`,
+        };
+      case 'cursor':
+        return {
+          content: `const result = ${this.#ddd(entry, payload)}`,
+          footer: `for await (const page of result) {\n\tconsole.log(page);\n}`,
+        };
+    }
+    return this.#normal(entry, payload);
+  }
+
+  #normal(entry: OperationEntry, payload: string) {
+    return {
+      content: `const result = ${this.#ddd(entry, payload)};`,
+      footer: 'console.log(result.data);',
+    };
+  }
+
+  #ddd(entry: OperationEntry, payload: string) {
+    return `await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload});`;
+  }
+
   snippet(
     entry: OperationEntry,
     operation: TunedOperationObject,
     config: Record<string, unknown> = {},
   ) {
-    const payload = this.succinct(entry, operation, {});
+    const payload = this.succinct(entry, operation, config);
     const content: string[] = [
       this.client(),
       '',
-      payload,
+      payload.content,
       '',
-      `console.log(result.data);`,
+      payload.footer,
     ];
     if (config.frame) {
       content.unshift('```typescript');
