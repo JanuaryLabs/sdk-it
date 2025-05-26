@@ -11,7 +11,8 @@ import {
   type OperationPagination,
   type TunedOperationObject,
   patchParameters,
-} from '@sdk-it/spec/operation.js';
+} from '@sdk-it/spec';
+import { securityToOptions } from '@sdk-it/spec/security.js';
 
 import { SnippetEmitter } from './emitters/snippet.ts';
 import type { TypeScriptGeneratorOptions } from './options.ts';
@@ -204,12 +205,26 @@ export class TypeScriptGenerator {
     return content.join('\n');
   }
 
+  #authentication() {
+    return securityToOptions(
+      this.#spec,
+      this.#spec.security ?? [],
+      this.#spec.components?.securitySchemes ?? {},
+    );
+  }
+
   client() {
+    const inputs = [
+      `baseUrl: '${this.#spec.servers?.[0]?.url ?? 'http://localhost:3000'}'`,
+    ];
+    const authOptions = this.#authentication();
+    if (!isEmpty(authOptions)) {
+      const [firstAuth] = authOptions;
+      inputs.push(`${firstAuth.name}: ${firstAuth.example}`);
+    }
     return `import { ${this.#clientName} } from '${this.#packageName}';
 
-const ${camelcase(this.#clientName)} = new ${this.#clientName}({
-  baseUrl: '${this.#spec.servers?.[0]?.url ?? 'http://localhost:3000'}',
-});`;
+const ${camelcase(this.#clientName)} = new ${this.#clientName}({ \n\t${inputs.join(',\n\t')}\n});`;
   }
 }
 

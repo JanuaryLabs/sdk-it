@@ -1,20 +1,25 @@
-import { Links, type LinksFunction, Meta, type MetaFunction, Outlet, Scripts, ScrollRestoration } from 'react-router';
-
-
+import type { OpenAPIObject } from 'openapi3-ts/oas31';
+import {
+  Links,
+  type LinksFunction,
+  Meta,
+  type MetaFunction,
+  Outlet,
+  Scripts,
+  ScrollRestoration,
+} from 'react-router';
 
 import { createOperation } from '@sdk-it/spec';
-import { type TunedOperationObject, augmentSpec, forEachOperation } from '@sdk-it/spec/operation.js';
-
-
+import {
+  type TunedOperationObject,
+  augmentSpec,
+  forEachOperation,
+} from '@sdk-it/spec/operation.js';
 
 import '../styles.css';
 import { AppNav } from './app-nav';
 import { Toaster, cn } from './shadcn';
 import { useRootData } from './use-root-data';
-
-
-
-
 
 export const meta: MetaFunction = () => [
   {
@@ -76,6 +81,7 @@ export async function loader({ request }: { request: Request }) {
     path: string,
     method: string,
     operation: TunedOperationObject,
+    partialSpec?: Partial<OpenAPIObject>,
   ) {
     const spec = augmentSpec({
       spec: {
@@ -86,6 +92,7 @@ export async function loader({ request }: { request: Request }) {
             [method]: operation,
           },
         },
+        ...partialSpec,
       },
     });
     const [entry] = forEachOperation(
@@ -98,6 +105,84 @@ export async function loader({ request }: { request: Request }) {
   }
 
   const operations = {
+    'basic/TypeSafety': {
+      title: 'Type Safety',
+      spec: createOperation({
+        name: 'typeSafety',
+        group: 'basic',
+        parameters: {
+          query: {
+            id: {
+              required: true,
+              schema: {
+                type: 'string',
+              },
+            },
+            count: {
+              required: false,
+              schema: {
+                type: 'integer',
+                default: 1,
+              },
+            },
+          },
+        },
+        response: {
+          '200-application/json': {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              count: { type: 'integer' },
+              createdAt: { type: 'string', format: 'date-time' },
+            },
+          },
+        },
+      }),
+      get typescript() {
+        return snippet('/basic/TypeSafety', 'get', this.spec);
+      },
+    },
+    'basic/Polymorphism': {
+      title: 'Polymorphism',
+      spec: createOperation({
+        name: 'polymorphism',
+        group: 'basic',
+        parameters: {
+          query: {
+            type: {
+              required: true,
+              schema: {
+                type: 'string',
+                enum: ['A', 'B'],
+              },
+            },
+          },
+        },
+        response: {
+          '200-application/json': {
+            oneOf: [
+              {
+                type: 'object',
+                properties: {
+                  type: { type: 'string', enum: ['A'] },
+                  dataA: { type: 'string' },
+                },
+              },
+              {
+                type: 'object',
+                properties: {
+                  type: { type: 'string', enum: ['B'] },
+                  dataB: { type: 'number' },
+                },
+              },
+            ],
+          },
+        },
+      }),
+      get typescript() {
+        return snippet('/basic/Polymorphism', 'get', this.spec);
+      },
+    },
     'pagination/page': {
       title: 'Page-based Pagination',
       spec: createOperation({
@@ -456,17 +541,6 @@ export async function loader({ request }: { request: Request }) {
       spec: createOperation({
         name: 'authenticatedRequest',
         group: 'authentication',
-        parameters: {
-          header: {
-            Authorization: {
-              required: true,
-              schema: {
-                type: 'string',
-                pattern: '^Bearer .+',
-              },
-            },
-          },
-        },
         response: {
           '200-application/json': {
             type: 'object',
@@ -487,7 +561,22 @@ export async function loader({ request }: { request: Request }) {
         },
       }),
       get typescript() {
-        return snippet('/authentication/bearer', 'get', this.spec);
+        return snippet('/authentication/bearer', 'get', this.spec, {
+          security: [
+            {
+              BearerAuth: [],
+            },
+          ],
+          components: {
+            schemas: {},
+            securitySchemes: {
+              BearerAuth: {
+                type: 'http',
+                scheme: 'bearer',
+              },
+            },
+          },
+        });
       },
     },
     'authentication/api-key': {
@@ -525,7 +614,23 @@ export async function loader({ request }: { request: Request }) {
         },
       }),
       get typescript() {
-        return snippet('/authentication/api-key', 'get', this.spec);
+        return snippet('/authentication/api-key', 'get', this.spec, {
+          security: [
+            {
+              ApiKey: [],
+            },
+          ],
+          components: {
+            schemas: {},
+            securitySchemes: {
+              ApiKey: {
+                type: 'apiKey',
+                in: 'header',
+                name: 'apiKey',
+              },
+            },
+          },
+        });
       },
     },
   };

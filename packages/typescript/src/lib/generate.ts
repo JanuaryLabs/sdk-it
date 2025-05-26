@@ -33,13 +33,6 @@ import { generateInputs } from './sdk.ts';
 import { TypeScriptGenerator } from './typescript-snippet.ts';
 import { exclude, securityToOptions } from './utils.ts';
 
-const ALWAYS_AVAILABLE_FILES = [
-  '/tsconfig*.json',
-  '/package.json',
-  '/metadata.json',
-  '/**/index.ts',
-];
-
 function security(spec: OpenAPIObject) {
   const security = spec.security || [];
   const components = spec.components || {};
@@ -67,6 +60,12 @@ function security(spec: OpenAPIObject) {
   }
   return options;
 }
+const ALWAYS_AVAILABLE_FILES = [
+  '/tsconfig*.json',
+  '/package.json',
+  '/metadata.json',
+  '/**/index.ts',
+];
 
 export async function generate(
   spec: OpenAPIObject,

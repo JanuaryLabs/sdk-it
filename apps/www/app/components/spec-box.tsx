@@ -173,11 +173,11 @@ export default function SpecBox({
       {...getRootProps()} // Apply dropzone props to the whole component
       className={cn(
         props.className,
-        'relative overflow-hidden rounded-2xl border border-neutral-500 shadow-lg',
+        'relative overflow-hidden rounded-lg border border-neutral-500 shadow-lg',
         isDragActive
           ? 'border-blue-500 bg-blue-50'
           : !loading &&
-              'border-neutral-200 bg-gray-50 focus-within:border-gray-400 hover:border-gray-400 focus:border-gray-400 focus-visible:border-gray-400 dark:bg-neutral-800',
+              'bg-gray-50 focus-within:border-gray-400 hover:border-gray-400 focus:border-gray-400 focus-visible:border-gray-400 dark:bg-neutral-800',
       )}
       onSubmit={(e) => {
         e.preventDefault();

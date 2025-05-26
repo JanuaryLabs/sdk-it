@@ -6,16 +6,22 @@ import type {
   SecurityRequirementObject,
 } from 'openapi3-ts/oas31';
 
-import { followRef, isRef } from '@sdk-it/core';
+import { methods } from '@sdk-it/core/paths.js';
+import { followRef, isRef } from '@sdk-it/core/ref.js';
+
+type OIn = ParameterLocation | 'input';
+type OParameter = Omit<ParameterObject, 'in'> & {
+  in: OIn;
+};
 
 export function securityToOptions(
   spec: OpenAPIObject,
   security: SecurityRequirementObject[],
   securitySchemes: ComponentsObject['securitySchemes'],
-  staticIn?: ParameterLocation,
+  staticIn?: OIn,
 ) {
   securitySchemes ??= {};
-  const parameters: ParameterObject[] = [];
+  const parameters: OParameter[] = [];
   for (const it of security) {
     const [name] = Object.keys(it);
     if (!name) {
@@ -31,6 +37,10 @@ export function securityToOptions(
         in: staticIn ?? 'header',
         name: 'authorization',
         schema: { type: 'string' },
+        example:
+          schema.scheme === 'bearer'
+            ? '"<token>"'
+            : `<${schema.scheme}> <token>`,
       });
       continue;
     }
@@ -45,9 +55,38 @@ export function securityToOptions(
         in: staticIn ?? (schema.in as ParameterLocation),
         name: schema.name,
         schema: { type: 'string' },
+        example: `"proj-${crypto.randomUUID()}"`,
       });
       continue;
     }
   }
   return parameters;
+}
+
+export function security(spec: OpenAPIObject) {
+  const security = spec.security || [];
+  const components = spec.components || {};
+  const securitySchemes = components.securitySchemes || {};
+  const paths = Object.values(spec.paths ?? {});
+
+  const options = securityToOptions(spec, security, securitySchemes);
+
+  for (const it of paths) {
+    for (const method of methods) {
+      const operation = it[method];
+      if (!operation) {
+        continue;
+      }
+      Object.assign(
+        options,
+        securityToOptions(
+          spec,
+          operation.security || [],
+          securitySchemes,
+          'input',
+        ),
+      );
+    }
+  }
+  return options;
 }

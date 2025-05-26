@@ -1,8 +1,6 @@
 import type {
-  ComponentsObject,
   OpenAPIObject,
   OperationObject,
-  ParameterLocation,
   ParameterObject,
   PathsObject,
   ReferenceObject,
@@ -10,17 +8,18 @@ import type {
   ResponseObject,
   ResponsesObject,
   SchemaObject,
-  SecurityRequirementObject,
 } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
 import type { Method } from '@sdk-it/core/paths.js';
 import { followRef, isRef } from '@sdk-it/core/ref.js';
+import { isEmpty } from '@sdk-it/core/utils.js';
 
 import {
   type PaginationGuess,
   guessPagination,
 } from './pagination/pagination.js';
+import { securityToOptions } from './security.js';
 
 export function augmentSpec(config: GenerateSdkConfig) {
   config.spec.paths ??= {};
@@ -617,54 +616,11 @@ export function patchParameters(
   }
 }
 
-export function securityToOptions(
-  spec: OpenAPIObject,
-  security: SecurityRequirementObject[],
-  securitySchemes: ComponentsObject['securitySchemes'],
-  staticIn?: ParameterLocation,
-) {
-  securitySchemes ??= {};
-  const parameters: ParameterObject[] = [];
-  for (const it of security) {
-    const [name] = Object.keys(it);
-    if (!name) {
-      // this means the operation doesn't necessarily require security
-      continue;
-    }
-    const schema = isRef(securitySchemes[name])
-      ? followRef(spec, securitySchemes[name].$ref)
-      : securitySchemes[name];
-
-    if (schema.type === 'http') {
-      parameters.push({
-        in: staticIn ?? 'header',
-        name: 'authorization',
-        schema: { type: 'string' },
-      });
-      continue;
-    }
-    if (schema.type === 'apiKey') {
-      if (!schema.in) {
-        throw new Error(`apiKey security schema must have an "in" field`);
-      }
-      if (!schema.name) {
-        throw new Error(`apiKey security schema must have a "name" field`);
-      }
-      parameters.push({
-        in: staticIn ?? (schema.in as ParameterLocation),
-        name: schema.name,
-        schema: { type: 'string' },
-      });
-      continue;
-    }
-  }
-  return parameters;
-}
-
 export function createOperation(options: {
   name: string;
   group: string;
-  parameters: {
+  security?: string[];
+  parameters?: {
     query?: Record<string, { schema: SchemaObject; required?: boolean }>;
     path?: Record<string, { schema: SchemaObject; required?: boolean }>;
     header?: Record<string, { schema: SchemaObject; required?: boolean }>;
@@ -674,22 +630,22 @@ export function createOperation(options: {
   request?: Record<string, SchemaObject>;
 }): TunedOperationObject {
   const parameters: ParameterObject[] = [];
-
-  const locations = ['query', 'path', 'header', 'cookie'] as const;
-  for (const location of locations) {
-    const locationParams = options.parameters[location];
-    if (locationParams) {
-      for (const [name, param] of Object.entries(locationParams)) {
-        parameters.push({
-          name,
-          in: location,
-          required: param.required ?? false,
-          schema: param.schema,
-        });
+  if (!isEmpty(options.parameters)) {
+    const locations = ['query', 'path', 'header', 'cookie'] as const;
+    for (const location of locations) {
+      const locationParams = options.parameters[location];
+      if (locationParams) {
+        for (const [name, param] of Object.entries(locationParams)) {
+          parameters.push({
+            name,
+            in: location,
+            required: param.required ?? false,
+            schema: param.schema,
+          });
+        }
       }
     }
   }
-
   const responses: ResponsesObject = {};
 
   for (const [key, schema] of Object.entries(options.response)) {
@@ -702,7 +658,6 @@ export function createOperation(options: {
     responses[statusCode] ??= {
       description: `Response for ${statusCode}`,
       content: {},
-      headers: {},
     };
 
     if (contentType === 'headers') {
@@ -728,8 +683,10 @@ export function createOperation(options: {
       };
     }
   }
-
   return {
+    security: (options.security ?? []).map((name) => ({
+      [name]: [],
+    })),
     operationId: options.name,
     tags: [options.group],
     parameters,

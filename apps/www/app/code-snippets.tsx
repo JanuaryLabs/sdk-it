@@ -49,8 +49,8 @@ export function Example(props: {
       <div className="max-h-96 overflow-auto lg:h-[calc(100%-37px)] lg:max-h-full lg:min-h-[51vh]">
         <StillMarkdown
           className={cn('h-full min-w-full', {
-            // prose: activeLanguage === 'spec',
-            prose: true,
+            prose: activeLanguage === 'spec',
+            // prose: true,
           })}
           id={activeLanguage}
           content={props.snippet[activeLanguage]}
