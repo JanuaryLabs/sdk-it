@@ -1,11 +1,12 @@
-import { get } from 'lodash-es';
 import type { OpenAPIObject, ResponseObject } from 'openapi3-ts/oas31';
 import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
-import { isRef, toLitObject } from '@sdk-it/core';
-import type {
-  OperationPagination,
-  TunedOperationObject,
+import { isEmpty, isRef, toLitObject } from '@sdk-it/core';
+import {
+  type OperationPagination,
+  type TunedOperationObject,
+  isStreamingContentType,
+  parseJsonContentType,
 } from '@sdk-it/spec/operation.js';
 
 import { TypeScriptEmitter } from './emitters/interface.ts';
@@ -393,13 +394,68 @@ function handleResponse(
     },
   );
   const statusCode = +status;
-  const parser: Parser = (response.headers ?? {})['Transfer-Encoding']
-    ? 'chunked'
-    : 'buffered';
   const statusName = `http.${statusCodeToResponseMap[status] || 'APIResponse'}`;
   const interfaceName = pascalcase(
     operationName + ` output${numbered ? status : ''}`,
   );
+
+  let parser: Parser = 'buffered';
+  if (isEmpty(response.content)) {
+    responses.push({
+      name: interfaceName,
+      schema: 'void',
+      description: response.description,
+    });
+    endpointImports[interfaceName] = {
+      defaultImport: undefined,
+      isTypeOnly: true,
+      moduleSpecifier: `../outputs/${utils.makeImport(spinalcase(operationName))}`,
+      namedImports: [{ isTypeOnly: true, name: interfaceName }],
+      namespaceImport: undefined,
+    };
+  } else {
+    const contentTypeResult = fromContentType(
+      typeScriptDeserialzer,
+      response,
+      statusName,
+    );
+    if (!contentTypeResult) {
+      throw new Error(
+        `No recognizable content type for response ${status} in operation ${operationName}`,
+      );
+    }
+    parser = contentTypeResult.parser;
+    const responseSchema = contentTypeResult.responseSchema;
+    responses.push({
+      name: interfaceName,
+      schema: responseSchema,
+      description: response.description,
+    });
+    const statusGroup = +status.slice(0, 1);
+    if (statusCode >= 400 || statusGroup >= 4) {
+      endpointImports[statusCodeToResponseMap[status] ?? 'APIError'] = {
+        moduleSpecifier: utils.makeImport('../http/response'),
+        namedImports: [{ name: statusCodeToResponseMap[status] ?? 'APIError' }],
+      };
+      endpointImports[interfaceName] = {
+        isTypeOnly: true,
+        moduleSpecifier: `../outputs/${utils.makeImport(spinalcase(operationName))}`,
+        namedImports: [{ isTypeOnly: true, name: interfaceName }],
+      };
+    } else if (
+      (statusCode >= 200 && statusCode < 300) ||
+      statusCode >= 2 ||
+      statusGroup <= 3
+    ) {
+      endpointImports[interfaceName] = {
+        defaultImport: undefined,
+        isTypeOnly: true,
+        moduleSpecifier: `../outputs/${utils.makeImport(spinalcase(operationName))}`,
+        namedImports: [{ isTypeOnly: true, name: interfaceName }],
+        namespaceImport: undefined,
+      };
+    }
+  }
 
   if (statusCode === 204) {
     outputs.push(statusName);
@@ -414,53 +470,45 @@ function handleResponse(
       );
     }
   }
-  const responseContent = get(response, ['content']);
-  const isJson = responseContent && responseContent['application/json'];
-  let responseSchema = parser === 'chunked' ? 'ReadableStream' : 'void';
-  if (isJson) {
-    const schema = responseContent['application/json'].schema!;
-    const isObject = !isRef(schema) && schema.type === 'object';
-    if (isObject && schema.properties) {
-      schema.properties['[http.KIND]'] = {
-        'x-internal': true,
-        const: `typeof ${statusName}.kind`,
-        type: 'string',
-      };
-      schema.required ??= [];
-      schema.required.push('[http.KIND]');
-    }
-    responseSchema = typeScriptDeserialzer.handle(schema, true);
-  }
 
-  responses.push({
-    name: interfaceName,
-    schema: responseSchema,
-    description: response.description,
-  });
-  const statusGroup = +status.slice(0, 1);
-  if (statusCode >= 400 || statusGroup >= 4) {
-    endpointImports[statusCodeToResponseMap[status] ?? 'APIError'] = {
-      moduleSpecifier: utils.makeImport('../http/response'),
-      namedImports: [{ name: statusCodeToResponseMap[status] ?? 'APIError' }],
-    };
-
-    endpointImports[interfaceName] = {
-      isTypeOnly: true,
-      moduleSpecifier: `../outputs/${utils.makeImport(spinalcase(operationName))}`,
-      namedImports: [{ isTypeOnly: true, name: interfaceName }],
-    };
-  } else if (
-    (statusCode >= 200 && statusCode < 300) ||
-    statusCode >= 2 ||
-    statusGroup <= 3
-  ) {
-    endpointImports[interfaceName] = {
-      defaultImport: undefined,
-      isTypeOnly: true,
-      moduleSpecifier: `../outputs/${utils.makeImport(spinalcase(operationName))}`,
-      namedImports: [{ isTypeOnly: true, name: interfaceName }],
-      namespaceImport: undefined,
-    };
-  }
   return { schemas, imports, endpointImports, responses, outputs };
+}
+
+function fromContentType(
+  typeScriptDeserialzer: TypeScriptEmitter,
+  response: ResponseObject,
+  statusName: string,
+) {
+  if ((response.headers ?? {})['Transfer-Encoding']) {
+    return {
+      parser: 'chunked' as const,
+      responseSchema: 'ReadableStream',
+    };
+  }
+  for (const type in response.content) {
+    if (isStreamingContentType(type)) {
+      return {
+        parser: 'chunked' as const,
+        responseSchema: 'ReadableStream',
+      };
+    }
+    if (parseJsonContentType(type)) {
+      const schema = response.content['application/json'].schema!;
+      const isObject = !isRef(schema) && schema.type === 'object';
+      if (isObject && schema.properties) {
+        schema.properties['[http.KIND]'] = {
+          'x-internal': true,
+          const: `typeof ${statusName}.kind`,
+          type: 'string',
+        };
+        schema.required ??= [];
+        schema.required.push('[http.KIND]');
+      }
+      return {
+        parser: 'buffered' as const,
+        responseSchema: typeScriptDeserialzer.handle(schema, true),
+      };
+    }
+  }
+  return null;
 }
