@@ -1,11 +1,12 @@
 import type { OpenAPIObject, ResponseObject } from 'openapi3-ts/oas31';
 import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
-import { isEmpty, isRef, toLitObject } from '@sdk-it/core';
+import { isEmpty, toLitObject } from '@sdk-it/core';
 import {
   type OperationPagination,
   type TunedOperationObject,
   isStreamingContentType,
+  isTextContentType,
   parseJsonContentType,
 } from '@sdk-it/spec/operation.js';
 
@@ -415,9 +416,9 @@ function handleResponse(
     };
   } else {
     const contentTypeResult = fromContentType(
+      spec,
       typeScriptDeserialzer,
       response,
-      statusName,
     );
     if (!contentTypeResult) {
       throw new Error(
@@ -475,9 +476,9 @@ function handleResponse(
 }
 
 function fromContentType(
+  spec: OpenAPIObject,
   typeScriptDeserialzer: TypeScriptEmitter,
   response: ResponseObject,
-  statusName: string,
 ) {
   if ((response.headers ?? {})['Transfer-Encoding']) {
     return {
@@ -493,22 +494,30 @@ function fromContentType(
       };
     }
     if (parseJsonContentType(type)) {
-      const schema = response.content['application/json'].schema!;
-      const isObject = !isRef(schema) && schema.type === 'object';
-      if (isObject && schema.properties) {
-        schema.properties['[http.KIND]'] = {
-          'x-internal': true,
-          const: `typeof ${statusName}.kind`,
-          type: 'string',
-        };
-        schema.required ??= [];
-        schema.required.push('[http.KIND]');
-      }
+      // const schema = response.content[type].schema
+      //   ? isRef(response.content[type].schema)
+      //     ? followRef(spec, response.content[type].schema.$ref)
+      //     : response.content[type].schema
+      //   : response.content[type].schema;
+
       return {
         parser: 'buffered' as const,
-        responseSchema: typeScriptDeserialzer.handle(schema, true),
+        responseSchema: response.content[type].schema
+          ? typeScriptDeserialzer.handle(response.content[type].schema, true)
+          : 'void',
+      };
+    }
+    if (isTextContentType(type)) {
+      return {
+        parser: 'buffered' as const,
+        responseSchema: response.content[type].schema
+          ? typeScriptDeserialzer.handle(response.content[type].schema, true)
+          : 'void',
       };
     }
   }
-  return null;
+  return {
+    parser: 'chunked' as const,
+    responseSchema: 'ReadableStream',
+  };
 }
