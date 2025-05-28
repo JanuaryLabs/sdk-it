@@ -217,10 +217,7 @@ export function generateCode(
       { makeImport: config.makeImport, style: config.style },
     );
 
-    const output = [
-      `import z from 'zod';`,
-      `import type * as http from '${config.makeImport('../http/index')}';`,
-    ];
+    const output: string[] = [];
     const responses = endpoint.responses.flatMap((it) => it.responses);
     const responsesImports = endpoint.responses.flatMap((it) =>
       Object.values(it.imports),

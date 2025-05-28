@@ -5,7 +5,9 @@ import { isEmpty, toLitObject } from '@sdk-it/core';
 import {
   type OperationPagination,
   type TunedOperationObject,
+  isErrorStatusCode,
   isStreamingContentType,
+  isSuccessStatusCode,
   isTextContentType,
   parseJsonContentType,
 } from '@sdk-it/spec/operation.js';
@@ -163,10 +165,7 @@ export function toEndpoint(
   const outputs: string[] = [];
 
   const statusesCount =
-    Object.keys(specOperation.responses).filter((status) => {
-      const statusCode = +status;
-      return statusCode >= 200 && statusCode < 300;
-    }).length > 1;
+    Object.keys(specOperation.responses).filter(isSuccessStatusCode).length > 1;
   const responseWithAtLeast200 = statusesCount
     ? specOperation.responses
     : Object.assign(
@@ -189,8 +188,6 @@ export function toEndpoint(
       status,
       responseWithAtLeast200[status],
       utils,
-      true,
-      // statusesCount,
     );
     responses.push(handled);
     outputs.push(...handled.outputs);
@@ -365,7 +362,6 @@ function handleResponse(
   status: string,
   response: ResponseObject,
   utils: { makeImport: MakeImportFn },
-  numbered: boolean,
 ) {
   const schemas: Record<string, string> = {};
   const imports: Record<string, Import> = {};
@@ -397,7 +393,7 @@ function handleResponse(
   const statusCode = +status;
   const statusName = `http.${statusCodeToResponseMap[status] || 'APIResponse'}`;
   const interfaceName = pascalcase(
-    operationName + ` output${numbered ? status : ''}`,
+    operationName + ` output${statusCode === 200 ? '' : status}`,
   );
 
   let parser: Parser = 'buffered';
@@ -432,8 +428,7 @@ function handleResponse(
       schema: responseSchema,
       description: response.description,
     });
-    const statusGroup = +status.slice(0, 1);
-    if (statusCode >= 400 || statusGroup >= 4) {
+    if (isErrorStatusCode(statusCode)) {
       endpointImports[statusCodeToResponseMap[status] ?? 'APIError'] = {
         moduleSpecifier: utils.makeImport('../http/response'),
         namedImports: [{ name: statusCodeToResponseMap[status] ?? 'APIError' }],
@@ -443,11 +438,7 @@ function handleResponse(
         moduleSpecifier: `../outputs/${utils.makeImport(spinalcase(operationName))}`,
         namedImports: [{ isTypeOnly: true, name: interfaceName }],
       };
-    } else if (
-      (statusCode >= 200 && statusCode < 300) ||
-      statusCode >= 2 ||
-      statusGroup <= 3
-    ) {
+    } else if (isSuccessStatusCode(statusCode)) {
       endpointImports[interfaceName] = {
         defaultImport: undefined,
         isTypeOnly: true,
