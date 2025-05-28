@@ -322,7 +322,7 @@ function sanitizeTag(camelCasedTag: string): string {
   // Append underscore if it's a reserved keyword
   return reservedKeywords.has(camelcase(camelCasedTag))
     ? `${camelCasedTag}_`
-    : camelCasedTag;
+    : camelCasedTag.replace('(', ' ').replace(')', '');
 }
 
 /**
@@ -540,6 +540,27 @@ export function parseJsonContentType(contentType: string | null | undefined) {
     return mainType.split('+')[1];
   }
   return null;
+}
+
+export function isTextContentType(
+  contentType: string | null | undefined,
+): boolean {
+  if (!contentType) {
+    return false; // Handle null, undefined, or empty string
+  }
+
+  // 1. Trim whitespace from the input string
+  let mainType = contentType.trim();
+  // 2. Find the position of the first semicolon (if any) to remove parameters
+  const semicolonIndex = mainType.indexOf(';');
+  if (semicolonIndex !== -1) {
+    // Extract the part before the semicolon and trim potential space
+    mainType = mainType.substring(0, semicolonIndex).trim();
+  }
+  // 3. Convert the main type part to lowercase for case-insensitive comparison
+  mainType = mainType.toLowerCase();
+  // 4. Compare against the standard text MIME types
+  return mainType.startsWith('text/'); // Catch-all for other text/* types
 }
 
 /**
