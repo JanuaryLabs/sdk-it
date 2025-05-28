@@ -204,7 +204,7 @@ export function StaticPlayground() {
   };
 
   const [activeTab, setActiveTab] =
-    useState<keyof typeof data>('pagination/page');
+    useState<keyof typeof data>('basic/TypeSafety');
 
   const treeData = Object.entries(data).reduce(
     (acc, [key, value]) => {
@@ -234,14 +234,12 @@ export function StaticPlayground() {
   const currentSnippet = {
     typescript: currentData.typescript,
     dart: '', // Add dart support when available
-    spec: ['```json', JSON.stringify(currentData.spec, null, 2), '```'].join(
-      '\n',
-    ),
+    spec: currentData.spec,
   };
   return (
     <div className="mt-8 w-full rounded-lg border">
       <Safari className="h-auto w-full" />
-      <div className="relative grid w-full grid-cols-1 gap-x-4 xl:grid-cols-9 lg:grid-cols-7 lg:gap-12">
+      <div className="relative grid w-full grid-cols-1 gap-x-4 lg:grid-cols-7 lg:gap-12 xl:grid-cols-9">
         <div className="col-span-full px-2 py-2 lg:col-span-2">
           <TreeView
             onLeafSelect={(item) => {

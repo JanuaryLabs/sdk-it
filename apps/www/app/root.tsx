@@ -1,3 +1,5 @@
+import rehypeShiki, { type RehypeShikiOptions } from '@shikijs/rehype';
+import { transformerTwoslash } from '@shikijs/twoslash';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import {
   Links,
@@ -8,6 +10,11 @@ import {
   Scripts,
   ScrollRestoration,
 } from 'react-router';
+import rehypeStringify from 'rehype-stringify';
+import rehypeTwoslash from 'rehype-twoslash';
+import remarkParse from 'remark-parse';
+import remarkRehype from 'remark-rehype';
+import { unified } from 'unified';
 
 import { createOperation } from '@sdk-it/spec';
 import {
@@ -74,10 +81,35 @@ export default function App() {
 }
 
 export async function loader({ request }: { request: Request }) {
+  const processor = unified()
+    .use(remarkParse)
+    .use(remarkRehype)
+    .use(rehypeShiki, {
+      transformers: [
+        transformerTwoslash({
+          explicitTrigger: true,
+
+          twoslashOptions: {
+            compilerOptions: {
+              lib: ['DOM', 'DOM.Iterable', 'ESNext'],
+            },
+          },
+        }),
+      ],
+      defaultColor: 'light',
+      cssVariablePrefix: '--shiki-',
+      themes: {
+        light: 'min-light',
+        dark: 'min-dark',
+      },
+    } satisfies RehypeShikiOptions)
+    .use(rehypeTwoslash)
+    .use(rehypeStringify);
+
   const isDark = (request.headers.get('Cookie') || '').includes('theme=true');
 
   const { generateSnippet } = await import('@sdk-it/typescript');
-  function snippet(
+  async function snippet(
     path: string,
     method: string,
     operation: TunedOperationObject,
@@ -99,15 +131,15 @@ export async function loader({ request }: { request: Request }) {
       { spec: spec },
       (entry, operation) => [entry, operation] as const,
     );
-    return generateSnippet(spec, { output: '' }, entry[0], entry[1], {
-      frame: true,
-    });
+    return processor.process(
+      generateSnippet(spec, { output: '' }, entry[0], entry[1]),
+    );
   }
 
   const operations = {
     'basic/TypeSafety': {
       title: 'Type Safety',
-      spec: createOperation({
+      _spec: createOperation({
         name: 'typeSafety',
         group: 'basic',
         parameters: {
@@ -138,13 +170,31 @@ export async function loader({ request }: { request: Request }) {
           },
         },
       }),
-      get typescript() {
-        return snippet('/basic/TypeSafety', 'get', this.spec);
+      _typescript() {
+        return processor.process(
+          [
+            '```typescript twoslash',
+            `import { SdkIt } from '@sdk-it/client';
+
+const client = new SdkIt({
+  baseUrl: 'http://localhost:3000',
+});
+
+const result = await client.request('POST /generate', {
+  //    ^?
+  specFile: new File([''], 'spec.yaml', {})
+  //    ^?
+});
+
+console.log(result);`,
+            '```',
+          ].join('\n'),
+        );
       },
     },
     'basic/Polymorphism': {
       title: 'Polymorphism',
-      spec: createOperation({
+      _spec: createOperation({
         name: 'polymorphism',
         group: 'basic',
         parameters: {
@@ -179,13 +229,13 @@ export async function loader({ request }: { request: Request }) {
           },
         },
       }),
-      get typescript() {
-        return snippet('/basic/Polymorphism', 'get', this.spec);
+      _typescript() {
+        return snippet('/basic/Polymorphism', 'get', this._spec);
       },
     },
     'pagination/page': {
       title: 'Page-based Pagination',
-      spec: createOperation({
+      _spec: createOperation({
         name: 'page',
         group: 'pagination',
         parameters: {
@@ -229,13 +279,13 @@ export async function loader({ request }: { request: Request }) {
           },
         },
       }),
-      get typescript() {
-        return snippet('/pagination/page', 'get', this.spec);
+      _typescript() {
+        return snippet('/pagination/page', 'get', this._spec);
       },
     },
     'pagination/cursor': {
       title: 'Cursor-based Pagination',
-      spec: createOperation({
+      _spec: createOperation({
         name: 'cursorPagination',
         group: 'pagination',
         parameters: {
@@ -279,13 +329,13 @@ export async function loader({ request }: { request: Request }) {
           },
         },
       }),
-      get typescript() {
-        return snippet('/pagination/cursor', 'get', this.spec);
+      _typescript() {
+        return snippet('/pagination/cursor', 'get', this._spec);
       },
     },
     'pagination/offset': {
       title: 'Offset-based Pagination',
-      spec: createOperation({
+      _spec: createOperation({
         name: 'offsetPagination',
         group: 'pagination',
         parameters: {
@@ -329,13 +379,13 @@ export async function loader({ request }: { request: Request }) {
           },
         },
       }),
-      get typescript() {
-        return snippet('/pagination/offset', 'get', this.spec);
+      _typescript() {
+        return snippet('/pagination/offset', 'get', this._spec);
       },
     },
     'FileUpload/streaming': {
       title: 'Streaming File Upload',
-      spec: createOperation({
+      _spec: createOperation({
         name: 'uploadFileStream',
         group: 'fileupload',
         parameters: {
@@ -373,13 +423,13 @@ export async function loader({ request }: { request: Request }) {
           },
         },
       }),
-      get typescript() {
-        return snippet('/fileupload/streaming', 'post', this.spec);
+      _typescript() {
+        return snippet('/fileupload/streaming', 'post', this._spec);
       },
     },
     'FileUpload/multipart': {
       title: 'Multipart File Upload',
-      spec: createOperation({
+      _spec: createOperation({
         name: 'uploadFileMultipart',
         group: 'fileupload',
         parameters: {
@@ -428,13 +478,13 @@ export async function loader({ request }: { request: Request }) {
           },
         },
       }),
-      get typescript() {
-        return snippet('/fileupload/multipart', 'post', this.spec);
+      _typescript() {
+        return snippet('/fileupload/multipart', 'post', this._spec);
       },
     },
     'streaming/http': {
       title: 'HTTP Streaming',
-      spec: createOperation({
+      _spec: createOperation({
         name: 'streamData',
         group: 'streaming',
         parameters: {
@@ -468,13 +518,13 @@ export async function loader({ request }: { request: Request }) {
           },
         },
       }),
-      get typescript() {
-        return snippet('/streaming/http', 'get', this.spec);
+      _typescript() {
+        return snippet('/streaming/http', 'get', this._spec);
       },
     },
     'streaming/sse': {
       title: 'Server-Sent Events',
-      spec: createOperation({
+      _spec: createOperation({
         name: 'subscribeEvents',
         group: 'streaming',
         parameters: {
@@ -506,13 +556,13 @@ export async function loader({ request }: { request: Request }) {
           '200-text/event-stream': {},
         },
       }),
-      get typescript() {
-        return snippet('/streaming/sse', 'get', this.spec);
+      _typescript() {
+        return snippet('/streaming/sse', 'get', this._spec);
       },
     },
     'streaming/filedownload': {
       title: 'Streaming File Download',
-      spec: createOperation({
+      _spec: createOperation({
         name: 'downloadFile',
         group: 'filedownload',
         parameters: {
@@ -532,13 +582,13 @@ export async function loader({ request }: { request: Request }) {
           },
         },
       }),
-      get typescript() {
-        return snippet('/filedownload/streaming', 'get', this.spec);
+      _typescript() {
+        return snippet('/filedownload/streaming', 'get', this._spec);
       },
     },
     'authentication/bearer': {
       title: 'Bearer Token Authentication',
-      spec: createOperation({
+      _spec: createOperation({
         name: 'authenticatedRequest',
         group: 'authentication',
         response: {
@@ -560,8 +610,8 @@ export async function loader({ request }: { request: Request }) {
           },
         },
       }),
-      get typescript() {
-        return snippet('/authentication/bearer', 'get', this.spec, {
+      _typescript() {
+        return snippet('/authentication/bearer', 'get', this._spec, {
           security: [
             {
               BearerAuth: [],
@@ -581,7 +631,7 @@ export async function loader({ request }: { request: Request }) {
     },
     'authentication/api-key': {
       title: 'API Key Authentication',
-      spec: createOperation({
+      _spec: createOperation({
         name: 'apiKeyRequest',
         group: 'authentication',
         parameters: {
@@ -613,8 +663,8 @@ export async function loader({ request }: { request: Request }) {
           },
         },
       }),
-      get typescript() {
-        return snippet('/authentication/api-key', 'get', this.spec, {
+      _typescript() {
+        return snippet('/authentication/api-key', 'get', this._spec, {
           security: [
             {
               ApiKey: [],
@@ -634,6 +684,20 @@ export async function loader({ request }: { request: Request }) {
       },
     },
   };
+
+  // resolve all snippets
+  for (const operation of Object.values(operations)) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    operation.typescript = String(await operation._typescript());
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    operation.spec = String(
+      await processor.process(
+        ['```json', JSON.stringify(operation._spec, null, 2), '```'].join('\n'),
+      ),
+    );
+  }
 
   return {
     isDark,

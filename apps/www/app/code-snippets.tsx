@@ -2,7 +2,6 @@ import { type ReactNode, useState } from 'react';
 import { BiLogoFlutter, BiLogoTypescript } from 'react-icons/bi';
 import { SiOpenapiinitiative } from 'react-icons/si';
 
-import { StillMarkdown } from './components/md';
 import {
   ScrollArea,
   ScrollBar,
@@ -47,23 +46,15 @@ export function Example(props: {
         availableLanguages={availableLanguages}
       />
       <div className="max-h-96 overflow-auto lg:h-[calc(100%-37px)] lg:max-h-full lg:min-h-[51vh]">
-        <StillMarkdown
+        <div
           className={cn('h-full min-w-full', {
             prose: activeLanguage === 'spec',
-            // prose: true,
           })}
-          id={activeLanguage}
-          content={props.snippet[activeLanguage]}
-        />
+          dangerouslySetInnerHTML={{
+            __html: props.snippet[activeLanguage] || '',
+          }}
+        ></div>
       </div>
-      {/* <div className="h-[40vh]">
-        <Editor
-          key={activeLanguage}
-          readonly
-          language={activeLanguage === 'spec' ? 'json' : activeLanguage}
-          value={(props.snippet[activeLanguage] || '').substring(14,)}
-        />
-      </div> */}
     </div>
   );
 }

@@ -17,7 +17,7 @@
     "noUnusedLocals": false,
     "skipLibCheck": true,
     "strict": true,
-    "target": "es2022",
+    "target": "ESNext",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "forceConsistentCasingInFileNames": true

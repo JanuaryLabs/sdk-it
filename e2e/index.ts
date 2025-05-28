@@ -45,6 +45,11 @@ const specs = [
     flags: ['--readme=false', '--error-as-value=true'],
   },
   {
+    name: 'Serverize',
+    spec: 'https://raw.githubusercontent.com/JanuaryLabs/serverize/refs/heads/main/openapi.json',
+    flags: [],
+  },
+  {
     name: 'Turso',
     spec: 'https://raw.githubusercontent.com/tursodatabase/turso-docs/refs/heads/main/api-reference/openapi.json',
     flags: [],

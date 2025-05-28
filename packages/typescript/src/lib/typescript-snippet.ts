@@ -198,7 +198,7 @@ export class TypeScriptGenerator {
       '',
       payload.footer,
     ];
-    if (config.frame) {
+    if (config.frame!== false) {
       content.unshift('```typescript');
       content.push('```');
     }

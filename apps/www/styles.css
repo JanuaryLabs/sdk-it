@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
+@import '@shikijs/twoslash/style-rich.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -902,7 +903,6 @@ body.dark .shiki span {
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
   --shadow-2xl: var(--shadow-2xl);
-
 }
 
 .text-blue-700 {

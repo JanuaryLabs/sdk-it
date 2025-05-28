@@ -743,5 +743,181 @@
     "conversationId": "2KxJGaMfx4c4XguB",
     "role": "assistant",
     "content": "In the Figma API, what you might refer to as \"screens\" are represented as \"CANVAS\" nodes. You can retrieve these by using either the `operation_getFile` or `operation_getFileNodes` operations.\n\nTo get all the \"screens\" (CANVAS nodes) in a file, you would typically use `operation_getFile` to retrieve the entire file's JSON structure and then parse it to find nodes of type `CANVAS`.\n\nWould you like a code snippet for `operation_getFile`?"
+  },
+  {
+    "conversationId": "SFFVqj46B1Vq9Gv0",
+    "type": "tool-call",
+    "toolCallId": "toolu_01LSUFzDzavM7yxL3Ei7Twqp",
+    "toolName": "createTodo",
+    "args": {
+      "todoList": "1. Provide a comprehensive getting started guide for the Figma API\n2. Explain client setup and authentication\n3. Show basic usage examples with common operations\n4. Mention key concepts and file structure"
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "SFFVqj46B1Vq9Gv0",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "My TODO list is 1. Provide a comprehensive getting started guide for the Figma API\n2. Explain client setup and authentication\n3. Show basic usage examples with common operations\n4. Mention key concepts and file structure. I will proceed with the next steps.",
+        "toolCallId": "toolu_01LSUFzDzavM7yxL3Ei7Twqp",
+        "toolName": "createTodo"
+      }
+    ]
+  },
+  {
+    "conversationId": "SFFVqj46B1Vq9Gv0",
+    "role": "assistant",
+    "content": "# Getting Started with the Figma API\n\nWelcome! Here's a comprehensive guide to get you started with the Figma API using the TypeScript SDK.\n\n## 1. Client Setup\n\nFirst, you'll need to set up the API client:\n\n```typescript\nimport { Client } from 'sdk';\n\nconst client = new Client({ \n    baseUrl: 'https://api.figma.com'\n});\n```\n\n## 2. Authentication\n\nYou'll need a Figma personal access token to authenticate your requests. You can generate one from your Figma account settings. Include it in your requests using headers:\n\n```typescript\nconst headers = {\n    'X-Figma-Token': 'your-personal-access-token'\n};\n```\n\n## 3. Key Concepts\n\n- **File Key**: A unique identifier for Figma files, found in the URL: `https://www.figma.com/file/{file_key}/{title}`\n- **Node ID**: Identifies specific elements within a file\n- **Team ID**: Identifies teams and organizations\n- **Project ID**: Identifies projects within teams\n\n## 4. Common Starting Points\n\nHere are some typical operations you might want to try:\n\n### Get Your User Information\nStart by getting information about the authenticated user:\n- Operation: `operation_getMe` - Get current user details\n\n### Explore Files\n- `operation_getFile` - Get complete file data including all nodes\n- `operation_getFileNodes` - Get specific nodes from a file\n- `operation_getFileMeta` - Get file metadata (lighter weight)\n\n### Work with Teams and Projects\n- `operation_getTeamProjects` - List projects in a team\n- `operation_getProjectFiles` - List files in a project\n\n### Export and Images\n- `operation_getImages` - Render images from file nodes\n- `operation_getImageFills` - Get image fill assets\n\n## 5. Next Steps\n\n1. **Choose an operation** from the available list based on what you want to accomplish\n2. **Ask for a specific code example** - I can generate TypeScript code snippets for any operation\n3. **Provide your specific parameters** like file keys, node IDs, or team IDs\n\nWould you like me to generate a code snippet for any specific operation? Just let me know what you'd like to do (e.g., \"get file data\", \"list team projects\", \"render images\") and provide any relevant IDs you have!"
+  },
+  {
+    "conversationId": "iD3nTDgjyspafmmb",
+    "role": "assistant",
+    "content": "To get started, you'll first need to initialize the API client. Here's how you can do it:\n\n```typescript\nimport { Client } from 'sdk';\n\nconst client = new Client({\n\tbaseUrl: 'https://api.figma.com'\n});\n```\n\nOnce the client is initialized, you can use the following operations:\n\n*   `operation_getFile`: Get file JSON\n*   `operation_getFileNodes`: Get file JSON for specific nodes\n*   `operation_getImages`: Render images of file nodes\n*   `operation_getImageFills`: Get image fills\n*   `operation_getFileMeta`: Get file metadata\n*   `operation_getTeamProjects`: Get projects in a team\n*   `operation_getProjectFiles`: Get files in a project\n*   `operation_getFileVersions`: Get versions of a file\n*   `operation_getComments`: Get comments in a file\n*   `operation_postComment`: Add a comment to a file\n*   `operation_deleteComment`: Delete a comment\n*   `operation_getCommentReactions`: Get reactions for a comment\n*   `operation_postCommentReaction`: Add a reaction to a comment\n*   `operation_deleteCommentReaction`: Delete a reaction\n*   `operation_getMe`: Get current user\n*   `operation_getTeamComponents`: Get team components\n*   `operation_getFileComponents`: Get file components\n*   `operation_getComponent`: Get component\n*   `operation_getTeamComponentSets`: Get team component sets\n*   `operation_getFileComponentSets`: Get file component sets\n*   `operation_getComponentSet`: Get component set\n*   `operation_getTeamStyles`: Get team styles\n*   `operation_getFileStyles`: Get file styles\n*   `operation_getStyle`: Get style\n*   `operation_postWebhook`: Create a webhook\n*   `operation_getWebhook`: Get a webhook\n*   `operation_putWebhook`: Update a webhook\n*   `operation_deleteWebhook`: Delete a webhook\n*   `operation_getTeamWebhooks`: Get team webhooks\n*   `operation_getWebhookRequests`: Get webhook requests\n*   `operation_getActivityLogs`: Get activity logs\n*   `operation_getPayments`: Get payments\n*   `operation_getLocalVariables`: Get local variables\n*   `operation_getPublishedVariables`: Get published variables\n*   `operation_postVariables`: Create/modify/delete variables\n*   `operation_getDevResources`: Get dev resources\n*   `operation_postDevResources`: Create dev resources\n*   `operation_putDevResources`: Update dev resources\n*   `operation_deleteDevResource`: Delete a dev resource\n*   `operation_getLibraryAnalyticsComponentActions`: Get library analytics component action data.\n*   `operation_getLibraryAnalyticsComponentUsages`: Get library analytics component usage data.\n*   `operation_getLibraryAnalyticsStyleActions`: Get library analytics style action data.\n*   `operation_getLibraryAnalyticsStyleUsages`: Get library analytics style usage data.\n*   `operation_getLibraryAnalyticsVariableActions`: Get library analytics variable action data.\n*   `operation_getLibraryAnalyticsVariableUsages`: Get library analytics variable usage data.\n\nPlease let me know which operation you're interested in, and I can provide more details or generate a code snippet for you."
+  },
+  {
+    "conversationId": "7nsDyZXZZjPtPFQA",
+    "role": "assistant",
+    "content": "I can't help you create a bot. The available API operations do not support bot creation."
+  },
+  {
+    "conversationId": "7nsDyZXZZjPtPFQA",
+    "role": "assistant",
+    "content": "I can help you interact with the Figma API. Here are some of the things you can do:\n\n*   **Get file information**: Retrieve details about Figma files, including their JSON structure, specific nodes, images, and metadata.\n*   **Manage comments**: Get, post, and delete comments on Figma files, and manage reactions to comments.\n*   **Access user information**: Get details about the currently authenticated user.\n*   **Manage components and styles**: Get information about components and styles within teams and files.\n*   **Manage webhooks**: Create, retrieve, update, and delete webhooks, and view webhook requests.\n*   **Access activity logs and payments**: Retrieve activity logs and payment information.\n*   **Manage variables**: Get local and published variables, and create, modify, or delete variables.\n*   **Manage dev resources**: Get, create, update, and delete dev resources.\n*   **Get library analytics**: Retrieve analytics data for component, style, and variable actions and usages.\n\nWhat would you like to do?"
+  },
+  {
+    "conversationId": "7nsDyZXZZjPtPFQA",
+    "type": "tool-call",
+    "toolCallId": "VQzMhvUYOJ8lMTjC",
+    "toolName": "createTodo",
+    "args": {
+      "todoList": "List all operations related to \"file info\" and provide a brief description for each, then ask the user to specify what kind of file information they are looking for."
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "7nsDyZXZZjPtPFQA",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "My TODO list is List all operations related to \"file info\" and provide a brief description for each, then ask the user to specify what kind of file information they are looking for.. I will proceed with the next steps.",
+        "toolCallId": "VQzMhvUYOJ8lMTjC",
+        "toolName": "createTodo"
+      }
+    ]
+  },
+  {
+    "conversationId": "7nsDyZXZZjPtPFQA",
+    "role": "assistant",
+    "content": "Here are the operations related to file information:\n\n*   **Get file JSON (`operation_getFile`)**: Returns the document identified by `file_key` as a JSON object.\n*   **Get file JSON for specific nodes (`operation_getFileNodes`)**: Returns the nodes referenced by `ids` as a JSON object from a Figma file.\n*   **Render images of file nodes (`operation_getImages`)**: Renders images from a file based on node IDs.\n*   **Get image fills (`operation_getImageFills`)**: Returns download links for all images present in image fills in a document.\n*   **Get file metadata (`operation_getFileMeta`)**: Retrieves metadata for a specified file.\n*   **Get versions of a file (`operation_getFileVersions`)**: Fetches the version history of a file.\n*   **Get file components (`operation_getFileComponents`)**: Gets a list of published components within a file library.\n*   **Get file component sets (`operation_getFileComponentSets`)**: Gets a list of published component sets within a file library.\n*   **Get file styles (`operation_getFileStyles`)**: Gets a list of published styles within a file library.\n*   **Get local variables (`operation_getLocalVariables`)**: Enumerates local variables created in the file and remote variables used in the file.\n*   **Get published variables (`operation_getPublishedVariables`)**: Returns the variables that are published from the given file.\n*   **Create/modify/delete variables (`operation_postVariables`)**: Allows bulk creation, updating, and deletion of variables and variable collections.\n*   **Get dev resources (`operation_getDevResources`)**: Retrieves dev resources in a file.\n\nWhat kind of file information are you looking for? For example, are you interested in the file's content, images, metadata, or something else?"
+  },
+  {
+    "conversationId": "7nsDyZXZZjPtPFQA",
+    "type": "tool-call",
+    "toolCallId": "1U8gpE4oiA7m7EnK",
+    "toolName": "createTodo",
+    "args": {
+      "todoList": "List all operations related to \"file styles\" and provide a brief description for each, then ask the user to specify what kind of file styles information they are looking for."
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "7nsDyZXZZjPtPFQA",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "My TODO list is List all operations related to \"file styles\" and provide a brief description for each, then ask the user to specify what kind of file styles information they are looking for.. I will proceed with the next steps.",
+        "toolCallId": "1U8gpE4oiA7m7EnK",
+        "toolName": "createTodo"
+      }
+    ]
+  },
+  {
+    "conversationId": "7nsDyZXZZjPtPFQA",
+    "role": "assistant",
+    "content": "Here are the operations related to file styles:\n\n*   **Get file styles (`operation_getFileStyles`)**: Gets a list of published styles within a file library.\n*   **Get style (`operation_getStyle`)**: Gets metadata on a style by key.\n*   **Get library analytics style actions (`operation_getLibraryAnalyticsStyleActions`)**: Returns a list of library analytics style actions data broken down by the requested dimension.\n*   **Get library analytics style usages (`operation_getLibraryAnalyticsStyleUsages`)**: Returns a list of library analytics style usage data broken down by the requested dimension.\n\nWhat kind of file styles information are you looking for? For example, are you interested in getting a list of styles, metadata for a specific style, or analytics related to style actions or usages?"
+  },
+  {
+    "conversationId": "7nsDyZXZZjPtPFQA",
+    "type": "tool-call",
+    "toolCallId": "OjxVvbHd2Q21Vquk",
+    "toolName": "createTodo",
+    "args": {
+      "todoList": "Generate a TypeScript code snippet for the `getFileStyles` operation. The user is asking for 'just the styles', which implies they want to retrieve the list of styles in a file. The `getFileStyles` operation is the most appropriate for this request."
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "7nsDyZXZZjPtPFQA",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "My TODO list is Generate a TypeScript code snippet for the `getFileStyles` operation. The user is asking for 'just the styles', which implies they want to retrieve the list of styles in a file. The `getFileStyles` operation is the most appropriate for this request.. I will proceed with the next steps.",
+        "toolCallId": "OjxVvbHd2Q21Vquk",
+        "toolName": "createTodo"
+      }
+    ]
+  },
+  {
+    "conversationId": "7nsDyZXZZjPtPFQA",
+    "type": "tool-call",
+    "toolCallId": "qKK9PfIDb4ykKMD6",
+    "toolName": "getOperations",
+    "args": {
+      "operationsIds": [
+        "operation_getFileStyles"
+      ]
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "7nsDyZXZZjPtPFQA",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "[{\"operationId\":\"getFileStyles\",\"method\":\"get\",\"parameters\":[{\"name\":\"file_key\",\"in\":\"path\",\"description\":\"File to list styles from. This must be a main file key, not a branch key, as it is not possible to publish from branches.\",\"required\":true,\"schema\":{\"type\":\"string\"}}],\"path\":\"/v1/files/{file_key}/styles\",\"description\":\"Get a list of published styles within a file library.\",\"summary\":\"Get file styles\"}]",
+        "toolCallId": "qKK9PfIDb4ykKMD6",
+        "toolName": "getOperations"
+      }
+    ]
+  },
+  {
+    "conversationId": "7nsDyZXZZjPtPFQA",
+    "role": "assistant",
+    "content": "I am using the verified information from `getOperations`.\n\nTo get the styles from a file, you can use the `getFileStyles` operation. You will need to provide the `file_key` as a path parameter.\n\nHere's a TypeScript code snippet:\n\n"
+  },
+  {
+    "conversationId": "7nsDyZXZZjPtPFQA",
+    "type": "tool-call",
+    "toolCallId": "9Z4hgtFoqmW41GzD",
+    "toolName": "generateSnippet",
+    "args": {
+      "operationId": "operation_getFileStyles",
+      "requestBody": "{}",
+      "queryParameters": "{}",
+      "pathParameters": "{\"file_key\": \"YOUR_FILE_KEY\"}",
+      "headers": "{}",
+      "cookies": "{}"
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "7nsDyZXZZjPtPFQA",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": {
+          "content": "const result = await client.request('GET /v1/files/{file_key}/styles', {\n  \"file_key\": \"YOUR_FILE_KEY\"\n});;",
+          "footer": "console.log(result.data)"
+        },
+        "toolCallId": "9Z4hgtFoqmW41GzD",
+        "toolName": "generateSnippet"
+      }
+    ]
+  },
+  {
+    "conversationId": "7nsDyZXZZjPtPFQA",
+    "role": "assistant",
+    "content": "```typescript\nimport { Client } from 'sdk';\n\nconst client = new Client({ \n\tbaseUrl: 'https://api.figma.com'\n});\n\nconst result = await client.request('GET /v1/files/{file_key}/styles', {\n  \"file_key\": \"YOUR_FILE_KEY\"\n});;\nconsole.log(result.data)\n```\n\nRemember to replace `\"YOUR_FILE_KEY\"` with the actual key of your Figma file."
   }
 ]

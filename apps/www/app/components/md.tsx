@@ -20,26 +20,24 @@ function parseMarkdownIntoBlocks(markdown?: string): string[] {
 const MemoizedMarkdownBlock = memo(
   ({ content, className }: { content: string; className?: string }) => {
     return (
-      <div className={cn('', className)}>
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[
-            [
-              rehypeShiki,
-              {
-                defaultColor: 'light',
-                cssVariablePrefix: '--shiki-',
-                themes: {
-                  light: 'min-light',
-                  dark: 'min-dark',
-                },
-              } satisfies RehypeShikiOptions,
-            ],
-          ]}
-        >
-          {content}
-        </ReactMarkdown>
-      </div>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[
+          [
+            rehypeShiki,
+            {
+              defaultColor: 'light',
+              cssVariablePrefix: '--shiki-',
+              themes: {
+                light: 'min-light',
+                dark: 'min-dark',
+              },
+            } satisfies RehypeShikiOptions,
+          ],
+        ]}
+      >
+        {content}
+      </ReactMarkdown>
     );
   },
   (prevProps, nextProps) => {
@@ -62,13 +60,17 @@ export const StillMarkdown = memo(
   }) => {
     const blocks = useMemo(() => parseMarkdownIntoBlocks(content), [content]);
 
-    return blocks.map((block, index) => (
-      <MemoizedMarkdownBlock
-        className={className}
-        content={block}
-        key={`${id}-block_${index}`}
-      />
-    ));
+    return (
+      <div className={cn('', className)}>
+        {blocks.map((block, index) => (
+          <MemoizedMarkdownBlock
+            className={className}
+            content={block}
+            key={`${id}-block_${index}`}
+          />
+        ))}
+      </div>
+    );
   },
 );
 
