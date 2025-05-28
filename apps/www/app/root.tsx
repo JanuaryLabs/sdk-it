@@ -137,12 +137,12 @@ export async function loader({ request }: { request: Request }) {
     );
   }
 
-//   const client = new Serverize({
-//     baseUrl: 'http://localhost:3000',
-//   });
-//  const [r]= await client.request('GET /projects', {
-//     workspaceId: 'example-workspace',
-//   });
+  //   const client = new Serverize({
+  //     baseUrl: 'http://localhost:3000',
+  //   });
+  //  const [r]= await client.request('GET /projects', {
+  //     workspaceId: 'example-workspace',
+  //   });
   const operations = {
     'basic/TypeSafety': {
       title: 'Type Safety',

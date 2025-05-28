@@ -45,7 +45,14 @@ export function Example(props: {
         setActiveLanguage={(lang) => setActiveLanguage(lang)}
         availableLanguages={availableLanguages}
       />
-      <div className="max-h-96 overflow-auto lg:h-[calc(100%-37px)] lg:max-h-full lg:min-h-[51vh]">
+      <div
+        className={cn(
+          'max-h-96 lg:h-[calc(100%-37px)] lg:max-h-full lg:min-h-[51vh]',
+          {
+            'overflow-auto': activeLanguage === 'spec',
+          },
+        )}
+      >
         <div
           className={cn('h-full min-w-full', {
             prose: activeLanguage === 'spec',

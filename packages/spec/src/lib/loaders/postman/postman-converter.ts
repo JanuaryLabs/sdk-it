@@ -1,3 +1,4 @@
+import { parse } from 'fast-content-type-parse';
 import type {
   ContentObject,
   OpenAPIObject,
@@ -433,7 +434,7 @@ function requestToOperation(
                   ? headers.splice(contentTypeIdx).map((h) => h.value)
                   : [];
               const contentType = response.body
-                ? contentTypeValue || 'application/json'
+                ? parse(contentTypeValue || 'application/json')?.type
                 : 'application/octet-stream';
 
               return {
@@ -556,7 +557,7 @@ function bodyToSchema(bodyString?: string | null): SchemaObject | undefined {
 
   let body: unknown;
   try {
-    body = JSON.parse(bodyString);
+    body = JSON.parse(bodyString.normalize('NFKD'));
   } catch (error) {
     console.warn(
       `Failed to parse JSON body: ${bodyString}. Treating as plain string.`,
