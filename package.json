@@ -20,7 +20,7 @@
     "@nx/vite": "20.8.1",
     "@nx/web": "20.8.1",
     "@react-router/dev": "^7.5.3",
-    "@serverize/client": "^0.60.1",
+    "@serverize/client": "^0.60.2",
     "@shikijs/rehype": "^3.4.2",
     "@shikijs/twoslash": "^3.4.2",
     "@swc-node/register": "~1.9.1",

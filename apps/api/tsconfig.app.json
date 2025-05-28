@@ -21,13 +21,19 @@
       "path": "../../packages/dart/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/core/tsconfig.lib.json"
-    },
-    {
       "path": "../../packages/spec/tsconfig.lib.json"
     },
     {
+      "path": "../../packages/core/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/typescript/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/hono/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/generic/tsconfig.lib.json"
     }
   ]
 }

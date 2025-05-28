@@ -1,3 +1,4 @@
+import { Serverize } from '@serverize/client';
 import rehypeShiki, { type RehypeShikiOptions } from '@shikijs/rehype';
 import { transformerTwoslash } from '@shikijs/twoslash';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
@@ -136,6 +137,12 @@ export async function loader({ request }: { request: Request }) {
     );
   }
 
+//   const client = new Serverize({
+//     baseUrl: 'http://localhost:3000',
+//   });
+//  const [r]= await client.request('GET /projects', {
+//     workspaceId: 'example-workspace',
+//   });
   const operations = {
     'basic/TypeSafety': {
       title: 'Type Safety',
@@ -174,16 +181,14 @@ export async function loader({ request }: { request: Request }) {
         return processor.process(
           [
             '```typescript twoslash',
-            `import { SdkIt } from '@sdk-it/client';
+            `import { Serverize } from '@serverize/client';
 
-const client = new SdkIt({
+const client = new Serverize({
   baseUrl: 'http://localhost:3000',
 });
 
-const result = await client.request('POST /generate', {
-  //    ^?
-  specFile: new File([''], 'spec.yaml', {})
-  //    ^?
+const [result] = await client.request('GET /projects', {
+  workspaceId: '${crypto.randomUUID()}',
 });
 
 console.log(result);`,
