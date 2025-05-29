@@ -1,14 +1,9 @@
 import HTTPSnippet from 'httpsnippet';
-import type {
-  OpenAPIObject,
-  ParameterObject,
-  RequestBodyObject,
-} from 'openapi3-ts/oas31';
+import type { ParameterObject, RequestBodyObject } from 'openapi3-ts/oas31';
 import type { ShouldRevalidateFunctionArgs } from 'react-router';
 import {
   Links,
   type LinksFunction,
-  Meta,
   type MetaFunction,
   Outlet,
   Scripts,
@@ -16,7 +11,7 @@ import {
 } from 'react-router';
 
 import { followRef, isRef } from '@sdk-it/core';
-import { loadRemote } from '@sdk-it/spec/loaders/remote-loader.js';
+import { loadSpec } from '@sdk-it/spec';
 import {
   type TunedOperationObject,
   augmentSpec,
@@ -26,7 +21,9 @@ import { toSidebar } from '@sdk-it/spec/sidebar.js';
 import { TypeScriptGenerator } from '@sdk-it/typescript';
 
 import type { AugmentedOperation } from './api-doc/types';
+import { cn } from './shadcn/cn';
 import './styles.css';
+import { useRootData } from './use-root-data';
 
 export const meta: MetaFunction = (args) => {
   return [
@@ -66,12 +63,19 @@ export const links: LinksFunction = () => [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const { isDark } = useRootData();
   return (
-    <html lang="en" className="light">
+    <html
+      lang="en"
+      className={cn(
+        typeof isDark === 'boolean' ? (isDark ? 'dark' : '') : '',
+        'overflow-x-hidden',
+      )}
+    >
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <Meta />
+        {/* <Meta /> */}
         <Links />
       </head>
       <body className="invisible">
@@ -97,6 +101,7 @@ export async function loader({
   // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
   // 'https://api.openstatus.dev/v1/openapi',
 
+  const isIframe = request.headers.get('Sec-Fetch-Dest') === 'iframe';
   const urlObj = new URL(request.url);
   const specUrl =
     urlObj.searchParams.get('spec') ??
@@ -105,7 +110,7 @@ export async function loader({
       ? 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml'
       : // ?'https://raw.githubusercontent.com/readmeio/oas-examples/main/3.1/json/petstore.json'
         '');
-  const spec = augmentSpec({ spec: await loadRemote<OpenAPIObject>(specUrl) });
+  const spec = augmentSpec({ spec: await loadSpec(specUrl) });
 
   const operationsMap: Record<
     string,
@@ -221,6 +226,7 @@ export async function loader({
     spec,
     sidebar: toSidebar(spec),
     operationsMap,
+    isDark: isIframe ? urlObj.searchParams.get('theme') === 'dark' : null,
   };
 }
 // export function ErrorBoundary(a: any) {

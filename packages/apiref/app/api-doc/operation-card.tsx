@@ -66,7 +66,7 @@ export function OperationCard({
 
         <div id="right" className="h-full self-start rounded">
           <EditorTabs
-            className="border border-b bg-[#101010]"
+            className="border border-b light:bg-muted/20"
             tabs={tabsConfig}
           />
         </div>

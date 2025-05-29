@@ -3,6 +3,7 @@ import React from 'react';
 
 import type { TunedOperationObject } from '@sdk-it/spec/operation.js';
 
+import { Description } from './description';
 import { ParametersComponent } from './parameters-component';
 import { RequestBodyComponent } from './request-body-component';
 import { ResponsesComponent } from './responses-component';
@@ -24,9 +25,7 @@ export class JSXEmitter {
   handle(operation: TunedOperationObject): React.ReactNode {
     return (
       <div className="">
-        {operation.description && (
-          <div className="">{operation.description}</div>
-        )}
+        <Description description={operation.description} />
 
         {operation.parameters.length > 0 && (
           <div className="mt-6 space-y-6">

@@ -105,6 +105,7 @@
     "ink": "^5.2.0",
     "ink-markdown": "^1.0.4",
     "inquirer": "^12.6.0",
+    "js-cookie": "^3.0.5",
     "js-yaml": "^4.1.0",
     "libnpmpublish": "^11.0.0",
     "lodash-es": "^4.17.21",

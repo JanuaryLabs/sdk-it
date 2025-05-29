@@ -10,7 +10,6 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarProvider,
-  SidebarRail,
 } from './shadcn/sidebar';
 import { NavMain } from './sidebar/nav';
 import { SpecProvider } from './spec-context';
@@ -23,11 +22,10 @@ export function HydrateFallback() {
 export default function Embed() {
   const { spec, sidebar } = useRootData();
   useScrollOperations();
-
   return (
     <SpecProvider spec={spec}>
       <SidebarProvider>
-        <Sidebar collapsible="none">
+        <Sidebar collapsible="offcanvas">
           <SidebarHeader>
             <SearchCmdk />
           </SidebarHeader>

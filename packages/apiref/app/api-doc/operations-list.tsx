@@ -1,9 +1,9 @@
 import { motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 
+import { Description } from '../components/description';
 import { Separator } from '../shadcn/separator';
 import { useRootData } from '../use-root-data';
-import { MD } from './md';
 import { OperationCard } from './operation-card';
 
 function useMounted() {
@@ -28,7 +28,7 @@ export function OperationsList() {
           {category.items.map((group) => (
             <div key={group.title} className="api-doc-section mb-8">
               <h3 className="mb-4 text-3xl font-semibold">{group.title}</h3>
-              <MD id={group.id} content={group.description} />
+              <Description id={group.id} description={group.description} />
               <Separator className="mt-12" />
               <div className="grid gap-6">
                 {group.items?.map((item) => {

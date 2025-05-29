@@ -8,8 +8,13 @@ const processor = unified()
   .use(remarkParse)
   .use(remarkRehype, { allowDangerousHtml: true })
   .use(rehypeShiki, {
-    theme: 'vesper',
-    langs: ['typescript', 'dart', 'shell'],
+    defaultColor: 'light',
+    cssVariablePrefix: '--shiki-',
+    themes: {
+      light: 'min-light',
+      dark: 'vesper',
+    },
+    langs: ['typescript', 'dart', 'shell', 'json'],
   } satisfies RehypeShikiOptions)
   .use(rehypeStringify);
 onmessage = (event) => {

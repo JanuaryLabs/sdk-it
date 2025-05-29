@@ -9,8 +9,7 @@ import {
   SidebarContent,
   SidebarHeader,
   SidebarInset,
-  SidebarProvider,
-  SidebarRail,
+  SidebarProvider
 } from './shadcn/sidebar';
 import { NavMain } from './sidebar/nav';
 import { SpecProvider } from './spec-context';
