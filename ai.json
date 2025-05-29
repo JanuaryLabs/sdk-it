@@ -919,5 +919,770 @@
     "conversationId": "7nsDyZXZZjPtPFQA",
     "role": "assistant",
     "content": "```typescript\nimport { Client } from 'sdk';\n\nconst client = new Client({ \n\tbaseUrl: 'https://api.figma.com'\n});\n\nconst result = await client.request('GET /v1/files/{file_key}/styles', {\n  \"file_key\": \"YOUR_FILE_KEY\"\n});;\nconsole.log(result.data)\n```\n\nRemember to replace `\"YOUR_FILE_KEY\"` with the actual key of your Figma file."
+  },
+  {
+    "conversationId": "mANLZSvupgAfSP13",
+    "role": "assistant",
+    "content": "Here are the available operations:\n\noperationId: operation_createTodo\nsdk style: 'POST /todo'\nmethod: post http method\nendpoint: /todo\nsummary: Create a TODO item in the repository.\ndescription: It will not obtain new information or make any changes to the repository, but just log the TODO item. Use it when you need to outline your next steps or actions.\n\noperationId: operation_generateSnippet\nsdk style: 'POST /snippet'\nmethod: post http method\nendpoint: /snippet\nsummary: Generate a code snippet in TypeScript for the specified operation ID.\ndescription: N/A\n\noperationId: operation_getSchemaDefinition\nsdk style: 'GET /schema'\nmethod: get http method\nendpoint: /schema\nsummary: Get the schema definition for a given reference path.\ndescription: N/A\n\noperationId: operation_getOperations\nsdk style: 'GET /operations'\nmethod: get http method\nendpoint: /operations\nsummary: Find list of operation in the OpenAPI spec.\ndescription: N/A\n\nTo get started, you can choose an operation from the list above and I can help you generate a code snippet for it or explain its details. For example, you could ask:\n\n*   \"How do I create a TODO item?\"\n*   \"Can you show me how to use `generateSnippet`?\"\n"
+  },
+  {
+    "conversationId": "UrMXiPgxdfhgODP1",
+    "role": "assistant",
+    "content": "I can only provide information about the available API operations. I cannot provide general information about how to create a bot."
+  },
+  {
+    "conversationId": "UrMXiPgxdfhgODP1",
+    "type": "tool-call",
+    "toolCallId": "eAlAaKft5J0AGphf",
+    "toolName": "getOperations",
+    "args": {
+      "operationsIds": []
+    }
+  },
+  {
+    "conversationId": "DJjx4s4ASq79oZjo",
+    "type": "tool-call",
+    "toolCallId": "Z5pAYMklMuJyjyQ5",
+    "toolName": "createTodo",
+    "args": {
+      "todoList": "User wants to see all available operations. I should list them out by their operationId and a brief description (summary)."
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "DJjx4s4ASq79oZjo",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "My TODO list is User wants to see all available operations. I should list them out by their operationId and a brief description (summary).. I will proceed with the next steps.",
+        "toolCallId": "Z5pAYMklMuJyjyQ5",
+        "toolName": "createTodo"
+      }
+    ]
+  },
+  {
+    "conversationId": "DJjx4s4ASq79oZjo",
+    "role": "assistant",
+    "content": "Here is a list of all the available operations:\n\n*   **operation_postRestV2RefreshToken**: Refresh Token\n*   **operation_getRestV2HealthCheck**: Health Check\n*   **operation_getRestV2AccountInfo**: Account Info\n*   **operation_postRestV2BuyCredit**: Buy Credit\n*   **operation_getRestV2CreditTransactions**: Credit Transactions\n*   **operation_postRestV2Register**: Register\n*   **operation_postRestV2ClientInfo**: Client Info\n*   **operation_getRestV2ClientInfo**: Client Info\n*   **operation_postRestV2CreateOrder**: Create Order\n*   **operation_postRestV2UpdateOrder**: Update Order\n*   **operation_postRestV2UpdateOrderStatus**: Update Order Status\n*   **operation_postRestV2CancelOrder**: Cancel Order\n*   **operation_getRestV2Orders**: Get Orders\n*   **operation_getRestV2OrderDetails**: Get Order Details\n*   **operation_postRestV2HoldOrder**: Hold Order\n*   **operation_postRestV2UnHoldOrder**: Unhold Order\n*   **operation_postRestV2CreateShipment**: Create Shipment\n*   **operation_postRestV2CancelShipment**: Cancel Shipment\n*   **operation_getRestV2ShipmentTransactions**: Shipment Transactions\n*   **operation_postRestV2GetShippingPriceTransactionsList**: Get Shipping Price Transactions List\n*   **operation_postRestV2CreateReturnShipment**: Create Return Shipment\n*   **operation_postRestV2GetReturnLink**: Get Return Link\n*   **operation_postRestV2GetReturnDetails**: Get Return Details\n*   **operation_postRestV2TriggerReturnSms**: Trigger Return SMS\n*   **operation_getRestV2PrintOrderId**: Print AWB\n*   **operation_postRestV2OrderStatus**: Order Tracking\n*   **operation_postRestV2OrderHistory**: Order History\n*   **operation_postRestV2TrackShipment**: Track Shipment\n*   **operation_postRestV2CheckOTODeliveryFee**: Check OTO Delivery Fee\n*   **operation_postRestV2CheckDeliveryFee**: Check Delivery Fee\n*   **operation_postRestV2GetDeliveryFee**: Get Delivery Fee\n*   **operation_postRestV2GetDeliveryEstimation**: Get Delivery Estimation\n*   **operation_postRestV2CheckCoverage**: Check Coverage\n*   **operation_postRestV2AvailableCities**: Available Cities\n*   **operation_postRestV2AvailableTimeslots**: Available Time Slots\n*   **operation_postRestV2DcList**: DC List\n*   **operation_postRestV2DcConfig**: DC Config\n*   **operation_postRestV2DcActivation**: DC Activation\n*   **operation_getRestV2GetDeliveryOptions**: Get Delivery Options\n*   **operation_postRestV2GetCities**: Get Cities\n*   **operation_postRestV2CreatePickupLocation**: Create Pickup Location\n*   **operation_postRestV2UpdatePickupLocation**: Update Pickup Location\n*   **operation_getRestV2GetPickupLocationList**: Get Pickup Location List\n*   **operation_getRestV2GetBrandList**: Get List of Brands (Client Store)\n*   **operation_postRestV2CreateBrand**: Create Brand (Client Store)\n*   **operation_getRestV2SalesChannelGetSalesChannelsList**: Sales Channels List\n*   **operation_postRestV2SalesChannelGetSalesChannelConfig**: Sales Channel Config\n*   **operation_postRestV2SalesChannelSalesChannelActivation**: Sales Channel Activation\n*   **operation_postRestV2CreateProduct**: Create Product\n*   **operation_postRestV2ProductList**: Product List\n*   **operation_postRestV2AddBox**: Add Box\n*   **operation_postRestV2UpdateBox**: Update Box\n*   **operation_getRestV2GetBox**: Get Box\n*   **operation_postRestV2UpdateStockQuantity**: Update Stock Quantity\n*   **operation_getRestV2CheckInventoryStock**: Check Inventory Stock\n*   **operation_getRestV2CheckGlobalStock**: Check Global Stock\n*   **operation_postRestV2CreateInventoryOrder**: Create Inventory Order\n*   **operation_postRestV2UpdatePackingStatus**: Update Packing Status\n*   **operation_postRestV2GetPackingOrders**: Get Orders Ready For Packing\n*   **operation_postRestV2Webhook**: webhook\n*   **operation_getRestV2Webhook**: webhook\n*   **operation_putRestV2Webhook**: webhook\n*   **operation_deleteRestV2Webhook**: webhook\n*   **operation_postRestV2AssignDriver**: assignDriver\n"
+  },
+  {
+    "conversationId": "DJjx4s4ASq79oZjo",
+    "type": "tool-call",
+    "toolCallId": "S4BBmG5wFHyfPAyE",
+    "toolName": "createTodo",
+    "args": {
+      "todoList": "User wants to get information about 'operation_postRestV2DcActivation'. I should use the 'getOperations' tool to retrieve the details of this operation and then present the information to the user."
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "DJjx4s4ASq79oZjo",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "My TODO list is User wants to get information about 'operation_postRestV2DcActivation'. I should use the 'getOperations' tool to retrieve the details of this operation and then present the information to the user.. I will proceed with the next steps.",
+        "toolCallId": "S4BBmG5wFHyfPAyE",
+        "toolName": "createTodo"
+      }
+    ]
+  },
+  {
+    "conversationId": "DJjx4s4ASq79oZjo",
+    "type": "tool-call",
+    "toolCallId": "nAMtkHeEe2TQmFRT",
+    "toolName": "getOperations",
+    "args": {
+      "operationsIds": [
+        "operation_postRestV2DcActivation"
+      ]
+    }
+  },
+  {
+    "conversationId": "W8lOw32kEFmLacAF",
+    "role": "assistant",
+    "content": "To get started, you'll typically follow these steps:\n\n1.  **Authentication**: Understand how to authenticate your requests. The `Refresh Token` endpoint (`POST /rest/v2/refreshToken`) is used to obtain an `access_token`. You'll need a `refresh_token` to get an `access_token`, which then needs to be included in the headers of subsequent requests as `Authorization: Bearer your_access_token`.\n\n2.  **Explore Available Operations**: Look through the list of available operations to understand what functionalities the API offers. Some common operations include:\n    *   `Health Check` (`GET /rest/v2/healthCheck`) to ensure the system is working.\n    *   `Account Info` (`GET /rest/v2/accountInfo`) to retrieve your account details.\n    *   `Create Order` (`POST /rest/v2/createOrder`) to create new orders.\n    *   `Get Orders` (`GET /rest/v2/orders`) to retrieve a list of your orders.\n    *   `Create Shipment` (`POST /rest/v2/createShipment`) to create shipments for orders.\n\n3.  **Understand Request/Response Structures**: For each operation, you'll need to know what parameters are required in the request and what kind of data to expect in the response. You can ask me for details on specific operations, and I can provide information on their parameters and response bodies.\n\n4.  **Generate Code Snippets**: Once you know which operation you want to use and its requirements, I can help you generate TypeScript code snippets to interact with the API.\n\nLet me know if you have a specific operation in mind, or if you'd like to start with an example!"
+  },
+  {
+    "conversationId": "W8lOw32kEFmLacAF",
+    "role": "assistant",
+    "content": "This API is designed for businesses operating in the **e-commerce, logistics, and inventory management** domains. It provides a comprehensive set of functionalities to manage the entire lifecycle of an order, from creation to delivery and returns, as well as inventory and delivery company integrations.\n\nHere are some types of solutions you can build on top of this API:\n\n1.  **E-commerce Platform Integration:**\n    *   **Automated Order Processing:** Integrate your e-commerce store (e.g., Shopify, Magento, custom platforms) to automatically create orders in the system when a customer places an order.\n    *   **Real-time Order Status Updates:** Sync order statuses from the API back to your e-commerce platform or customer-facing order tracking pages.\n    *   **Product and Catalog Management:** Create and manage your product catalog directly through the API, including SKUs, prices, and images.\n\n2.  **Logistics and Shipping Management Systems:**\n    *   **Shipment Automation:** Automatically create shipments for orders, select delivery options (based on OTO rates or your own contracts), and manage pickup types.\n    *   **Advanced Shipment Tracking:** Build custom dashboards or customer portals to track shipments in real-time, get delivery estimations, and view shipment history.\n    *   **Return Management:** Facilitate customer returns by generating return links and creating return shipments.\n    *   **Delivery Fee Calculation:** Integrate delivery fee calculations into your checkout process or internal tools to provide accurate shipping costs.\n    *   **Coverage and Time Slot Checks:** Allow customers to check if their location is covered for delivery and view available delivery time slots.\n\n3.  **Warehouse and Inventory Management Systems (WMS/IMS):**\n    *   **Centralized Inventory Control:** Manage stock levels across multiple pickup locations (warehouses, branches) by updating and checking quantities.\n    *   **Inbound/Outbound Inventory Orders:** Create and manage inventory movements, useful for syncing with ERP systems for bulk item transfers.\n    *   **Pick and Pack Optimization:** Retrieve lists of orders ready for packing to streamline warehouse operations.\n    *   **Pickup Location Management:** Create and update details for your various pickup locations.\n\n4.  **Marketplace Solutions:**\n    *   **Vendor Onboarding:** If you operate a marketplace, you can use the API to register new vendors and manage their client information.\n    *   **Vendor-Specific Logistics:** Provide marketplace vendors with tools to manage their orders, shipments, and inventory through your platform, powered by this API.\n\n5.  **Customer Service and Support Tools:**\n    *   **Enhanced Customer Support:** Empower your customer service team with quick access to order details, shipment statuses, and transaction histories to resolve inquiries efficiently.\n    *   **Automated Notifications:** Set up webhooks to receive real-time updates on order status changes (e.g., delivered, returned) and trigger automated customer notifications (e.g., SMS).\n\nIn essence, this API allows you to build robust, automated solutions for managing your entire supply chain, from order placement to final delivery, with a strong emphasis on flexibility and integration with various logistics partners."
+  },
+  {
+    "conversationId": "gMySpnYY688qpFpf",
+    "role": "assistant",
+    "content": "To get started, you'll typically follow these steps:\n\n1.  **Authentication**: Understand how to authenticate your requests. The `Refresh Token` endpoint (`POST /rest/v2/refreshToken`) is used to obtain an `access_token`. You'll need a `refresh_token` to get an `access_token`, which then needs to be included in the headers of subsequent requests as `Authorization: Bearer your_access_token`.\n\n2.  **Explore Available Operations**: Look through the list of available operations to understand what functionalities the API offers. Some common operations include:\n    *   `Health Check` (`GET /rest/v2/healthCheck`) to ensure the system is working.\n    *   `Account Info` (`GET /rest/v2/accountInfo`) to retrieve your account details.\n    *   `Create Order` (`POST /rest/v2/createOrder`) to create new orders.\n    *   `Get Orders` (`GET /rest/v2/orders`) to retrieve a list of your orders.\n    *   `Create Shipment` (`POST /rest/v2/createShipment`) to create shipments for orders.\n\n3.  **Understand Request/Response Structures**: For each operation, you'll need to know what parameters are required in the request and what kind of data to expect in the response. You can ask me for details on specific operations, and I can provide information on their parameters and response bodies.\n\n4.  **Generate Code Snippets**: Once you know which operation you want to use and its requirements, I can help you generate TypeScript code snippets to interact with the API.\n\nLet me know if you have a specific operation in mind, or if you'd like to start with an example!"
+  },
+  {
+    "conversationId": "gMySpnYY688qpFpf",
+    "role": "assistant",
+    "content": "Great! To help you further, could you please tell me what you'd like to do next?\n\nFor example, you could:\n*   Ask about a specific API operation (e.g., \"Tell me about `Create Order`\").\n*   Ask for a code snippet for a particular task (e.g., \"How do I create an order?\").\n"
+  },
+  {
+    "conversationId": "gMySpnYY688qpFpf",
+    "role": "assistant",
+    "content": "Okay, \"aha\" can mean a lot of things! To make sure I'm helping you effectively, could you please clarify what you'd like to do?\n\nAre you interested in:\n\n*   Seeing an example of how to use a specific API operation?\n*   Learning more about a particular endpoint?\n*   Something else entirely?\n\nJust let me know what's on your mind!"
+  },
+  {
+    "conversationId": "VAAofieTzyaJlhlL",
+    "role": "assistant",
+    "content": "I can't provide information about creating a bot, as my capabilities are limited to answering questions about the provided API."
+  },
+  {
+    "conversationId": "VAAofieTzyaJlhlL",
+    "role": "assistant",
+    "content": "I can help you with the following:\n\n*   **Generate code snippets**: I can generate TypeScript code snippets for any of the available API operations.\n*   **Get API operation details**: I can provide detailed information about specific API operations, including their parameters, request bodies, and responses.\n*   **Get schema definitions**: If you provide a reference path, I can retrieve the definition of a schema.\n*   **Answer questions about the API**: I can answer questions related to the functionalities and usage of the API.\n\nWhat would you like to know or do today?"
+  },
+  {
+    "conversationId": "VAAofieTzyaJlhlL",
+    "type": "tool-call",
+    "toolCallId": "H2nRDW39YvxD88jA",
+    "toolName": "createTodo",
+    "args": {
+      "todoList": "1. Get details for the \"Health Check\" operation. 2. Generate a TypeScript code snippet for the \"Health Check\" operation."
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "VAAofieTzyaJlhlL",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "My TODO list is 1. Get details for the \"Health Check\" operation. 2. Generate a TypeScript code snippet for the \"Health Check\" operation.. I will proceed with the next steps.",
+        "toolCallId": "H2nRDW39YvxD88jA",
+        "toolName": "createTodo"
+      }
+    ]
+  },
+  {
+    "conversationId": "VAAofieTzyaJlhlL",
+    "role": "assistant",
+    "content": "Okay, I will show you how to use the API by demonstrating the \"Health Check\" operation.\n"
+  },
+  {
+    "conversationId": "VAAofieTzyaJlhlL",
+    "type": "tool-call",
+    "toolCallId": "afMh5BIierXpsHNt",
+    "toolName": "getOperations",
+    "args": {
+      "operationsIds": "operation_getRestV2HealthCheck"
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "VAAofieTzyaJlhlL",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "[{\"operationId\":\"getRestV2HealthCheck\",\"method\":\"get\",\"parameters\":[],\"path\":\"/rest/v2/healthCheck\",\"description\":\"**Available Packages:** All Packages\\n\\nThis API endpoint is used to check if the system is working properly\",\"summary\":\"Health Check\"}]",
+        "toolCallId": "afMh5BIierXpsHNt",
+        "toolName": "getOperations"
+      }
+    ]
+  },
+  {
+    "conversationId": "VAAofieTzyaJlhlL",
+    "role": "assistant",
+    "content": "I am using the verified information from `getOperations`.\n\nThe `Health Check` endpoint is a simple GET request with no parameters. It's used to check if the system is working properly.\n\nHere's how you can call it:\n\n"
+  },
+  {
+    "conversationId": "VAAofieTzyaJlhlL",
+    "type": "tool-call",
+    "toolCallId": "DWUx221EkJ3DpTlx",
+    "toolName": "generateSnippet",
+    "args": {
+      "operationId": "operation_getRestV2HealthCheck",
+      "requestBody": "{}",
+      "queryParameters": "{}",
+      "pathParameters": "{}",
+      "headers": "{}",
+      "cookies": "{}"
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "VAAofieTzyaJlhlL",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": {
+          "content": "const result = await client.request('GET /rest/v2/healthCheck', {});;",
+          "footer": "console.log(result.data)"
+        },
+        "toolCallId": "DWUx221EkJ3DpTlx",
+        "toolName": "generateSnippet"
+      }
+    ]
+  },
+  {
+    "conversationId": "VAAofieTzyaJlhlL",
+    "role": "assistant",
+    "content": "```typescript\nconst result = await client.request('GET /rest/v2/healthCheck', {});;\nconsole.log(result.data)\n```"
+  },
+  {
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "role": "assistant",
+    "content": "I can't provide information about creating a bot, as my capabilities are limited to answering questions about the provided API."
+  },
+  {
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "role": "assistant",
+    "content": "I can provide information about the available API operations, their parameters, and generate TypeScript code snippets for them. I can also retrieve schema definitions.\n\nWhat would you like to know about the API? For example, you could ask:\n* \"What operations are available?\"\n* \"How do I use the 'createOrder' operation?\"\n"
+  },
+  {
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "role": "assistant",
+    "content": "I can help you with anything related to the provided API. Specifically, I can:\n\n*   **List available API operations**: Tell you what functionalities the API offers.\n*   **Describe specific operations**: Provide details about an operation, including its purpose, required parameters, and expected responses.\n*   **Generate TypeScript code snippets**: Create ready-to-use code examples for any API operation, showing you how to make a request.\n*   **Retrieve schema definitions**: Explain the structure of data models used in the API.\n\nEssentially, I can assist you in understanding and interacting with this API by providing detailed information and practical code examples.\n\nWhat specific task or information are you looking for regarding the API?"
+  },
+  {
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "role": "assistant",
+    "content": "Okay, I understand. It seems my previous answer wasn't what you were looking for.\n\nCould you please tell me what you're trying to achieve or what specific information you need? I'm here to help you with anything related to the API I have access to."
+  },
+  {
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "role": "assistant",
+    "content": "Great! Please tell me what you'd like to do or what information you're looking for regarding the API. I'm ready to assist."
+  },
+  {
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "role": "assistant",
+    "content": "I'm ready when you are! Please tell me what you'd like to know or do with the API.\n\nFor example, you can ask me to:\n*   List all available operations.\n*   Explain a specific operation (e.g., \"Tell me about `createOrder`\").\n*   Generate a code snippet for an operation (e.g., \"Generate a TypeScript snippet for `postRestV2CreateOrder`\").\n"
+  },
+  {
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "type": "tool-call",
+    "toolCallId": "TvhSEUsARKUSccKo",
+    "toolName": "createTodo",
+    "args": {
+      "todoList": "1. Call getOperations for \"operation_postRestV2CreateOrder\" to get details about the operation.2. Use the information from getOperations to explain the \"createOrder\" operation, including its parameters and purpose.3. Generate a TypeScript code snippet for \"operation_postRestV2CreateOrder\" using generateSnippet."
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "My TODO list is 1. Call getOperations for \"operation_postRestV2CreateOrder\" to get details about the operation.2. Use the information from getOperations to explain the \"createOrder\" operation, including its parameters and purpose.3. Generate a TypeScript code snippet for \"operation_postRestV2CreateOrder\" using generateSnippet.. I will proceed with the next steps.",
+        "toolCallId": "TvhSEUsARKUSccKo",
+        "toolName": "createTodo"
+      }
+    ]
+  },
+  {
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "role": "assistant",
+    "content": "I will now get the details for the `createOrder` operation."
+  },
+  {
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "type": "tool-call",
+    "toolCallId": "02gTo6eQtnfWrm5c",
+    "toolName": "getOperations",
+    "args": {
+      "operationsIds": [
+        "operation_postRestV2CreateOrder"
+      ]
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "[{\"operationId\":\"postRestV2CreateOrder\",\"method\":\"post\",\"parameters\":[],\"path\":\"/rest/v2/createOrder\",\"requestBody\":{\"content\":{\"application/json\":{\"schema\":{\"type\":\"object\",\"properties\":{\"orderId\":{\"type\":\"string\"},\"pickupLocationCode\":{\"type\":\"string\"},\"createShipment\":{\"type\":\"boolean\"},\"deliveryOptionId\":{\"type\":\"number\"},\"payment_method\":{\"type\":\"string\"},\"amount\":{\"type\":\"number\"},\"amount_due\":{\"type\":\"number\"},\"currency\":{\"type\":\"string\"},\"customsValue\":{\"type\":\"string\"},\"customsCurrency\":{\"type\":\"string\"},\"packageCount\":{\"type\":\"number\"},\"packageWeight\":{\"type\":\"number\"},\"boxWidth\":{\"type\":\"number\"},\"boxLength\":{\"type\":\"number\"},\"boxHeight\":{\"type\":\"number\"},\"orderDate\":{\"type\":\"string\"},\"deliverySlotDate\":{\"type\":\"string\"},\"deliverySlotTo\":{\"type\":\"string\"},\"deliverySlotFrom\":{\"type\":\"string\"},\"senderName\":{\"type\":\"string\"},\"customer\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"email\":{\"type\":\"string\"},\"mobile\":{\"type\":\"string\"},\"address\":{\"type\":\"string\"},\"district\":{\"type\":\"string\"},\"city\":{\"type\":\"string\"},\"country\":{\"type\":\"string\"},\"postcode\":{\"type\":\"string\"},\"lat\":{\"type\":\"string\"},\"lon\":{\"type\":\"string\"},\"refID\":{\"type\":\"string\"}}},\"items\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"productId\":{\"type\":\"number\"},\"name\":{\"type\":\"string\"},\"price\":{\"type\":\"number\"},\"rowTotal\":{\"type\":\"number\"},\"taxAmount\":{\"type\":\"number\"},\"quantity\":{\"type\":\"number\"},\"sku\":{\"type\":\"string\"},\"image\":{\"type\":\"string\"}}}}}}}}},\"description\":\"**Available Packages:** All Packages\\n\\nThis API endpoint is a critical component in e-commerce and logistics systems, enabling external applications to initiate and manage new orders seamlessly. This endpoint allows you to submit order details, such as customer information, product data, shipping preferences, and payment methods.\\n\\n**Request Parameters:**\\n\\n| Name | Required | Type | Description |\\n| --- | --- | --- | --- |\\n| orderId | yes | string | Id of the Order |\\n| parentOrderId | no | string | parent id of splitted orders. |\\n| ref1 | no | string | Reference for order optional |\\n| pickupLocationCode | no | string | predefined pickup address of stores/warehouses, if it doesn't exist then OTO will assign it to a pickup location automatically. it is required when `serviceType` is filled `pickupFromStore` |\\n| createShipment | no | boolean | if you fill it `true` then automatic shipment will be created for this order. |\\n| serviceType | no | string | `pickupFromStore` this is optional for orders customer pick it up from store. |\\n| forReverseShipment | no | boolean | if it is true, order can be reverse shipped without forward shipment |\\n| deliveryOptionId | no | string | activated delivery company option id, if this exists OTO try to create shipment with this settings. if not exists try with possible active settings. |\\n| storeName | no | string | Name of the store |\\n| pickingType | no | enum | Possible values:  <br>PICKUP_BY_DC: Shipping company offers free pickup from origin. BRANCH_DROP_OFF: Package must be delivered to a branch of the shipping company. |\\n| payment_method | yes | string | Possible values: - _cod_ - _paid_ |\\n| amount | yes | double | Total value amount of the order |\\n| amount_due | yes | double | Total due amount of the order. If order paid amount_due will be 0. Otherwise equal to amount. |\\n| currency | yes | string | Currency code of the order currency |\\n| shippingAmount | no | double | shipping amount of this order |\\n| subtotal | no | double | Subtotal of the order |\\n| shippingNotes | no | string | Notes of customer for shipping. I.e `don’t ring the bell.` |\\n| packageSize | no | string | Used for specifiying the maximum package size. Possible values smalbox |\\n| packageCount | no | integer | States how many package in the order |\\n| packageWeight | no | double | Total weight of the order |\\n| boxWidth | conditional | double | width of the package, it is needed to use Aggregator shipping options |\\n| boxLength | conditional | double | length of the package, it is needed to use Aggregator shipping options |\\n| boxHeight | conditional | double | height of the package, it is needed to use Aggregator shipping options |\\n| deliverySlotDate | no | date | Prefered `Delivery` date |\\n| deliverySlotFrom | no | string | “From” time for delivery time |\\n| deliverySlotTo | no | string | “To” time for delivery time |\\n| orderDate | no | dateTime | Date of the order |\\n| senderName | no | string | Sender name |\\n| senderInformation | no | object | Sender Data |\\n| customer | yes | object | Customer Data |\\n| items | yes | array | Items data |\\n| couponCode | no | text | Discount or special offer code. |\\n| codFee | no | double | COD Fee |\\n| brandId | no | long | Brand (Client Store) ID |\\n| whoPays | no | string | If implemented, annotates who wil pay for the shipment. Possible values: marketplacePaysDeliveryFee, sellerPaysDeliveryFee |\\n\\n**Request Parameters for Sender Information Data**\\n\\n| **Name** | **Required** | **Type** | **Description** |\\n| --- | --- | --- | --- |\\n| senderAddressName | no | string | Name of the sender address |\\n| senderId | yes | string | Id of the sender |\\n| senderFullName | yes | string | Full name of the sender |\\n| senderMobile | yes | string | Mobile number of sender |\\n| senderEmail | no | string | In format of [test@example.com](https://mailto:test@example.com) |\\n| senderCountry | yes | string | Country ISO2 code \\\"SA\\\",\\\"AE\\\" etc. |\\n| senderState | no | string | State name of the sender |\\n| senderCity | yes | string | City name of the sender |\\n| senderDistrict | no | string | District name of the sender |\\n| senderPostcode | no | string | Postal code of the sender's address |\\n| senderAdressLine | yes | string | Detailed address of the sender |\\n| lat | no | number | Latitude, \\\\*if not exist orders may not assigned to pickupLocations automatically |\\n| lon | no | number | Longitude, \\\\* if not exist orders may not assigned to pickupLocations automatically |\\n\\n**Request Parameters for Customer Data**\\n\\n| Name | Required | Type | Description |\\n| --- | --- | --- | --- |\\n| name | yes | string | Customer full name |\\n| email | no | string | Customer email address |\\n| mobile | yes | string | Mobile number of the customer |\\n| address | yes | string | Address of the customer |\\n| district | no | string | District or area name |\\n| city | yes | string | City name |\\n| state | no | string | State name |\\n| country | yes | string | Possible values can be _SA_,_EG_,_UAE_,_BHR_,_KWT_ |\\n| shortAddressCode | no | string | A simplified version of the traditional address transformed into a unique code. It consists of 4 letters (e.g., RAGI) assigned based on postal codes and 4 digits representing the building number (e.g., 2929). |\\n| postcode | no | string | postal code of address |\\n| street | no | string | Street of the customer |\\n| lat | no | double | Latitude |\\n| lon | no | double | Longitude |\\n| refID | no | string | exp. customerId of ecommerce |\\n| W3WAddress | no | string | if you want to define the address with using [what3words.com](https://what3words.com/clear.clear.clear) you can use this option |\\n\\n**Request Parameters for Items Data**\\n\\n| Name | Required | Type | Description |\\n| --- | --- | --- | --- |\\n| productId | no | long | Id of the product |\\n| name | yes | string | Name of the product |\\n| price | yes | double | Unit price of the product |\\n| rowTotal | no | double | total amount of this line item |\\n| taxAmount | no | double | tax amount of this line item |\\n| quantity | yes | double | Quantity purchased |\\n| serialnumber | no | string | Serial number of the product |\\n| sku | yes | string | SKU number of the product |\\n| image | no | string | Http link of the product main photo |\\n| hsCode | no | string | a standardized numerical method of classifying traded products |\\n| itemOrigin | no | string | Origin of the item |\",\"summary\":\"Create Order\"}]",
+        "toolCallId": "02gTo6eQtnfWrm5c",
+        "toolName": "getOperations"
+      }
+    ]
+  },
+  {
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "role": "assistant",
+    "content": "The `createOrder` API endpoint (operationId: `postRestV2CreateOrder`) is used to initiate and manage new orders within e-commerce and logistics systems. It allows you to submit comprehensive order details, including customer information, product data, shipping preferences, and payment methods.\n\nHere are the key parameters for the `createOrder` operation:\n\n**Required Parameters:**\n*   `orderId` (string): A unique identifier for the order.\n*   `payment_method` (string): The payment method used for the order. Possible values are `_cod_` (Cash on Delivery) or `_paid_`.\n*   `amount` (double): The total value amount of the order.\n*   `amount_due` (double): The total due amount of the order. If the order is paid, this should be 0; otherwise, it should be equal to the `amount`.\n*   `currency` (string): The currency code of the order (e.g., \"SAR\", \"USD\").\n*   `customer` (object): An object containing customer details.\n    *   `name` (string): Customer's full name.\n    *   `mobile` (string): Customer's mobile number.\n    *   `address` (string): Customer's detailed address.\n    *   `city` (string): Customer's city.\n    *   `country` (string): Customer's country (e.g., \"SA\", \"EG\", \"UAE\", \"BHR\", \"KWT\").\n*   `items` (array): An array of item objects included in the order. Each item object requires:\n    *   `name` (string): Name of the product.\n    *   `price` (double): Unit price of the product.\n    *   `quantity` (double): Quantity purchased.\n    *   `sku` (string): SKU number of the product.\n\n**Optional Parameters:**\n*   `parentOrderId` (string): Parent ID for split orders.\n*   `ref1` (string): Optional reference for the order.\n*   `pickupLocationCode` (string): Predefined pickup address code. Required if `serviceType` is `pickupFromStore`.\n*   `createShipment` (boolean): If `true`, an automatic shipment will be created for this order.\n*   `serviceType` (string): `pickupFromStore` for orders picked up by the customer from the store.\n*   `forReverseShipment` (boolean): If `true`, the order can be reverse shipped without a forward shipment.\n*   `deliveryOptionId` (string): Activated delivery company option ID.\n*   `storeName` (string): Name of the store.\n*   `pickingType` (enum): Possible values: `PICKUP_BY_DC` (shipping company offers free pickup) or `BRANCH_DROP_OFF` (package must be delivered to a branch).\n*   `shippingAmount` (double): Shipping amount for this order.\n*   `subtotal` (double): Subtotal of the order.\n*   `shippingNotes` (string): Customer's notes for shipping (e.g., \"don't ring the bell.\").\n*   `packageSize` (string): Maximum package size (e.g., \"smallbox\").\n*   `packageCount` (integer): Number of packages in the order.\n*   `packageWeight` (double): Total weight of the order.\n*   `boxWidth` (double): Width of the package (conditional, needed for Aggregator shipping options).\n*   `boxLength` (double): Length of the package (conditional, needed for Aggregator shipping options).\n*   `boxHeight` (double): Height of the package (conditional, needed for Aggregator shipping options).\n*   `deliverySlotDate` (date): Preferred delivery date.\n*   `deliverySlotFrom` (string): \"From\" time for delivery.\n*   `deliverySlotTo` (string): \"To\" time for delivery.\n*   `orderDate` (dateTime): Date of the order.\n*   `senderName` (string): Sender's name.\n*   `senderInformation` (object): Sender's data.\n    *   `senderAddressName` (string): Name of the sender address.\n    *   `senderId` (string): ID of the sender (required).\n    *   `senderFullName` (string): Full name of the sender (required).\n    *   `senderMobile` (string): Mobile number of the sender (required).\n    *   `senderEmail` (string): Sender's email address.\n    *   `senderCountry` (string): Sender's country ISO2 code (required, e.g., \"SA\", \"AE\").\n    *   `senderState` (string): State name of the sender.\n    *   `senderCity` (string): City name of the sender (required).\n    *   `senderDistrict` (string): District name of the sender.\n    *   `senderPostcode` (string): Postal code of the sender's address.\n    *   `senderAdressLine` (string): Detailed address of the sender (required).\n    *   `lat` (number): Latitude (if not provided, orders may not be assigned to pickup locations automatically).\n    *   `lon` (number): Longitude (if not provided, orders may not be assigned to pickup locations automatically).\n*   `customer` (object) additional optional fields:\n    *   `email` (string): Customer's email address.\n    *   `district` (string): Customer's district or area name.\n    *   `state` (string): Customer's state name.\n    *   `shortAddressCode` (string): A simplified address code.\n    *   `postcode` (string): Postal code of the address.\n    *   `street` (string): Street of the customer.\n    *   `lat` (double): Latitude.\n    *   `lon` (double): Longitude.\n    *   `refID` (string): Customer ID from e-commerce.\n    *   `W3WAddress` (string): What3words address.\n*   `items` (array) additional optional fields:\n    *   `productId` (long): ID of the product.\n    *   `rowTotal` (double): Total amount of this line item.\n    *   `taxAmount` (double): Tax amount of this line item.\n    *   `serialnumber` (string): Serial number of the product.\n    *   `image` (string): HTTP link of the product's main photo.\n    *   `hsCode` (string): Harmonized System code.\n    *   `itemOrigin` (string): Origin of the item.\n*   `couponCode` (text): Discount or special offer code.\n*   `codFee` (double): Cash on Delivery fee.\n*   `brandId` (long): Brand (Client Store) ID.\n*   `whoPays` (string): Annotates who will pay for the shipment. Possible values: `marketplacePaysDeliveryFee`, `sellerPaysDeliveryFee`.\n\nNow, I will generate a TypeScript code snippet for the `createOrder` operation."
+  },
+  {
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "type": "tool-call",
+    "toolCallId": "ex4YDoW7A8pezAnr",
+    "toolName": "generateSnippet",
+    "args": {
+      "operationId": "operation_postRestV2CreateOrder",
+      "requestBody": "{\n  \"orderId\": \"your_order_id\",\n  \"payment_method\": \"_cod_\",\n  \"amount\": 100.00,\n  \"amount_due\": 100.00,\n  \"currency\": \"SAR\",\n  \"customer\": {\n    \"name\": \"John Doe\",\n    \"mobile\": \"0501234567\",\n    \"address\": \"123 Main St\",\n    \"city\": \"Riyadh\",\n    \"country\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Product A\",\n      \"price\": 50.00,\n      \"quantity\": 1,\n      \"sku\": \"SKU001\"\n    },\n    {\n      \"name\": \"Product B\",\n      \"price\": 25.00,\n      \"quantity\": 2,\n      \"sku\": \"SKU002\"\n    }\n  ]\n}",
+      "queryParameters": "{}",
+      "pathParameters": "{}",
+      "headers": "{}",
+      "cookies": "{}"
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": {
+          "content": "const result = await client.request('POST /rest/v2/createOrder', {\n  \"orderId\": \"your_order_id\",\n  \"pickupLocationCode\": \"example\",\n  \"payment_method\": \"_cod_\",\n  \"amount_due\": 100,\n  \"currency\": \"SAR\",\n  \"customsValue\": \"example\",\n  \"customsCurrency\": \"example\",\n  \"packageCount\": 42.42,\n  \"packageWeight\": 42.42,\n  \"boxLength\": 42.42,\n  \"orderDate\": \"example\",\n  \"deliverySlotDate\": \"example\",\n  \"deliverySlotFrom\": \"example\",\n  \"senderName\": \"example\",\n  \"customer\": {\n    \"name\": \"John Doe\",\n    \"mobile\": \"0501234567\",\n    \"address\": \"123 Main St\",\n    \"city\": \"Riyadh\",\n    \"country\": \"SA\"\n  },\n  \"amount\": 100,\n  \"items\": [\n    {\n      \"name\": \"Product A\",\n      \"price\": 50,\n      \"quantity\": 1,\n      \"sku\": \"SKU001\"\n    },\n    {\n      \"name\": \"Product B\",\n      \"price\": 25,\n      \"quantity\": 2,\n      \"sku\": \"SKU002\"\n    }\n  ]\n});;",
+          "footer": "console.log(result.data)"
+        },
+        "toolCallId": "ex4YDoW7A8pezAnr",
+        "toolName": "generateSnippet"
+      }
+    ]
+  },
+  {
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "role": "assistant",
+    "content": "The `createOrder` API endpoint is used to create new orders in the system.\n\nHere's a TypeScript code snippet for the `createOrder` operation:\n\n```typescript\nconst result = await client.request('POST /rest/v2/createOrder', {\n  \"orderId\": \"your_order_id\",\n  \"pickupLocationCode\": \"example\",\n  \"payment_method\": \"_cod_\",\n  \"amount_due\": 100,\n  \"currency\": \"SAR\",\n  \"customsValue\": \"example\",\n  \"customsCurrency\": \"example\",\n  \"packageCount\": 42.42,\n  \"packageWeight\": 42.42,\n  \"boxLength\": 42.42,\n  \"orderDate\": \"example\",\n  \"deliverySlotDate\": \"example\",\n  \"deliverySlotFrom\": \"example\",\n  \"senderName\": \"example\",\n  \"customer\": {\n    \"name\": \"John Doe\",\n    \"mobile\": \"0501234567\",\n    \"address\": \"123 Main St\",\n    \"city\": \"Riyadh\",\n    \"country\": \"SA\"\n  },\n  \"amount\": 100,\n  \"items\": [\n    {\n      \"name\": \"Product A\",\n      \"price\": 50,\n      \"quantity\": 1,\n      \"sku\": \"SKU001\"\n    },\n    {\n      \"name\": \"Product B\",\n      \"price\": 25,\n      \"quantity\": 2,\n      \"sku\": \"SKU002\"\n    }\n  ]\n});;\nconsole.log(result.data)\n```"
+  },
+  {
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "role": "assistant",
+    "content": "Yes, the `createOrder` API endpoint is specifically designed to create new orders in the system. As mentioned in its description, it \"enables external applications to initiate and manage new orders seamlessly\" by allowing you to \"submit order details, such as customer information, product data, shipping preferences, and payment methods.\""
+  },
+  {
+    "conversationId": "M8RlCg8bthG3xfvx",
+    "role": "assistant",
+    "content": "Great! Do you have any other questions about the `createOrder` operation, or would you like to explore other functionalities of the API?"
+  },
+  {
+    "conversationId": "kyQDCyA8SuDXZ0LI",
+    "role": "assistant",
+    "content": "I can only provide information about the available API operations. I cannot provide general information about how to create a bot."
+  },
+  {
+    "conversationId": "kyQDCyA8SuDXZ0LI",
+    "type": "tool-call",
+    "toolCallId": "0P0tkWWEpyHUsOEJ",
+    "toolName": "createTodo",
+    "args": {
+      "todoList": "1. Get the details of the `operation_postRestV2OrderStatus` operation. 2. Generate a TypeScript code snippet for tracking an order using the `operation_postRestV2OrderStatus` operation."
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "kyQDCyA8SuDXZ0LI",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "My TODO list is 1. Get the details of the `operation_postRestV2OrderStatus` operation. 2. Generate a TypeScript code snippet for tracking an order using the `operation_postRestV2OrderStatus` operation.. I will proceed with the next steps.",
+        "toolCallId": "0P0tkWWEpyHUsOEJ",
+        "toolName": "createTodo"
+      }
+    ]
+  },
+  {
+    "conversationId": "kyQDCyA8SuDXZ0LI",
+    "type": "tool-call",
+    "toolCallId": "cfqQcSaiYh8WwPwJ",
+    "toolName": "getOperations",
+    "args": {
+      "operationsIds": [
+        "operation_postRestV2OrderStatus"
+      ]
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "kyQDCyA8SuDXZ0LI",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "[{\"operationId\":\"postRestV2OrderStatus\",\"method\":\"post\",\"parameters\":[],\"path\":\"/rest/v2/orderStatus\",\"requestBody\":{\"content\":{\"application/json\":{\"schema\":{\"type\":\"object\",\"properties\":{\"orderId\":{\"type\":\"string\"}}}}}},\"description\":\"**Available Packages:** All Packages\\n\\nThis API endpoint enables you to track the real-time status and progress of an order. By using this endpoint, you can retrieve detailed tracking information, including:\\n\\n- Current order status (e.g.,pickedUp, outForDelivery, delivered).\\n    \\n- Shipment details such as carrier, tracking number, and estimated delivery time, print AWB URL.\\n    \\n\\n**Request Parameters:**\\n\\n| Name | Required | Type | **Description** |\\n| --- | --- | --- | --- |\\n| orderId | yes | string | Id of the order that you will track. |\",\"summary\":\"Order Tracking\"}]",
+        "toolCallId": "cfqQcSaiYh8WwPwJ",
+        "toolName": "getOperations"
+      }
+    ]
+  },
+  {
+    "conversationId": "kyQDCyA8SuDXZ0LI",
+    "role": "assistant",
+    "content": "To track an order, you can use the `operation_postRestV2OrderStatus` operation. This operation requires the `orderId` as a request parameter.\n\nHere's a TypeScript code snippet to track an order:\n\n"
+  },
+  {
+    "conversationId": "kyQDCyA8SuDXZ0LI",
+    "type": "tool-call",
+    "toolCallId": "Mg3aVE5Ko5QXk4cW",
+    "toolName": "generateSnippet",
+    "args": {
+      "operationId": "operation_postRestV2OrderStatus",
+      "requestBody": "{\"orderId\": \"your_order_id\"}",
+      "queryParameters": "{}",
+      "pathParameters": "{}",
+      "headers": "{}",
+      "cookies": "{}"
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "kyQDCyA8SuDXZ0LI",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": {
+          "content": "const result = await client.request('POST /rest/v2/orderStatus', {\n  \"orderId\": \"your_order_id\"\n});;",
+          "footer": "console.log(result.data)"
+        },
+        "toolCallId": "Mg3aVE5Ko5QXk4cW",
+        "toolName": "generateSnippet"
+      }
+    ]
+  },
+  {
+    "conversationId": "kyQDCyA8SuDXZ0LI",
+    "role": "assistant",
+    "content": "```typescript\nconst result = await client.request('POST /rest/v2/orderStatus', {\n  \"orderId\": \"your_order_id\"\n});;\n```"
+  },
+  {
+    "conversationId": "kyQDCyA8SuDXZ0LI",
+    "role": "assistant",
+    "content": "Okay! Is there anything else I can help you with regarding the API?"
+  },
+  {
+    "conversationId": "kyQDCyA8SuDXZ0LI",
+    "role": "assistant",
+    "content": "Could you please clarify what you would like me to do again? Are you looking for another example of tracking an order, or something else?"
+  },
+  {
+    "conversationId": "kyQDCyA8SuDXZ0LI",
+    "role": "assistant",
+    "content": "I apologize if my previous response was unclear.\n\nI was asking if you would like me to repeat the information about tracking an order, or if you have a different question about the API. Please let me know how I can assist you further!"
+  },
+  {
+    "conversationId": "nkVeqDBmUmuqyeBe",
+    "type": "tool-call",
+    "toolCallId": "Kgnk5LqD4vivUnwu",
+    "toolName": "createTodo",
+    "args": {
+      "todoList": "1. Get details for `operation_postRestV2CreateOrder` and `operation_postRestV2OrderStatus` using `getOperations`.\n2. Explain how to create an order and track it, referencing the details from `getOperations`.\n3. Offer to generate code snippets for both operations using `generateSnippet`."
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "nkVeqDBmUmuqyeBe",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "My TODO list is 1. Get details for `operation_postRestV2CreateOrder` and `operation_postRestV2OrderStatus` using `getOperations`.\n2. Explain how to create an order and track it, referencing the details from `getOperations`.\n3. Offer to generate code snippets for both operations using `generateSnippet`.. I will proceed with the next steps.",
+        "toolCallId": "Kgnk5LqD4vivUnwu",
+        "toolName": "createTodo"
+      }
+    ]
+  },
+  {
+    "conversationId": "nkVeqDBmUmuqyeBe",
+    "role": "assistant",
+    "content": "To create an order, you can use the `Create Order` endpoint (`operation_postRestV2CreateOrder`). To track an order, you can use the `Order Tracking` endpoint (`operation_postRestV2OrderStatus`).\n\nI will now get the details for both operations."
+  },
+  {
+    "conversationId": "nkVeqDBmUmuqyeBe",
+    "type": "tool-call",
+    "toolCallId": "eVu79Sj6Br3izM3O",
+    "toolName": "getOperations",
+    "args": {
+      "operationsIds": [
+        "operation_postRestV2CreateOrder",
+        "operation_postRestV2OrderStatus"
+      ]
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "nkVeqDBmUmuqyeBe",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "[{\"operationId\":\"postRestV2CreateOrder\",\"method\":\"post\",\"parameters\":[],\"path\":\"/rest/v2/createOrder\",\"requestBody\":{\"content\":{\"application/json\":{\"schema\":{\"type\":\"object\",\"properties\":{\"orderId\":{\"type\":\"string\"},\"pickupLocationCode\":{\"type\":\"string\"},\"createShipment\":{\"type\":\"boolean\"},\"deliveryOptionId\":{\"type\":\"number\"},\"payment_method\":{\"type\":\"string\"},\"amount\":{\"type\":\"number\"},\"amount_due\":{\"type\":\"number\"},\"currency\":{\"type\":\"string\"},\"customsValue\":{\"type\":\"string\"},\"customsCurrency\":{\"type\":\"string\"},\"packageCount\":{\"type\":\"number\"},\"packageWeight\":{\"type\":\"number\"},\"boxWidth\":{\"type\":\"number\"},\"boxLength\":{\"type\":\"number\"},\"boxHeight\":{\"type\":\"number\"},\"orderDate\":{\"type\":\"string\"},\"deliverySlotDate\":{\"type\":\"string\"},\"deliverySlotTo\":{\"type\":\"string\"},\"deliverySlotFrom\":{\"type\":\"string\"},\"senderName\":{\"type\":\"string\"},\"customer\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"email\":{\"type\":\"string\"},\"mobile\":{\"type\":\"string\"},\"address\":{\"type\":\"string\"},\"district\":{\"type\":\"string\"},\"city\":{\"type\":\"string\"},\"country\":{\"type\":\"string\"},\"postcode\":{\"type\":\"string\"},\"lat\":{\"type\":\"string\"},\"lon\":{\"type\":\"string\"},\"refID\":{\"type\":\"string\"}}},\"items\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"productId\":{\"type\":\"number\"},\"name\":{\"type\":\"string\"},\"price\":{\"type\":\"number\"},\"rowTotal\":{\"type\":\"number\"},\"taxAmount\":{\"type\":\"number\"},\"quantity\":{\"type\":\"number\"},\"sku\":{\"type\":\"string\"},\"image\":{\"type\":\"string\"}}}}}}}}},\"description\":\"**Available Packages:** All Packages\\n\\nThis API endpoint is a critical component in e-commerce and logistics systems, enabling external applications to initiate and manage new orders seamlessly. This endpoint allows you to submit order details, such as customer information, product data, shipping preferences, and payment methods.\\n\\n**Request Parameters:**\\n\\n| Name | Required | Type | Description |\\n| --- | --- | --- | --- |\\n| orderId | yes | string | Id of the Order |\\n| parentOrderId | no | string | parent id of splitted orders. |\\n| ref1 | no | string | Reference for order optional |\\n| pickupLocationCode | no | string | predefined pickup address of stores/warehouses, if it doesn't exist then OTO will assign it to a pickup location automatically. it is required when `serviceType` is filled `pickupFromStore` |\\n| createShipment | no | boolean | if you fill it `true` then automatic shipment will be created for this order. |\\n| serviceType | no | string | `pickupFromStore` this is optional for orders customer pick it up from store. |\\n| forReverseShipment | no | boolean | if it is true, order can be reverse shipped without forward shipment |\\n| deliveryOptionId | no | string | activated delivery company option id, if this exists OTO try to create shipment with this settings. if not exists try with possible active settings. |\\n| storeName | no | string | Name of the store |\\n| pickingType | no | enum | Possible values:  <br>PICKUP_BY_DC: Shipping company offers free pickup from origin. BRANCH_DROP_OFF: Package must be delivered to a branch of the shipping company. |\\n| payment_method | yes | string | Possible values: - _cod_ - _paid_ |\\n| amount | yes | double | Total value amount of the order |\\n| amount_due | yes | double | Total due amount of the order. If order paid amount_due will be 0. Otherwise equal to amount. |\\n| currency | yes | string | Currency code of the order currency |\\n| shippingAmount | no | double | shipping amount of this order |\\n| subtotal | no | double | Subtotal of the order |\\n| shippingNotes | no | string | Notes of customer for shipping. I.e `don’t ring the bell.` |\\n| packageSize | no | string | Used for specifiying the maximum package size. Possible values smalbox |\\n| packageCount | no | integer | States how many package in the order |\\n| packageWeight | no | double | Total weight of the order |\\n| boxWidth | conditional | double | width of the package, it is needed to use Aggregator shipping options |\\n| boxLength | conditional | double | length of the package, it is needed to use Aggregator shipping options |\\n| boxHeight | conditional | double | height of the package, it is needed to use Aggregator shipping options |\\n| deliverySlotDate | no | date | Prefered `Delivery` date |\\n| deliverySlotFrom | no | string | “From” time for delivery time |\\n| deliverySlotTo | no | string | “To” time for delivery time |\\n| orderDate | no | dateTime | Date of the order |\\n| senderName | no | string | Sender name |\\n| senderInformation | no | object | Sender Data |\\n| customer | yes | object | Customer Data |\\n| items | yes | array | Items data |\\n| couponCode | no | text | Discount or special offer code. |\\n| codFee | no | double | COD Fee |\\n| brandId | no | long | Brand (Client Store) ID |\\n| whoPays | no | string | If implemented, annotates who wil pay for the shipment. Possible values: marketplacePaysDeliveryFee, sellerPaysDeliveryFee |\\n\\n**Request Parameters for Sender Information Data**\\n\\n| **Name** | **Required** | **Type** | **Description** |\\n| --- | --- | --- | --- |\\n| senderAddressName | no | string | Name of the sender address |\\n| senderId | yes | string | Id of the sender |\\n| senderFullName | yes | string | Full name of the sender |\\n| senderMobile | yes | string | Mobile number of sender |\\n| senderEmail | no | string | In format of [test@example.com](https://mailto:test@example.com) |\\n| senderCountry | yes | string | Country ISO2 code \\\"SA\\\",\\\"AE\\\" etc. |\\n| senderState | no | string | State name of the sender |\\n| senderCity | yes | string | City name of the sender |\\n| senderDistrict | no | string | District name of the sender |\\n| senderPostcode | no | string | Postal code of the sender's address |\\n| senderAdressLine | yes | string | Detailed address of the sender |\\n| lat | no | number | Latitude, \\\\*if not exist orders may not assigned to pickupLocations automatically |\\n| lon | no | number | Longitude, \\\\* if not exist orders may not assigned to pickupLocations automatically |\\n\\n**Request Parameters for Customer Data**\\n\\n| Name | Required | Type | Description |\\n| --- | --- | --- | --- |\\n| name | yes | string | Customer full name |\\n| email | no | string | Customer email address |\\n| mobile | yes | string | Mobile number of the customer |\\n| address | yes | string | Address of the customer |\\n| district | no | string | District or area name |\\n| city | yes | string | City name |\\n| state | no | string | State name |\\n| country | yes | string | Possible values can be _SA_,_EG_,_UAE_,_BHR_,_KWT_ |\\n| shortAddressCode | no | string | A simplified version of the traditional address transformed into a unique code. It consists of 4 letters (e.g., RAGI) assigned based on postal codes and 4 digits representing the building number (e.g., 2929). |\\n| postcode | no | string | postal code of address |\\n| street | no | string | Street of the customer |\\n| lat | no | double | Latitude |\\n| lon | no | double | Longitude |\\n| refID | no | string | exp. customerId of ecommerce |\\n| W3WAddress | no | string | if you want to define the address with using [what3words.com](https://what3words.com/clear.clear.clear) you can use this option |\\n\\n**Request Parameters for Items Data**\\n\\n| Name | Required | Type | Description |\\n| --- | --- | --- | --- |\\n| productId | no | long | Id of the product |\\n| name | yes | string | Name of the product |\\n| price | yes | double | Unit price of the product |\\n| rowTotal | no | double | total amount of this line item |\\n| taxAmount | no | double | tax amount of this line item |\\n| quantity | yes | double | Quantity purchased |\\n| serialnumber | no | string | Serial number of the product |\\n| sku | yes | string | SKU number of the product |\\n| image | no | string | Http link of the product main photo |\\n| hsCode | no | string | a standardized numerical method of classifying traded products |\\n| itemOrigin | no | string | Origin of the item |\",\"summary\":\"Create Order\"},{\"operationId\":\"postRestV2OrderStatus\",\"method\":\"post\",\"parameters\":[],\"path\":\"/rest/v2/orderStatus\",\"requestBody\":{\"content\":{\"application/json\":{\"schema\":{\"type\":\"object\",\"properties\":{\"orderId\":{\"type\":\"string\"}}}}}},\"description\":\"**Available Packages:** All Packages\\n\\nThis API endpoint enables you to track the real-time status and progress of an order. By using this endpoint, you can retrieve detailed tracking information, including:\\n\\n- Current order status (e.g.,pickedUp, outForDelivery, delivered).\\n    \\n- Shipment details such as carrier, tracking number, and estimated delivery time, print AWB URL.\\n    \\n\\n**Request Parameters:**\\n\\n| Name | Required | Type | **Description** |\\n| --- | --- | --- | --- |\\n| orderId | yes | string | Id of the order that you will track. |\",\"summary\":\"Order Tracking\"}]",
+        "toolCallId": "eVu79Sj6Br3izM3O",
+        "toolName": "getOperations"
+      }
+    ]
+  },
+  {
+    "conversationId": "nkVeqDBmUmuqyeBe",
+    "role": "assistant",
+    "content": "To create an order, you'll use the `Create Order` endpoint. This endpoint requires the following in its request body:\n\n*   `orderId` (string, required): A unique identifier for your order.\n*   `payment_method` (string, required): The payment method used for the order (e.g., `cod` for Cash on Delivery or `paid`).\n*   `amount` (double, required): The total value of the order.\n*   `amount_due` (double, required): The total due amount of the order. If the order is paid, this will be 0; otherwise, it will be equal to the `amount`.\n*   `currency` (string, required): The currency code of the order (e.g., \"SAR\", \"USD\").\n*   `customer` (object, required): An object containing customer details:\n    *   `name` (string, required): Customer's full name.\n    *   `mobile` (string, required): Customer's mobile number.\n    *   `address` (string, required): Customer's address.\n    *   `city` (string, required): Customer's city.\n    *   `country` (string, required): Customer's country (e.g., \"SA\", \"EG\", \"UAE\", \"BHR\", \"KWT\").\n    *   `email` (string, optional): Customer's email address.\n    *   `district` (string, optional): Customer's district or area name.\n    *   `state` (string, optional): Customer's state name.\n    *   `shortAddressCode` (string, optional): A simplified address code.\n    *   `postcode` (string, optional): Customer's postal code.\n    *   `street` (string, optional): Customer's street.\n    *   `lat` (double, optional): Latitude of the customer's address.\n    *   `lon` (double, optional): Longitude of the customer's address.\n    *   `refID` (string, optional): Customer ID from your e-commerce platform.\n    *   `W3WAddress` (string, optional): What3words address.\n*   `items` (array, required): An array of item objects, each containing:\n    *   `name` (string, required): Name of the product.\n    *   `price` (double, required): Unit price of the product.\n    *   `quantity` (double, required): Quantity purchased.\n    *   `sku` (string, required): SKU number of the product.\n    *   `productId` (long, optional): ID of the product.\n    *   `rowTotal` (double, optional): Total amount of this line item.\n    *   `taxAmount` (double, optional): Tax amount of this line item.\n    *   `serialnumber` (string, optional): Serial number of the product.\n    *   `image` (string, optional): HTTP link of the product's main photo.\n    *   `hsCode` (string, optional): Harmonized System code.\n    *   `itemOrigin` (string, optional): Origin of the item.\n\nOptional parameters for `Create Order` include: `parentOrderId`, `ref1`, `pickupLocationCode`, `createShipment`, `serviceType`, `forReverseShipment`, `deliveryOptionId`, `storeName`, `pickingType`, `shippingAmount`, `subtotal`, `shippingNotes`, `packageSize`, `packageCount`, `packageWeight`, `boxWidth`, `boxLength`, `boxHeight`, `deliverySlotDate`, `deliverySlotFrom`, `deliverySlotTo`, `orderDate`, `senderName`, `senderInformation` (object with `senderId`, `senderFullName`, `senderMobile`, `senderCountry`, `senderCity`, `senderAdressLine` as required fields, and `senderAddressName`, `senderEmail`, `senderState`, `senderDistrict`, `senderPostcode`, `lat`, `lon` as optional), `couponCode`, `codFee`, `brandId`, and `whoPays`.\n\nTo track an order, you'll use the `Order Tracking` endpoint. This endpoint requires the following in its request body:\n\n*   `orderId` (string, required): The ID of the order you want to track.\n\nWould you like me to generate code snippets for creating an order and tracking an order?"
+  },
+  {
+    "conversationId": "nkVeqDBmUmuqyeBe",
+    "type": "tool-call",
+    "toolCallId": "3tWWIqRHvvtVnbi4",
+    "toolName": "createTodo",
+    "args": {
+      "todoList": "1. Generate a code snippet for `operation_postRestV2CreateOrder` using `generateSnippet`.\n2. Generate a code snippet for `operation_postRestV2OrderStatus` using `generateSnippet`.\n3. Present both code snippets to the user."
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "nkVeqDBmUmuqyeBe",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "My TODO list is 1. Generate a code snippet for `operation_postRestV2CreateOrder` using `generateSnippet`.\n2. Generate a code snippet for `operation_postRestV2OrderStatus` using `generateSnippet`.\n3. Present both code snippets to the user.. I will proceed with the next steps.",
+        "toolCallId": "3tWWIqRHvvtVnbi4",
+        "toolName": "createTodo"
+      }
+    ]
+  },
+  {
+    "conversationId": "nkVeqDBmUmuqyeBe",
+    "role": "assistant",
+    "content": "Here are the code snippets for creating an order and tracking an order.\n\n**Create Order**\n\n"
+  },
+  {
+    "conversationId": "nkVeqDBmUmuqyeBe",
+    "type": "tool-call",
+    "toolCallId": "aQowu83iLge1e2Vx",
+    "toolName": "generateSnippet",
+    "args": {
+      "operationId": "operation_postRestV2CreateOrder",
+      "requestBody": "{\n  \"orderId\": \"your_order_id\",\n  \"payment_method\": \"cod\",\n  \"amount\": 100.00,\n  \"amount_due\": 100.00,\n  \"currency\": \"SAR\",\n  \"customer\": {\n    \"name\": \"John Doe\",\n    \"mobile\": \"0501234567\",\n    \"address\": \"123 Main St\",\n    \"city\": \"Riyadh\",\n    \"country\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Product A\",\n      \"price\": 50.00,\n      \"quantity\": 1,\n      \"sku\": \"SKU001\"\n    },\n    {\n      \"name\": \"Product B\",\n      \"price\": 25.00,\n      \"quantity\": 2,\n      \"sku\": \"SKU002\"\n    }\n  ]\n}",
+      "queryParameters": "{}",
+      "pathParameters": "{}",
+      "headers": "{}",
+      "cookies": "{}"
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "nkVeqDBmUmuqyeBe",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": {
+          "content": "const result = await client.request('POST /rest/v2/createOrder', {\n  \"orderId\": \"your_order_id\",\n  \"pickupLocationCode\": \"example\",\n  \"currency\": \"SAR\",\n  \"customsValue\": \"example\",\n  \"packageCount\": 42.42,\n  \"packageWeight\": 42.42,\n  \"boxHeight\": 42.42,\n  \"orderDate\": \"example\",\n  \"deliverySlotDate\": \"example\",\n  \"deliverySlotTo\": \"example\",\n  \"deliverySlotFrom\": \"example\",\n  \"payment_method\": \"cod\",\n  \"amount\": 100,\n  \"amount_due\": 100,\n  \"customer\": {\n    \"name\": \"John Doe\",\n    \"mobile\": \"0501234567\",\n    \"address\": \"123 Main St\",\n    \"city\": \"Riyadh\",\n    \"country\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Product A\",\n      \"price\": 50,\n      \"quantity\": 1,\n      \"sku\": \"SKU001\"\n    },\n    {\n      \"name\": \"Product B\",\n      \"price\": 25,\n      \"quantity\": 2,\n      \"sku\": \"SKU002\"\n    }\n  ]\n});;",
+          "footer": "console.log(result.data)"
+        },
+        "toolCallId": "aQowu83iLge1e2Vx",
+        "toolName": "generateSnippet"
+      }
+    ]
+  },
+  {
+    "conversationId": "nkVeqDBmUmuqyeBe",
+    "role": "assistant",
+    "content": "```typescript\nconst result = await client.request('POST /rest/v2/createOrder', {\n  \"orderId\": \"your_order_id\",\n  \"pickupLocationCode\": \"example\",\n  \"currency\": \"SAR\",\n  \"customsValue\": \"example\",\n  \"packageCount\": 42.42,\n  \"packageWeight\": 42.42,\n  \"boxHeight\": 42.42,\n  \"orderDate\": \"example\",\n  \"deliverySlotDate\": \"example\",\n  \"deliverySlotTo\": \"example\",\n  \"deliverySlotFrom\": \"example\",\n  \"payment_method\": \"cod\",\n  \"amount\": 100,\n  \"amount_due\": 100,\n  \"customer\": {\n    \"name\": \"John Doe\",\n    \"mobile\": \"0501234567\",\n    \"address\": \"123 Main St\",\n    \"city\": \"Riyadh\",\n    \"country\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Product A\",\n      \"price\": 50,\n      \"quantity\": 1,\n      \"sku\": \"SKU001\"\n    },\n    {\n      \"name\": \"Product B\",\n      \"price\": 25,\n      \"quantity\": 2,\n      \"sku\": \"SKU002\"\n    }\n  ]\n});;\nconsole.log(result.data)\n```\n\n**Track Order**\n\n"
+  },
+  {
+    "conversationId": "nkVeqDBmUmuqyeBe",
+    "type": "tool-call",
+    "toolCallId": "aQ2wgjNZoVVLTfP4",
+    "toolName": "generateSnippet",
+    "args": {
+      "operationId": "operation_postRestV2OrderStatus",
+      "requestBody": "{\n  \"orderId\": \"your_order_id\"\n}",
+      "queryParameters": "{}",
+      "pathParameters": "{}",
+      "headers": "{}",
+      "cookies": "{}"
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "nkVeqDBmUmuqyeBe",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": {
+          "content": "const result = await client.request('POST /rest/v2/orderStatus', {\n  \"orderId\": \"your_order_id\"\n});;",
+          "footer": "console.log(result.data)"
+        },
+        "toolCallId": "aQ2wgjNZoVVLTfP4",
+        "toolName": "generateSnippet"
+      }
+    ]
+  },
+  {
+    "conversationId": "nkVeqDBmUmuqyeBe",
+    "role": "assistant",
+    "content": "```typescript\nconst result = await client.request('POST /rest/v2/orderStatus', {\n  \"orderId\": \"your_order_id\"\n});;\nconsole.log(result.data)\n```"
+  },
+  {
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "type": "tool-call",
+    "toolCallId": "ds3lJ5KnxFxfyHUw",
+    "toolName": "createTodo",
+    "args": {
+      "todoList": "1. Call getOperations for \"operation_getRestV2AccountInfo\".\n2. Generate a TypeScript snippet for \"operation_getRestV2AccountInfo\"."
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "My TODO list is 1. Call getOperations for \"operation_getRestV2AccountInfo\".\n2. Generate a TypeScript snippet for \"operation_getRestV2AccountInfo\".. I will proceed with the next steps.",
+        "toolCallId": "ds3lJ5KnxFxfyHUw",
+        "toolName": "createTodo"
+      }
+    ]
+  },
+  {
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "type": "tool-call",
+    "toolCallId": "qgBZ3qujyWDAIegK",
+    "toolName": "getOperations",
+    "args": {
+      "operationsIds": "operation_getRestV2AccountInfo"
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "[{\"operationId\":\"getRestV2AccountInfo\",\"method\":\"get\",\"parameters\":[],\"path\":\"/rest/v2/accountInfo\",\"description\":\"**Available Packages:** All Packages\\n\\nThis API endpoint retrieves detailed information about the authenticated user's account. This includes general profile details, current subscription and balance of the account.\\n\\n**Note:** You can only see the account information that your token belongs to.\\n\\n**Response Body:**\\n\\n- name: full name of the account owner.\\n    \\n- email: email address belong to the account.\\n    \\n- mobile: mobile number belong to the account.\\n    \\n- packageName: current subscription package name\\n    \\n- remainingCredit: balance in account\\n    \\n- remainingFreeShipments: number of free shipments offered in campaigns\",\"summary\":\"Account Info\"}]",
+        "toolCallId": "qgBZ3qujyWDAIegK",
+        "toolName": "getOperations"
+      }
+    ]
+  },
+  {
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "type": "tool-call",
+    "toolCallId": "0epw80zkzoLneFHC",
+    "toolName": "generateSnippet",
+    "args": {
+      "operationId": "operation_getRestV2AccountInfo",
+      "requestBody": "{}",
+      "queryParameters": "{}",
+      "pathParameters": "{}",
+      "headers": "{}",
+      "cookies": "{}"
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": {
+          "content": "const result = await client.request('GET /rest/v2/accountInfo', {});;",
+          "footer": "console.log(result.data)"
+        },
+        "toolCallId": "0epw80zkzoLneFHC",
+        "toolName": "generateSnippet"
+      }
+    ]
+  },
+  {
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "role": "assistant",
+    "content": "You can retrieve your account information using the `GET /rest/v2/accountInfo` endpoint. This will provide details such as your full name, email, mobile number, current subscription package, remaining credit, and remaining free shipments.\n\nHere's the TypeScript code snippet to achieve this:\n\n```typescript\nconst result = await client.request('GET /rest/v2/accountInfo', {});;\nconsole.log(result.data)\n```"
+  },
+  {
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "role": "assistant",
+    "content": "The `GET /rest/v2/accountInfo` endpoint returns a JSON object with the following fields:\n\n*   `name`: full name of the account owner.\n*   `email`: email address belonging to the account.\n*   `mobile`: mobile number belonging to the account.\n*   `packageName`: current subscription package name.\n*   `remainingCredit`: balance in the account.\n"
+  },
+  {
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "role": "assistant",
+    "content": "Based on the description from the API specification for the `GET /rest/v2/accountInfo` endpoint, the `email` field is described as an \"email address\". This indicates it is a standard string format for an email, not a custom pattern."
+  },
+  {
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "role": "assistant",
+    "content": "Is there anything else I can help you with regarding the API?"
+  },
+  {
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "role": "assistant",
+    "content": "I can help you with various aspects of this API, such as:\n\n*   **Listing available operations:** I can tell you what functionalities the API offers.\n*   **Explaining specific operations:** If you have an operation in mind, I can provide details about its purpose, required parameters, and what it returns.\n*   **Generating code snippets:** I can generate TypeScript code examples for any of the available API operations.\n*   **Describing data structures:** I can explain the format of request and response bodies for different endpoints.\n*   **Assisting with common tasks:** For example, how to create an order, check delivery fees, manage inventory, or set up webhooks.\n\nJust let me know what you're interested in!"
+  },
+  {
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "role": "assistant",
+    "content": "Based on the provided API specification, there are no explicitly defined streaming endpoints. All available operations appear to be standard RESTful API calls (GET, POST, PUT, DELETE) that follow a request-response pattern."
+  },
+  {
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "role": "assistant",
+    "content": "Yes, several endpoints in this API support pagination to help you retrieve large sets of data efficiently.\n\nHere are the operations that include pagination parameters:\n\n*   **Credit Transactions (`GET /rest/v2/creditTransactions`)**:\n    *   `perPage`: Credit transaction count in the response (Max limit 100).\n    *   `page`: Pagination number. You can iterate this field to get all items.\n\n*   **Get Orders (`GET /rest/v2/orders`)**:\n    *   `perPage`: Order count in the response (Max limit 100).\n    *   `page`: Pagination number. You can iterate this field to get all items.\n\n*   **Shipment Transactions (`GET /rest/v2/shipmentTransactions`)**:\n    *   `perPage`: The number of transactions to be included per page.\n    *   `page`: The page number for paginated results.\n\n*   **Available Cities (`POST /rest/v2/availableCities`)**:\n    *   `page`: Number of page, default is 1.\n    *   `limit`: Number of cities in a single page, default is 100.\n\n*   **Get Cities (`POST /rest/v2/getCities`)**:\n    *   `perPage`: The number of cities to be displayed per page. Default value is 100, max value is 500.\n    *   `page`: The page number for pagination.\n\n*   **Product List (`POST /rest/v2/productList`)**:\n    *   `pageSize`: Items per page, default is 100.\n    *   `currentPage`: Page number to be called, default is 1.\n\nThese parameters allow you to control the number of results per page and navigate through different pages of data."
+  },
+  {
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "type": "tool-call",
+    "toolCallId": "WgNxAtrA6WqWeLbN",
+    "toolName": "createTodo",
+    "args": {
+      "todoList": "1. Call getOperations for \"operation_postRestV2ProductList\".\n2. Explain the pagination parameters for \"operation_postRestV2ProductList\"."
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "My TODO list is 1. Call getOperations for \"operation_postRestV2ProductList\".\n2. Explain the pagination parameters for \"operation_postRestV2ProductList\".. I will proceed with the next steps.",
+        "toolCallId": "WgNxAtrA6WqWeLbN",
+        "toolName": "createTodo"
+      }
+    ]
+  },
+  {
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "type": "tool-call",
+    "toolCallId": "PFnSqlqqgpnxqp1K",
+    "toolName": "getOperations",
+    "args": {
+      "operationsIds": "operation_postRestV2ProductList"
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": "[{\"operationId\":\"postRestV2ProductList\",\"method\":\"post\",\"parameters\":[],\"path\":\"/rest/v2/productList\",\"requestBody\":{\"content\":{\"application/json\":{\"schema\":{\"type\":\"object\",\"properties\":{\"pageSize\":{\"type\":\"number\"},\"currentPage\":{\"type\":\"number\"}}}}}},\"description\":\"**Available Packages:** All Packages\\n\\nThis API endpoint provides a simple and efficient way to retrieve a list of products available in your inventory. This endpoint returns essential product details such as names, images, SKUs, and barcodes, enabling applications to display and manage product information effectively.  \\n**Request Parameters:**\\n\\n| **Name** | **Required** | **Type** | **Description** |\\n| --- | --- | --- | --- |\\n| pageSize | no | number | items per page, default is 100 |\\n| currentPage | no | number | page numbe to be called, default is 1 |\",\"summary\":\"Product List\"}]",
+        "toolCallId": "PFnSqlqqgpnxqp1K",
+        "toolName": "getOperations"
+      }
+    ]
+  },
+  {
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "role": "assistant",
+    "content": "To paginate products using the `POST /rest/v2/productList` endpoint, you need to use the `pageSize` and `currentPage` parameters in the request body.\n\n*   `pageSize`: This parameter specifies the number of items you want to retrieve per page. The default value is 100.\n*   `currentPage`: This parameter indicates the page number you want to retrieve. The default value is 1.\n\nBy adjusting these two parameters, you can control how many products are returned in each request and navigate through different pages of your product list.\n\nHere's an example of how you would use these parameters in a TypeScript snippet to get products from a specific page with a defined page size:\n"
+  },
+  {
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "type": "tool-call",
+    "toolCallId": "ppcQBvpHOGCfHSJM",
+    "toolName": "generateSnippet",
+    "args": {
+      "operationId": "operation_postRestV2ProductList",
+      "requestBody": "{\"pageSize\": 50, \"currentPage\": 2}",
+      "queryParameters": "{}",
+      "pathParameters": "{}",
+      "headers": "{}",
+      "cookies": "{}"
+    }
+  },
+  {
+    "role": "tool",
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "content": [
+      {
+        "type": "tool-result",
+        "result": {
+          "content": "const result = await client.request('POST /rest/v2/productList', {\n  \"currentPage\": 2,\n  \"pageSize\": 50\n});;",
+          "footer": "console.log(result.data)"
+        },
+        "toolCallId": "ppcQBvpHOGCfHSJM",
+        "toolName": "generateSnippet"
+      }
+    ]
+  },
+  {
+    "conversationId": "Nbr9Nv4JYp7gptbK",
+    "role": "assistant",
+    "content": "```typescript\nconst result = await client.request('POST /rest/v2/productList', {\n  \"currentPage\": 2,\n  \"pageSize\": 50\n});;\nconsole.log(result.data)\n```"
   }
 ]

@@ -77,7 +77,7 @@ export async function generate(
   const style = Object.assign(
     {},
     {
-      errorAsValue: true,
+      errorAsValue: false,
       name: 'github',
       outputType: 'default',
     },

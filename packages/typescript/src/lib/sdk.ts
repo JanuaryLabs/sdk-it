@@ -234,7 +234,7 @@ function normalOperation(style?: Style) {
 function paginationOperation(operation: TunedOperationObject, style?: Style) {
   const pagination = operation['x-pagination'] as OperationPagination;
   const data = `${style?.errorAsValue ? `result[0]${style.outputType === 'status' ? '' : ''}` : `${style?.outputType === 'default' ? 'result.data' : 'result.data'}`}`;
-
+  const returnValue = `${style?.errorAsValue ? `[${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}, error]` : `${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}`}`;
   if (pagination.type === 'offset') {
     const sameInputNames =
       pagination.limitParamName === 'limit' &&
@@ -260,7 +260,7 @@ function paginationOperation(operation: TunedOperationObject, style?: Style) {
         };
       });
       await pagination.getNextPage();
-      return ${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}
+      return ${returnValue}
       `;
     return style?.errorAsValue
       ? `{try {${logic}} catch (error) {return [null as never, error] as const;}}}`
@@ -291,7 +291,7 @@ function paginationOperation(operation: TunedOperationObject, style?: Style) {
         };
       });
       await pagination.getNextPage();
-      return ${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}
+      return ${returnValue}
       `;
     return style?.errorAsValue
       ? `{try {${logic}} catch (error) {return [null as never, error] as const;}}}`
@@ -324,7 +324,7 @@ function paginationOperation(operation: TunedOperationObject, style?: Style) {
         };
       });
       await pagination.getNextPage();
-      return ${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}
+      return ${returnValue}
       `;
     return style?.errorAsValue
       ? `{try {${logic}} catch (error) {return [null as never, error] as const;}}}`
