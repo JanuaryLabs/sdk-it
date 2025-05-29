@@ -281,6 +281,7 @@ async function evalZod(schema: string, commonZodImport?: string) {
   ];
 
   const base64 = Buffer.from(lines.join('\n')).toString('base64');
+  /* @vite-ignore */
   return import(`data:text/javascript;base64,${base64}`)
     .then((mod) => mod.default)
     .then(({ $schema, ...result }) => result);

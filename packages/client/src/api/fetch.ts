@@ -25,7 +25,7 @@ import { BadRequest } from '../http/response.ts';
 import * as http from '../http/response.ts';
 import * as fetch from '../inputs/fetch.ts';
 import {
-  type GetFetchOutput200,
+  type GetFetchOutput,
   type GetFetchOutput400,
 } from '../outputs/get-fetch.ts';
 import {
@@ -37,7 +37,7 @@ import {
 export default {
   'GET /fetch': {
     schema: fetch.getFetchSchema,
-    output: [http.Ok<GetFetchOutput200>, http.BadRequest<GetFetchOutput400>],
+    output: [http.Ok<GetFetchOutput>, http.BadRequest<GetFetchOutput400>],
     toRequest(input: z.infer<typeof fetch.getFetchSchema>) {
       return toRequest(
         'GET /fetch',

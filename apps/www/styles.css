@@ -386,7 +386,7 @@ h1 {
 }
 p,
 li {
-  @apply text-secondary-foreground;
+  @apply text-secondary-foreground dark:text-muted-foreground;
 }
 
 section {

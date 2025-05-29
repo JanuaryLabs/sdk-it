@@ -1,7 +1,6 @@
-import { type PropsWithChildren, useEffect, useState } from 'react';
-import { AiOutlineThunderbolt } from 'react-icons/ai';
+import { type PropsWithChildren } from 'react';
 
-import { buttonVariants, cn } from '../shadcn';
+import { cn } from '../shadcn';
 
 export default function Background(
   props: React.PropsWithChildren<{ className?: string }>,
@@ -9,13 +8,13 @@ export default function Background(
   return (
     <div
       className={cn(
-        'relative flex w-full items-center justify-center py-10',
+        'relative flex w-full items-center justify-center',
         props.className,
       )}
     >
       <GridBackgroundDemo className="w-full">
         <div className="z-10 flex w-full flex-col items-center">
-          <div className="mx-auto flex h-full w-full flex-col items-center justify-center gap-8 py-16">
+          <div className="mx-auto flex h-full w-full flex-col items-center justify-center gap-8 pt-16">
             <div className="relative flex w-full flex-col items-start justify-center gap-4">
               {props.children}
             </div>
@@ -72,11 +71,11 @@ export function GridBackgroundDemo(
   return (
     <div
       className={cn(
-        'bg-grid-small-black/[0.1] dark:bg-grid-small-white/[0.1] relative w-full bg-background dark:bg-background',
+        'bg-grid-small-black/[0.1] dark:bg-grid-small-white/[0.1] bg-background dark:bg-background relative w-full',
         props.className,
       )}
     >
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] dark:bg-background"></div>
+      <div className="bg-background dark:bg-background pointer-events-none absolute inset-0 flex items-center justify-center [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)]"></div>
       {props.children}
     </div>
   );

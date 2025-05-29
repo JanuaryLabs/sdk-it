@@ -25,7 +25,7 @@ import { BadRequest } from '../http/response.ts';
 import * as http from '../http/response.ts';
 import * as playground from '../inputs/playground.ts';
 import {
-  type PostPlaygroundOutput200,
+  type PostPlaygroundOutput,
   type PostPlaygroundOutput400,
 } from '../outputs/post-playground.ts';
 import {
@@ -38,7 +38,7 @@ export default {
   'POST /playground': {
     schema: playground.postPlaygroundSchema,
     output: [
-      http.Ok<PostPlaygroundOutput200>,
+      http.Ok<PostPlaygroundOutput>,
       http.BadRequest<PostPlaygroundOutput400>,
     ],
     toRequest(input: z.infer<typeof playground.postPlaygroundSchema>) {

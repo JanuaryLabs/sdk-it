@@ -25,7 +25,7 @@ import { BadRequest } from '../http/response.ts';
 import * as http from '../http/response.ts';
 import * as operations from '../inputs/operations.ts';
 import {
-  type GetOperationsOutput200,
+  type GetOperationsOutput,
   type GetOperationsOutput400,
 } from '../outputs/get-operations.ts';
 import {
@@ -38,7 +38,7 @@ export default {
   'GET /operations': {
     schema: operations.getOperationsSchema,
     output: [
-      http.Ok<GetOperationsOutput200>,
+      http.Ok<GetOperationsOutput>,
       http.BadRequest<GetOperationsOutput400>,
     ],
     toRequest(input: z.infer<typeof operations.getOperationsSchema>) {

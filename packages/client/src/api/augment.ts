@@ -25,7 +25,7 @@ import { BadRequest } from '../http/response.ts';
 import * as http from '../http/response.ts';
 import * as augment from '../inputs/augment.ts';
 import {
-  type PostAugmentOutput200,
+  type PostAugmentOutput,
   type PostAugmentOutput400,
 } from '../outputs/post-augment.ts';
 import {
@@ -37,10 +37,7 @@ import {
 export default {
   'POST /augment': {
     schema: augment.postAugmentSchema,
-    output: [
-      http.Ok<PostAugmentOutput200>,
-      http.BadRequest<PostAugmentOutput400>,
-    ],
+    output: [http.Ok<PostAugmentOutput>, http.BadRequest<PostAugmentOutput400>],
     toRequest(input: z.infer<typeof augment.postAugmentSchema>) {
       return toRequest(
         'POST /augment',

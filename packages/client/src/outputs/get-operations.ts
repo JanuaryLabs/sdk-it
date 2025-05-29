@@ -1,15 +1,11 @@
-import z from 'zod';
-
-import type * as http from '../http/index.ts';
 import { type ValidationError } from '../models/ValidationError.ts';
 
 /**
  * Response for 200
  */
-export type GetOperationsOutput200 = {
+export type GetOperationsOutput = {
   operations: string[];
   pagination: { hasNextPage: boolean; hasPreviousPage: boolean };
-  [http.KIND]: typeof http.Ok.kind;
 };
 
 /**

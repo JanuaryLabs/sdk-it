@@ -25,7 +25,7 @@ import { BadRequest } from '../http/response.ts';
 import * as http from '../http/response.ts';
 import * as generate from '../inputs/generate.ts';
 import {
-  type PostGenerateOutput200,
+  type PostGenerateOutput,
   type PostGenerateOutput400,
 } from '../outputs/post-generate.ts';
 import {
@@ -38,7 +38,7 @@ export default {
   'POST /generate': {
     schema: generate.postGenerateSchema,
     output: [
-      { type: http.Ok<PostGenerateOutput200>, parser: chunked },
+      { type: http.Ok<PostGenerateOutput>, parser: chunked },
       http.BadRequest<PostGenerateOutput400>,
     ],
     toRequest(input: z.infer<typeof generate.postGenerateSchema>) {

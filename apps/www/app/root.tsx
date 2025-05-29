@@ -107,7 +107,7 @@ export async function loader({ request }: { request: Request }) {
     .use(rehypeTwoslash)
     .use(rehypeStringify);
 
-  const isDark = (request.headers.get('Cookie') || '').includes('theme=true');
+  const isDark = (request.headers.get('Cookie') || '').includes('theme=dark');
 
   const { generateSnippet } = await import('@sdk-it/typescript');
   async function snippet(

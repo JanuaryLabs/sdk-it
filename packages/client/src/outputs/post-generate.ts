@@ -1,12 +1,9 @@
-import z from 'zod';
-
-import type * as http from '../http/index.ts';
 import { type ValidationError } from '../models/ValidationError.ts';
 
 /**
  * Response for 200
  */
-export type PostGenerateOutput200 = ReadableStream;
+export type PostGenerateOutput = ReadableStream;
 
 /**
  * Bad Request

@@ -50,6 +50,7 @@ export function Example(props: {
           'max-h-96 lg:h-[calc(100%-37px)] lg:max-h-full lg:min-h-[51vh]',
           {
             'overflow-auto': activeLanguage === 'spec',
+            'overflow-hidden': activeLanguage !== 'spec',
           },
         )}
       >

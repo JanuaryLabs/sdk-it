@@ -1,4 +1,6 @@
-import type { PostPlaygroundOutput200 } from '@sdk-it/client';
+import { useState } from 'react';
+
+import type { PostPlaygroundOutput } from '@sdk-it/client';
 
 import SpecBox from './components/spec-box';
 import {
@@ -7,12 +9,11 @@ import {
   CredenzaContent,
   CredenzaTrigger,
 } from './shadcn/lib/ui/credenza';
-import { useState } from 'react';
 
 export function SpecBoxDemo() {
   const [selectedTab, setSelectedTab] = useState('generate-sdk');
   const [open, setOpen] = useState(false);
-  const [sdkInfo, setSdkInfo] = useState<PostPlaygroundOutput200 | undefined>();
+  const [sdkInfo, setSdkInfo] = useState<PostPlaygroundOutput | undefined>();
   return (
     <div className="z-10 w-full max-w-xl lg:max-w-none">
       <SpecBox

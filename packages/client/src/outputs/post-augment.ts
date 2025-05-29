@@ -1,12 +1,9 @@
-import z from 'zod';
-
-import type * as http from '../http/index.ts';
 import { type ValidationError } from '../models/ValidationError.ts';
 
 /**
  * OK
  */
-export type PostAugmentOutput200 = unknown;
+export type PostAugmentOutput = unknown;
 
 /**
  * Bad Request

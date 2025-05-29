@@ -1,52 +1,10 @@
-import { useState } from 'react';
-// export function Right() {
-//   const [activeTab, setActiveTab] = useState<TabId>(tabs[0].id as TabId);
-//   const [activeLanguage, setActiveLanguage] = useState<Language>('typescript');
-
-//   return (
-//     <div className="flex flex-col space-y-4 w-full">
-//       <VercelTabs
-//         tabs={tabs}
-//         onTabChange={(tabId: string) => setActiveTab(tabId as TabId)}
-//       />
-//       <div className="border rounded p-px">
-//         <EditorTabs
-//           className="border-b bg-muted/50"
-//           activeLanguage={activeLanguage}
-//           setActiveLanguage={(lang) => setActiveLanguage(lang as Language)}
-//         />
-//         <div className="h-[40vh]">
-//           <Editor
-//             readonly={true}
-//             language={activeLanguage}
-//             value={codeSnippets[activeTab][activeLanguage]}
-//           />
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-import { titlecase } from 'stringcase';
-import { useReadLocalStorage } from 'usehooks-ts';
-
-import type { PostPlaygroundOutput200 } from '@sdk-it/client';
-
-import { Example } from './code-snippets';
 import Background from './components/background';
+import { Footer } from './components/footer';
 import { Particles } from './components/particles';
-import { Safari } from './components/safari';
-import SpecBox from './components/spec-box';
 import { TextGenerateEffect } from './components/text-generate-effect';
-import { TreeView } from './components/tree';
+import { Demos } from './sections/demos';
+import { StaticPlayground } from './sections/static-playground';
 import { Button, EyeCatchingButton, cn } from './shadcn';
-import {
-  Credenza,
-  CredenzaBody,
-  CredenzaContent,
-  CredenzaTrigger,
-} from './shadcn/lib/ui/credenza';
-import { useRootData } from './use-root-data';
 import { SpecBoxDemo } from './spec-box-demo';
 
 export function Hero(props: { className?: string }) {
@@ -94,36 +52,10 @@ export function Hero(props: { className?: string }) {
     </div>
   );
 }
-const tabs = [
-  {
-    id: 'pagination',
-    label: 'Pagination',
-    description:
-      'Fetch large lists efficiently with cursor- or offset-based pagination.',
-  },
-  {
-    id: 'fileupload',
-    label: 'File Upload',
-    description:
-      'Upload files via multipart/form-data with built-in progress tracking.',
-  },
-  {
-    id: 'streaming',
-    label: 'Streaming',
-    description:
-      'Stream large payloads or real-time data without blocking the main thread.',
-  },
-  {
-    id: 'sse',
-    label: 'Server-Sent Events',
-    description:
-      'Subscribe to real-time server push events with automatic reconnection.',
-  },
-];
 
 export default function App() {
   return (
-    <Background className="relative mx-auto px-4 md:px-8 lg:px-8 xl:max-w-full xl:px-12 2xl:max-w-[1400px] 2xl:px-0 2xl:py-8">
+    <Background className="relative mx-auto px-4 pt-10 md:px-8 lg:px-8 xl:max-w-full xl:px-12 2xl:max-w-[1400px] 2xl:px-0 2xl:py-8">
       <Particles
         className="absolute inset-0"
         quantity={100}
@@ -133,80 +65,26 @@ export default function App() {
       />
       <Hero />
       <div className="mt-32 w-full">
-        <h2 className="mb-4 text-4xl font-semibold tracking-tight text-balance">
-          Experiance Generated SDK Firsthand
+        <h2 className="mb-4 text-4xl font-semibold tracking-tight text-balance capitalize">
+          Demos speak louder than words
         </h2>
-        <h3 className="!text-muted-foreground tracking-tightlg:text-left mb-4 max-w-3xl text-xl leading-tight font-normal">
+        <h3 className="!text-muted-foreground mb-4 max-w-3xl text-xl leading-tight font-normal tracking-tight lg:text-left">
+          Experience SDK-IT feature set firsthand
+        </h3>
+      </div>
+      <Demos />
+      <div className="mt-32 w-full">
+        <h2 className="mb-4 text-4xl font-semibold tracking-tight text-balance capitalize">
+          {/* Experience Generated SDK Firsthand */}
+          Demos speak louder than words
+        </h2>
+        <h3 className="!text-muted-foreground mb-4 max-w-3xl text-xl leading-tight font-normal tracking-tight lg:text-left">
           Well crafted, type-safe SDKs tuned for the select language.
         </h3>
       </div>
+      <StaticPlayground className="mt-8 rounded-lg border" frame />
 
-      <StaticPlayground />
+      <Footer className="w-full px-4" />
     </Background>
-  );
-}
-
-export function StaticPlayground() {
-  const { operations: data } = useRootData();
-  const sdkInfo = useReadLocalStorage<PostPlaygroundOutput200 | null>(
-    'ts-sdk-info',
-  ) ?? {
-    url: '',
-    name: '@scope/client',
-    title: '',
-    clientName: 'Client',
-  };
-
-  const [activeTab, setActiveTab] =
-    useState<keyof typeof data>('basic/TypeSafety');
-
-  const treeData = Object.entries(data).reduce(
-    (acc, [key, value]) => {
-      const [folderName, file] = key.split('/');
-      const folder = titlecase(folderName);
-      acc[folder] ??= {
-        id: folder,
-        type: 'folder' as const,
-        name: folder,
-        children: [],
-      };
-
-      acc[folder].children.push({
-        id: key,
-        type: 'file' as const,
-        name: value.title || file,
-        value: value,
-      });
-
-      return acc;
-    },
-    {} as Record<string, any>,
-  );
-
-  const currentData = data[activeTab] as any;
-
-  const currentSnippet = {
-    typescript: currentData.typescript,
-    dart: '', // Add dart support when available
-    spec: currentData.spec,
-  };
-  return (
-    <div className="mt-8 w-full rounded-lg border">
-      <Safari className="h-auto w-full" />
-      <div className="relative grid w-full grid-cols-1 gap-x-4 lg:grid-cols-7 lg:gap-12 xl:grid-cols-9">
-        <div className="col-span-full px-2 py-2 lg:col-span-2">
-          <TreeView
-            onLeafSelect={(item) => {
-              setActiveTab(item.id as keyof typeof data);
-            }}
-            selectedId={activeTab}
-            data={Object.values(treeData)}
-          />
-        </div>
-        <div className="col-span-full lg:col-start-3">
-          <Example className="lg:border-l" snippet={currentSnippet} />
-        </div>
-      </div>
-    </div>
   );
 }

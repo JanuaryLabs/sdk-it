@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { useLocalStorage } from 'usehooks-ts';
 import { z } from 'zod';
 
-import { type PostPlaygroundOutput200, SdkIt } from '@sdk-it/client';
+import { type PostPlaygroundOutput, SdkIt } from '@sdk-it/client';
 
 import { Button, cn } from '../shadcn';
 import { Loader } from './loading-text';
@@ -49,7 +49,7 @@ export default function SpecBox({
 }: {
   className?: string;
   projectId?: number;
-  onGenerate: (sdkInfo: PostPlaygroundOutput200) => void;
+  onGenerate: (sdkInfo: PostPlaygroundOutput) => void;
 }) {
   const [boxValue, setBoxValue] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -57,7 +57,7 @@ export default function SpecBox({
   const [content, setContent] = useLocalStorage<any[]>('ts-sdk', [], {
     initializeWithValue: false,
   });
-  const [sdkInfo, setSdkInfo] = useLocalStorage<PostPlaygroundOutput200 | null>(
+  const [sdkInfo, setSdkInfo] = useLocalStorage<PostPlaygroundOutput | null>(
     'ts-sdk-info',
     null,
     {

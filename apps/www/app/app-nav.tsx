@@ -1,18 +1,9 @@
 import { useEffect, useState } from 'react';
-import { AiOutlineThunderbolt } from 'react-icons/ai';
 import { NavLink } from 'react-router';
 
+import { Logo } from './components/logo';
 import { ThemeToggle } from './components/toggle-theme';
 import { buttonVariants, cn } from './shadcn';
-
-function Logo() {
-  return (
-    <NavLink to="/" className="mr-6 flex items-center gap-x-2">
-      <AiOutlineThunderbolt className="size-5" />
-      <p className="!text-primary font-mono font-bold md:text-lg">SDK-IT</p>
-    </NavLink>
-  );
-}
 
 export function AppNav(props: { className?: string }) {
   const items = [
@@ -62,7 +53,7 @@ export function AppNav(props: { className?: string }) {
       )}
     >
       <Logo />
-      <nav className="hidden items-center lg:flex">
+      <nav className="ml-6 hidden items-center lg:flex">
         {items.map((it) => (
           <NavLink
             key={it.name}

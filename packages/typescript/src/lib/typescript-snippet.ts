@@ -100,7 +100,7 @@ export class TypeScriptGenerator {
     payload = JSON.stringify(
       payload,
       (key, value) => {
-        if (value.startsWith && value.startsWith('new')) {
+        if (value?.startsWith && value.startsWith('new')) {
           return `__REPLACE_${Math.random().toString(36).substring(2, 11)}__${value}__REPLACE_END__`;
         }
         return value;
@@ -198,7 +198,7 @@ export class TypeScriptGenerator {
       '',
       payload.footer,
     ];
-    if (config.frame!== false) {
+    if (config.frame !== false) {
       content.unshift('```typescript');
       content.push('```');
     }

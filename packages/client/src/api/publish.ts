@@ -25,7 +25,7 @@ import { BadRequest } from '../http/response.ts';
 import * as http from '../http/response.ts';
 import * as publish from '../inputs/publish.ts';
 import {
-  type PostPublishOutput200,
+  type PostPublishOutput,
   type PostPublishOutput400,
 } from '../outputs/post-publish.ts';
 import {
@@ -37,10 +37,7 @@ import {
 export default {
   'POST /publish': {
     schema: publish.postPublishSchema,
-    output: [
-      http.Ok<PostPublishOutput200>,
-      http.BadRequest<PostPublishOutput400>,
-    ],
+    output: [http.Ok<PostPublishOutput>, http.BadRequest<PostPublishOutput400>],
     toRequest(input: z.infer<typeof publish.postPublishSchema>) {
       return toRequest(
         'POST /publish',
