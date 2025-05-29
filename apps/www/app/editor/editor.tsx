@@ -5,7 +5,7 @@ import { useReadLocalStorage } from 'usehooks-ts';
 
 import { cn } from '../shadcn';
 import { EditorContext, EditorLayout } from './editor-layout';
-import { useTheme } from './use-editor-theme';
+import { useEditorTheme } from './use-editor-theme';
 
 export function Editor(props: {
   className?: string;
@@ -28,7 +28,7 @@ export function Editor(props: {
   tabSize?: number;
   declarations?: { text: string; filename: string }[];
 }) {
-  useTheme('lighter');
+  useEditorTheme('lighter');
   // useEditorFormatter();
   const content = useReadLocalStorage<
     {

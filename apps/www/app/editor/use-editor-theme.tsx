@@ -2,7 +2,7 @@ import { useMonaco } from '@monaco-editor/react';
 import type monaco from 'monaco-editor';
 import { useEffect } from 'react';
 
-export function useTheme(theme: 'lighter' | 'darker') {
+export function useEditorTheme(theme: 'lighter' | 'darker') {
   const monaco = useMonaco();
   useEffect(() => {
     if (monaco) {

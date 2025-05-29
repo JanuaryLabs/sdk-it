@@ -1,23 +1,42 @@
 import { Moon, Sun } from 'lucide-react';
-import { useState } from 'react';
+import { useLocalStorage } from 'usehooks-ts';
 
 import { cn } from '../shadcn';
+import useCookie from '../shadcn/lib/hooks/use-cookie';
 import { useRootData } from '../use-root-data';
 
 interface ThemeToggleProps {
   className?: string;
 }
 
-export function ThemeToggle({ className }: ThemeToggleProps) {
+export function useTheme() {
   const { isDark: initialIsDark } = useRootData();
-  const [isDark, setIsDark] = useState(initialIsDark);
+  const [theme, setTheme] = useCookie('theme');
+  const [readLocal, setLocal] = useLocalStorage(
+    'theme',
+    initialIsDark ? 'dark' : 'light',
+  );
+  const toggleTheme = () => {
+    const method = theme === 'dark' ? 'remove' : 'add';
+    document.body.classList[method]('dark');
+    console.log(theme);
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+    setLocal(theme === 'dark' ? 'light' : 'dark');
+  };
+  return {
+    isDark: readLocal === 'dark',
+    toggleTheme,
+    theme: readLocal,
+  };
+}
+
+export function ThemeToggle({ className }: ThemeToggleProps) {
+  const { isDark, theme, toggleTheme } = useTheme();
 
   const handleToggle = () => {
-    const newTheme = !isDark;
-    setIsDark(newTheme);
-    document.cookie = `theme=${newTheme}; path=/;`;
-    const method = newTheme ? 'add' : 'remove';
+    const method = theme === 'dark' ? 'remove' : 'add';
     document.body.classList[method]('dark');
+    toggleTheme();
   };
 
   return (
@@ -41,9 +60,9 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
           )}
         >
           {isDark ? (
-            <Moon className="h-4 w-4 text-white" strokeWidth={1.5} />
+            <Moon className="size-4 text-white" strokeWidth={1.5} />
           ) : (
-            <Sun className="h-4 w-4 text-gray-700" strokeWidth={1.5} />
+            <Sun className="size-4 text-gray-700" strokeWidth={1.5} />
           )}
         </div>
         <div
@@ -53,9 +72,9 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
           )}
         >
           {isDark ? (
-            <Sun className="h-4 w-4 text-gray-500" strokeWidth={1.5} />
+            <Sun className="size-4 text-gray-500" strokeWidth={1.5} />
           ) : (
-            <Moon className="h-4 w-4 text-black" strokeWidth={1.5} />
+            <Moon className="size-4 text-black" strokeWidth={1.5} />
           )}
         </div>
       </div>
