@@ -35,8 +35,9 @@ const app = new Hono().use(
 
 app.post('/', async (c) => {
   const { messages, id } = await c.req.json();
-  const r = talk(id, messages);
-  return r.toDataStreamResponse();
+  const { specUrl } = c.req.query();
+  const spec = await loadSpec(specUrl);
+  return talk(spec, id, messages).toDataStreamResponse();
 });
 
 const octokit = new Octokit({
