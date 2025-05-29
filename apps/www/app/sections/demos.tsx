@@ -1,10 +1,10 @@
 import { CodeSquare, Monitor, Smartphone, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
-import { cn } from '../shadcn';
-import useCookie from '../shadcn/lib/hooks/use-cookie';
-import { StaticPlayground } from './static-playground';
 import { useTheme } from '../components/toggle-theme';
+import { cn } from '../shadcn';
+import { AskAi } from './ai';
+import { StaticPlayground } from './static-playground';
 
 const tabs = [
   {
@@ -48,7 +48,9 @@ const demoData = {
 
 export const Demos = () => {
   const [activeDemo, setActiveDemo] = useState<keyof typeof demoData>('sdks');
-  const {theme} = useTheme()
+  const { theme } = useTheme();
+  const spec =
+    'https://gist.githubusercontent.com/ezzabuzaid/14bc73e2a230f00b61df56779e5cad32/raw/82ef19f4faf82a745f16d2f22f67b9fc79aceb65/oto.postman.json';
   return (
     <div className="w-full overflow-hidden rounded-lg border">
       <div className="flex w-full items-stretch overflow-x-auto overflow-y-hidden lg:grid lg:grid-cols-4 lg:overflow-visible">
@@ -113,10 +115,12 @@ export const Demos = () => {
             title="Embedded Content"
             width="100%"
             className="size-full min-h-svh"
-            src={`http://localhost:4202/embed?theme=${theme}&spec=https://gist.githubusercontent.com/ezzabuzaid/14bc73e2a230f00b61df56779e5cad32/raw/82ef19f4faf82a745f16d2f22f67b9fc79aceb65/oto.postman.json`}
+            src={`http://localhost:4202/embed?theme=${theme}&spec=${spec}`}
             allowFullScreen
             loading="eager"
           ></iframe>
+        ) : activeDemo === 'askai' ? (
+          <AskAi className="min-h-52 overflow-auto px-4" spec={spec} />
         ) : (
           <></>
         )}

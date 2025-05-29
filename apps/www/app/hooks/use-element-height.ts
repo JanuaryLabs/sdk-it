@@ -1,38 +1,67 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type RefCallback,
+  useCallback,
+  useLayoutEffect,
+  useState,
+} from 'react';
 
-export function useElementHeight<T extends HTMLElement = HTMLDivElement>() {
+// Define the return type of the hook
+type UseElementHeightReturnType<T extends HTMLElement> = [
+  RefCallback<T>,
+  number,
+];
+
+function useElementHeight<
+  T extends HTMLElement,
+>(): UseElementHeightReturnType<T> {
   const [height, setHeight] = useState<number>(0);
-  const elementRef = useRef<T>(null);
+  // State to store the element node, typed appropriately
+  const [node, setNode] = useState<T | null>(null);
 
-  const updateHeight = useCallback(() => {
-    if (elementRef.current) {
-      setHeight(elementRef.current.clientHeight);
+  // The ref callback, now strongly typed
+  const ref: RefCallback<T> = useCallback((nodeInstance) => {
+    if (nodeInstance !== null) {
+      setNode(nodeInstance);
     }
   }, []);
 
-  useEffect(() => {
-    const element = elementRef.current;
-    if (!element) return;
+  useLayoutEffect(() => {
+    if (node) {
+      const measure = () => {
+        // Ensure measurements are taken after the browser has painted
+        window.requestAnimationFrame(() => {
+          setHeight(node.offsetHeight);
+        });
+      };
 
-    // Initial measurement
-    updateHeight();
+      // Initial measurement
+      measure();
 
-    // Create ResizeObserver to track size changes
-    const resizeObserver = new ResizeObserver((e) => {
-      updateHeight();
-    });
+      // Observe for resize
+      // ResizeObserverEntry is a built-in type
+      const resizeObserver = new ResizeObserver(
+        (entries: ResizeObserverEntry[]) => {
+          // We only expect one entry here, but it's good practice to iterate or access directly
+          // For simplicity, assuming the first entry is our element
+          if (entries[0] && entries[0].target === node) {
+            measure();
+          }
+        },
+      );
 
-    resizeObserver.observe(element);
+      resizeObserver.observe(node);
 
-    // Cleanup
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [updateHeight]);
+      // Cleanup function
+      return () => {
+        if (node) {
+          // Check if node still exists before trying to unobserve
+          resizeObserver.unobserve(node);
+        }
+      };
+    }
+  }, [node]); // Rerun effect if the node changes
 
-  return {
-    ref: elementRef,
-    height,
-    setHeight: (newHeight: number) => setHeight(newHeight),
-  };
+  return [ref, height];
 }
+
+export default useElementHeight;

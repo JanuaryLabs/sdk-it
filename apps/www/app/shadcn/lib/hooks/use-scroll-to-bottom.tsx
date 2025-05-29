@@ -18,7 +18,11 @@ export function useScrollToBottom() {
 
   useEffect(() => {
     if (scrollBehavior) {
-      endRef.current?.scrollIntoView({ behavior: scrollBehavior });
+      endRef.current?.scrollIntoView({
+        behavior: scrollBehavior,
+        block: 'nearest',
+        
+      });
       setScrollBehavior(false);
     }
   }, [setScrollBehavior, scrollBehavior]);

@@ -23,6 +23,7 @@ export * from './progress';
 export * from './radio-group';
 export * from './scroll-area';
 export * from './select';
+export * from './credenza';
 export * from './separator';
 export * from './sheet';
 // export * from './skeleton';
