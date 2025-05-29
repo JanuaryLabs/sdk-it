@@ -1,4 +1,8 @@
-import type { SchemaObject, SchemasObject } from 'openapi3-ts/oas31';
+import type {
+  ReferenceObject,
+  SchemaObject,
+  SchemasObject,
+} from 'openapi3-ts/oas31';
 
 import { isRef } from '@sdk-it/core/ref.js';
 import { isEmpty } from '@sdk-it/core/utils.js';
@@ -69,9 +73,11 @@ export const GENERIC_LIMIT_PARAM_REGEXES: RegExp[] = [
 ];
 
 export const PAGE_NUMBER_REGEXES: RegExp[] = [
-  /^page$/i, // Exact match for "page"
+  // /^(currentPage)?page$/i, // Exact match for "page"
+  // /^currentPage$/i, // Exact match for "currentPage"
   /^p$/i, // Exact match for "p" (common shorthand)
-  /\bpage_?(?:number|no|num|idx|index)\b/i, // e.g., page_number, pageNumber, page_num, page_idx
+  // /\bpage_?(?:number|no|num|idx|index)\b/i, // e.g., page_number, pageNumber, page_num, page_idx
+  /^(current)?_?page(_?)(?:number|no|num|idx|index)?\b/i,
 ];
 
 // Regexes for parameters indicating page size (when used with page number)
@@ -158,12 +164,16 @@ function isOffsetPagination(
 
 function isPagePagination(
   operation: TunedOperationObject,
+  parameters: { name: string; schema?: SchemaObject | ReferenceObject }[],
 ): PagePaginationResult | null {
-  const queryParams = operation.parameters
-    .filter((p) => p.in === 'query')
-    .filter(
-      (it) => it.schema && !isRef(it.schema) && it.schema.type === 'integer',
-    );
+  const queryParams = parameters.filter((it) => {
+    if (!it.schema) return false;
+    if (isRef(it.schema)) return false;
+    const types = Array.isArray(it.schema.type)
+      ? it.schema.type
+      : [it.schema.type];
+    return types.includes('integer') || types.includes('number');
+  });
 
   if (queryParams.length < 2) return null;
 
@@ -225,9 +235,13 @@ export function guessPagination(
 ): PaginationGuess {
   const bodyParameters =
     body && body.properties
-      ? Object.keys(body.properties).map((it) => ({ name: it }))
+      ? Object.entries(body.properties).map(([it, schema]) => ({
+          name: it,
+          schema,
+        }))
       : [];
   const parameters = operation.parameters;
+
   if (isEmpty(operation.parameters) && isEmpty(bodyParameters)) {
     return { type: 'none', reason: 'no parameters' };
   }
@@ -250,7 +264,7 @@ export function guessPagination(
   }
   const pagination =
     isOffsetPagination(operation, [...parameters, ...bodyParameters]) ||
-    isPagePagination(operation) ||
+    isPagePagination(operation, [...parameters, ...bodyParameters]) ||
     isCursorPagination(operation);
   return pagination
     ? { ...pagination, items: itemsKey, hasMore: hasMoreKey }
