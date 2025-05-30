@@ -1,0 +1,27 @@
+{
+  "info": { "name": "Folders Test", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
+  "item": [
+    {
+      "name": "Folder1",
+      "item": [
+        {
+          "name": "Request1 in Folder1",
+          "request": { "method": "GET", "url": "https://example.com/f1/r1" }
+        },
+        {
+          "name": "SubFolder1",
+          "item": [
+            {
+              "name": "Request1 in SubFolder1",
+              "request": { "method": "GET", "url": "https://example.com/f1/sf1/r1" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Request2 Top Level",
+      "request": { "method": "POST", "url": "https://example.com/r2" }
+    }
+  ]
+}

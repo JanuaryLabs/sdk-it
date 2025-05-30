@@ -1,0 +1,38 @@
+{
+  "info": { "name": "Variables Test", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
+  "item": [
+    {
+      "name": "Path Variables Request",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "https://example.com/users/:userId/posts/:postId",
+          "protocol": "https",
+          "host": ["example", "com"],
+          "path": ["users", ":userId", "posts", ":postId"],
+          "variable": [
+            { "key": "userId", "value": "123", "description": "User ID" },
+            { "key": "postId", "value": "456" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Query Parameters Request",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "https://example.com/search?q=test&type=user",
+          "protocol": "https",
+          "host": ["example", "com"],
+          "path": ["search"],
+          "query": [
+            { "key": "q", "value": "test", "description": "Search query" },
+            { "key": "type", "value": "user" },
+            { "key": "optional", "value": null, "disabled": true }
+          ]
+        }
+      }
+    }
+  ]
+}

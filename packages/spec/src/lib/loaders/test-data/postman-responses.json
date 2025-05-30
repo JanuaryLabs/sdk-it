@@ -1,0 +1,27 @@
+{
+  "info": { "name": "Responses Test", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
+  "item": [
+    {
+      "name": "Request with Responses",
+      "request": { "method": "GET", "url": "https://example.com/data" },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": { "method": "GET", "url": "https://example.com/data" },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\"id\": 1, \"name\": \"Sample Data\"}"
+        },
+        {
+          "name": "Not Found Response",
+          "originalRequest": { "method": "GET", "url": "https://example.com/data" },
+          "status": "Not Found",
+          "code": 404,
+          "body": "Resource not found"
+        }
+      ]
+    }
+  ]
+}

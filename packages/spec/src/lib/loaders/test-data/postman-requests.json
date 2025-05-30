@@ -1,0 +1,51 @@
+{
+  "info": { "name": "Requests Test", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
+  "item": [
+    {
+      "name": "GET Request",
+      "request": { "method": "GET", "url": "https://example.com/users" }
+    },
+    {
+      "name": "POST Raw JSON",
+      "request": {
+        "method": "POST", "url": "https://example.com/users",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"name\": \"test\", \"age\": 30}" }
+      }
+    },
+    {
+      "name": "POST Raw Text",
+      "request": {
+        "method": "POST", "url": "https://example.com/rawtext",
+        "header": [{ "key": "Content-Type", "value": "text/plain" }],
+        "body": { "mode": "raw", "raw": "Hello world" }
+      }
+    },
+    {
+      "name": "POST Urlencoded",
+      "request": {
+        "method": "POST", "url": "https://example.com/form",
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "name", "value": "testuser" },
+            { "key": "email", "value": "test@example.com", "disabled": true }
+          ]
+        }
+      }
+    },
+    {
+      "name": "POST FormData",
+      "request": {
+        "method": "POST", "url": "https://example.com/upload",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "file", "type": "file", "src": "/path/to/file.txt" },
+            { "key": "text_field", "type": "text", "value": "some text" }
+          ]
+        }
+      }
+    }
+  ]
+}

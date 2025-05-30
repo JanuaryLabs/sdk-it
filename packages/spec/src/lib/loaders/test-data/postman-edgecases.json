@@ -1,0 +1,10 @@
+{
+  "info": { "name": "Edge Cases Test", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
+  "item": [
+    { "name": "Just an item, not a folder or request" },
+    {
+      "name": "Request as String URL",
+      "request": "https://example.com/simple-get"
+    }
+  ]
+}

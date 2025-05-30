@@ -1,0 +1,72 @@
+{
+  "info": { "name": "Auth Test", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "collectionToken", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "API Key Header Request",
+      "request": {
+        "method": "GET", "url": "https://example.com/api-key-header",
+        "auth": {
+          "type": "apikey",
+          "apikey": [
+            { "key": "in", "value": "header", "type": "string" },
+            { "key": "key", "value": "X-API-KEY", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "API Key Query Request",
+      "request": {
+        "method": "GET", "url": "https://example.com/api-key-query",
+        "auth": {
+          "type": "apikey",
+          "apikey": [
+            { "key": "in", "value": "query", "type": "string" },
+            { "key": "key", "value": "apiKey", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Basic Auth Request",
+      "request": {
+        "method": "GET", "url": "https://example.com/basic-auth",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "user", "type": "string" },
+            { "key": "password", "value": "pass", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "OAuth2 Request",
+      "request": {
+        "method": "GET", "url": "https://example.com/oauth2",
+        "auth": {
+          "type": "oauth2",
+          "oauth2": [
+            { "key": "grant_type", "value": "implicit", "type": "string" },
+            { "key": "authUrl", "value": "https://example.com/oauth/authorize", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "No Auth Request",
+      "request": {
+        "method": "GET", "url": "https://example.com/no-auth",
+        "auth": { "type": "noauth" }
+      }
+    },
+    {
+      "name": "Inherited Auth Request",
+      "request": { "method": "GET", "url": "https://example.com/inherited-auth" }
+    }
+  ]
+}
