@@ -5,6 +5,7 @@ import type {
 } from 'openapi3-ts/oas31';
 
 import { cleanRef, followRef, isRef } from '@sdk-it/core';
+import { sanitizeTag } from '@sdk-it/spec';
 
 type OnRefCallback = (ref: string, content: string) => void;
 
@@ -120,7 +121,7 @@ export class ZodEmitter {
   }
 
   ref($ref: string, required: boolean) {
-    const schemaName = cleanRef($ref).split('/').pop()!;
+    const schemaName = sanitizeTag(cleanRef($ref).split('/').pop()!);
 
     if (this.generatedRefs.has(schemaName)) {
       return schemaName;
@@ -133,6 +134,14 @@ export class ZodEmitter {
 
     return schemaName;
   }
+  #toIntersection(schemas: string[]): string {
+    const [left, ...right] = schemas;
+    if (!right.length) {
+      return left;
+    }
+    return `z.intersection(${left}, ${this.#toIntersection(right)})`;
+  }
+
   allOf(schemas: (SchemaObject | ReferenceObject)[], required: boolean) {
     const allOfSchemas = schemas.map((sub) => this.handle(sub, true));
     if (allOfSchemas.length === 0) {
@@ -142,14 +151,6 @@ export class ZodEmitter {
       return `${allOfSchemas[0]}${appendOptional(required)}`;
     }
     return `${this.#toIntersection(allOfSchemas)}${appendOptional(required)}`;
-  }
-
-  #toIntersection(schemas: string[]): string {
-    const [left, ...right] = schemas;
-    if (!right.length) {
-      return left;
-    }
-    return `z.intersection(${left}, ${this.#toIntersection(right)})`;
   }
 
   anyOf(schemas: (SchemaObject | ReferenceObject)[], required: boolean) {

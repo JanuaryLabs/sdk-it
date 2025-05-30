@@ -182,6 +182,9 @@ export function toEndpoint(
         specOperation.responses,
       );
   for (const status in responseWithAtLeast200) {
+    if (status === 'default') {
+      continue; // skip default response
+    }
     const handled = handleResponse(
       spec,
       operation.name,
@@ -234,7 +237,7 @@ function normalOperation(style?: Style) {
 function paginationOperation(operation: TunedOperationObject, style?: Style) {
   const pagination = operation['x-pagination'] as OperationPagination;
   const data = `${style?.errorAsValue ? `result[0]${style.outputType === 'status' ? '' : ''}` : `${style?.outputType === 'default' ? 'result.data' : 'result.data'}`}`;
-  const returnValue = `${style?.errorAsValue ? `[${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}, error]` : `${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}`}`;
+  const returnValue = `${style?.errorAsValue ? `[${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}, null]` : `${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}`}`;
   if (pagination.type === 'offset') {
     const sameInputNames =
       pagination.limitParamName === 'limit' &&
@@ -346,6 +349,7 @@ const statusCodeToResponseMap: Record<string, string> = {
   '405': 'MethodNotAllowed',
   '406': 'NotAcceptable',
   '409': 'Conflict',
+  '412': 'PreconditionFailed',
   '413': 'PayloadTooLarge',
   '410': 'Gone',
   '422': 'UnprocessableEntity',
