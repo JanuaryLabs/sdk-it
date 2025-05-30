@@ -48,31 +48,7 @@ export class Ok<T> extends APIResponse<T, 200> {
     );
   }
 }
-export class PreconditionFailed<T = { message: string }> extends APIError<
-  T,
-  412
-> {
-  static override readonly kind = Symbol.for('PreconditionFailed');
-  static override status = 412 as const;
-  constructor(data: T) {
-    super(PreconditionFailed.status, data);
-  }
-  static override create<T>(status: number, data: T) {
-    Object.defineProperty(data, KIND, { value: this.kind });
-    return new this(data);
-  }
 
-  static is<T extends { [KIND]: (typeof PreconditionFailed)['kind'] }>(
-    value: unknown,
-  ): value is T {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      KIND in value &&
-      value[KIND] === this.kind
-    );
-  }
-}
 export class Created<T> extends APIResponse<T, 201> {
   static override readonly kind = Symbol.for('Created');
   static override status = 201 as const;
@@ -341,6 +317,31 @@ export class Gone<T = { message: string }> extends APIError<T, 410> {
     );
   }
 }
+export class PreconditionFailed<T = { message: string }> extends APIError<
+  T,
+  412
+> {
+  static override readonly kind = Symbol.for('PreconditionFailed');
+  static override status = 412 as const;
+  constructor(data: T) {
+    super(PreconditionFailed.status, data);
+  }
+  static override create<T>(status: number, data: T) {
+    Object.defineProperty(data, KIND, { value: this.kind });
+    return new this(data);
+  }
+
+  static is<T extends { [KIND]: (typeof PreconditionFailed)['kind'] }>(
+    value: unknown,
+  ): value is T {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      KIND in value &&
+      value[KIND] === this.kind
+    );
+  }
+}
 export class UnprocessableEntity<
   T = { message: string; errors?: Record<string, string[]> },
 > extends APIError<T, 422> {
@@ -555,7 +556,7 @@ export class GatewayTimeout<T = { message: string }> extends APIError<T, 504> {
 }
 
 export type ClientError =
-  | BadRequest<{ message: string }>
+  | BadRequest<unknown>
   | Unauthorized<unknown>
   | PaymentRequired<unknown>
   | Forbidden<unknown>
@@ -564,6 +565,9 @@ export type ClientError =
   | NotAcceptable<unknown>
   | Conflict<unknown>
   | Gone<unknown>
+  | PreconditionFailed<unknown>
+  | PayloadTooLarge<unknown>
+  | UnsupportedMediaType<unknown>
   | UnprocessableEntity<unknown>
   | TooManyRequests<unknown>;
 

@@ -20,7 +20,7 @@ import { z } from 'zod';
 import { pascalcase } from '@sdk-it/core';
 import * as tsDart from '@sdk-it/dart';
 import { forEachOperation, loadSpec } from '@sdk-it/spec';
-import { loadRemote } from '@sdk-it/spec/loaders/remote-loader.js';
+import { loadRemote } from '@sdk-it/spec';
 import * as tsSdk from '@sdk-it/typescript';
 
 import { talk } from './groq.js';

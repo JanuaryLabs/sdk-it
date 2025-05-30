@@ -10,14 +10,6 @@ import {
   ScrollRestoration,
 } from 'react-router';
 
-import { followRef, isRef } from '@sdk-it/core';
-import { loadSpec } from '@sdk-it/spec';
-import {
-  type TunedOperationObject,
-  augmentSpec,
-  forEachOperation,
-} from '@sdk-it/spec/operation.js';
-import { toSidebar } from '@sdk-it/spec/sidebar.js';
 import { TypeScriptGenerator } from '@sdk-it/typescript';
 
 import type { AugmentedOperation } from './api-doc/types';
@@ -98,6 +90,10 @@ export async function loader({
   request: Request;
   params: { '*'?: string };
 }) {
+  const { followRef, isRef } = await import('@sdk-it/core');
+  const { augmentSpec, toSidebar, forEachOperation, loadSpec } = await import(
+    '@sdk-it/spec'
+  );
   // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
   // 'https://api.openstatus.dev/v1/openapi',
 
@@ -114,7 +110,10 @@ export async function loader({
 
   const operationsMap: Record<
     string,
-    { entry: AugmentedOperation; operation: TunedOperationObject }
+    {
+      entry: AugmentedOperation;
+      operation: import('@sdk-it/spec').TunedOperationObject;
+    }
   > = {};
   const generator = new TypeScriptGenerator(spec, {
     output: '',

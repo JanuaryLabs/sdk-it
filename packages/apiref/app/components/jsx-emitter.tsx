@@ -1,7 +1,7 @@
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import React from 'react';
 
-import type { TunedOperationObject } from '@sdk-it/spec/operation.js';
+import type { TunedOperationObject } from '@sdk-it/spec';
 
 import { Description } from './description';
 import { ParametersComponent } from './parameters-component';

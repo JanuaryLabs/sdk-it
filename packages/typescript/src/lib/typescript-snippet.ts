@@ -11,8 +11,8 @@ import {
   type OperationPagination,
   type TunedOperationObject,
   patchParameters,
+  securityToOptions,
 } from '@sdk-it/spec';
-import { securityToOptions } from '@sdk-it/spec/security.js';
 
 import { SnippetEmitter } from './emitters/snippet.ts';
 import type { TypeScriptGeneratorOptions } from './options.ts';

@@ -1,4 +1,3 @@
-import { Serverize } from '@serverize/client';
 import rehypeShiki, { type RehypeShikiOptions } from '@shikijs/rehype';
 import { transformerTwoslash } from '@shikijs/twoslash';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
@@ -16,13 +15,6 @@ import rehypeTwoslash from 'rehype-twoslash';
 import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
 import { unified } from 'unified';
-
-import { createOperation } from '@sdk-it/spec';
-import {
-  type TunedOperationObject,
-  augmentSpec,
-  forEachOperation,
-} from '@sdk-it/spec/operation.js';
 
 import '../styles.css';
 import { AppNav } from './app-nav';
@@ -82,6 +74,10 @@ export default function App() {
 }
 
 export async function loader({ request }: { request: Request }) {
+  const { generateSnippet } = await import('@sdk-it/typescript');
+  const { augmentSpec, createOperation, forEachOperation } = await import(
+    '@sdk-it/spec'
+  );
   const processor = unified()
     .use(remarkParse)
     .use(remarkRehype)
@@ -109,11 +105,10 @@ export async function loader({ request }: { request: Request }) {
 
   const isDark = (request.headers.get('Cookie') || '').includes('theme=dark');
 
-  const { generateSnippet } = await import('@sdk-it/typescript');
   async function snippet(
     path: string,
     method: string,
-    operation: TunedOperationObject,
+    operation: import('@sdk-it/spec').TunedOperationObject,
     partialSpec?: Partial<OpenAPIObject>,
   ) {
     const spec = augmentSpec({
@@ -296,7 +291,7 @@ console.log(result);`,
         parameters: {
           query: {
             cursor: {
-              required: false,
+              required: true,
               schema: {
                 type: 'string',
               },

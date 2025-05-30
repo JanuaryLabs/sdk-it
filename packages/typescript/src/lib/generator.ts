@@ -10,10 +10,7 @@ import type {
 import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
 import { followRef, isEmpty, isRef } from '@sdk-it/core';
-import {
-  type GenerateSdkConfig,
-  forEachOperation,
-} from '@sdk-it/spec/operation.js';
+import { type GenerateSdkConfig, forEachOperation } from '@sdk-it/spec';
 
 import { ZodEmitter } from './emitters/zod.ts';
 import {

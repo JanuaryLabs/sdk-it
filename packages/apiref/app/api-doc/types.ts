@@ -1,4 +1,4 @@
-import type { OperationEntry } from '@sdk-it/spec/operation.js';
+import type { OperationEntry } from '@sdk-it/spec';
 
 export type Snippet = {
   language: string;

@@ -28,7 +28,7 @@ export function OperationsList() {
           {category.items.map((group) => (
             <div key={group.title} className="api-doc-section mb-8">
               <h3 className="mb-4 text-3xl font-semibold">{group.title}</h3>
-              <Description id={group.id} description={group.description} />
+              <Description className='prose' id={group.id} description={group.description} />
               <Separator className="mt-12" />
               <div className="grid gap-6">
                 {group.items?.map((item) => {

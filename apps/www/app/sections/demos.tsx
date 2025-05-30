@@ -40,8 +40,8 @@ const demoData = {
     icon: WandSparkles,
   },
   outlyne: {
-    title: 'API Agent',
-    subtitle: 'AI website builder',
+    title: 'API Agent Editor',
+    subtitle: 'Customize your API spec',
     icon: Sparkles,
   },
 };

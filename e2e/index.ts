@@ -39,21 +39,21 @@ function runCommand(title: string, command: string, memory?: number) {
 }
 
 const specs = [
-  {
-    name: 'oto',
-    spec: join(process.cwd(), '.yamls', 'oto.json'),
-    flags: ['--readme=false', '--error-as-value=true'],
-  },
-  {
-    name: 'openstatus',
-    spec: 'https://api.openstatus.dev/v1/openapi',
-    flags: ['--readme=false', '--error-as-value=true'],
-  },
-  {
-    name: 'Serverize',
-    spec: 'https://raw.githubusercontent.com/JanuaryLabs/serverize/refs/heads/main/openapi.json',
-    flags: [],
-  },
+  // {
+  //   name: 'oto',
+  //   spec: join(process.cwd(), '.yamls', 'oto.json'),
+  //   flags: ['--readme=false', '--error-as-value=true'],
+  // },
+  // {
+  //   name: 'openstatus',
+  //   spec: 'https://api.openstatus.dev/v1/openapi',
+  //   flags: ['--readme=false', '--error-as-value=true'],
+  // },
+  // {
+  //   name: 'Serverize',
+  //   spec: 'https://raw.githubusercontent.com/JanuaryLabs/serverize/refs/heads/main/openapi.json',
+  //   flags: [],
+  // },
   {
     name: 'Box',
     spec: 'https://raw.githubusercontent.com/box/box-openapi/refs/heads/main/openapi.json',

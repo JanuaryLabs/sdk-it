@@ -19,7 +19,7 @@ export function Hero(props: { className?: string }) {
           <TextGenerateEffect
             className="text-4xl font-semibold text-balance"
             filter={false}
-            duration={1.5}
+            duration={1}
             wordClassMap={{
               // developer: 'text-blue-700',
               // experience: 'text-green-700',

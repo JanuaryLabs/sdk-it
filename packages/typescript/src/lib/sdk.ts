@@ -10,7 +10,7 @@ import {
   isSuccessStatusCode,
   isTextContentType,
   parseJsonContentType,
-} from '@sdk-it/spec/operation.js';
+} from '@sdk-it/spec';
 
 import { TypeScriptEmitter } from './emitters/interface.ts';
 import type { Style } from './style.ts';

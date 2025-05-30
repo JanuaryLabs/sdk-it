@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import type { TunedOperationObject } from '@sdk-it/spec/operation.js';
+import type { TunedOperationObject } from '@sdk-it/spec';
 
 import { JSXEmitter } from '../components/jsx-emitter';
 import { EditorTabs } from '../components/sdks-tabs';
@@ -66,7 +66,7 @@ export function OperationCard({
 
         <div id="right" className="h-full self-start rounded">
           <EditorTabs
-            className="border border-b light:bg-muted/20"
+            className="light:bg-muted/20 border border-b"
             tabs={tabsConfig}
           />
         </div>

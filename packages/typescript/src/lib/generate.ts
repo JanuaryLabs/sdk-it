@@ -15,7 +15,7 @@ import {
   writeFiles,
 } from '@sdk-it/core/file-system.js';
 import { toReadme } from '@sdk-it/readme';
-import { augmentSpec } from '@sdk-it/spec/operation.js';
+import { augmentSpec } from '@sdk-it/spec';
 
 import backend from './client.ts';
 import { generateCode } from './generator.ts';

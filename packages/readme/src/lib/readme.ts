@@ -5,7 +5,7 @@ import {
   type OperationEntry,
   type TunedOperationObject,
   forEachOperation,
-} from '@sdk-it/spec/operation.js';
+} from '@sdk-it/spec';
 
 import { PropEmitter } from './prop.emitter.ts';
 

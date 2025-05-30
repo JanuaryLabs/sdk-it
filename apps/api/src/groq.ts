@@ -254,7 +254,7 @@ ${availableOperations(operations)}
 Always generate code snippets using the \`generateSnippet\` tool no matter what the user asks.
 `,
     messages: [...messages],
-    temperature: 0,
+    temperature: 0.1,
     topP: 0.5,
     // toolChoice: 'required',
     tools,
