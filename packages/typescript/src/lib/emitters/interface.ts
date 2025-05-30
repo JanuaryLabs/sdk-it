@@ -74,7 +74,7 @@ export class TypeScriptEmitter {
 
     // If items is a single schema => standard array
     const itemsType = this.handle(items, true);
-    return `${itemsType}[]`;
+    return itemsType.length > 1 ? `(${itemsType})[]` : `${itemsType}[]`;
   }
 
   /**
@@ -124,30 +124,25 @@ export class TypeScriptEmitter {
     return allOfTypes.length > 1 ? `${allOfTypes.join(' & ')}` : allOfTypes[0];
   }
 
-  anyOf(
-    schemas: (SchemaObject | ReferenceObject)[],
-    required: boolean,
-  ): string {
-    // For TypeScript we use union types for anyOf/oneOf
-    const anyOfTypes = schemas.map((sub) => this.handle(sub, true));
-    return appendOptional(
-      anyOfTypes.length > 1 ? `${anyOfTypes.join(' | ')}` : anyOfTypes[0],
-      required,
-    );
-  }
-
   oneOf(
     schemas: (SchemaObject | ReferenceObject)[],
     required: boolean,
   ): string {
-    const oneOfTypes = schemas.map((sub) => this.handle(sub, false));
+    // For TypeScript we use union types for anyOf/oneOf
+    const oneOfTypes = schemas.map((sub) => this.handle(sub, true));
     return appendOptional(
       oneOfTypes.length > 1 ? `${oneOfTypes.join(' | ')}` : oneOfTypes[0],
       required,
     );
   }
+  anyOf(
+    schemas: (SchemaObject | ReferenceObject)[],
+    required: boolean,
+  ): string {
+    return this.oneOf(schemas, required);
+  }
 
-  enum(values: any[], required: boolean): string {
+  enum(values: unknown[], required: boolean): string {
     // For TypeScript enums as union of literals
     const enumValues = values
       .map((val) => (typeof val === 'string' ? `'${val}'` : `${val}`))
