@@ -11,7 +11,7 @@ import type {
 } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
-import type { Method } from '@sdk-it/core/paths.js';
+import { type Method, methods } from '@sdk-it/core/paths.js';
 import { followRef, isRef } from '@sdk-it/core/ref.js';
 import { isEmpty } from '@sdk-it/core/utils.js';
 
@@ -21,22 +21,67 @@ import {
 } from './pagination/pagination.js';
 import { securityToOptions } from './security.js';
 
+function findUniqueOperationId(
+  usedOperationIds: Set<string>,
+  initialId: string,
+  choices: string[],
+  formatter: (id: string) => string,
+) {
+  let counter = 1;
+  let uniqueOperationId = formatter(initialId);
+
+  while (usedOperationIds.has(uniqueOperationId)) {
+    // Try each prepend option
+    const prependIndex = Math.min(counter - 1, choices.length - 1);
+    const prefix = choices[prependIndex];
+
+    if (prependIndex < choices.length - 1) {
+      // Using one of the prepend options
+      uniqueOperationId = formatter(
+        `${prefix}${initialId.charAt(0).toUpperCase() + initialId.slice(1)}`,
+      );
+    } else {
+      // If we've exhausted all prepend options, start adding numbers
+      uniqueOperationId = formatter(
+        `${prefix}${initialId.charAt(0).toUpperCase() + initialId.slice(1)}${counter - choices.length + 1}`,
+      );
+    }
+    counter++;
+  }
+
+  return uniqueOperationId;
+}
 export function augmentSpec(config: GenerateSdkConfig) {
   config.spec.paths ??= {};
   const paths: PathsObject = {};
-  for (const [path, pathItem] of Object.entries(config.spec.paths)) {
-    const { ...methods } = pathItem;
+  const usedOperationIds = new Set<string>();
 
+  for (const [path, pathItem] of Object.entries(config.spec.paths)) {
     // Convert Express-style routes (:param) to OpenAPI-style routes ({param})
     const fixedPath = path.replace(/:([^/]+)/g, '{$1}');
-    for (const [method, operation] of Object.entries(methods) as [
+    for (const [method, operation] of Object.entries(pathItem) as [
       Method,
       OperationObject,
     ][]) {
+      if (!methods.includes(method)) {
+        continue;
+      }
       const formatOperationId = config.operationId ?? defaults.operationId;
       const formatTag = config.tag ?? defaults.tag;
-      const operationId = formatOperationId(operation, fixedPath, method);
       const operationTag = formatTag(operation, fixedPath);
+      const operationId = findUniqueOperationId(
+        usedOperationIds,
+        formatOperationId(operation, fixedPath, method),
+        [operationTag, method, fixedPath.split('/').filter(Boolean).join('')],
+        (id) =>
+          formatOperationId(
+            { ...operation, operationId: id },
+            fixedPath,
+            method,
+          ),
+      );
+      usedOperationIds.add(operationId);
+
       const requestBody = isRef(operation.requestBody)
         ? followRef<RequestBodyObject>(config.spec, operation.requestBody.$ref)
         : operation.requestBody;
@@ -153,7 +198,9 @@ export const defaults: Partial<GenerateSdkConfig> &
   Required<Pick<GenerateSdkConfig, 'operationId' | 'tag'>> = {
   operationId: (operation, path, method) => {
     if (operation.operationId) {
-      return camelcase(operation.operationId);
+      return camelcase(
+        operation.operationId.replace('-', '').split('#').at(-1)!,
+      );
     }
     const metadata = operation['x-oaiMeta'];
     if (metadata && metadata.name) {
@@ -306,6 +353,7 @@ const reservedKeywords = new Set([
   'arguments',
 ]);
 
+const reservedSdkKeywords = new Set(['ClientError']);
 /**
  * Sanitizes a potential tag name (assumed to be already camelCased)
  * to avoid conflicts with reserved keywords or invalid starting characters (numbers).
@@ -314,15 +362,27 @@ const reservedKeywords = new Set([
  * @param camelCasedTag The potential tag name, already camelCased.
  * @returns The sanitized tag name.
  */
-function sanitizeTag(camelCasedTag: string): string {
+export function sanitizeTag(camelCasedTag: string): string {
   // Prepend underscore if starts with a number
   if (/^\d/.test(camelCasedTag)) {
     return `_${camelCasedTag}`;
   }
   // Append underscore if it's a reserved keyword
-  return reservedKeywords.has(camelcase(camelCasedTag))
-    ? `${camelCasedTag}_`
-    : camelCasedTag.replace('(', ' ').replace(')', '');
+  if (reservedKeywords.has(camelcase(camelCasedTag))) {
+    return `${camelCasedTag}_`;
+  }
+  // Append dollar sign if it's a reserved SDK keyword
+  if (reservedSdkKeywords.has(camelCasedTag)) {
+    return `$${camelCasedTag}`;
+  }
+  return camelCasedTag
+    .replace('(', ' ')
+    .replace(')', ' ')
+    .replace('--', ' ')
+    .split(' ')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join('');
 }
 
 /**

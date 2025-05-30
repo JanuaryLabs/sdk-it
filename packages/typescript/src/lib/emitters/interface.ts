@@ -4,7 +4,8 @@ import type {
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { cleanRef, followRef, isRef } from '@sdk-it/core';
+import { cleanRef, followRef, isRef, pascalcase } from '@sdk-it/core';
+import { sanitizeTag } from '@sdk-it/spec';
 
 type OnRefCallback = (ref: string, interfaceContent: string) => void;
 
@@ -102,7 +103,7 @@ export class TypeScriptEmitter {
   }
 
   ref($ref: string, required: boolean): string {
-    const schemaName = cleanRef($ref).split('/').pop()!;
+    const schemaName = sanitizeTag(cleanRef($ref).split('/').pop()!);
 
     if (this.generatedRefs.has(schemaName)) {
       return schemaName;
@@ -110,11 +111,11 @@ export class TypeScriptEmitter {
     this.generatedRefs.add(schemaName);
 
     this.#onRef?.(
-      schemaName,
+      pascalcase(schemaName),
       this.handle(followRef<SchemaObject>(this.#spec, $ref), required),
     );
 
-    return appendOptional(schemaName, required);
+    return appendOptional(pascalcase(schemaName), required);
   }
 
   allOf(schemas: (SchemaObject | ReferenceObject)[]): string {
@@ -139,9 +140,7 @@ export class TypeScriptEmitter {
     schemas: (SchemaObject | ReferenceObject)[],
     required: boolean,
   ): string {
-    const oneOfTypes = schemas.map((sub) => {
-      return this.handle(sub, false);
-    });
+    const oneOfTypes = schemas.map((sub) => this.handle(sub, false));
     return appendOptional(
       oneOfTypes.length > 1 ? `${oneOfTypes.join(' | ')}` : oneOfTypes[0],
       required,
