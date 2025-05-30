@@ -95,6 +95,7 @@ export const PAGE_SIZE_REGEXES: RegExp[] = [
 
 // Regexes for parameters indicating a cursor
 export const CURSOR_REGEXES: RegExp[] = [
+  /\bmarker\b/i,
   /\bcursor\b/i,
   /\bafter(?:_?cursor)?\b/i, // e.g., after, after_cursor
   /\bbefore(?:_?cursor)?\b/i, // e.g., before, before_cursor
@@ -139,15 +140,54 @@ function findParamAndKeyword(
   return null;
 }
 
+function coearceParameters(
+  parameters: { name: string; schema?: SchemaObject | ReferenceObject }[],
+) {
+  const cleanedParameters: {
+    name: string;
+    schema: Omit<SchemaObject, 'type'> & {
+      type: string[]; // Ensure type is always an array
+    };
+  }[] = [];
+  for (const param of parameters) {
+    if (!param.schema) {
+      continue;
+    }
+    if (isRef(param.schema)) {
+      continue;
+    }
+    if (!param.schema.type) {
+      continue;
+    }
+    if (param.schema) {
+      cleanedParameters.push({
+        ...param,
+        schema: {
+          ...param.schema,
+          type: Array.isArray(param.schema.type)
+            ? param.schema.type
+            : [param.schema.type],
+        },
+      });
+    }
+  }
+  return cleanedParameters;
+}
+
 function isOffsetPagination(
   operation: TunedOperationObject,
-  parameters: { name: string }[],
+  parameters: { name: string; schema?: SchemaObject | ReferenceObject }[],
 ): OffsetPaginationResult | null {
-  const offsetMatch = findParamAndKeyword(parameters, OFFSET_PARAM_REGEXES);
+  const params = coearceParameters(parameters).filter(
+    (it) =>
+      it.schema.type.includes('integer') || it.schema.type.includes('number'),
+  );
+  const offsetMatch = findParamAndKeyword(params, OFFSET_PARAM_REGEXES);
+
   if (!offsetMatch) return null;
 
   const limitMatch = findParamAndKeyword(
-    parameters,
+    params,
     GENERIC_LIMIT_PARAM_REGEXES,
     offsetMatch.param.name,
   );
@@ -166,22 +206,18 @@ function isPagePagination(
   operation: TunedOperationObject,
   parameters: { name: string; schema?: SchemaObject | ReferenceObject }[],
 ): PagePaginationResult | null {
-  const queryParams = parameters.filter((it) => {
-    if (!it.schema) return false;
-    if (isRef(it.schema)) return false;
-    const types = Array.isArray(it.schema.type)
-      ? it.schema.type
-      : [it.schema.type];
-    return types.includes('integer') || types.includes('number');
-  });
+  const params = coearceParameters(parameters).filter(
+    (it) =>
+      it.schema.type.includes('integer') || it.schema.type.includes('number'),
+  );
 
-  if (queryParams.length < 2) return null;
+  if (params.length < 2) return null;
 
-  const pageNoMatch = findParamAndKeyword(queryParams, PAGE_NUMBER_REGEXES);
+  const pageNoMatch = findParamAndKeyword(params, PAGE_NUMBER_REGEXES);
   if (!pageNoMatch) return null;
 
   const pageSizeMatch = findParamAndKeyword(
-    queryParams,
+    params,
     PAGE_SIZE_REGEXES,
     pageNoMatch.param.name,
   );
@@ -198,8 +234,9 @@ function isPagePagination(
 
 function isCursorPagination(
   operation: TunedOperationObject,
+  parameters: { name: string; schema?: SchemaObject | ReferenceObject }[] = [],
 ): CursorPaginationResult | null {
-  const queryParams = operation.parameters.filter((p) => p.in === 'query');
+  const queryParams = parameters;
   if (queryParams.length < 2) return null; // Need at least a cursor and a limit-like param
 
   const cursorMatch = findParamAndKeyword(queryParams, CURSOR_REGEXES);
