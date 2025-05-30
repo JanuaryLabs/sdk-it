@@ -55,6 +55,16 @@ const specs = [
     flags: [],
   },
   {
+    name: 'Box',
+    spec: 'https://raw.githubusercontent.com/box/box-openapi/refs/heads/main/openapi.json',
+    flags: [],
+  },
+  {
+    name: 'AppStoreConnect',
+    spec: 'https://raw.githubusercontent.com/EvanBacon/App-Store-Connect-OpenAPI-Spec/refs/heads/main/specs/latest.json',
+    flags: [],
+  },
+  {
     name: 'Turso',
     spec: 'https://raw.githubusercontent.com/tursodatabase/turso-docs/refs/heads/main/api-reference/openapi.json',
     flags: [],

@@ -1,4 +1,6 @@
 import { google } from '@ai-sdk/google';
+import { groq } from '@ai-sdk/groq';
+import { openai } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import {
   type CoreMessage,
@@ -16,12 +18,12 @@ import { distillRef } from '@sdk-it/core';
 import { TypeScriptGenerator } from '@sdk-it/typescript';
 
 import { database } from './db.js';
+import { markdownJoinerTransform } from './markdown-joiner-transformer.js';
 import {
   availableOperations,
   findOperationById,
   toOperations,
 } from './operation-utils.js';
-import { markdownJoinerTransform } from './markdown-joiner-transformer.js';
 
 export function talk(
   spec: OpenAPIObject,
@@ -195,18 +197,16 @@ export function talk(
     name: 'lmstudio',
     baseURL: 'http://localhost:1234/v1',
   });
-
   const operations = toOperations(spec);
   const result = streamText({
     experimental_transform: [
-      smoothStream({ chunking: 'line', delayInMs: 150 }),
+      smoothStream({ chunking: 'line', delayInMs: 100 }),
       markdownJoinerTransform(),
     ],
-    // model: openai('o4-mini'),
+    // model: openai('gpt-4.1-nano'),
     // providerOptions: {
     //   openai: { service_tier: 'flex' },
     // },
-    // model: groq('meta-llama/llama-4-scout-17b-16e-instruct'),
     // model: lmstudio('qwen3-8b'),
     model: google('gemini-2.5-flash-preview-05-20'),
     // model: anthropic('claude-4-sonnet-20250514'),

@@ -309,8 +309,7 @@ function SuggestedPrompts(props: { onSelectPrompt: (prompt: string) => void }) {
           <Button
             key={it}
             onClick={() => props.onSelectPrompt(it)}
-            className="border"
-            variant={'secondary'}
+            variant={'outline'}
           >
             {it}
           </Button>
@@ -335,20 +334,20 @@ export function AssistantMessage(props: { message: Message }) {
                   toolInvocation.toolName === 'getOperations' ? (
                     <div key={toolCallId} className="contents"></div>
                   ) : (
-                    <div key={toolCallId} className="text-gray-500">
+                    <div key={toolCallId} className="text-muted-foreground">
                       Tool call {`${toolInvocation.toolName}: `}
                       {toolInvocation.result}
                     </div>
                   )
                 ) : (
-                  <div key={toolCallId} className="text-gray-500">
+                  <div key={toolCallId} className="text-muted-foreground">
                     Calling {toolInvocation.toolName}...
                   </div>
                 );
               }
 
               return (
-                <div key={part.type} className="text-gray-500">
+                <div key={part.type} className="text-muted-foreground">
                   <b>{part.type}</b>
                   {JSON.stringify(part)}
                 </div>

@@ -16,7 +16,7 @@ export function TextShimmer({
   children,
   as: Component = 'p',
   className,
-  duration = 2,
+  duration = 4,
   spread = 2,
 }: TextShimmerProps) {
   const MotionComponent = motion(Component as keyof JSX.IntrinsicElements);

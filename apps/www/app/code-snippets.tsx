@@ -104,33 +104,6 @@ function EditorTabs({
               {it.lang}
             </TabsTrigger>
           ))}
-          {/* {availableLanguages.includes('typescript') && (
-            <TabsTrigger
-              value="typescript"
-              className="data-[state=active]:bg-muted relative gap-x-1 overflow-hidden rounded-none py-2 after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 data-[state=active]:shadow-none"
-            >
-              <BiLogoTypescript size={20} />
-              TypeScript
-            </TabsTrigger>
-          )}
-          {availableLanguages.includes('dart') && (
-            <TabsTrigger
-              value="dart"
-              className="data-[state=active]:bg-muted relative gap-x-1 overflow-hidden rounded-none py-2 after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 data-[state=active]:shadow-none"
-            >
-              <BiLogoFlutter size={20} />
-              Dart
-            </TabsTrigger>
-          )}
-          {availableLanguages.includes('spec') && (
-            <TabsTrigger
-              value="spec"
-              className="data-[state=active]:bg-muted data-[state=active]:after:bg-primary relative gap-x-1 overflow-hidden rounded-none py-2 after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 data-[state=active]:shadow-none"
-            >
-              <SiOpenapiinitiative size={20} />
-              Spec
-            </TabsTrigger>
-          )} */}
         </TabsList>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>

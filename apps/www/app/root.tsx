@@ -101,7 +101,7 @@ export async function loader({ request }: { request: Request }) {
       cssVariablePrefix: '--shiki-',
       themes: {
         light: 'min-light',
-        dark: 'min-dark',
+        dark: 'vesper',
       },
     } satisfies RehypeShikiOptions)
     .use(rehypeTwoslash)

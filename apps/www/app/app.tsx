@@ -3,7 +3,6 @@ import { Footer } from './components/footer';
 import { Particles } from './components/particles';
 import { TextGenerateEffect } from './components/text-generate-effect';
 import { Demos } from './sections/demos';
-import { StaticPlayground } from './sections/static-playground';
 import { Button, EyeCatchingButton, cn } from './shadcn';
 import { SpecBoxDemo } from './spec-box-demo';
 
@@ -25,7 +24,7 @@ export function Hero(props: { className?: string }) {
               // developer: 'text-blue-700',
               // experience: 'text-green-700',
               // premium: 'text-green-700',
-              OpenAPI: 'text-blue-700',
+              OpenAPI: 'light:text-blue-700',
             }}
             words={'Turn your OpenAPI spec into premium developer experience'}
           />
@@ -69,20 +68,20 @@ export default function App() {
           Demos speak louder than words
         </h2>
         <h3 className="!text-muted-foreground mb-4 max-w-3xl text-xl leading-tight font-normal tracking-tight lg:text-left">
-          Experience SDK-IT feature set firsthand
+          Practical demonstrations of how SDK-IT transforms OpenAPI specs into
+          sdks, documentation, AI Search, and more.
         </h3>
       </div>
       <Demos />
-      <div className="mt-32 w-full">
+      {/* <div className="mt-32 w-full">
         <h2 className="mb-4 text-4xl font-semibold tracking-tight text-balance capitalize">
-          {/* Experience Generated SDK Firsthand */}
           Demos speak louder than words
         </h2>
         <h3 className="!text-muted-foreground mb-4 max-w-3xl text-xl leading-tight font-normal tracking-tight lg:text-left">
           Well crafted, type-safe SDKs tuned for the select language.
         </h3>
       </div>
-      <StaticPlayground className="mt-8 rounded-lg border" frame />
+      <StaticPlayground className="mt-8 rounded-lg border" frame /> */}
 
       <Footer className="w-full px-4" />
     </Background>

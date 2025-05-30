@@ -1,4 +1,4 @@
-import { CodeSquare, Monitor, Smartphone, Sparkles } from 'lucide-react';
+import { BookText, CodeSquare, Sparkles, WandSparkles } from 'lucide-react';
 import { useState } from 'react';
 
 import { useTheme } from '../components/toggle-theme';
@@ -32,12 +32,12 @@ const demoData = {
   docs: {
     title: 'API Docs',
     subtitle: 'Intuitive API documentation',
-    icon: Monitor,
+    icon: BookText,
   },
   askai: {
     title: 'Ask AI',
     subtitle: 'AI Chat tailored to your API',
-    icon: Smartphone,
+    icon: WandSparkles,
   },
   outlyne: {
     title: 'API Agent',
@@ -65,7 +65,7 @@ export const Demos = () => {
               key={tab.id}
               className={cn(
                 !first ? 'border-l' : '',
-                'flex items-center gap-3 border-b p-5 text-left transition-colors focus:outline-none md:px-16 md:py-8',
+                'flex items-center gap-3 border-b p-5 text-left transition-colors focus:outline-none md:py-8',
                 isActive
                   ? 'border-b-orange-500 bg-neutral-50 dark:bg-neutral-900'
                   : 'hover:bg-neutral-50 dark:hover:bg-neutral-900',
