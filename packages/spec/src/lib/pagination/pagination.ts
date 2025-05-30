@@ -302,7 +302,7 @@ export function guessPagination(
   const pagination =
     isOffsetPagination(operation, [...parameters, ...bodyParameters]) ||
     isPagePagination(operation, [...parameters, ...bodyParameters]) ||
-    isCursorPagination(operation);
+    isCursorPagination(operation, [...parameters, ...bodyParameters]);
   return pagination
     ? { ...pagination, items: itemsKey, hasMore: hasMoreKey }
     : { type: 'none', reason: 'no pagination' };

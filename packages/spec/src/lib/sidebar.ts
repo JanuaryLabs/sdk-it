@@ -1,7 +1,7 @@
-import type { OpenAPIObject, OperationObject } from 'openapi3-ts/oas31';
+import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
-import { type TunedOperationObject, forEachOperation } from './operation';
+import { type TunedOperationObject, forEachOperation } from './operation.js';
 
 export type ChildNavItem = {
   id: string;

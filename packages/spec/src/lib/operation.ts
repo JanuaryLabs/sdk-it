@@ -199,7 +199,10 @@ export const defaults: Partial<GenerateSdkConfig> &
   operationId: (operation, path, method) => {
     if (operation.operationId) {
       return camelcase(
-        operation.operationId.replace('-', '').split('#').at(-1)!,
+        operation.operationId
+          .split('#')
+          .pop()!
+          .replace(/-(?=\d)/g, ''),
       );
     }
     const metadata = operation['x-oaiMeta'];
@@ -359,23 +362,23 @@ const reservedSdkKeywords = new Set(['ClientError']);
  * to avoid conflicts with reserved keywords or invalid starting characters (numbers).
  * Appends an underscore if the tag matches a reserved keyword.
  * Prepends an underscore if the tag starts with a number.
- * @param camelCasedTag The potential tag name, already camelCased.
+ * @param tag The potential tag name, already camelCased.
  * @returns The sanitized tag name.
  */
-export function sanitizeTag(camelCasedTag: string): string {
+export function sanitizeTag(tag: string): string {
   // Prepend underscore if starts with a number
-  if (/^\d/.test(camelCasedTag)) {
-    return `_${camelCasedTag}`;
+  if (/^\d/.test(tag)) {
+    return `_${tag}`;
   }
   // Append underscore if it's a reserved keyword
-  if (reservedKeywords.has(camelcase(camelCasedTag))) {
-    return `${camelCasedTag}_`;
+  if (reservedKeywords.has(tag)) {
+    return `${tag}_`;
   }
   // Append dollar sign if it's a reserved SDK keyword
-  if (reservedSdkKeywords.has(camelCasedTag)) {
-    return `$${camelCasedTag}`;
+  if (reservedSdkKeywords.has(tag)) {
+    return `$${tag}`;
   }
-  return camelCasedTag
+  return tag
     .replace('(', ' ')
     .replace(')', ' ')
     .replace('--', ' ')

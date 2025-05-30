@@ -98,7 +98,7 @@ const HAS_MORE_POSITIVE_REGEX_PATTERNS: string[] = [
   '\\bcontinuation\\b', // e.g., continuationAvailable, has_continuation_token
   '\\bmore_?results\\b',
   '\\bpage_?available\\b',
-  '\\bnext(?:_?(page))?\\b',
+  '\\bnext(?:_?(page|marker))?\\b',
 ];
 const COMPILED_HAS_MORE_POSITIVE_REGEXES: RegExp[] =
   HAS_MORE_POSITIVE_REGEX_PATTERNS.map((p) => new RegExp(p, 'i'));
@@ -212,14 +212,13 @@ export function getItemsName(
 function guess(properties: Record<string, SchemaObject>) {
   const booleanPropertyNames: string[] = [];
   for (const propName in properties) {
-    if (Object.prototype.hasOwnProperty.call(properties, propName)) {
-      const propSchema = properties[propName] as SchemaObject;
-      if (
-        (propSchema && propSchema.type === 'boolean') ||
-        propSchema.type === 'integer'
-      ) {
-        booleanPropertyNames.push(propName);
-      }
+    const propSchema = properties[propName] as SchemaObject;
+    if (
+      propSchema.type === 'boolean' ||
+      propSchema.type === 'integer' ||
+      propSchema.type === 'string'
+    ) {
+      booleanPropertyNames.push(propName);
     }
   }
 
