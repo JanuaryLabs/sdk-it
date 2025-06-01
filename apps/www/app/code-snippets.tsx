@@ -98,7 +98,7 @@ function EditorTabs({
             <TabsTrigger
               key={it.lang}
               value={it.lang}
-              className="data-[state=active]:bg-muted relative min-w-32 cursor-pointer gap-x-1 overflow-hidden rounded-none py-2 capitalize after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 data-[state=active]:shadow-none"
+              className="data-[state=active]:bg-white/10 font-normal font-rubik relative min-w-32 cursor-pointer gap-x-1 overflow-hidden rounded-none py-2 capitalize after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 data-[state=active]:shadow-none"
             >
               {it.icon}
               {it.lang}

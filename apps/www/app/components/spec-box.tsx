@@ -173,11 +173,11 @@ export default function SpecBox({
       {...getRootProps()} // Apply dropzone props to the whole component
       className={cn(
         props.className,
-        'relative overflow-hidden rounded-lg border light:border-neutral-500 shadow-lg',
+        'relative overflow-hidden rounded-lg border bg-white/5',
         isDragActive
           ? 'border-blue-500 bg-blue-50'
           : !loading &&
-              'bg-gray-50 focus-within:border-gray-400 hover:border-gray-400 focus:border-gray-400 focus-visible:border-gray-400 dark:bg-neutral-800',
+              'focus-within:border-neutral-700 hover:border-neutral-700 focus:border-neutral-700 focus-visible:border-neutral-700',
       )}
       onSubmit={(e) => {
         e.preventDefault();
@@ -187,7 +187,7 @@ export default function SpecBox({
         disabled={loading}
         placeholder="Enter OpenAPI spec url, upload file, or paste the spec here..."
         rows={3}
-        className="text-neutral-n11 placeholder-neutral-n7 dark:bg-background w-full resize-none bg-white px-6 py-4 text-lg focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full resize-none px-6 py-4 text-lg focus:outline-none focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         value={boxValue}
         onChange={(e) => {
           setBoxValue(e.target.value);
@@ -204,7 +204,7 @@ export default function SpecBox({
           <div>
             <Button
               disabled={loading}
-              variant={'outline'}
+              variant={'secondary'}
               size={'sm'}
               className="shadow-none"
               type="button"
@@ -228,8 +228,8 @@ export default function SpecBox({
               // onGenerate(result);
             }}
             disabled={loading}
-            variant={'secondary'}
-            className="border"
+            variant={'outline'}
+            className="border shadow-none"
             type="submit"
           >
             {loading ? (

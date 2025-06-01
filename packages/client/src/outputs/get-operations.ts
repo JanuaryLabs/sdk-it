@@ -11,4 +11,4 @@ export type GetOperationsOutput = {
 /**
  * Bad Request
  */
-export type GetOperationsOutput400 = ValidationError | undefined;
+export type GetOperationsOutput400 = ValidationError;

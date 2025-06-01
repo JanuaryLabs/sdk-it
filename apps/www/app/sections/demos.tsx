@@ -24,7 +24,7 @@ const tabs = [
 const demoData = {
   sdks: {
     title: 'Sdks',
-    subtitle: 'Well crafted SDKs',
+    subtitle: 'Well-crafted SDKs',
     description:
       'Fun fact: LiveStore was originally developed as a part of Overtone and later factored out.',
     icon: CodeSquare,
@@ -52,7 +52,7 @@ export const Demos = () => {
   const spec =
     'https://gist.githubusercontent.com/ezzabuzaid/14bc73e2a230f00b61df56779e5cad32/raw/82ef19f4faf82a745f16d2f22f67b9fc79aceb65/oto.postman.json';
   return (
-    <div className="w-full overflow-hidden rounded-lg border">
+    <div className="w-full overflow-hidden rounded border">
       <div className="flex w-full items-stretch overflow-x-auto overflow-y-hidden lg:grid lg:grid-cols-4 lg:overflow-visible">
         {tabs.map((tab, index) => {
           const demo = demoData[tab.id as keyof typeof demoData];
@@ -65,9 +65,9 @@ export const Demos = () => {
               key={tab.id}
               className={cn(
                 !first ? 'border-l' : '',
-                'flex items-center gap-3 border-b p-5 text-left transition-colors focus:outline-none md:py-8',
+                'flex cursor-pointer items-center gap-3 border-b p-5 text-left transition-colors focus:outline-none',
                 isActive
-                  ? 'border-b-orange-500 bg-neutral-50 dark:bg-neutral-900'
+                  ? 'border-b-orange-500 bg-neutral-50 dark:bg-white/5'
                   : 'hover:bg-neutral-50 dark:hover:bg-neutral-900',
                 isActive && 'hover:border-b-orange-500', // Preserve active border on hover
               )}
@@ -84,7 +84,7 @@ export const Demos = () => {
               <div className="flex size-10 shrink-0 items-center justify-center xl:size-12">
                 <IconComponent
                   className={cn(
-                    'h-6 w-6',
+                    'size-6',
                     isActive ? 'text-foreground' : 'text-muted-foreground',
                   )}
                 />

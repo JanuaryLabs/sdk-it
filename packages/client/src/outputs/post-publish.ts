@@ -11,4 +11,4 @@ export type PostPublishOutput = {
 /**
  * Bad Request
  */
-export type PostPublishOutput400 = ValidationError | undefined;
+export type PostPublishOutput400 = ValidationError;

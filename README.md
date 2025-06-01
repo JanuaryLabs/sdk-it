@@ -36,7 +36,7 @@ const client = new Client({
 const [result, error] = await client.request('GET /status_report', {});
 ```
 
-Violla!
+Voilà!
 
 ![demo](./demo.png)
 

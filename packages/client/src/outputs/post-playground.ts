@@ -13,4 +13,4 @@ export type PostPlaygroundOutput = {
 /**
  * Bad Request
  */
-export type PostPlaygroundOutput400 = ValidationError | undefined;
+export type PostPlaygroundOutput400 = ValidationError;

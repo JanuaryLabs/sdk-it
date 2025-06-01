@@ -49,7 +49,7 @@ export function AppNav(props: { className?: string }) {
         scrolled ? 'border-border/70 border-b' : '',
         'flex w-full items-center',
         'px-4 md:px-8 lg:px-8 xl:px-12 2xl:px-0',
-        'mx-auto xl:max-w-full 2xl:max-w-[1400px]',
+        'mx-auto lg:max-w-full xl:max-w-[1360px]',
       )}
     >
       <Logo />

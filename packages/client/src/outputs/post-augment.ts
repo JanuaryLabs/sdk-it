@@ -8,4 +8,4 @@ export type PostAugmentOutput = unknown;
 /**
  * Bad Request
  */
-export type PostAugmentOutput400 = ValidationError | undefined;
+export type PostAugmentOutput400 = ValidationError;

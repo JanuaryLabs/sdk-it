@@ -8,4 +8,4 @@ export type GetFetchOutput = any;
 /**
  * Bad Request
  */
-export type GetFetchOutput400 = ValidationError | undefined;
+export type GetFetchOutput400 = ValidationError;

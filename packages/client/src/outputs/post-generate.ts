@@ -8,4 +8,4 @@ export type PostGenerateOutput = ReadableStream;
 /**
  * Bad Request
  */
-export type PostGenerateOutput400 = ValidationError | undefined;
+export type PostGenerateOutput400 = ValidationError;
