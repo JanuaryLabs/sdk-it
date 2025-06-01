@@ -17,7 +17,60 @@ import {
   pascalcase,
 } from '@sdk-it/core';
 
+const reservedWords = new Set([
+  'abstract',
+  'as',
+  'assert',
+  'async',
+  'await',
+  'break',
+  'case',
+  'catch',
+  'class',
+  'const',
+  'continue',
+  'default',
+  'deferred',
+  'do',
+  'dynamic',
+  'else',
+  'enum',
+  'export',
+  'extends',
+  'extension',
+  'external',
+  'factory',
+  'final',
+  'finally',
+  'for',
+  'Function',
+  'get',
+  'set',
+  'hide',
+  'if',
+  'implements',
+  'import',
+  'in',
+  'interface',
+  'is',
+  'library',
+  'mixin',
+  'new',
+  'null',
+  'on',
+  'operator',
+  'part',
+  'required',
+  'rethrow',
+  'return',
+  'hide',
+  'show',
+]);
+
 const formatName = (it: any): string => {
+  if (reservedWords.has(it)) {
+    return `$${it}`;
+  }
   const startsWithDigitPattern = /^-?\d/;
   // 1. Handle numbers
   if (typeof it === 'number') {
@@ -57,13 +110,12 @@ const formatName = (it: any): string => {
       nameToFormat = nameToFormat.slice(0, -1);
     }
 
-    // Apply snakecase to the (potentially modified) string
-    return snakecase(nameToFormat);
+    return nameToFormat;
   }
 
   // 4. Fallback for any other types (e.g., null, undefined, objects)
   // Convert to string first, then apply snakecase
-  return snakecase(String(it));
+  return String(it);
 };
 
 type Context = Record<string, any>;
@@ -181,21 +233,21 @@ export class DartSerializer {
 
     for (const [key, propSchema] of Object.entries(schema.properties)) {
       const propName = key.replace('[]', '');
+      const safePropName = camelcase(formatName(propName));
       const required = (schema.required ?? []).includes(key);
       const typeStr = this.handle(className, propSchema, required, {
         name: propName,
+        safeName: safePropName,
         required,
         propName: [className, propName].filter(Boolean).join('_'),
       });
       const nullable = typeStr.nullable || !required;
       const nullableSuffix = nullable ? '?' : '';
-      props.push(
-        `final ${typeStr.use}${nullableSuffix} ${camelcase(propName)};`,
-      );
-      fromJsonParams.push(`${camelcase(propName)}: ${typeStr.fromJson}`);
+      props.push(`final ${typeStr.use}${nullableSuffix} ${safePropName};`);
+      fromJsonParams.push(`${safePropName}: ${typeStr.fromJson}`);
       toJsonProperties.push(`'${propName}': ${typeStr.toJson}`);
       constructorParams.push(
-        `${required ? 'required ' : ''}this.${camelcase(propName)},`,
+        `${required ? 'required ' : ''}this.${safePropName},`,
       );
       if (required) {
         matches.push(`(
@@ -288,7 +340,7 @@ return ${matches.join(' && ')};
       content: '',
       use: `List<${itemsType.use}>`,
       fromJson,
-      toJson: `${context.required ? `this.${camelcase(context.name)}${itemsType.simple ? '' : '.map((it) => it.toJson()).toList()'}` : `this.${camelcase(context.name)}!= null? this.${camelcase(context.name)}${itemsType.simple ? '' : '!.map((it) => it.toJson()).toList()'} : null`}`,
+      toJson: `${context.required ? `${camelcase(context.safeName || context.name)}${itemsType.simple ? '' : '.map((it) => it.toJson()).toList()'}` : `${camelcase(context.safeName || context.name)} != null ? ${camelcase(context.safeName || context.name)}${itemsType.simple ? '' : '!.map((it) => it.toJson()).toList()'} : null`}`,
       matches: `json['${camelcase(context.name)}'].every((it) => ${itemsType.matches})`,
     };
   }
@@ -303,6 +355,7 @@ return ${matches.join(' && ')};
     context: Record<string, unknown>,
     required = false,
   ): Serialized {
+    const safeName = (context.safeName || context.name) as string;
     switch (type) {
       case 'string':
         return this.#string(schema, context);
@@ -313,7 +366,7 @@ return ${matches.join(' && ')};
         return {
           content: '',
           use: 'bool',
-          toJson: `${camelcase(context.name as string)}`,
+          toJson: safeName,
           fromJson: `json['${context.name}']`,
           matches: `json['${context.name}'] is bool`,
         };
@@ -325,7 +378,7 @@ return ${matches.join(' && ')};
         return {
           content: '',
           use: 'Null',
-          toJson: `${camelcase(context.name as string)}`,
+          toJson: safeName,
           fromJson: `json['${context.name}']`,
         };
       default:
@@ -334,7 +387,7 @@ return ${matches.join(' && ')};
           content: '',
           use: 'dynamic',
           nullable: false,
-          toJson: `${camelcase(context.name as string)}`,
+          toJson: safeName,
           fromJson: `json['${context.name}']`,
         };
     }
@@ -630,7 +683,7 @@ return ${matches.join(' && ')};
   toJson() {return this.value;}
 }
     abstract ${mixins.length ? '' : 'mixin'} class ${pascalcase(name)} ${withMixins} {
-      ${values.map((it) => `static const _EnumValue ${formatName(it)} = _EnumValue(${typeof it === 'number' ? it : `'${it}'`});`).join('\n')}
+      ${values.map((it) => `static const _EnumValue ${snakecase(formatName(it))} = _EnumValue(${typeof it === 'number' ? it : `'${it}'`});`).join('\n')}
       dynamic toJson();
 
       ${valType} get value;
@@ -640,7 +693,7 @@ return ${matches.join(' && ')};
 ${values
   .map(
     (it) =>
-      `case ${typeof it === 'number' ? it : `'${it}'`}: return ${formatName(it)};`,
+      `case ${typeof it === 'number' ? it : `'${it}'`}: return ${snakecase(formatName(it))};`,
   )
   .join('\n')}
 default:
@@ -679,6 +732,7 @@ return false;
    * Handle string type with formats
    */
   #string(schema: SchemaObject, context: Context): Serialized {
+    const safeName = context.safeName || context.name;
     switch (schema.format) {
       case 'date-time':
       case 'datetime':
@@ -688,10 +742,8 @@ return false;
           use: 'DateTime',
           simple: true,
           toJson: context.required
-            ? `this.${camelcase(context.name)}.toIso8601String()`
-            : `this.${camelcase(context.name)} != null ? this.${camelcase(
-                context.name,
-              )}!.toIso8601String() : null`,
+            ? `this.${safeName}.toIso8601String()`
+            : `this.${safeName} != null ? this.${safeName}!.toIso8601String() : null`,
           fromJson: context.name
             ? `json['${context.name}'] != null ? DateTime.parse(json['${context.name}']) : null`
             : 'json',
@@ -702,7 +754,7 @@ return false;
         return {
           content: '',
           use: 'File',
-          toJson: `this.${camelcase(context.name)}`,
+          toJson: `this.${safeName}`,
           simple: true,
           fromJson: context.name ? `json['${context.name}']` : 'json',
           matches: `json['${context.name}'] is Uint8List`,
@@ -713,7 +765,7 @@ return false;
           use: `String`,
           content: '',
           simple: true,
-          toJson: `this.${camelcase(context.name)}`,
+          toJson: `this.${safeName}`,
           fromJson: context.name ? `json['${context.name}'] as String` : 'json',
           matches: `json['${context.name}'] is String`,
         };

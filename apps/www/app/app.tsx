@@ -1,6 +1,7 @@
 import { Code2Icon, DollarSignIcon, UsersIcon } from 'lucide-react';
 
 import Background from './components/background';
+import { DottedBackground } from './components/dotted-vignette-background.tsx';
 import { Footer } from './components/footer';
 import { Lightning } from './components/lightining.tsx';
 import { TextGenerateEffect } from './components/text-generate-effect';
@@ -25,7 +26,7 @@ export function Hero(props: { className?: string }) {
             filter={false}
             duration={0.7}
             wordClassMap={{
-              OpenAPI: 'dark:text-cyan-300',
+              OpenAPI: 'dark:text-emerald-200 text-emerald-400',
             }}
             words={'Turn your OpenAPI spec into premium developer experience'}
           />
@@ -38,7 +39,10 @@ export function Hero(props: { className?: string }) {
       </div>
       <div className="col-span-full inline-flex flex-col items-center justify-center gap-4 sm:flex-row lg:col-span-3 lg:row-start-2 lg:mt-4 lg:mb-0 lg:justify-start xl:col-span-4">
         <div className="flex items-center gap-8">
-          <Button size={'lg'} className="dark:bg-cyan-300">
+          <Button
+            size={'lg'}
+            className="light:text-foreground light:bg-emerald-400 dark:bg-emerald-200"
+          >
             <a href="/">Get started</a>
           </Button>
           <EyeCatchingButton>
@@ -56,10 +60,11 @@ export function Hero(props: { className?: string }) {
 export default function App() {
   const { isDark } = useTheme();
   const showClient = false;
+
   return (
     <>
       {/* calc(100vh-66px-128px) = viewport - client section height - margin top */}
-      <section className="content mx-auto !h-[calc(100vh-(66px+20px)-128px)]">
+      <section className="content mx-auto !h-[calc(100vh-(66px+20px)-(128px/2))]">
         <Background className="relative mx-auto h-full xl:max-w-full">
           <Hero />
           <div className="flex size-full items-center justify-between">
@@ -83,18 +88,20 @@ export default function App() {
                 </p>
               </div>
             </div>
-            <div className="relative h-full flex-1 overflow-hidden">
+            <div className="absolute -right-1/4 -bottom-1/2 h-full w-1/2 flex-1 overflow-hidden">
               {/* Top gradient overlay for blending */}
-              <div className="from-background absolute top-0 right-0 left-0 z-10 h-12 bg-gradient-to-b to-transparent"></div>
+              <div className="from-background absolute top-0 right-0 left-0 z-10 h-96 bg-gradient-to-b to-transparent"></div>
 
               {isDark && (
-                <Lightning
-                  hue={220}
-                  xOffset={-1}
-                  speed={0.7}
-                  intensity={1}
-                  size={0.8}
-                  className="relative bg-transparent backdrop-blur-[1px]"
+                <DottedBackground
+                  dotColor="#6ee7b7"
+                  backgroundColor="#0f172a"
+                  enableVignette={true}
+                  vignetteColor="rgba(0,0,0,0.9)"
+                  enableInnerGlow={true}
+                  innerGlowColor="rgba(0,0,0,0.8)"
+                  dotSize={1.5}
+                  dotSpacing={10}
                 />
               )}
 
@@ -109,7 +116,7 @@ export default function App() {
           <Clients />
         </section>
       )}
-      <section className="content !mt-0">
+      <section className="content z-1 !mt-0">
         <div className="mb-8 w-full">
           <h2 className="mb-4 text-4xl text-balance capitalize">
             Demos speak louder than words
