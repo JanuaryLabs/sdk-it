@@ -4,6 +4,7 @@ import { camelcase } from 'stringcase';
 import ts from 'typescript';
 
 import {
+  type InjectImport,
   type NaunceResponseAnalyzer,
   type OnOperation,
   Paths,
@@ -216,7 +217,7 @@ export async function analyze(
     /**
      * Additional code to inject before resolving zod schemas
      */
-    commonZodImport?: string;
+    imports: InjectImport[];
     responseAnalyzer: ResponseAnalyzerFn | NaunceResponseAnalyzer;
     onOperation?: OnOperation;
   },
@@ -229,7 +230,7 @@ export async function analyze(
   logger(`Type checker created`);
   const typeDeriver = new TypeDeriver(typeChecker);
   const paths = new Paths({
-    commonZodImport: config.commonZodImport,
+    imports: config.imports,
     onOperation: config.onOperation,
   });
 

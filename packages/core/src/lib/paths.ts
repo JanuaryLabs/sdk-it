@@ -10,6 +10,10 @@ import type {
 
 import { $types } from './deriver.js';
 
+export type InjectImport = {
+  import: string;
+  from: string;
+};
 export type Method =
   | 'get'
   | 'post'
@@ -63,7 +67,7 @@ export type OnOperation = (
   operation: OperationObject,
 ) => PathsObject;
 export class Paths {
-  #commonZodImport?: string;
+  #imports: InjectImport[] = [];
   #onOperation?: OnOperation;
   #operations: Array<{
     sourceFile: string;
@@ -77,8 +81,8 @@ export class Paths {
     description?: string;
   }> = [];
 
-  constructor(config: { commonZodImport?: string; onOperation?: OnOperation }) {
-    this.#commonZodImport = config.commonZodImport;
+  constructor(config: { imports: InjectImport[]; onOperation?: OnOperation }) {
+    this.#imports = config.imports;
     this.#onOperation = config.onOperation;
   }
 
@@ -182,7 +186,7 @@ export class Paths {
       if (selector.source === 'body') {
         bodySchemaProps[selector.name] = {
           required: selector.required,
-          schema: await evalZod(selector.against, this.#commonZodImport),
+          schema: await evalZod(selector.against, this.#imports),
         };
         continue;
       }
@@ -191,7 +195,7 @@ export class Paths {
         in: semanticSourceToOpenAPI[selector.source],
         name: selector.name,
         required: selector.required,
-        schema: await evalZod(selector.against, this.#commonZodImport),
+        schema: await evalZod(selector.against, this.#imports),
       };
       parameters.push(parameter);
     }
@@ -261,14 +265,14 @@ export class Paths {
   }
 }
 
-async function evalZod(schema: string, commonZodImport?: string) {
+async function evalZod(schema: string, imports: InjectImport[] = []) {
   // https://github.com/nodejs/node/issues/51956
   const lines = [
     `import { createRequire } from "node:module";`,
     `const filename = "${import.meta.url}";`,
     `const require = createRequire(filename);`,
     `const z = require("zod");`,
-    commonZodImport ? `const commonZod = require('${commonZodImport}');` : '',
+    ...imports.map((imp) => `const ${imp.import} = require('${imp.from}');`),
     `const {zodToJsonSchema} = require('zod-to-json-schema');`,
     `const schema = ${schema.replace('.optional()', '').replaceAll('instanceof(File)', 'string().base64()')};`,
     `const jsonSchema = zodToJsonSchema(schema, {

@@ -23,11 +23,8 @@ export function Hero(props: { className?: string }) {
           <TextGenerateEffect
             className="text-4xl text-balance"
             filter={false}
-            duration={1}
+            duration={0.7}
             wordClassMap={{
-              // developer: 'text-blue-700',
-              // experience: 'text-green-700',
-              // premium: 'text-green-700',
               OpenAPI: 'dark:text-cyan-300',
             }}
             words={'Turn your OpenAPI spec into premium developer experience'}
