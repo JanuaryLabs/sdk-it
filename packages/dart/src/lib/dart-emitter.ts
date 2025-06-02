@@ -110,7 +110,7 @@ const formatName = (it: any): string => {
       nameToFormat = nameToFormat.slice(0, -1);
     }
 
-    return nameToFormat;
+    return nameToFormat.replaceAll('/', '');
   }
 
   // 4. Fallback for any other types (e.g., null, undefined, objects)
@@ -122,6 +122,7 @@ type Context = Record<string, any>;
 type Serialized = {
   nullable?: boolean;
   encode?: string;
+  encodeV2?: string;
   use: string;
   toJson: string;
   matches?: string;
@@ -178,19 +179,45 @@ export class DartSerializer {
     return list;
   }
 
+  #formatKeyName(name: string): string {
+    if (name.startsWith('$')) {
+      return `\\${name}`;
+    }
+    return name;
+  }
+
   #object(
     className: string,
     schema: SchemaObject,
     context: Context,
   ): Serialized {
     if (schema.additionalProperties) {
-      this.#emit(className, `typedef ${className} = Map<String, dynamic>;`);
+      if (context.requestize) {
+        return this.#object(
+          className,
+          {
+            type: 'object',
+            properties: {
+              $body: { 'x-special': true },
+            },
+          },
+          context,
+        );
+      }
+
+      if (context.noEmit !== true && !context.propName) {
+        // only emit if root level not for individual properties
+        this.#emit(className, `typedef ${className} = Map<String, dynamic>;`);
+      }
       return {
         content: '',
         use: 'Map<String, dynamic>',
         encode: 'input',
+        encodeV2: '',
         toJson: `this.${camelcase(context.name)}`,
-        fromJson: `json['${camelcase(context.name)}']`,
+        fromJson: context.name
+          ? `json['${context.jsonKey || context.name}']`
+          : 'json',
         matches: `json['${camelcase(context.name)}'] is Map<String, dynamic>`,
       };
     }
@@ -219,9 +246,10 @@ export class DartSerializer {
         content: '',
         encode: 'input.toJson()',
         use: className,
+        encodeV2: context.required ? '' : '?' + '.toJson()',
         toJson: `${this.#safe(context.name as string, context.required)}`,
-        fromJson: `${className}.fromJson(json['${context.name}'])`,
-        matches: `${className}.matches(json['${context.name}'])`,
+        fromJson: `${className}.fromJson(json['${context.jsonKey || context.name}'])`,
+        matches: `${className}.matches(json['${context.jsonKey || context.name}'])`,
       };
     }
 
@@ -231,13 +259,21 @@ export class DartSerializer {
     const fromJsonParams: string[] = [];
     const matches: string[] = [];
 
+    let requestContent = '';
+    const headers: string[] = [];
+    const params: string[] = [];
+    const queryParams: string[] = [];
+    const bodyParams: string[] = [];
+
     for (const [key, propSchema] of Object.entries(schema.properties)) {
       const propName = key.replace('[]', '');
       const safePropName = camelcase(formatName(propName));
       const required = (schema.required ?? []).includes(key);
+      const jsonKey = this.#formatKeyName(propName);
       const typeStr = this.handle(className, propSchema, required, {
         name: propName,
         safeName: safePropName,
+        jsonKey: jsonKey,
         required,
         propName: [className, propName].filter(Boolean).join('_'),
       });
@@ -245,21 +281,63 @@ export class DartSerializer {
       const nullableSuffix = nullable ? '?' : '';
       props.push(`final ${typeStr.use}${nullableSuffix} ${safePropName};`);
       fromJsonParams.push(`${safePropName}: ${typeStr.fromJson}`);
-      toJsonProperties.push(`'${propName}': ${typeStr.toJson}`);
+      toJsonProperties.push(`'${jsonKey}': ${typeStr.toJson}`);
       constructorParams.push(
         `${required ? 'required ' : ''}this.${safePropName},`,
       );
       if (required) {
         matches.push(`(
-  json.containsKey('${camelcase(propName)}')
+  json.containsKey('${jsonKey}')
   ? ${nullable ? `json['${propName}'] == null` : `json['${propName}'] != null`} ${typeStr.matches ? `&& ${typeStr.matches}` : ''}
   : false)`);
       } else {
         matches.push(`(
-  json.containsKey('${camelcase(propName)}')
-  ? ${nullable ? `json['${propName}'] == null` : `json['${propName}'] != null`} ${typeStr.matches ? `|| ${typeStr.matches}` : ''}
+  json.containsKey('${jsonKey}')
+  ? ${nullable ? `json['${jsonKey}'] == null` : `json['${jsonKey}'] != null`} ${typeStr.matches ? `|| ${typeStr.matches}` : ''}
   : true)`);
       }
+
+      const { 'x-in': source, 'x-special': special } =
+        propSchema as SchemaObject;
+      if (source) {
+        switch (source) {
+          case 'header':
+            headers.push(`'${jsonKey}': ${safePropName}`);
+            break;
+          case 'path':
+            params.push(`'${jsonKey}': ${safePropName}`);
+            break;
+          case 'query':
+            queryParams.push(`'${jsonKey}': ${safePropName}`);
+            break;
+          default:
+            bodyParams.push(`'${jsonKey}': ${safePropName}`);
+        }
+      } else {
+        if (special) {
+          bodyParams.push(`$body${typeStr.encodeV2!}`);
+        } else {
+          bodyParams.push(`'${jsonKey}': ${safePropName}${typeStr.encodeV2}`);
+        }
+      }
+    }
+
+    if (context.requestize) {
+      const body =
+        bodyParams.length === 1 && bodyParams[0].startsWith('$body')
+          ? bodyParams[0]
+          : `${bodyParams.length ? `{${bodyParams.join(', ')}}` : '{}'}`;
+
+      requestContent = `
+        RequestInput toRequest() =>
+           RequestInput(
+          headers: ${headers.length ? `{${headers.join(', ')}}` : '{}'},
+          query: ${queryParams.length ? `{${queryParams.join(', ')}}` : '{}'},
+          params: ${params.length ? `{${params.join(', ')}}` : '{}'},
+          body: ${body}
+    );
+
+      `;
     }
 
     const { mixins, withMixins } = this.#mixinise(className, context);
@@ -276,6 +354,9 @@ ${toJsonProperties.join(',\n')}
       static bool matches(Map<String, dynamic> json) {
 return ${matches.join(' && ')};
       }
+
+      ${requestContent}
+
     }`;
     if (context.noEmit !== true) {
       this.#emit(className, content);
@@ -286,10 +367,11 @@ return ${matches.join(' && ')};
       content,
       encode: 'input.toJson()',
       toJson: `${this.#safe(context.name, context.required)}`,
+      encodeV2: context.required ? '' : '?' + '.toJson()',
       fromJson: context.name
-        ? `${context.forJson || className}.fromJson(json['${context.name}'])`
+        ? `${context.forJson || className}.fromJson(json['${context.jsonKey || context.name}'])`
         : `${context.forJson || className}.fromJson(json)`,
-      matches: `${className}.matches(json['${context.name}'])`,
+      matches: `${className}.matches(json['${context.jsonKey || context.name}'])`,
     };
   }
 
@@ -310,28 +392,30 @@ return ${matches.join(' && ')};
         content: '',
         use: 'List<dynamic>',
         toJson: '',
-        fromJson: `List<dynamic>.from(${context.name ? `json['${context.name}']` : `json`})})`,
+        encodeV2: '',
+        fromJson: `List<dynamic>.from(${context.name ? `json['${context.jsonKey || context.name}']` : `json`})})`,
         matches: '',
       };
     }
     const itemsType = this.handle(className, schema.items, true, context);
+
     const fromJson = required
       ? context.name
-        ? `(json['${context.name}'] as List<${itemsType.simple ? itemsType.use : 'dynamic'}>)
-            .map((it) => ${itemsType.simple ? 'it' : `${itemsType.use}.fromJson(it)`})
+        ? `(json['${context.jsonKey || context.name}'] as List)
+            .map((it) => ${itemsType.simple ? `it as ${itemsType.use}` : `${itemsType.use}.fromJson(it)`})
             .toList()`
-        : `(json as List<${itemsType.simple ? itemsType.use : 'dynamic'}>)
-            .map((it) => ${itemsType.simple ? 'it' : `${itemsType.use}.fromJson(it)`})
+        : `(json as List)
+            .map((it) => ${itemsType.simple ? `it as ${itemsType.use}` : `${itemsType.use}.fromJson(it)`})
             .toList()`
       : context.name
-        ? `json['${context.name}'] != null
-            ? (json['${context.name}'] as List<${itemsType.simple ? itemsType.use : 'dynamic'}>)
-                .map((it) => ${itemsType.simple ? 'it' : `${itemsType.use}.fromJson(it)`})
+        ? `json['${context.jsonKey || context.name}'] != null
+            ? (json['${context.jsonKey || context.name}'] as List)
+                .map((it) => ${itemsType.simple ? `it as ${itemsType.use}` : `${itemsType.use}.fromJson(it)`})
                 .toList()
             : null`
         : `json != null
-            ? (json as List<${itemsType.simple ? itemsType.use : 'dynamic'}>)
-                .map((it) => ${itemsType.simple ? 'it' : `${itemsType.use}.fromJson(it)`})
+            ? (json as List)
+                .map((it) => ${itemsType.simple ? `it as ${itemsType.use}` : `${itemsType.use}.fromJson(it)`})
                 .toList()
             : null`;
 
@@ -340,8 +424,9 @@ return ${matches.join(' && ')};
       content: '',
       use: `List<${itemsType.use}>`,
       fromJson,
+      encodeV2: `${itemsType.simple ? '' : `${context.required ? '' : '?'}.map((it) => ${itemsType.simple ? 'it' : `it.toJson()`}).toList()`}`,
       toJson: `${context.required ? `${camelcase(context.safeName || context.name)}${itemsType.simple ? '' : '.map((it) => it.toJson()).toList()'}` : `${camelcase(context.safeName || context.name)} != null ? ${camelcase(context.safeName || context.name)}${itemsType.simple ? '' : '!.map((it) => it.toJson()).toList()'} : null`}`,
-      matches: `json['${camelcase(context.name)}'].every((it) => ${itemsType.matches})`,
+      matches: `json['${context.jsonKey || context.name}'].every((it) => ${itemsType.matches})`,
     };
   }
 
@@ -361,14 +446,18 @@ return ${matches.join(' && ')};
         return this.#string(schema, context);
       case 'number':
       case 'integer':
-        return this.number(schema, context);
+        return this.#number(schema, context);
       case 'boolean':
         return {
           content: '',
           use: 'bool',
           toJson: safeName,
-          fromJson: `json['${context.name}']`,
-          matches: `json['${context.name}'] is bool`,
+          encodeV2: '',
+          simple: true,
+          fromJson: context.name
+            ? `json['${context.jsonKey || context.name}']`
+            : 'json',
+          matches: `json['${context.jsonKey || context.name}'] is bool`,
         };
       case 'object':
         return this.#object(className, schema, context);
@@ -377,18 +466,26 @@ return ${matches.join(' && ')};
       case 'null':
         return {
           content: '',
-          use: 'Null',
           toJson: safeName,
-          fromJson: `json['${context.name}']`,
+          encodeV2: '',
+          simple: true,
+          use: 'Null',
+          fromJson: context.name
+            ? `json['${context.jsonKey || context.name}']`
+            : 'json',
         };
       default:
         // Unknown type -> fallback
         return {
           content: '',
           use: 'dynamic',
-          nullable: false,
+          encodeV2: '',
           toJson: safeName,
-          fromJson: `json['${context.name}']`,
+          simple: true,
+          nullable: false,
+          fromJson: context.name
+            ? `json['${context.jsonKey || context.name}']`
+            : 'json',
         };
     }
   }
@@ -448,7 +545,8 @@ return ${matches.join(' && ')};
         nullable: false,
         use: 'dynamic',
         toJson: `${camelcase(context.name as string)}`,
-        fromJson: `json['${context.name}']`,
+        encodeV2: '',
+        fromJson: `json['${context.jsonKey || context.name}']`,
       };
     }
     const nullSchemaIndex = schemas.findIndex((schema) => {
@@ -499,7 +597,8 @@ return ${matches.join(' && ')};
         nullable: false,
         use: 'dynamic',
         toJson: `${camelcase(context.name as string)}`,
-        fromJson: `json['${context.name}']`,
+        encodeV2: '',
+        fromJson: `json['${context.jsonKey || context.name}']`,
       };
     }
     const content: string[] = [];
@@ -646,9 +745,10 @@ return ${matches.join(' && ')};
     return {
       content: content.join('\n'),
       use: name,
+      encodeV2: context.required ? '' : '?',
       toJson: `${this.#safe(context.name as string, context.required)}`,
-      fromJson: `${name}.fromJson(json['${context.name}'])`,
-      matches: `${name}.matches(json['${context.name}'])`,
+      fromJson: `${name}.fromJson(json['${context.jsonKey || context.name}'])`,
+      matches: `${name}.matches(json['${context.jsonKey || context.name}'])`,
     };
   }
 
@@ -723,8 +823,9 @@ return false;
       content: content,
       use: pascalcase(name),
       toJson: `${context.required ? `this.${camelcase(context.name)}.toJson()` : `this.${camelcase(context.name)} != null ? this.${camelcase(context.name)}!.toJson() : null`}`,
-      fromJson: `${pascalcase(name)}.fromJson(json['${context.name}'])`,
-      matches: `${pascalcase(name)}.matches(json['${context.name}'])`,
+      encodeV2: context.required ? '' : '?.toJson()',
+      fromJson: `${pascalcase(name)}.fromJson(json['${context.jsonKey || context.name}'])`,
+      matches: `${pascalcase(name)}.matches(json['${context.jsonKey || context.name}'])`,
     };
   }
 
@@ -741,33 +842,40 @@ return false;
           content: '',
           use: 'DateTime',
           simple: true,
+          encodeV2: `.${context.required ? '' : '?'}.toIso8601String()`,
           toJson: context.required
             ? `this.${safeName}.toIso8601String()`
             : `this.${safeName} != null ? this.${safeName}!.toIso8601String() : null`,
           fromJson: context.name
-            ? `json['${context.name}'] != null ? DateTime.parse(json['${context.name}']) : null`
+            ? `json['${context.jsonKey || context.name}'] != null ? DateTime.parse(json['${context.jsonKey || context.name}']) : null`
             : 'json',
-          matches: `json['${context.name}'] is String`,
+          matches: `json['${context.jsonKey || context.name}'] is String`,
         };
       case 'binary':
       case 'byte':
         return {
           content: '',
           use: 'File',
+          encodeV2: '',
           toJson: `this.${safeName}`,
           simple: true,
-          fromJson: context.name ? `json['${context.name}']` : 'json',
-          matches: `json['${context.name}'] is Uint8List`,
+          fromJson: context.name
+            ? `json['${context.jsonKey || context.name}']`
+            : 'json',
+          matches: `json['${context.jsonKey || context.name}'] is Uint8List`,
         };
       default:
         return {
           encode: 'input',
           use: `String`,
           content: '',
-          simple: true,
+          encodeV2: '',
           toJson: `this.${safeName}`,
-          fromJson: context.name ? `json['${context.name}'] as String` : 'json',
-          matches: `json['${context.name}'] is String`,
+          simple: true,
+          fromJson: context.name
+            ? `json['${context.jsonKey || context.name}'] as String`
+            : 'json',
+          matches: `json['${context.jsonKey || context.name}'] is String`,
         };
     }
   }
@@ -775,15 +883,18 @@ return false;
   /**
    * Handle number/integer types with formats
    */
-  number(schema: SchemaObject, context: Context): Serialized {
+  #number(schema: SchemaObject, context: Context): Serialized {
     if (schema.type === 'integer') {
       return {
         content: '',
         use: 'int',
         simple: true,
+        encodeV2: '',
         toJson: `this.${camelcase(context.name)}`,
-        fromJson: `json['${context.name}']`,
-        matches: `json['${context.name}'] is int`,
+        fromJson: context.name
+          ? `json['${context.jsonKey || context.name}']`
+          : 'json',
+        matches: `json['${context.jsonKey || context.name}'] is int`,
       };
     }
     if (['float', 'double'].includes(schema.format as string)) {
@@ -791,18 +902,24 @@ return false;
         content: '',
         use: 'double',
         simple: true,
+        encodeV2: '',
         toJson: `this.${camelcase(context.name)}`,
-        fromJson: `json['${context.name}']`,
-        matches: `json['${context.name}'] is double`,
+        fromJson: context.name
+          ? `json['${context.jsonKey || context.name}']`
+          : 'json',
+        matches: `json['${context.jsonKey || context.name}'] is double`,
       };
     }
     return {
       content: '',
       use: 'num',
       simple: true,
+      encodeV2: '',
       toJson: `this.${camelcase(context.name)}`,
-      fromJson: `json['${context.name}']`,
-      matches: `json['${context.name}'] is double`,
+      fromJson: context.name
+        ? `json['${context.jsonKey || context.name}']`
+        : 'json',
+      matches: `json['${context.jsonKey || context.name}'] is double`,
     };
   }
 
@@ -858,7 +975,8 @@ return false;
         content: '',
         use: 'dynamic',
         toJson: `${camelcase(context.name as string)}`,
-        fromJson: `json['${context.name}']`,
+        encodeV2: '',
+        fromJson: `json['${context.jsonKey || context.name}']`,
         nullable: false,
         matches: '', // keep it empty as 'type is dynamic' is always true
       };

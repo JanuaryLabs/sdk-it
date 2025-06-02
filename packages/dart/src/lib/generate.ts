@@ -84,43 +84,41 @@ function tuneSpec(
         tuneSpec(spec, schemas, refs);
         continue;
       }
-
-      schema.properties ??= {};
-
+      if (schema.additionalProperties) {
+        continue;
+      }
+      if (isEmpty(schema.properties)) {
+        continue;
+      }
+      refs.push({ name, value: schema });
       for (const [propName, value] of Object.entries(schema.properties)) {
         if (isRef(value)) continue;
-        const refName = pascalcase(`${name} ${propName.replace('[]', '')}`);
-        refs.push({ name: refName, value });
-        schema.properties[propName] = {
-          $ref: `#/components/schemas/${refName}`,
-        };
-        const props = Object.fromEntries(
-          Object.entries(value.properties ?? {}).map(([key, value]) => {
-            return [pascalcase(`${refName} ${key}`), value];
-          }),
-        );
-        tuneSpec(spec, props, refs);
-        // if (value.oneOf && Array.isArray(value.oneOf) && value.oneOf.length) {
-        //   for (const oneOfIdx in value.oneOf) {
-        //     const oneOf = value.oneOf[oneOfIdx];
-        //     if (isRef(oneOf)) continue;
-        //     if (oneOf.type === 'string') {
-        //       console.log(refName);
-        //       // const refName= pascalcase(`${name} ${key} ${oneOfIdx}`);
-        //       // schema.oneOf[oneOfIdx] = {
-        //       //   $ref: `#/components/schemas/${refName}`,
-        //       // };
-        //     }
-        //   }
-        // }
+
+        if (value.type === 'object' && !isEmpty(value.properties)) {
+          const refName = pascalcase(`${name} ${propName.replace('[]', '')}`);
+          refs.push({ name: refName, value: value });
+
+          schema.properties[propName] = {
+            $ref: `#/components/schemas/${refName}`,
+          };
+
+          tuneSpec(spec, { [refName]: value }, refs);
+        } else {
+          // For non-object types, continue with the existing approach
+          const refName = pascalcase(`${name} ${propName.replace('[]', '')}`);
+          tuneSpec(spec, { [refName]: value }, refs);
+        }
       }
-    } else if (schema.type === 'array') {
+      continue;
+    }
+
+    if (schema.type === 'array') {
       if (isRef(schema.items)) continue;
       const refName = name;
-      refs.push({ name: refName, value: schema.items ?? {} });
-      schema.items = {
-        $ref: `#/components/schemas/${refName}`,
-      };
+      if (schema.items?.type === 'object') {
+        refs.push({ name: refName, value: schema.items ?? {} });
+        schema.items = { $ref: `#/components/schemas/${refName}` };
+      }
     }
   }
 }
@@ -172,31 +170,26 @@ export async function generate(
     for (const status in operation.responses) {
       if (!isSuccessStatusCode(status)) continue;
       const response = operation.responses[status];
-      if (!isEmpty(response.content)) {
-        for (const [contentType, mediaType] of Object.entries(
-          response.content,
-        )) {
-          if (parseJsonContentType(contentType)) {
-            if (mediaType.schema && !isRef(mediaType.schema)) {
-              const outputName = pascalcase(`${operation.operationId} output`);
-              spec.components.schemas[outputName] = mediaType.schema;
-              operation.responses[status].content ??= {};
-              operation.responses[status].content[contentType].schema = {
-                $ref: `#/components/schemas/${outputName}`,
-              };
-            }
+      if (isEmpty(response.content)) continue;
+      for (const [contentType, mediaType] of Object.entries(response.content)) {
+        if (parseJsonContentType(contentType)) {
+          if (mediaType.schema && !isRef(mediaType.schema)) {
+            const outputName = pascalcase(`${operation.operationId} output`);
+            spec.components.schemas[outputName] = mediaType.schema;
+            operation.responses[status].content ??= {};
+            operation.responses[status].content[contentType].schema = {
+              $ref: `#/components/schemas/${outputName}`,
+            };
           }
-          // handle chunked response
         }
+        // handle chunked response
       }
     }
     console.log(`Processing ${entry.method} ${entry.path}`);
-    const group =
-      groups[entry.groupName] ??
-      (groups[entry.groupName] = {
-        methods: [],
-        use: `final ${entry.groupName} = new ${pascalcase(entry.groupName)}();`,
-      });
+    const group = (groups[entry.groupName] ??= {
+      methods: [],
+      use: `final ${entry.groupName} = new ${pascalcase(entry.groupName)}();`,
+    });
 
     const input = toInputs(spec, { entry, operation });
     Object.assign(inputs, input.inputs);
@@ -207,16 +200,16 @@ export async function generate(
     }
     group.methods.push(`
         Future<${response ? response.returnType : 'http.StreamedResponse'}> ${camelcase(operation.operationId)}(
-       ${isEmpty(operation.requestBody) ? '' : `${input.inputName} input`}
+       ${input.haveInput ? `${input.inputName} input` : ''}
         ) async {
           final stream = await this.dispatcher.${input.contentType}(RequestConfig(
             method: '${entry.method}',
             url: Uri.parse('${entry.path}'),
             headers: {},
-          ), ${['json', 'multipart'].includes(input.contentType) ? input.encode : ``});
-          ${response ? `${response.decode};` : 'return stream;'}
-      }
-    `);
+           ${input.haveInput ? 'input: input.toRequest()' : ''}));
+            ${response ? `${response.decode};` : 'return stream;'}
+            }
+            `);
   });
 
   const newRefs: { name: string; value: SchemaObject }[] = [];
@@ -233,8 +226,13 @@ export async function generate(
     Record<string, string>
   >((acc, [name, schema]) => {
     const serializer = new DartSerializer(spec, (name, content) => {
-      acc[`models/${snakecase(name)}.dart`] =
-        `import 'dart:io';import 'dart:typed_data'; import './index.dart';\n\n${content}`;
+      acc[`models/${snakecase(name)}.dart`] = [
+        `import 'dart:io';`,
+        `import 'dart:typed_data';`,
+        `import './index.dart';`,
+        `import '../interceptors.dart';`,
+        content,
+      ].join('\n');
     });
     serializer.handle(pascalcase(name), schema);
     return acc;
@@ -386,40 +384,45 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
   const inputName = pascalcase(`${operation.operationId} input`);
   let contentType = 'empty';
   let encode = '';
-
+  let haveInput = false;
   if (!isEmpty(operation.requestBody)) {
     for (const type in operation.requestBody.content) {
-      const ctSchema = isRef(operation.requestBody.content[type].schema)
-        ? followRef(spec, operation.requestBody.content[type].schema.$ref)
-        : operation.requestBody.content[type].schema;
-
-      if (!ctSchema) {
+      let objectSchema = operation.requestBody.content[type].schema;
+      if (!objectSchema) {
         console.warn(
           `Schema not found for ${type} in ${entry.method} ${entry.path}`,
         );
         continue;
       }
 
-      ctSchema.properties ??= {};
-      ctSchema.required ??= [];
+      if (objectSchema.type !== 'object') {
+        objectSchema = {
+          type: 'object',
+          required: [operation.requestBody.required ? '$body' : ''],
+          properties: {
+            $body: {
+              ...objectSchema,
+              'x-special': true,
+            },
+          },
+        };
+      }
 
-      patchParameters(spec, ctSchema, operation);
-      // if (ctSchema.type !== 'object') {
-      //   ctSchema = {
-      //     type: 'object',
-      //     required: [operation.requestBody.required ? '$body' : ''],
-      //     properties: {
-      //       $body: ctSchema,
-      //     },
-      //   };
-      // }
+      patchParameters(spec, objectSchema, operation);
 
       const serializer = new DartSerializer(spec, (name, content) => {
-        inputs[join(`inputs/${name}.dart`)] =
-          `import 'dart:io';import 'dart:typed_data';import '../models/index.dart'; import './index.dart';\n\n${content}`;
+        inputs[join('inputs', `${name}.dart`)] = [
+          `import 'dart:io';`,
+          `import 'dart:typed_data';`,
+          `import '../models/index.dart';`,
+          `import './index.dart';`,
+          `import '../interceptors.dart';`,
+          content,
+        ].join('\n');
       });
-      const serialized = serializer.handle(inputName, ctSchema, true, {
-        alias: isObjectSchema(ctSchema) ? undefined : inputName,
+      const serialized = serializer.handle(inputName, objectSchema, true, {
+        alias: isObjectSchema(objectSchema) ? undefined : inputName,
+        requestize: true,
       });
       encode = serialized.encode as string;
       const [mediaType, mediaSubType] = partContentType(type).type.split('/');
@@ -428,40 +431,35 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
       } else {
         contentType = mediaType;
       }
-
-      // const schema = merge({}, objectSchema, {
-      //   required: additionalProperties
-      //     .filter((p) => p.required)
-      //     .map((p) => p.name),
-      //   properties: additionalProperties.reduce<Record<string, unknown>>(
-      //     (acc, p) => ({
-      //       ...acc,
-      //       [p.name]: p.schema,
-      //     }),
-      //     {},
-      //   ),
-      // });
-
-      // Object.assign(inputs, bodyInputs(config, objectSchema));
-      // schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
+      if (!isEmpty(objectSchema.properties)) {
+        haveInput = true;
+      }
     }
   } else {
-    const ctSchema: SchemaObject = {
-      type: 'object',
-    };
-    patchParameters(spec, ctSchema, operation);
+    const objectSchema: SchemaObject = { type: 'object' };
+    patchParameters(spec, objectSchema, operation);
 
     const serializer = new DartSerializer(spec, (name, content) => {
-      inputs[join(`inputs/${name}.dart`)] =
-        `import 'dart:io';import 'dart:typed_data';import '../models/index.dart'; import './index.dart';\n\n${content}`;
+      inputs[join('inputs', `${name}.dart`)] = [
+        `import 'dart:io';`,
+        `import 'dart:typed_data';`,
+        `import '../models/index.dart';`,
+        `import './index.dart';`,
+        `import '../interceptors.dart';`,
+        content,
+      ].join('\n');
     });
-    const serialized = serializer.handle(inputName, ctSchema, true, {
-      alias: isObjectSchema(ctSchema) ? undefined : inputName,
+    const serialized = serializer.handle(inputName, objectSchema, true, {
+      alias: isObjectSchema(objectSchema) ? undefined : inputName,
+      requestize: true,
     });
     encode = serialized.encode as string;
+    if (!isEmpty(objectSchema.properties)) {
+      haveInput = true;
+    }
   }
 
-  return { inputs, inputName, contentType, encode };
+  return { inputs, inputName, contentType, encode, haveInput };
 }
 
 function toOutput(spec: OpenAPIObject, operation: OperationObject) {
@@ -484,6 +482,15 @@ function toOutput(spec: OpenAPIObject, operation: OperationObject) {
         // outputs[join(`outputs/${name}.dart`)] =
         //   `import 'dart:typed_data'; import '../models/index.dart'; \n\n${content}`;
       });
+      if ((response.headers ?? {})['Transfer-Encoding']) {
+        return {
+          type: 'stream',
+          outputName,
+          outputs,
+          decode: `return stream`,
+          returnType: `http.StreamedResponse`,
+        };
+      }
       if (isStreamingContentType(type)) {
         return {
           type: 'stream',
@@ -508,5 +515,12 @@ function toOutput(spec: OpenAPIObject, operation: OperationObject) {
       }
     }
   }
-  return null;
+  // default to stream. this should hanle transfer encoding chunked too.
+  return {
+    type: 'stream',
+    outputName,
+    outputs,
+    decode: `return stream`,
+    returnType: `http.StreamedResponse`,
+  };
 }

@@ -13,20 +13,64 @@ class Dispatcher {
 
   Dispatcher(this.interceptors);
 
-  Future<http.StreamedResponse> multipart(
-    RequestConfig config,
-    Map<String, dynamic> body,
-  ) async {
+  void _setHeaders(
+    http.BaseRequest request,
+    RequestConfig config, [
+    String? contentType,
+  ]) {
+    request.headers.addAll(config.headers);
+    for (var entry in config.input.headers.entries) {
+      final value = entry.value;
+      if (value != null) {
+        request.headers[entry.key] = value;
+      }
+    }
+    if (contentType != null) {
+      request.headers['Content-Type'] = contentType;
+    }
+  }
+
+  void _setParams(RequestConfig config) {
+    final params = config.input.params;
+    if (params.isEmpty) return;
+
+    String path = config.url.toString();
+    for (var entry in params.entries) {
+      path = path.replaceAll('{${entry.key}}', entry.value.toString());
+    }
+    config.url = Uri.parse(path);
+  }
+
+  void _setQuery(RequestConfig config) {
+    final query = config.input.query;
+    if (query.isEmpty) return;
+
+    final uri = config.url;
+    final queryParameters = Map<String, String>.from(uri.queryParameters);
+
+    for (var entry in query.entries) {
+      if (entry.value != null) {
+        queryParameters[entry.key] = entry.value.toString();
+      }
+    }
+
+    config.url = uri.replace(queryParameters: queryParameters);
+  }
+
+  Future<http.StreamedResponse> multipart(RequestConfig config) async {
     final modifiedConfig = interceptors.fold(
       config,
       (acc, interceptor) => interceptor.before(acc),
     );
+    _setParams(modifiedConfig);
+    _setQuery(modifiedConfig);
     final request = http.MultipartRequest(
       modifiedConfig.method,
       modifiedConfig.url,
     );
-    request.headers.addAll(modifiedConfig.headers);
-    for (var entry in body.entries) {
+    _setHeaders(request, modifiedConfig);
+
+    for (var entry in config.input.body.entries) {
       final key = entry.key;
       final value = entry.value;
       if (value is File) {
@@ -53,26 +97,31 @@ class Dispatcher {
       config,
       (acc, interceptor) => interceptor.before(acc),
     );
+    _setParams(modifiedConfig);
+    _setQuery(modifiedConfig);
     final request = http.Request(modifiedConfig.method, modifiedConfig.url);
-    request.headers.addAll(modifiedConfig.headers);
+    _setHeaders(request, modifiedConfig);
     return request.send();
   }
 
-  Future<http.StreamedResponse> json(RequestConfig config, dynamic body) {
+  Future<http.StreamedResponse> json(RequestConfig config) {
     final modifiedConfig = interceptors.fold(
       config,
       (acc, interceptor) => interceptor.before(acc),
     );
+    _setParams(modifiedConfig);
+    _setQuery(modifiedConfig);
     final request = http.Request(modifiedConfig.method, modifiedConfig.url);
-    request.headers.addAll(modifiedConfig.headers);
+    _setHeaders(request, modifiedConfig, 'application/json');
 
-    request.headers['Content-Type'] = 'application/json';
-    if ((body is Map || body is List)) {
-      request.body = jsonEncode(body);
-    } else if (body is String) {
-      request.body = body;
+    if ((config.input.body is Map || config.input.body is List)) {
+      request.body = jsonEncode(config.input.body);
+    } else if (config.input.body is String) {
+      request.body = config.input.body;
     } else {
-      throw ArgumentError('Unsupported body type: ${body.runtimeType}');
+      throw ArgumentError(
+        'Unsupported body type: ${config.input.body.runtimeType}',
+      );
     }
 
     return request.send();

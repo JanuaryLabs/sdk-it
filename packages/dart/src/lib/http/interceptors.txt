@@ -22,7 +22,6 @@ class BaseUrlInterceptor extends Interceptor {
   }
 }
 
-
 class LoggingInterceptor extends Interceptor {
   // ANSI color codes
   static const String _reset = '\x1B[0m';
@@ -57,5 +56,31 @@ class RequestConfig {
   final String method;
   Uri url;
   final Map<String, String> headers;
-  RequestConfig({required this.method, required this.url, required this.headers});
+  final RequestInput input;
+
+  RequestConfig({
+    required this.method,
+    required this.url,
+    required this.headers,
+    this.input = const RequestInput.empty(),
+  });
+}
+
+class RequestInput {
+  final Map<String, String?> headers;
+  final Map<String, dynamic> query;
+  final Map<String, dynamic> params;
+  final dynamic body;
+  RequestInput({
+    this.headers = const {},
+    this.query = const {},
+    this.params = const {},
+    required this.body,
+  });
+
+  const RequestInput.empty()
+    : headers = const {},
+      query = const {},
+      params = const {},
+      body = null;
 }
