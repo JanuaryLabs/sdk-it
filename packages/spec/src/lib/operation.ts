@@ -1,4 +1,5 @@
 import type {
+  MediaTypeObject,
   OpenAPIObject,
   OperationObject,
   ParameterObject,
@@ -85,6 +86,7 @@ export function augmentSpec(config: GenerateSdkConfig) {
       const requestBody = isRef(operation.requestBody)
         ? followRef<RequestBodyObject>(config.spec, operation.requestBody.$ref)
         : operation.requestBody;
+
       const tunedOperation: TunedOperationObject = {
         ...operation,
         parameters: [
@@ -96,7 +98,7 @@ export function augmentSpec(config: GenerateSdkConfig) {
         tags: [operationTag],
         operationId: operationId,
         responses: resolveResponses(config.spec, operation),
-        requestBody: requestBody,
+        requestBody: tuneRequestBody(config.spec, requestBody),
       };
 
       tunedOperation['x-pagination'] = toPagination(
@@ -143,11 +145,6 @@ function toPagination(
     schema,
   );
   if (pagination && pagination.type !== 'none' && schema) {
-    // console.dir({
-    //   [`${method.toUpperCase()} ${fixedPath}`]: {
-    //     ...pagination,
-    //   },
-    // });
     return pagination;
   }
   return undefined;
@@ -223,6 +220,15 @@ export const defaults: Partial<GenerateSdkConfig> &
   },
 };
 
+export type TunedRequestBody = Omit<RequestBodyObject, 'content'> & {
+  content: Record<
+    string,
+    Omit<MediaTypeObject, 'schema'> & {
+      schema: SchemaObject;
+    }
+  >;
+};
+
 export type TunedOperationObject = Omit<
   OperationObject,
   'operationId' | 'tags' | 'parameters' | 'responses'
@@ -231,7 +237,7 @@ export type TunedOperationObject = Omit<
   operationId: string;
   parameters: ParameterObject[];
   responses: Record<string, ResponseObject>;
-  requestBody: RequestBodyObject | undefined;
+  requestBody: TunedRequestBody | undefined;
 };
 
 export interface OperationEntry {
@@ -249,11 +255,25 @@ export type Operation = {
 function resolveResponses(spec: OpenAPIObject, operation: OperationObject) {
   const responses = operation.responses ?? {};
   const resolved: Record<string, ResponseObject> = {};
+  let foundSuccessResponse = false;
   for (const status in responses) {
     const response = isRef(responses[status] as ReferenceObject)
       ? followRef<ResponseObject>(spec, responses[status].$ref)
       : (responses[status] as ResponseObject);
     resolved[status] = response;
+    if (isSuccessStatusCode(status)) {
+      foundSuccessResponse = true;
+    }
+  }
+  if (!foundSuccessResponse) {
+    resolved['200'] = {
+      description: 'OK',
+      content: {
+        'application/json': {
+          schema: { type: 'object' },
+        },
+      },
+    };
   }
   return resolved;
 }
@@ -667,7 +687,7 @@ export function isSuccessStatusCode(statusCode: number | string): boolean {
   if (typeof statusCode === 'string') {
     const statusGroup = +statusCode.slice(0, 1);
     const status = Number(statusCode);
-    return (status >= 200 && status < 300) || status >= 2 || statusGroup <= 3;
+    return (status >= 200 && status < 300) || (status >= 2 && statusGroup <= 3);
   }
   statusCode = Number(statusCode);
   return statusCode >= 200 && statusCode < 300;
@@ -707,17 +727,23 @@ export function patchParameters(
     if (param.required) {
       objectSchema.required.push(param.name);
     }
-    objectSchema.properties[param.name] = isRef(param.schema)
-      ? followRef<SchemaObject>(spec, param.schema.$ref)
-      : (param.schema ?? { type: 'string' });
+    objectSchema.properties[param.name] = {
+      'x-in': param.in,
+      ...(isRef(param.schema)
+        ? followRef<SchemaObject>(spec, param.schema.$ref)
+        : (param.schema ?? { type: 'string' })),
+    };
   }
   for (const param of securityOptions) {
     objectSchema.required = (objectSchema.required ?? []).filter(
       (name) => name !== param.name,
     );
-    objectSchema.properties[param.name] = isRef(param.schema)
-      ? followRef<SchemaObject>(spec, param.schema.$ref)
-      : (param.schema ?? { type: 'string' });
+    objectSchema.properties[param.name] = {
+      'x-in': 'header',
+      ...(isRef(param.schema)
+        ? followRef<SchemaObject>(spec, param.schema.$ref)
+        : (param.schema ?? { type: 'string' })),
+    };
   }
 }
 
@@ -774,7 +800,7 @@ export function createOperation(options: {
     }
   }
 
-  let requestBody: RequestBodyObject | undefined = undefined;
+  let requestBody: TunedRequestBody | undefined = undefined;
 
   if (options.request) {
     requestBody = {
@@ -798,4 +824,23 @@ export function createOperation(options: {
     responses,
     requestBody,
   };
+}
+
+function tuneRequestBody(
+  spec: OpenAPIObject,
+  requestBody: RequestBodyObject | undefined,
+) {
+  if (requestBody) {
+    for (const type in requestBody.content) {
+      const schema = requestBody.content[type].schema;
+      requestBody.content[type].schema = isRef(schema)
+        ? followRef(spec, schema.$ref)
+        : schema;
+
+      if (!requestBody.content[type].schema) {
+        console.warn(`Schema not found for ${type}`);
+      }
+    }
+  }
+  return requestBody as TunedRequestBody | undefined;
 }

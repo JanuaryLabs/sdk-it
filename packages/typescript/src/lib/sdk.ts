@@ -164,24 +164,7 @@ export function toEndpoint(
   specOperation.responses ??= {};
   const outputs: string[] = [];
 
-  const statusesCount =
-    Object.keys(specOperation.responses).filter(isSuccessStatusCode).length > 1;
-  const responseWithAtLeast200 = statusesCount
-    ? specOperation.responses
-    : Object.assign(
-        {
-          '200': {
-            description: 'OK',
-            content: {
-              'application/json': {
-                schema: { type: 'object' },
-              },
-            },
-          },
-        },
-        specOperation.responses,
-      );
-  for (const status in responseWithAtLeast200) {
+  for (const status in specOperation.responses) {
     if (status === 'default') {
       continue; // skip default response
     }
@@ -189,7 +172,7 @@ export function toEndpoint(
       spec,
       operation.name,
       status,
-      responseWithAtLeast200[status],
+      specOperation.responses[status],
       utils,
     );
     responses.push(handled);
@@ -489,12 +472,6 @@ function fromContentType(
       };
     }
     if (parseJsonContentType(type)) {
-      // const schema = response.content[type].schema
-      //   ? isRef(response.content[type].schema)
-      //     ? followRef(spec, response.content[type].schema.$ref)
-      //     : response.content[type].schema
-      //   : response.content[type].schema;
-
       return {
         parser: 'buffered' as const,
         responseSchema: response.content[type].schema

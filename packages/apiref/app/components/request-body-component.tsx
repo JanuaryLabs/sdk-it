@@ -1,18 +1,15 @@
-import type {
-  ExampleObject,
-  OpenAPIObject,
-  RequestBodyObject,
-} from 'openapi3-ts/oas31';
+import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import React, { Fragment } from 'react';
 
-import { followRef, isEmpty, isRef } from '@sdk-it/core';
+import { isEmpty } from '@sdk-it/core/ref.js';
+import type { TunedRequestBody } from '@sdk-it/spec';
 
 import { Separator } from '../shadcn/separator';
 import { Description } from './description';
 import { SchemaProperty } from './schema-component';
 
 interface RequestBodyComponentProps {
-  requestBody: RequestBodyObject;
+  requestBody: TunedRequestBody;
   spec: OpenAPIObject;
   className?: string;
 }
@@ -33,9 +30,7 @@ export const RequestBodyComponent: React.FC<RequestBodyComponentProps> = ({
       <Description description={requestBody.description} />
 
       {Object.entries(requestBody.content).map(([contentType, mediaType]) => {
-        let schema = isRef(mediaType.schema)
-          ? followRef(spec, mediaType.schema.$ref)
-          : mediaType.schema;
+        let schema = mediaType.schema;
         if (!schema) {
           return null;
         }

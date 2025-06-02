@@ -5,7 +5,7 @@ import type {
 } from 'openapi3-ts/oas31';
 import { camelcase, spinalcase } from 'stringcase';
 
-import { followRef, isEmpty, isRef, pascalcase } from '@sdk-it/core';
+import { isEmpty, pascalcase } from '@sdk-it/core';
 import {
   type OperationEntry,
   type OperationPagination,
@@ -52,9 +52,7 @@ export class TypeScriptGenerator {
       const contentTypes = Object.keys(operation.requestBody.content || {});
       if (contentTypes.length > 0) {
         const firstContent = operation.requestBody.content[contentTypes[0]];
-        let schema = isRef(firstContent.schema)
-          ? followRef(this.#spec, firstContent.schema.$ref)
-          : firstContent.schema;
+        let schema = firstContent.schema;
         if (schema) {
           if (schema.type !== 'object') {
             schema = {

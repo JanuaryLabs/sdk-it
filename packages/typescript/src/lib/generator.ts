@@ -124,26 +124,20 @@ export function generateCode(
 
     if (!isEmpty(operation.requestBody)) {
       for (const type in operation.requestBody.content) {
-        const ctSchema = isRef(operation.requestBody.content[type].schema)
-          ? followRef(
-              config.spec,
-              operation.requestBody.content[type].schema.$ref,
-            )
-          : operation.requestBody.content[type].schema;
-        if (!ctSchema) {
+        let objectSchema = operation.requestBody.content[type].schema;
+        if (!objectSchema) {
           console.warn(
             `Schema not found for ${type} in ${entry.method} ${entry.path}`,
           );
           continue;
         }
 
-        let objectSchema = ctSchema;
         if (objectSchema.type !== 'object') {
           objectSchema = {
             type: 'object',
             required: [operation.requestBody.required ? '$body' : ''],
             properties: {
-              $body: ctSchema,
+              $body: objectSchema,
             },
           };
         }
@@ -153,13 +147,7 @@ export function generateCode(
             .map((p) => p.name),
           properties: Object.entries(additionalProperties).reduce<
             Record<string, unknown>
-          >(
-            (acc, [, p]) => ({
-              ...acc,
-              [p.name]: p.schema,
-            }),
-            {},
-          ),
+          >((acc, [, p]) => ({ ...acc, [p.name]: p.schema }), {}),
         });
 
         Object.assign(inputs, bodyInputs(config, objectSchema));
