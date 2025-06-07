@@ -95,6 +95,7 @@
     "cmdk": "^1.1.1",
     "comlink": "^4.4.2",
     "commander": "^13.1.0",
+    "debug": "^4.4.1",
     "deepdash": "^5.3.9",
     "deepdash-es": "^5.3.9",
     "execa": "^9.5.2",

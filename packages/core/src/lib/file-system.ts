@@ -1,5 +1,12 @@
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
-import { dirname, extname, isAbsolute, join, normalize } from 'node:path';
+import {
+  dirname,
+  extname,
+  isAbsolute,
+  join,
+  normalize,
+  relative,
+} from 'node:path';
 
 export async function getFile(filePath: string) {
   if (await exist(filePath)) {
@@ -196,4 +203,22 @@ export function notNullOrUndefined<T>(
   value: T,
 ): value is Exclude<T, null | undefined> {
   return !isNullOrUndefined(value);
+}
+
+export function createWriterProxy(
+  writer: Writer,
+  output: string,
+): { writer: Writer; files: Set<string> } {
+  const writtenFiles = new Set<string>();
+  return {
+    files: writtenFiles,
+    writer: async (dir: string, contents: WriteContent) => {
+      await writer(dir, contents);
+      for (const file of Object.keys(contents)) {
+        if (contents[file] !== null) {
+          writtenFiles.add(addLeadingSlash(`${relative(output, dir)}/${file}`));
+        }
+      }
+    },
+  };
 }

@@ -1,6 +1,6 @@
 import { template } from 'lodash-es';
-import { readFile, readdir, unlink, writeFile } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { readdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { spinalcase } from 'stringcase';
@@ -8,14 +8,12 @@ import { spinalcase } from 'stringcase';
 import { methods, pascalcase } from '@sdk-it/core';
 import {
   type WriteContent,
-  addLeadingSlash,
-  exist,
+  createWriterProxy,
   getFolderExports,
-  readFolder,
   writeFiles,
 } from '@sdk-it/core/file-system.js';
 import { toReadme } from '@sdk-it/readme';
-import { augmentSpec } from '@sdk-it/spec';
+import { augmentSpec, cleanFiles, readWriteMetadata } from '@sdk-it/spec';
 
 import backend from './client.ts';
 import { generateCode } from './generator.ts';
@@ -60,18 +58,14 @@ function security(spec: OpenAPIObject) {
   }
   return options;
 }
-const ALWAYS_AVAILABLE_FILES = [
-  '/tsconfig*.json',
-  '/package.json',
-  '/metadata.json',
-  '/**/index.ts',
-];
 
 export async function generate(
   spec: OpenAPIObject,
   settings: TypeScriptGeneratorOptions,
 ) {
-  const { default: micromatch } = await import('micromatch');
+  // FIXME: there should not be default here
+  // instead export this function from the cli package with
+  // defaults for programmatic usage
   spec = augmentSpec({ spec });
   const generator = new TypeScriptGenerator(spec, settings);
   const style = Object.assign(
@@ -87,22 +81,11 @@ export async function generate(
     settings.mode === 'full' ? join(settings.output, 'src') : settings.output;
 
   settings.useTsExtension ??= true;
-  // FIXME: there should not be default here
-  // instead export this function from the cli package with
-  // defaults for programmatic usage
-  const writtenFiles = new Set<string>();
-  settings.writer ??= writeFiles;
-  const originalWriter = settings.writer;
-  settings.writer = async (dir: string, contents: WriteContent) => {
-    await originalWriter(dir, contents);
-    for (const file of Object.keys(contents)) {
-      if (contents[file] !== null) {
-        writtenFiles.add(
-          addLeadingSlash(`${relative(settings.output, dir)}/${file}`),
-        );
-      }
-    }
-  };
+  const { writer, files: writtenFiles } = createWriterProxy(
+    settings.writer ?? writeFiles,
+    output,
+  );
+  settings.writer = writer;
   settings.readFolder ??= async (folder: string) => {
     const files = await readdir(folder, { withFileTypes: true });
     return files.map((file) => ({
@@ -189,23 +172,14 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
     'page-pagination.ts': paginationTxt,
   });
 
-  const metadata = await readJson(join(settings.output, 'metadata.json'));
-  metadata.content.generatedFiles = Array.from(writtenFiles);
-  metadata.content.userFiles ??= ['/dist/**', '/build/**', '/readme.md'];
-  await metadata.write(metadata.content);
-
-  if (settings.cleanup !== false && metadata.content.generatedFiles) {
-    const generated = metadata.content.generatedFiles as string[];
-    const user = metadata.content.userFiles as string[];
-    const keep = [...generated, ...user, ...ALWAYS_AVAILABLE_FILES];
-    const actualFiles = await readFolder(settings.output, true);
-    for (const file of actualFiles) {
-      if (micromatch.isMatch(addLeadingSlash(file), keep)) {
-        continue;
-      }
-      const filePath = join(settings.output, file);
-      await unlink(filePath);
-    }
+  const metadata = await readWriteMetadata(output, Array.from(writtenFiles));
+  if (settings.cleanup !== false && writtenFiles.size > 0) {
+    await cleanFiles(metadata.content, output, [
+      '/tsconfig*.json',
+      '/package.json',
+      '/metadata.json',
+      '/**/index.ts',
+    ]);
   }
 
   const folders = [
@@ -340,15 +314,4 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
     output: output,
     env: npmRunPathEnv(),
   });
-}
-
-export async function readJson(path: string) {
-  const content = (await exist(path))
-    ? JSON.parse(await readFile(path, 'utf-8'))
-    : {};
-  return {
-    content,
-    write: (value: Record<string, any> = content) =>
-      writeFile(path, JSON.stringify(value, null, 2), 'utf-8'),
-  };
 }

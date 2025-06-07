@@ -14,16 +14,19 @@ import { followRef, isEmpty, isRef, pascalcase, snakecase } from '@sdk-it/core';
 import {
   type ReadFolderFn,
   type Writer,
+  createWriterProxy,
   getFolderExportsV2,
   writeFiles,
 } from '@sdk-it/core/file-system.js';
 import {
   type Operation,
   augmentSpec,
+  cleanFiles,
   forEachOperation,
   isStreamingContentType,
   isSuccessStatusCode,
   parseJsonContentType,
+  readWriteMetadata,
 } from '@sdk-it/spec';
 
 import { DartSerializer, isObjectSchema } from './dart-emitter.ts';
@@ -35,6 +38,7 @@ export async function generate(
   spec: OpenAPIObject,
   settings: {
     output: string;
+    cleanup?: boolean;
     name?: string;
     writer?: Writer;
     readFolder?: ReadFolderFn;
@@ -47,7 +51,13 @@ export async function generate(
   },
 ) {
   spec = augmentSpec({ spec }, true);
-  settings.writer ??= writeFiles;
+  const clientName = settings.name || 'Client';
+  const output = join(settings.output, 'lib');
+  const { writer, files: writtenFiles } = createWriterProxy(
+    settings.writer ?? writeFiles,
+    settings.output,
+  );
+  settings.writer = writer;
   settings.readFolder ??= async (folder: string) => {
     const files = await readdir(folder, { withFileTypes: true });
     return files.map((file) => ({
@@ -56,8 +66,6 @@ export async function generate(
       isFolder: file.isDirectory(),
     }));
   };
-  const clientName = settings.name || 'Client';
-  const output = join(settings.output, 'lib');
   const groups: Record<
     string,
     {
@@ -205,6 +213,19 @@ class Options {
     ...outputs,
   });
 
+  const metadata = await readWriteMetadata(
+    settings.output,
+    Array.from(writtenFiles),
+  );
+  if (settings.cleanup !== false && writtenFiles.size > 0) {
+    await cleanFiles(metadata.content, settings.output, [
+      '/package.dart',
+      '/**/index.dart',
+      'pubspec.yaml',
+      '/metadata.json',
+    ]);
+  }
+
   await settings.writer(output, {
     'models/index.dart': await getFolderExportsV2(
       join(output, 'models'),
@@ -235,6 +256,7 @@ class Options {
     'responses.dart': responsesTxt,
     ...clazzez,
   });
+
   await settings.writer(output, {
     'package.dart': `${await getFolderExportsV2(
       join(output),
