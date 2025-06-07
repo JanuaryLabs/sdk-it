@@ -10,6 +10,7 @@ import { responseAnalyzer } from '@sdk-it/hono';
 import { generate } from '@sdk-it/typescript';
 
 const { paths, components } = await analyze('apps/api/tsconfig.app.json', {
+  imports: [],
   responseAnalyzer: {
     ...genericResponseAnalyzer,
     ...responseAnalyzer,
@@ -72,7 +73,7 @@ await writeFile(
   'utf-8',
 );
 await generate(
-  // await loadSpec(join(cwd(), '.yamls', 'hetzner.json')),
+  // await loadSpec(join(cwd(), '.specs', 'hetzner.json')),
   spec,
   // await loadSpec('https://api.uploadthing.com/openapi-spec.json'),
   {

@@ -329,7 +329,7 @@ app.get(
 
     const spec = await loadSpec(
       // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-      join(cwd(), '.yamls', 'hetzner.json'),
+      join(cwd(), '.specs', 'hetzner.json'),
     );
 
     const operations = forEachOperation({ spec }, (entry, operation) => {
