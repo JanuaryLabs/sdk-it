@@ -43,6 +43,7 @@ Thumbs.db
 .client
 .client-*
 .yamls
+.specs
 
 vite.config.*.timestamp*
 vitest.config.*.timestamp*
@@ -55,3 +56,4 @@ combined.txt
 
 # sst
 .sst
+.tasks.json

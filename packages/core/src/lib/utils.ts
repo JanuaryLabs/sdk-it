@@ -60,3 +60,26 @@ export function spinalcase(value: string) {
 export function snakecase(value: string) {
   return _snakecase(value.split('/').join(' '));
 }
+
+/**
+ * Joins an array of strings so that elements containing only digits
+ * are concatenated without a separator, while all other elements
+ * are prefixed by the separator (unless they're the very first element).
+ */
+export function joinSkipDigits(arr: string[], separator: string): string {
+  if (arr.length === 0) return '';
+
+  let result = arr[0];
+  for (let i = 1; i < arr.length; i++) {
+    const el = arr[i];
+    // If this element is digits-only, append it directly
+    if (/^\d+$/.test(el)) {
+      result += el;
+    } else {
+      // Otherwise, prepend the separator and append the element
+      result += separator + el;
+    }
+  }
+
+  return result;
+}

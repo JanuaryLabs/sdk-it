@@ -14,7 +14,7 @@ type OnRefCallback = (ref: string, content: string) => void;
  * adapted for OpenAPI 3.1 (fully aligned with JSON Schema 2020-12).
  */
 export class ZodEmitter {
-  generatedRefs = new Set<string>();
+  #generatedRefs = new Set<string>();
   #spec: OpenAPIObject;
   #onRef?: OnRefCallback;
 
@@ -123,10 +123,10 @@ export class ZodEmitter {
   ref($ref: string, required: boolean) {
     const schemaName = sanitizeTag(cleanRef($ref).split('/').pop()!);
 
-    if (this.generatedRefs.has(schemaName)) {
+    if (this.#generatedRefs.has(schemaName)) {
       return schemaName;
     }
-    this.generatedRefs.add(schemaName);
+    this.#generatedRefs.add(schemaName);
     this.#onRef?.(
       schemaName,
       this.handle(followRef<SchemaObject>(this.#spec, $ref), required),

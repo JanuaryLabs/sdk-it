@@ -18,7 +18,7 @@ function createOperation(params: ParameterObject[]): TunedOperationObject {
     tags: ['test'],
     operationId: 'testOperation',
     parameters: params,
-    requestBody: undefined,
+    requestBody: { content: {} },
     responses: {},
   };
 }

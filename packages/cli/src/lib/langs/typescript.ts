@@ -8,7 +8,7 @@ import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import getAuthToken from 'registry-auth-token';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
-import { loadSpec } from '@sdk-it/spec';
+import { augmentSpec, loadSpec } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
 
 import { outputOption, specOption } from '../options.ts';
@@ -94,7 +94,7 @@ const command = new Command('typescript')
       });
       return;
     }
-    const spec = await loadSpec(options.spec);
+    const spec = augmentSpec({ spec: await loadSpec(options.spec) }, true);
     if (options.output) {
       await emitLocal(spec, { ...options, output: options.output });
     }

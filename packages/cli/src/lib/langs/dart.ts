@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { execFile, execSync } from 'node:child_process';
 
 import { generate } from '@sdk-it/dart';
-import { loadSpec } from '@sdk-it/spec';
+import { augmentSpec, loadSpec } from '@sdk-it/spec';
 
 import { outputOption, shellEnv, specOption } from '../options.ts';
 
@@ -35,7 +35,7 @@ export default new Command('dart')
   .option('-v, --verbose', 'Verbose output', false)
   // .option('--formatter <formatter>', 'Formatter to use for the generated code')
   .action(async (options: Options) => {
-    const spec = await loadSpec(options.spec);
+    const spec = augmentSpec({ spec: await loadSpec(options.spec) }, true);
     await generate(spec, {
       output: options.output,
       mode: options.mode || 'full',

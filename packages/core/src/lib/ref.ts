@@ -31,6 +31,20 @@ export function parseRef(ref: string) {
     path: cleanRef(parts.join('/')),
   };
 }
+
+export function resolveRef<
+  T extends
+    | SchemaObject
+    | HeaderObject
+    | ParameterObject
+    | ReferenceObject
+    | RequestBodyObject = SchemaObject,
+>(spec: OpenAPIObject, maybeRef: SchemaObject | ReferenceObject): T {
+  if (isRef(maybeRef)) {
+    return followRef<T>(spec, maybeRef.$ref!);
+  }
+  return maybeRef as T;
+}
 export function followRef<
   T extends
     | SchemaObject
@@ -41,7 +55,7 @@ export function followRef<
 >(spec: OpenAPIObject, ref: string): T {
   const pathParts = cleanRef(ref).split('/');
   const entry = get(spec, pathParts) as T | ReferenceObject;
-  if (entry && '$ref' in entry) {
+  if (isRef(entry)) {
     return followRef<T>(spec, entry.$ref!);
   }
   return entry;

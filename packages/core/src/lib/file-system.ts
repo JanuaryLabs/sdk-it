@@ -188,3 +188,12 @@ export function removeTrialingSlashes(path: string, keepLastOne = false) {
   }
   return path + (keepLastOne ? '/' : '');
 }
+
+export function isNullOrUndefined(value: any): value is undefined | null {
+  return value === undefined || value === null;
+}
+export function notNullOrUndefined<T>(
+  value: T,
+): value is Exclude<T, null | undefined> {
+  return !isNullOrUndefined(value);
+}

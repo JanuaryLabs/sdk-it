@@ -41,10 +41,10 @@ export default {
     toRequest(input: z.infer<typeof fetch.getFetchSchema>) {
       return toRequest(
         'GET /fetch',
-        empty(input, {
+        json(input, {
           inputHeaders: [],
-          inputQuery: ['url'],
-          inputBody: [],
+          inputQuery: [],
+          inputBody: ['url'],
           inputParams: [],
         }),
       );

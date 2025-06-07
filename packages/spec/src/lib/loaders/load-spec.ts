@@ -1,6 +1,5 @@
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
-import { augmentSpec } from '../operation.js';
 import { loadLocal } from './local-loader.js';
 import { convertPostmanToOpenAPI } from './postman/postman-converter.js';
 import type { PostmanCollection } from './postman/spec-types.js';
@@ -25,8 +24,7 @@ export async function loadSpec(location: string): Promise<OpenAPIObject> {
   if (isPostman(content)) {
     content = convertPostmanToOpenAPI(content);
   }
-  const spec = content as OpenAPIObject;
-  return 'x-sdk-augmented' in spec ? spec : augmentSpec({ spec });
+  return content as OpenAPIObject;
 }
 
 export function loadFile<T>(location: string): Promise<T> {

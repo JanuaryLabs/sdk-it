@@ -64,7 +64,12 @@ export class TypeScriptGenerator {
             };
           }
           const properties: Record<string, SchemaObject> = {};
-          patchParameters(this.#spec, schema, operation);
+          patchParameters(
+            this.#spec,
+            schema,
+            operation.parameters,
+            operation.security ?? [],
+          );
           const examplePayload = this.#snippetEmitter.handle({
             ...schema,
             properties: Object.assign({}, properties, schema.properties),
@@ -83,7 +88,12 @@ export class TypeScriptGenerator {
       }
     } else {
       const requestBody: SchemaObject = { type: 'object', properties: {} };
-      patchParameters(this.#spec, requestBody, operation);
+      patchParameters(
+        this.#spec,
+        requestBody,
+        operation.parameters,
+        operation.security ?? [],
+      );
       const examplePayload = this.#snippetEmitter.handle(requestBody);
       // merge explicit values into the example payload
       Object.assign(

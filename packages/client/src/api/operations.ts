@@ -44,10 +44,10 @@ export default {
     toRequest(input: z.infer<typeof operations.getOperationsSchema>) {
       return toRequest(
         'GET /operations',
-        empty(input, {
+        json(input, {
           inputHeaders: [],
-          inputQuery: ['page', 'pageSize'],
-          inputBody: [],
+          inputQuery: [],
+          inputBody: ['page', 'pageSize'],
           inputParams: [],
         }),
       );

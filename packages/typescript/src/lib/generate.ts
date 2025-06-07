@@ -72,7 +72,7 @@ export async function generate(
   settings: TypeScriptGeneratorOptions,
 ) {
   const { default: micromatch } = await import('micromatch');
-  spec = 'x-sdk-augmented' in spec ? spec : augmentSpec({ spec });
+  spec = augmentSpec({ spec });
   const generator = new TypeScriptGenerator(spec, settings);
   const style = Object.assign(
     {},

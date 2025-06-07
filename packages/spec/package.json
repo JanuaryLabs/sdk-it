@@ -26,10 +26,12 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "openapi3-ts": "4.4.0",
-    "yaml": "^2.7.0",
-    "stringcase": "^4.3.1",
     "@sdk-it/core": "0.21.0",
-    "pluralize": "^8.0.0"
+    "openapi3-ts": "4.4.0",
+    "pluralize": "^8.0.0",
+    "stringcase": "^4.3.1",
+    "yaml": "^2.7.0",
+    "fast-content-type-parse": "^3.0.0",
+    "lodash-es": "^4.17.21"
   }
 }
