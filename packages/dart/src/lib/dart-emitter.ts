@@ -1,3 +1,4 @@
+import deubg from 'debug';
 import { merge } from 'lodash-es';
 import assert from 'node:assert';
 import type {
@@ -12,10 +13,15 @@ import {
   followRef,
   isEmpty,
   isRef,
+  joinSkipDigits,
   notRef,
   parseRef,
   pascalcase,
+  resolveRef,
 } from '@sdk-it/core';
+import { type Varient, coerceTypes } from '@sdk-it/spec';
+
+const log = deubg('dart-serializer');
 
 const reservedWords = new Set([
   'abstract',
@@ -66,12 +72,15 @@ const reservedWords = new Set([
   'hide',
   'show',
 ]);
+const STARTS_WITH_DIGITS_PATTERN = /^-?\d/;
+const FIRST_DASH = /^_/;
+const LAST_DASH = /_$/;
+const ONLY_ENGLISH = /(^\$)|[^A-Za-z0-9]+/g;
 
 const formatName = (it: any): string => {
   if (reservedWords.has(it)) {
     return `$${it}`;
   }
-  const startsWithDigitPattern = /^-?\d/;
   // 1. Handle numbers
   if (typeof it === 'number') {
     if (Math.sign(it) === -1) {
@@ -88,29 +97,21 @@ const formatName = (it: any): string => {
   // 3. Handle other strings
   if (typeof it === 'string') {
     // 3a. Check if the string starts with a digit FIRST
-    if (startsWithDigitPattern.test(it)) {
+    if (STARTS_WITH_DIGITS_PATTERN.test(it)) {
       if (typeof it === 'number') {
+        // if negative number, prefix with $_
         if (Math.sign(it) === -1) {
           return `$_${Math.abs(it)}`;
         }
-        return `$${it}`;
       }
+      // positive number or string starting with digit, prefix with $
+      return `$${it}`;
     }
 
-    // 3b. If not starting with a digit, handle brackets and snake_case
-    let nameToFormat = it;
-
-    // Remove a single leading '[' if present
-    if (nameToFormat.startsWith('[')) {
-      nameToFormat = nameToFormat.slice(1);
-    }
-
-    // Remove a single trailing ']' if present
-    if (nameToFormat.endsWith(']')) {
-      nameToFormat = nameToFormat.slice(0, -1);
-    }
-
-    return nameToFormat.replaceAll('/', '');
+    return it
+      .replace(ONLY_ENGLISH, (_m, g1) => (g1 === '$' ? '$' : '_'))
+      .replace(FIRST_DASH, '')
+      .replace(LAST_DASH, '');
   }
 
   // 4. Fallback for any other types (e.g., null, undefined, objects)
@@ -131,13 +132,14 @@ type Serialized = {
   content: string;
   simple?: boolean;
 };
-type Emit = (name: string, content: string) => void;
+type Emit = (name: string, content: string, schema: SchemaObject) => void;
 /**
  * Convert an OpenAPI (JSON Schema style) object into Dart classes
  */
 export class DartSerializer {
   #spec: OpenAPIObject;
   #emit: Emit;
+  #generatedRefs = new Set<string>();
 
   constructor(spec: OpenAPIObject, emit: Emit) {
     this.#spec = spec;
@@ -148,31 +150,56 @@ export class DartSerializer {
     this.#spec.components ??= {};
     this.#spec.components.schemas ??= {};
     this.#spec.components.responses ??= {};
+    const canDebug = schemaName === 'Annotation';
 
-    const checkSchema = (schema: SchemaObject | ReferenceObject): boolean => {
+    const checkSchema = (
+      schema: SchemaObject | ReferenceObject,
+      withRefCheck = false,
+    ): any => {
       if (isRef(schema)) {
+        if (!withRefCheck) return false;
         const { model } = parseRef(schema.$ref);
         return model === schemaName;
       }
-      if (schema.oneOf && Array.isArray(schema.oneOf)) {
-        return (schema.oneOf as Array<SchemaObject | ReferenceObject>).some(
-          (subSchema) => checkSchema(subSchema),
-        );
+      if (!isEmpty(schema.oneOf)) {
+        return schema.oneOf.some((it) => checkSchema(it, true));
       }
-      if (
-        schema.type === 'array' &&
-        schema.items &&
-        notRef(schema.items) &&
-        schema.items.oneOf
-      ) {
-        return checkSchema(schema.items);
+      if (schema.type === 'array' && schema.items) {
+        if (isRef(schema.items)) {
+          return checkSchema(schema.items, withRefCheck);
+        }
+        if (schema.items.oneOf) {
+          return schema.items.oneOf.some((it) => checkSchema(it, true));
+        }
+        return checkSchema(schema.items, withRefCheck);
+      }
+
+      if (schema.type === 'object') {
+        if (schema.properties) {
+          let found = false;
+          let propertyName = '';
+          for (const [key, it] of Object.entries(schema.properties)) {
+            found = checkSchema(it, false);
+            if (found) {
+              propertyName = key;
+            }
+          }
+          return propertyName;
+        }
       }
       return false;
     };
 
     for (const [key, value] of Object.entries(this.#spec.components.schemas)) {
-      if (checkSchema(value)) {
-        list.push(key);
+      const thisWouldBeTheObjectPropertyKeyName = checkSchema(value);
+      if (thisWouldBeTheObjectPropertyKeyName) {
+        if (typeof thisWouldBeTheObjectPropertyKeyName === 'string') {
+          list.push(
+            pascalcase(`${key} ${thisWouldBeTheObjectPropertyKeyName}`),
+          );
+        } else {
+          list.push(pascalcase(key));
+        }
       }
     }
 
@@ -207,14 +234,18 @@ export class DartSerializer {
 
       if (context.noEmit !== true && !context.propName) {
         // only emit if root level not for individual properties
-        this.#emit(className, `typedef ${className} = Map<String, dynamic>;`);
+        this.#emit(
+          className,
+          `typedef ${className} = Map<String, dynamic>;`,
+          schema,
+        );
       }
       return {
         content: '',
         use: 'Map<String, dynamic>',
         encode: 'input',
         encodeV2: '',
-        toJson: `this.${camelcase(context.name)}`,
+        toJson: `${camelcase(context.name)}`,
         fromJson: context.name
           ? `json['${context.jsonKey || context.name}']`
           : 'json',
@@ -226,7 +257,7 @@ export class DartSerializer {
         this.#emit(
           className,
           `class ${className} {
-  const ${className}(); // Add const constructor
+  const ${className}();
 
   factory ${className}.fromJson(Map<String, dynamic> json) {
     return const ${className}();
@@ -240,6 +271,7 @@ export class DartSerializer {
     return true; // Any map is fine for an empty object
   }
 }`,
+          schema,
         );
       }
       return {
@@ -247,9 +279,9 @@ export class DartSerializer {
         encode: 'input.toJson()',
         use: className,
         encodeV2: context.required ? '' : '?' + '.toJson()',
-        toJson: `${this.#safe(context.name as string, context.required)}`,
-        fromJson: `${className}.fromJson(json['${context.jsonKey || context.name}'])`,
-        matches: `${className}.matches(json['${context.jsonKey || context.name}'])`,
+        toJson: `${this.#safe(context)}`,
+        fromJson: `${className}.fromJson(json)`,
+        matches: `${className}.matches(json)`,
       };
     }
 
@@ -275,10 +307,11 @@ export class DartSerializer {
         safeName: safePropName,
         jsonKey: jsonKey,
         required,
-        propName: [className, propName].filter(Boolean).join('_'),
+        propName: joinSkipDigits([className, propName].filter(Boolean), '_'),
       });
       const nullable = typeStr.nullable || !required;
-      const nullableSuffix = nullable ? '?' : '';
+      const nullableSuffix =
+        typeStr.use === 'dynamic' ? '' : nullable ? '?' : ''; // dynamic types requires no suffix
       props.push(`final ${typeStr.use}${nullableSuffix} ${safePropName};`);
       fromJsonParams.push(`${safePropName}: ${typeStr.fromJson}`);
       toJsonProperties.push(`'${jsonKey}': ${typeStr.toJson}`);
@@ -351,22 +384,20 @@ return ${className}(\n${fromJsonParams.join(',\n')});
       Map<String, dynamic> toJson() => {
 ${toJsonProperties.join(',\n')}
       };
-      static bool matches(Map<String, dynamic> json) {
-return ${matches.join(' && ')};
-      }
+      ${!requestContent ? `static bool matches(Map<String, dynamic> json) {return ${matches.join(' && ')};}` : ''}
 
       ${requestContent}
 
     }`;
     if (context.noEmit !== true) {
-      this.#emit(className, content);
+      this.#emit(className, content, schema);
     }
     const nullable = !context.required || context.nullable === true;
     return {
       use: className,
       content,
       encode: 'input.toJson()',
-      toJson: `${this.#safe(context.name, context.required)}`,
+      toJson: `${this.#safe(context)}`,
       encodeV2: context.required ? '' : '?' + '.toJson()',
       fromJson: context.name
         ? `${context.forJson || className}.fromJson(json['${context.jsonKey || context.name}'])`
@@ -375,10 +406,64 @@ return ${matches.join(' && ')};
     };
   }
 
-  #safe(accces: string, required: boolean) {
-    return required
-      ? `this.${camelcase(accces)}.toJson()`
-      : `this.${camelcase(accces)} != null ? this.${camelcase(accces)}!.toJson() : null`;
+  #oneOfObject(
+    className: string,
+    varientName: string,
+    schema: SchemaObject,
+    context: Context,
+  ) {
+    const entries = Object.entries(schema.properties || {});
+    if (entries.length === 1) {
+      const [key, prop] = entries[0];
+      const result = this.handle(
+        pascalcase(`${className} ${varientName}`),
+        prop,
+        true,
+        { ...context, safeName: varientName },
+      );
+      return {
+        typeStr: `${result.use}${result.nullable ? '?' : ''} ${key}`,
+        map: `{'${key}': ${result.toJson}};`,
+        fromJson: result.fromJson,
+      };
+    }
+    const result = this.handle(
+      pascalcase(`${className} ${varientName}`),
+      schema,
+      true,
+      { ...context, jsonKey: varientName },
+    );
+    return {
+      typeStr: `${result.use} value`,
+      map: `_Value(value);`,
+      fromJson: result.fromJson,
+    };
+    // const types: { name: string; required: boolean }[] = [];
+    // const map: string[] = [];
+    // entries.forEach(([key, prop]) => {
+    //   const result = this.handle(
+    //     pascalcase(`${className} ${varientName} ${key}`),
+    //     prop,
+    //     true,
+    //     { ...context },
+    //   );
+    //   types.push({
+    //     name: `${result.use}${result.nullable ? '?' : ''} ${key}`,
+    //     required: !result.nullable,
+    //   });
+    //   map.push(`'${key}': ${key}${result.nullable ? '?' : ''}.toJson()`);
+    // });
+
+    // return {
+    //   typeStr: `{${types.map((it) => `${it.required ? 'required' : ''} ${it.name}`).join(', ')}}`,
+    //   map: map.map((it) => it).join(', '),
+    // };
+  }
+
+  #safe(context: Context) {
+    const accces = context.safeName || context.name;
+    const required = context.required;
+    return `${camelcase(accces)}${required ? '' : '?'}.toJson()`;
   }
 
   #array(
@@ -391,9 +476,9 @@ return ${matches.join(' && ')};
       return {
         content: '',
         use: 'List<dynamic>',
-        toJson: '',
+        toJson: `${context.required ? `${camelcase(context.safeName || context.name)}` : `${camelcase(context.safeName || context.name)} != null ? ${camelcase(context.safeName || context.name)} : null`}`,
         encodeV2: '',
-        fromJson: `List<dynamic>.from(${context.name ? `json['${context.jsonKey || context.name}']` : `json`})})`,
+        fromJson: `List<dynamic>.from(${context.name ? `json['${context.jsonKey || context.name}']` : `json`})`,
         matches: '',
       };
     }
@@ -482,10 +567,11 @@ return ${matches.join(' && ')};
           encodeV2: '',
           toJson: safeName,
           simple: true,
-          nullable: false,
           fromJson: context.name
             ? `json['${context.jsonKey || context.name}']`
             : 'json',
+          matches: '',
+          nullable: false,
         };
     }
   }
@@ -497,6 +583,24 @@ return ${matches.join(' && ')};
     context: Context,
   ): Serialized {
     const schemaName = cleanRef($ref).split('/').pop()!;
+
+    // Check if we've already generated this ref to avoid circular dependencies
+    if (this.#generatedRefs.has(schemaName)) {
+      return {
+        content: '',
+        use: pascalcase(schemaName),
+        encode: 'input.toJson()',
+        encodeV2: context.required ? '' : '?' + '.toJson()',
+        toJson: this.#safe(context),
+        fromJson: context.name
+          ? `${context.forJson || pascalcase(schemaName)}.fromJson(json['${context.jsonKey || context.name}'])`
+          : `${context.forJson || pascalcase(schemaName)}.fromJson(json)`,
+        matches: `${pascalcase(schemaName)}.matches(json['${context.jsonKey || context.name}'])`,
+      };
+    }
+
+    // Add to generated refs before processing to prevent circular dependencies
+    this.#generatedRefs.add(schemaName);
 
     const serialized = this.handle(
       schemaName,
@@ -533,40 +637,6 @@ return ${matches.join(' && ')};
     return this.handle(name, objectSchema, true, context);
   }
 
-  #anyOf(
-    className: string,
-    schemas: (SchemaObject | ReferenceObject)[],
-    context: Record<string, unknown>,
-  ): Serialized {
-    // fixme: handle
-    if (schemas.length === 0) {
-      return {
-        content: '',
-        nullable: false,
-        use: 'dynamic',
-        toJson: `${camelcase(context.name as string)}`,
-        encodeV2: '',
-        fromJson: `json['${context.jsonKey || context.name}']`,
-      };
-    }
-    const nullSchemaIndex = schemas.findIndex((schema) => {
-      if (isRef(schema)) {
-        const refSchema = followRef(this.#spec, schema.$ref);
-        return refSchema.type === 'null';
-      }
-      return schema.type === 'null';
-    });
-    const anyOfSchemas = schemas.slice(0);
-    if (nullSchemaIndex >= 0) {
-      anyOfSchemas.splice(nullSchemaIndex, 1); // remove null schema
-    }
-
-    return this.handle(className, anyOfSchemas[0], true, {
-      ...context,
-      nullable: nullSchemaIndex >= 0,
-    });
-  }
-
   #mixinise(name: string, context: Context) {
     const mixins = this.#getRefUsage(name);
     if (context.mixin) {
@@ -584,13 +654,34 @@ return ${matches.join(' && ')};
     };
   }
 
+  #buildClass(options: {
+    name: string;
+    abstract?: boolean;
+    mixins: string[];
+    withMixins?: string;
+    content: string;
+  }) {
+    return [
+      options.abstract ? 'abstract' : '',
+      options.mixins.length ? '' : 'mixin',
+      `class ${options.name} ${options.withMixins}`,
+      '{',
+      options.content,
+      '}',
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }
+
   #oneOf(
     className: string,
-    schemas: (SchemaObject | ReferenceObject)[],
+    schema: SchemaObject,
     context: Context,
   ): Serialized {
+    const varients: Varient[] = schema['x-varients'];
+    const schemas = schema.oneOf || schema.anyOf || [];
     const name = pascalcase(context.propName || className); // className in case is top level
-
+    log(`#oneOf ${name}`);
     if (schemas.length === 0) {
       return {
         content: '',
@@ -601,152 +692,128 @@ return ${matches.join(' && ')};
         fromJson: `json['${context.jsonKey || context.name}']`,
       };
     }
+
     const content: string[] = [];
     const patterns: { pattern: string; name: string }[] = [];
-    // FIXME: if there is just one type then no need to add the discriminator
-    const objects = schemas.filter(notRef).filter((it) => it.type === 'object');
-    for (const schema of schemas) {
-      if (isRef(schema)) {
-        const refType = this.#ref(className, schema.$ref, true, context);
-        patterns.push({
-          pattern: `case ${refType.type || 'Map<String, dynamic>'} map when ${refType.use}.matches(map): return ${refType.use}.fromJson(map);`,
-          name: refType.use,
-        });
-      } else if (schema.type === 'string') {
-        // todo: make this into a schema with ref (preproccesing)
-        content.push(`class ${name}Text with ${name} {
-          final String value;
-          ${name}Text(this.value);
-          @override
-          dynamic toJson() => value;
-          static bool matches(dynamic value) {
-    return value is String;
-        }}
-          `);
-        patterns.push({
-          pattern: `case String(): return ${name}Text(json);`,
-          name: `${name}Text`,
-        });
-      } else if (schema.type === 'array') {
-        // todo: make this into a schema with ref (preproccesing) with all varients types (integer, string)
-        // todo: this can be abstracted so the varients somehow dynamic without having to replicate the same classes all the time
-        const itemsType = this.handle(name, schema.items!, true, {
-          ...context,
-          noEmit: true,
-        });
-        content.push(`class ${name}List with ${name} {
-            final List<${itemsType.use}> value;
-            ${name}List(this.value);
-            @override
-            dynamic toJson() => value;
-  static bool matches(dynamic value) {
-    return value is List;
-        }}`);
-        patterns.push({
-          pattern: `case List(): return ${name}List(List<${itemsType.use}>.from(json));`,
-          name: `${name}List`,
-        });
-      }
-    }
-    if (objects.length) {
-      // todo: take a look at CompoundFilterFilters at the end
-      const candidates: Record<string, Set<string>> = {};
-      for (const schema of objects) {
-        if (schema.additionalProperties === true) {
-          continue;
-        }
-        assert(
-          schema.properties,
-          `Schema ${name} has no properties which are required in oneOf in order to determine the discriminator.`,
-        );
-        for (const [propName, propSchema] of Object.entries(
-          schema.properties,
-        )) {
-          if (
-            notRef(propSchema) &&
-            propSchema.enum &&
-            // fixme: the enum can have more than one value as long as it is not duplicated else where on the other schemas
-            propSchema.enum.length === 1
-          ) {
-            candidates[propName] ??= new Set();
-            candidates[propName].add(String(propSchema.enum[0]));
-          }
-        }
-      }
 
-      let discriminatorProp: string | undefined;
+    content.push(`class _Value implements ${pascalcase(name)} {
+  final dynamic value;
+  const _Value(this.value);
+  @override
+  toJson() => value;
+}`);
 
-      for (const [name, values] of Object.entries(candidates)) {
-        if (
-          // make sure we pick the prop that exists on all objects
-          values.size === objects.filter((it) => it.properties?.[name]).length
-        ) {
-          discriminatorProp = name;
+    for (const index in varients) {
+      const { name: varientName, ...varient } = varients[index];
+      switch (varientName) {
+        case 'empty':
+          patterns.push({
+            name: `static ${varientName}() => _Value("");`,
+            pattern: `case '': return ${name}.${varientName}();`,
+          });
+          break;
+        case 'uri':
+          patterns.push({
+            name: `static ${varientName}(Uri value) => _Value(value);`,
+            pattern: `case String: return ${name}.${varientName}(Uri.parse(json));`,
+          });
+          break;
+        case 'number':
+          patterns.push({
+            name: `static ${varientName}(num value) => _Value(value);`,
+            pattern: `case num: return ${name}.${varientName}(json);`,
+          });
+          break;
+        case 'object': {
+          const objectSchema = resolveRef(this.#spec, schemas[index]);
+          const result = this.#object(
+            pascalcase(`${name} ${varientName}`),
+            objectSchema,
+            { ...context, noEmit: false },
+          );
+          patterns.push({
+            name: `static ${varientName}(${result.use} value) => _Value(value);`,
+            pattern: `case Map<String, dynamic> map: return ${name}.${varientName}(${pascalcase(
+              `${name} ${varientName}`,
+            )}.fromJson(map));`,
+          });
           break;
         }
-      }
-
-      // if (objects.filter((it) => it.additionalProperties !== true).length) {
-      // }
-      // assert(discriminatorProp, `No discriminator property found in ${name}`);
-
-      if (discriminatorProp) {
-        for (const schema of objects) {
-          const discriminatorValue: string = (
-            (schema as SchemaObject).properties![
-              discriminatorProp!
-            ] as SchemaObject
-          ).enum?.[0];
-
-          const varientName = `${name}${pascalcase(discriminatorValue)}`;
-          patterns.push({
-            pattern: `case Map<String, dynamic> map when ${varientName}.matches(json): return ${varientName}.fromJson(map);`,
-            name: varientName,
-          });
-
-          const objResult = this.#object(varientName, schema, {
-            ...context,
-            noEmit: true,
-            mixin: name,
-          });
-          content.push(objResult.content);
-        }
+        default:
+          switch (varient.type) {
+            case 'string':
+              patterns.push({
+                name: `static ${varientName}(String value) => _Value(value);`,
+                pattern: `case String: return ${name}.${varientName}(json);`,
+              });
+              break;
+            case 'object': {
+              const objectSchema = resolveRef(this.#spec, schemas[index]);
+              const { typeStr, map, fromJson } = this.#oneOfObject(
+                name,
+                varientName,
+                objectSchema,
+                context,
+              );
+              const staticStr = varient.static
+                ? `&& json['${varient.source}'] == '${varientName}'`
+                : '';
+              const caseStr = `case Map<String, dynamic> _ when json.containsKey('${varient.source}') ${staticStr}`;
+              // const returnStr = `return ${name}.${varientName}(${pascalcase(
+              //   `${name} ${varientName}`,
+              // )}.fromJson(map))`;
+              const returnStr = `return ${name}.${varientName}(${fromJson})`;
+              patterns.push({
+                name: `static ${varientName}(${typeStr}) => ${map}`,
+                pattern: `${caseStr}: ${returnStr};`,
+              });
+              break;
+            }
+            default: {
+              //
+            }
+          }
       }
     }
-
     const { mixins, withMixins } = this.#mixinise(name, context);
-    content.unshift(`abstract ${mixins.length ? '' : 'mixin'} class ${name} ${withMixins} {
-      dynamic toJson();
-      ${
-        patterns.length
-          ? `static ${name} fromJson(dynamic json) {
-      switch (json){
-        ${patterns.map((it) => it.pattern).join('\n')}
-        default:
-          throw ArgumentError("Invalid type for query property: \${json}");
-        }
-      }
+    content.push(
+      this.#buildClass({
+        name,
+        abstract: true,
+        mixins,
+        withMixins,
+        content: [
+          'dynamic get value;',
+          'dynamic toJson();',
 
+          ...patterns.map((it) => it.name),
+          // `factory ${name}.fromJson(Map<String, dynamic> json)`,
+          `factory ${name}.fromJson(dynamic json)`,
+          `{`,
+          `switch (json) {`,
+          ...patterns.map((it) => it.pattern),
+          `default: throw ArgumentError("Invalid type: \${json}");`,
+          `}`,
+          `}`,
+          `static bool matches(dynamic value) {
+    try {
+      ${name}.fromJson(value);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }`,
+        ].join('\n'),
+      }),
+    );
 
-     ${
-       patterns.length
-         ? ` static bool matches(dynamic value) {
-        return ${patterns.map((it) => `value is ${it.name}`).join(' || ')};
-      }`
-         : ''
-     }
-
-      `
-          : ''
-      }
-    }`);
-    this.#emit(name, content.join('\n'));
+    this.#emit(name, content.join('\n'), { oneOf: schemas } as SchemaObject);
 
     return {
       content: content.join('\n'),
       use: name,
-      encodeV2: context.required ? '' : '?',
-      toJson: `${this.#safe(context.name as string, context.required)}`,
+      encodeV2: context.required ? '' : '',
+      toJson: `${this.#safe(context)}`,
       fromJson: `${name}.fromJson(json['${context.jsonKey || context.name}'])`,
       matches: `${name}.matches(json['${context.jsonKey || context.name}'])`,
     };
@@ -773,14 +840,14 @@ return ${matches.join(' && ')};
     const valType = this.#simple((schema.type as string) || 'string');
     // fixme: if enum have one value and cannot be null then use it as default value
 
-    const { mixins, withMixins } = this.#mixinise(className, context);
+    const { mixins, withMixins } = this.#mixinise(name, context);
 
     const content = `
   class _EnumValue implements ${pascalcase(name)} {
   final ${valType} value;
   const _EnumValue(this.value);
   @override
-  toJson() {return this.value;}
+  toJson() => value;
 }
     abstract ${mixins.length ? '' : 'mixin'} class ${pascalcase(name)} ${withMixins} {
       ${values.map((it) => `static const _EnumValue ${snakecase(formatName(it))} = _EnumValue(${typeof it === 'number' ? it : `'${it}'`});`).join('\n')}
@@ -812,7 +879,7 @@ return false;
 
     }`;
     if (context.noEmit !== true) {
-      this.#emit(name, content);
+      this.#emit(name, content, schema);
     }
     return {
       type: Array.isArray(schema.type)
@@ -822,7 +889,7 @@ return false;
           : undefined,
       content: content,
       use: pascalcase(name),
-      toJson: `${context.required ? `this.${camelcase(context.name)}.toJson()` : `this.${camelcase(context.name)} != null ? this.${camelcase(context.name)}!.toJson() : null`}`,
+      toJson: `this.${camelcase(context.name)}${context.required ? '' : '?'}.toJson()`,
       encodeV2: context.required ? '' : '?.toJson()',
       fromJson: `${pascalcase(name)}.fromJson(json['${context.jsonKey || context.name}'])`,
       matches: `${pascalcase(name)}.matches(json['${context.jsonKey || context.name}'])`,
@@ -843,9 +910,7 @@ return false;
           use: 'DateTime',
           simple: true,
           encodeV2: `.${context.required ? '' : '?'}.toIso8601String()`,
-          toJson: context.required
-            ? `this.${safeName}.toIso8601String()`
-            : `this.${safeName} != null ? this.${safeName}!.toIso8601String() : null`,
+          toJson: `${safeName}${context.required ? '' : '?'}.toIso8601String()`,
           fromJson: context.name
             ? `json['${context.jsonKey || context.name}'] != null ? DateTime.parse(json['${context.jsonKey || context.name}']) : null`
             : 'json',
@@ -857,7 +922,7 @@ return false;
           content: '',
           use: 'File',
           encodeV2: '',
-          toJson: `this.${safeName}`,
+          toJson: safeName,
           simple: true,
           fromJson: context.name
             ? `json['${context.jsonKey || context.name}']`
@@ -870,7 +935,7 @@ return false;
           use: `String`,
           content: '',
           encodeV2: '',
-          toJson: `this.${safeName}`,
+          toJson: safeName,
           simple: true,
           fromJson: context.name
             ? `json['${context.jsonKey || context.name}'] as String`
@@ -938,20 +1003,16 @@ return false;
       return this.#allOf(className, schema.allOf, context);
     }
     if (schema.oneOf && Array.isArray(schema.oneOf)) {
-      return this.#oneOf(className, schema.oneOf, context);
+      return this.#oneOf(className, schema, context);
     }
     if (schema.anyOf && Array.isArray(schema.anyOf)) {
-      return this.#anyOf(className, schema.anyOf, context);
+      return this.#oneOf(className, schema, context);
     }
     if (schema.enum && Array.isArray(schema.enum)) {
       return this.#enum(className, schema, context);
     }
     // Handle types
-    const types = Array.isArray(schema.type)
-      ? schema.type
-      : schema.type
-        ? [schema.type]
-        : [];
+    const types = coerceTypes(schema);
 
     let nullable = false;
     if ('nullable' in schema && schema.nullable) {
@@ -972,11 +1033,15 @@ return false;
         return this.#array(className, schema, true, context);
       }
       return {
+        // Unknown type -> fallback
         content: '',
         use: 'dynamic',
-        toJson: `${camelcase(context.name as string)}`,
         encodeV2: '',
-        fromJson: `json['${context.jsonKey || context.name}']`,
+        toJson: context.safeName || context.name,
+        simple: true,
+        fromJson: context.name
+          ? `json['${context.jsonKey || context.name}']`
+          : 'json',
         nullable: false,
         matches: '', // keep it empty as 'type is dynamic' is always true
       };
@@ -1004,7 +1069,11 @@ return false;
     });
 
     if (alias) {
-      this.#emit(className, `typedef ${alias} = ${serialized.use};`);
+      this.#emit(
+        className,
+        `typedef ${alias} = ${serialized.use};`,
+        isRef(schema) ? followRef(this.#spec, schema.$ref) : schema,
+      );
       return serialized;
     }
     return serialized;

@@ -9,18 +9,20 @@ import type {
   ResponseObject,
   ResponsesObject,
   SchemaObject,
+  SecurityRequirementObject,
 } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
 import { type Method, methods } from '@sdk-it/core/paths.js';
-import { followRef, isRef } from '@sdk-it/core/ref.js';
-import { isEmpty } from '@sdk-it/core/utils.js';
+import { followRef, isRef, parseRef } from '@sdk-it/core/ref.js';
+import { isEmpty, pascalcase } from '@sdk-it/core/utils.js';
 
 import {
   type PaginationGuess,
   guessPagination,
 } from './pagination/pagination.js';
 import { securityToOptions } from './security.js';
+import { expandSpec, fixSpec } from './tune.js';
 
 function findUniqueOperationId(
   usedOperationIds: Set<string>,
@@ -52,8 +54,13 @@ function findUniqueOperationId(
 
   return uniqueOperationId;
 }
-export function augmentSpec(config: GenerateSdkConfig) {
+export function augmentSpec(config: GenerateSdkConfig, verbose = false) {
+  if ('x-sdk-augmented' in config.spec) {
+    return config.spec; // Already augmented
+  }
   config.spec.paths ??= {};
+  config.spec.components ??= {};
+  config.spec.components.schemas ??= {};
   const paths: PathsObject = {};
   const usedOperationIds = new Set<string>();
 
@@ -83,22 +90,25 @@ export function augmentSpec(config: GenerateSdkConfig) {
       );
       usedOperationIds.add(operationId);
 
-      const requestBody = isRef(operation.requestBody)
-        ? followRef<RequestBodyObject>(config.spec, operation.requestBody.$ref)
-        : operation.requestBody;
-
+      const parameters = [
+        ...(pathItem.parameters ?? []),
+        ...(operation.parameters ?? []),
+      ].map((it) =>
+        isRef(it) ? followRef<ParameterObject>(config.spec, it.$ref) : it,
+      );
       const tunedOperation: TunedOperationObject = {
         ...operation,
-        parameters: [
-          ...(pathItem.parameters ?? []),
-          ...(operation.parameters ?? []),
-        ].map((it) =>
-          isRef(it) ? followRef<ParameterObject>(config.spec, it.$ref) : it,
-        ),
+        parameters,
         tags: [operationTag],
         operationId: operationId,
-        responses: resolveResponses(config.spec, operation),
-        requestBody: tuneRequestBody(config.spec, requestBody),
+        responses: resolveResponses(config.spec, operationId, operation),
+        requestBody: tuneRequestBody(
+          config.spec,
+          operationId,
+          operation,
+          parameters,
+          operation.security ?? [],
+        ),
       };
 
       tunedOperation['x-pagination'] = toPagination(
@@ -114,7 +124,21 @@ export function augmentSpec(config: GenerateSdkConfig) {
       });
     }
   }
-  return { ...config.spec, paths };
+
+  fixSpec(config.spec, config.spec.components.schemas);
+
+  if (verbose) {
+    const newRefs: { name: string; value: SchemaObject }[] = [];
+    expandSpec(config.spec, config.spec.components.schemas, newRefs);
+    for (const ref of newRefs) {
+      config.spec.components.schemas[ref.name] = ref.value;
+    }
+  }
+  return {
+    ...config.spec,
+    paths,
+    'x-sdk-augmented': true,
+  };
 }
 
 export type OperationPagination = PaginationGuess & {
@@ -224,7 +248,7 @@ export type TunedRequestBody = Omit<RequestBodyObject, 'content'> & {
   content: Record<
     string,
     Omit<MediaTypeObject, 'schema'> & {
-      schema: SchemaObject;
+      schema: SchemaObject | ReferenceObject;
     }
   >;
 };
@@ -237,7 +261,7 @@ export type TunedOperationObject = Omit<
   operationId: string;
   parameters: ParameterObject[];
   responses: Record<string, ResponseObject>;
-  requestBody: TunedRequestBody | undefined;
+  requestBody: TunedRequestBody;
 };
 
 export interface OperationEntry {
@@ -252,21 +276,25 @@ export type Operation = {
   operation: TunedOperationObject;
 };
 
-function resolveResponses(spec: OpenAPIObject, operation: OperationObject) {
+function resolveResponses(
+  spec: OpenAPIObject,
+  operationId: string,
+  operation: OperationObject,
+) {
   const responses = operation.responses ?? {};
-  const resolved: Record<string, ResponseObject> = {};
+  operation.responses ??= {};
   let foundSuccessResponse = false;
   for (const status in responses) {
     const response = isRef(responses[status] as ReferenceObject)
       ? followRef<ResponseObject>(spec, responses[status].$ref)
       : (responses[status] as ResponseObject);
-    resolved[status] = response;
+    operation.responses[status] = response;
     if (isSuccessStatusCode(status)) {
       foundSuccessResponse = true;
     }
   }
   if (!foundSuccessResponse) {
-    resolved['200'] = {
+    operation.responses['200'] = {
       description: 'OK',
       content: {
         'application/json': {
@@ -275,7 +303,32 @@ function resolveResponses(spec: OpenAPIObject, operation: OperationObject) {
       },
     };
   }
-  return resolved;
+
+  spec.components ??= {};
+  spec.components.schemas ??= {};
+  for (const status in operation.responses) {
+    const response = operation.responses[status];
+    if (!isSuccessStatusCode(status)) continue;
+    if (isEmpty(response.content)) continue;
+    for (const [contentType, mediaType] of Object.entries(
+      response.content as Record<string, MediaTypeObject>,
+    )) {
+      if (!parseJsonContentType(contentType)) continue;
+      if (mediaType.schema && !isRef(mediaType.schema)) {
+        const outputName = pascalcase(`${operationId} output`);
+        spec.components.schemas[outputName] = {
+          ...mediaType.schema,
+          'x-responsebody': true,
+        };
+        operation.responses[status].content ??= {};
+        operation.responses[status].content[contentType].schema = {
+          $ref: `#/components/schemas/${outputName}`,
+        };
+      }
+    }
+  }
+
+  return operation.responses;
 }
 
 export function forEachOperation<T>(
@@ -712,18 +765,15 @@ export function isErrorStatusCode(statusCode: number | string): boolean {
 export function patchParameters(
   spec: OpenAPIObject,
   objectSchema: SchemaObject,
-  operation: TunedOperationObject,
+  parameters: ParameterObject[],
+  security: SecurityRequirementObject[],
 ) {
   const securitySchemes = spec.components?.securitySchemes ?? {};
-  const securityOptions = securityToOptions(
-    spec,
-    operation.security ?? [],
-    securitySchemes,
-  );
+  const securityOptions = securityToOptions(spec, security, securitySchemes);
 
   objectSchema.properties ??= {};
   objectSchema.required ??= [];
-  for (const param of operation.parameters) {
+  for (const param of parameters) {
     if (param.required) {
       objectSchema.required.push(param.name);
     }
@@ -803,15 +853,10 @@ export function createOperation(options: {
   let requestBody: TunedRequestBody | undefined = undefined;
 
   if (options.request) {
-    requestBody = {
-      description: 'Request body',
-      content: {},
-    };
+    requestBody = { description: 'Request body', content: {} };
 
     for (const [contentType, schema] of Object.entries(options.request)) {
-      requestBody.content[contentType] = {
-        schema: schema,
-      };
+      requestBody.content[contentType] = { schema: schema };
     }
   }
   return {
@@ -822,25 +867,90 @@ export function createOperation(options: {
     tags: [options.group],
     parameters,
     responses,
-    requestBody,
+    requestBody: requestBody as any,
   };
 }
 
 function tuneRequestBody(
   spec: OpenAPIObject,
-  requestBody: RequestBodyObject | undefined,
-) {
-  if (requestBody) {
-    for (const type in requestBody.content) {
-      const schema = requestBody.content[type].schema;
-      requestBody.content[type].schema = isRef(schema)
-        ? followRef(spec, schema.$ref)
-        : schema;
+  operationId: string,
+  operation: OperationObject,
+  parameters: ParameterObject[],
+  security: SecurityRequirementObject[],
+): TunedRequestBody {
+  spec.components ??= {};
+  spec.components.schemas ??= {};
+  let inputName = pascalcase(`${operationId} input`);
+  const requestBody = isRef(operation.requestBody)
+    ? followRef<RequestBodyObject>(spec, operation.requestBody.$ref)
+    : (operation.requestBody ?? {
+        content: {},
+        required: false,
+      });
+  if (isEmpty(requestBody.content)) {
+    const schema: SchemaObject = {
+      type: 'object',
+      'x-inputname': inputName,
+      'x-requestbody': true,
+    };
+    patchParameters(spec, schema, parameters, security);
+    const tuned: TunedRequestBody = {
+      ...requestBody,
+      content: {
+        'application/empty': {
+          schema: { $ref: `#/components/schemas/${inputName}` },
+        },
+      },
+    };
 
-      if (!requestBody.content[type].schema) {
-        console.warn(`Schema not found for ${type}`);
-      }
-    }
+    spec.components.schemas[inputName] = schema;
+    return tuned;
   }
-  return requestBody as TunedRequestBody | undefined;
+  for (const contentType in requestBody.content) {
+    const mediaType = requestBody.content[contentType];
+    let schema: SchemaObject | undefined;
+
+    if (isRef(mediaType.schema)) {
+      schema = followRef<SchemaObject>(spec, mediaType.schema.$ref);
+      inputName = parseRef(mediaType.schema.$ref).model;
+    } else {
+      schema = mediaType.schema;
+    }
+
+    if (isEmpty(schema)) {
+      schema ??= {}; // default to empty schema if not defined
+      console.warn(
+        `Request body schema for content type "${contentType}" is empty.`,
+      );
+    }
+
+    if (schema.type !== 'object') {
+      mediaType.schema = {
+        type: 'object',
+        required: [requestBody.required ? '$body' : ''],
+        properties: {
+          $body: { ...schema, 'x-special': true },
+        },
+      };
+      patchParameters(spec, mediaType.schema, parameters, security);
+      spec.components.schemas[inputName] = {
+        ...mediaType.schema,
+        'x-requestbody': true,
+        'x-inputname': inputName,
+      };
+    } else {
+      patchParameters(spec, schema, parameters, security);
+      spec.components.schemas[inputName] = {
+        ...schema,
+        'x-requestbody': true,
+        'x-inputname': inputName,
+      };
+    }
+
+    requestBody.content ??= {};
+    requestBody.content[contentType].schema = {
+      $ref: `#/components/schemas/${inputName}`,
+    };
+  }
+  return requestBody as TunedRequestBody;
 }

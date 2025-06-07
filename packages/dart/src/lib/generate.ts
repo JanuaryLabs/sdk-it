@@ -1,6 +1,4 @@
 import { parse as partContentType } from 'fast-content-type-parse';
-import { merge } from 'lodash-es';
-import assert from 'node:assert';
 import { readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
@@ -8,19 +6,11 @@ import type {
   OperationObject,
   ReferenceObject,
   ResponseObject,
-  SchemaObject,
 } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 import yaml from 'yaml';
 
-import {
-  followRef,
-  isEmpty,
-  isRef,
-  notRef,
-  pascalcase,
-  snakecase,
-} from '@sdk-it/core';
+import { followRef, isEmpty, isRef, pascalcase, snakecase } from '@sdk-it/core';
 import {
   type ReadFolderFn,
   type Writer,
@@ -34,7 +24,6 @@ import {
   isStreamingContentType,
   isSuccessStatusCode,
   parseJsonContentType,
-  patchParameters,
 } from '@sdk-it/spec';
 
 import { DartSerializer, isObjectSchema } from './dart-emitter.ts';
@@ -42,86 +31,6 @@ import dispatcherTxt from './http/dispatcher.txt';
 import interceptorsTxt from './http/interceptors.txt';
 import responsesTxt from './http/responses.txt';
 
-function tuneSpec(
-  spec: OpenAPIObject,
-  schemas: Record<string, SchemaObject | ReferenceObject>,
-  refs: { name: string; value: SchemaObject }[],
-) {
-  for (const [name, schema] of Object.entries(schemas)) {
-    if (isRef(schema)) continue;
-
-    if (!isEmpty(schema.anyOf) && !isEmpty(schema.oneOf)) {
-      delete schema.anyOf;
-    }
-    if (!isEmpty(schema.allOf)) {
-      const schemas = schema.allOf;
-      const refs = schemas.filter(isRef);
-      const nonRefs = schemas.filter(notRef);
-      if (nonRefs.some((it) => it.type && it.type !== 'object')) {
-        assert(false, `allOf ${name} must be an object`);
-      }
-      const objectSchema = merge(
-        {},
-        ...nonRefs,
-        ...refs.map((ref) => followRef(spec, ref.$ref)),
-      );
-      delete objectSchema.allOf;
-      delete schema.allOf;
-      Object.assign(schema, objectSchema);
-    }
-
-    if (schema.type === 'object') {
-      if (!isEmpty(schema.oneOf)) {
-        for (const oneOfIdx in schema.oneOf) {
-          const oneOf = schema.oneOf[oneOfIdx];
-          if (isRef(oneOf)) continue;
-          if (!isEmpty(oneOf.required) && schema.properties) {
-            schema.oneOf[oneOfIdx] = schema.properties[oneOf.required[0]];
-          }
-        }
-
-        delete schema.type;
-        tuneSpec(spec, schemas, refs);
-        continue;
-      }
-      if (schema.additionalProperties) {
-        continue;
-      }
-      if (isEmpty(schema.properties)) {
-        continue;
-      }
-      refs.push({ name, value: schema });
-      for (const [propName, value] of Object.entries(schema.properties)) {
-        if (isRef(value)) continue;
-
-        if (value.type === 'object' && !isEmpty(value.properties)) {
-          const refName = pascalcase(`${name} ${propName.replace('[]', '')}`);
-          refs.push({ name: refName, value: value });
-
-          schema.properties[propName] = {
-            $ref: `#/components/schemas/${refName}`,
-          };
-
-          tuneSpec(spec, { [refName]: value }, refs);
-        } else {
-          // For non-object types, continue with the existing approach
-          const refName = pascalcase(`${name} ${propName.replace('[]', '')}`);
-          tuneSpec(spec, { [refName]: value }, refs);
-        }
-      }
-      continue;
-    }
-
-    if (schema.type === 'array') {
-      if (isRef(schema.items)) continue;
-      const refName = name;
-      if (schema.items?.type === 'object') {
-        refs.push({ name: refName, value: schema.items ?? {} });
-        schema.items = { $ref: `#/components/schemas/${refName}` };
-      }
-    }
-  }
-}
 export async function generate(
   spec: OpenAPIObject,
   settings: {
@@ -137,7 +46,7 @@ export async function generate(
     formatCode?: (options: { output: string }) => void | Promise<void>;
   },
 ) {
-  spec = 'x-sdk-augmented' in spec ? spec : augmentSpec({ spec });
+  spec = augmentSpec({ spec }, true);
   settings.writer ??= writeFiles;
   settings.readFolder ??= async (folder: string) => {
     const files = await readdir(folder, { withFileTypes: true });
@@ -161,30 +70,10 @@ export async function generate(
   const inputs: Record<string, string> = {};
   const outputs: Record<string, string> = {};
   forEachOperation({ spec }, (entry, operation) => {
-    // if (entry.path !== '/v6/prepareUpload') {
+    // if (entry.path !== '/assistants' || entry.method !== 'post') {
     //   return;
     // }
-    operation.responses ??= {};
-    spec.components ??= {};
-    spec.components.schemas ??= {};
-    for (const status in operation.responses) {
-      if (!isSuccessStatusCode(status)) continue;
-      const response = operation.responses[status];
-      if (isEmpty(response.content)) continue;
-      for (const [contentType, mediaType] of Object.entries(response.content)) {
-        if (parseJsonContentType(contentType)) {
-          if (mediaType.schema && !isRef(mediaType.schema)) {
-            const outputName = pascalcase(`${operation.operationId} output`);
-            spec.components.schemas[outputName] = mediaType.schema;
-            operation.responses[status].content ??= {};
-            operation.responses[status].content[contentType].schema = {
-              $ref: `#/components/schemas/${outputName}`,
-            };
-          }
-        }
-        // handle chunked response
-      }
-    }
+
     console.log(`Processing ${entry.method} ${entry.path}`);
     const group = (groups[entry.groupName] ??= {
       methods: [],
@@ -212,11 +101,6 @@ export async function generate(
             `);
   });
 
-  const newRefs: { name: string; value: SchemaObject }[] = [];
-  tuneSpec(spec, spec.components.schemas, newRefs);
-  for (const ref of newRefs) {
-    spec.components.schemas[ref.name] = ref.value;
-  }
   await writeFile(
     join(process.cwd(), 'openai.json'),
     JSON.stringify(spec, null, 2),
@@ -225,16 +109,26 @@ export async function generate(
   const models = Object.entries(spec.components.schemas).reduce<
     Record<string, string>
   >((acc, [name, schema]) => {
-    const serializer = new DartSerializer(spec, (name, content) => {
-      acc[`models/${snakecase(name)}.dart`] = [
+    const serializer = new DartSerializer(spec, (name, content, schema) => {
+      const folder = schema['x-requestbody']
+        ? 'inputs'
+        : schema['x-responsebody']
+          ? 'outputs'
+          : 'models';
+      acc[join(folder, `${snakecase(name)}.dart`)] = [
         `import 'dart:io';`,
         `import 'dart:typed_data';`,
         `import './index.dart';`,
         `import '../interceptors.dart';`,
+        folder === 'inputs' || folder === 'outputs'
+          ? `import '../models/index.dart';`
+          : '',
         content,
       ].join('\n');
     });
-    serializer.handle(pascalcase(name), schema);
+    serializer.handle(pascalcase(name), schema, true, {
+      requestize: isRef(schema) ? false : schema['x-requestbody'] === true,
+    });
     return acc;
   }, {});
 
@@ -381,82 +275,40 @@ class Options {
 
 function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
   const inputs: Record<string, unknown> = {};
-  const inputName = pascalcase(`${operation.operationId} input`);
+  let inputName: string | undefined;
   let contentType = 'empty';
   let encode = '';
   let haveInput = false;
-  if (!isEmpty(operation.requestBody)) {
-    for (const type in operation.requestBody.content) {
-      let objectSchema = operation.requestBody.content[type].schema;
-      if (!objectSchema) {
-        console.warn(
-          `Schema not found for ${type} in ${entry.method} ${entry.path}`,
-        );
-        continue;
-      }
-
-      if (objectSchema.type !== 'object') {
-        objectSchema = {
-          type: 'object',
-          required: [operation.requestBody.required ? '$body' : ''],
-          properties: {
-            $body: {
-              ...objectSchema,
-              'x-special': true,
-            },
-          },
-        };
-      }
-
-      patchParameters(spec, objectSchema, operation);
-
-      const serializer = new DartSerializer(spec, (name, content) => {
-        inputs[join('inputs', `${name}.dart`)] = [
-          `import 'dart:io';`,
-          `import 'dart:typed_data';`,
-          `import '../models/index.dart';`,
-          `import './index.dart';`,
-          `import '../interceptors.dart';`,
-          content,
-        ].join('\n');
-      });
-      const serialized = serializer.handle(inputName, objectSchema, true, {
-        alias: isObjectSchema(objectSchema) ? undefined : inputName,
-        requestize: true,
-      });
-      encode = serialized.encode as string;
-      const [mediaType, mediaSubType] = partContentType(type).type.split('/');
-      if (mediaType === 'application') {
-        contentType = parseJsonContentType(type) as string;
-      } else {
-        contentType = mediaType;
-      }
-      if (!isEmpty(objectSchema.properties)) {
-        haveInput = true;
-      }
-    }
-  } else {
-    const objectSchema: SchemaObject = { type: 'object' };
-    patchParameters(spec, objectSchema, operation);
-
+  for (const type in operation.requestBody.content) {
+    const objectSchema = isRef(operation.requestBody.content[type].schema)
+      ? followRef(spec, operation.requestBody.content[type].schema.$ref)
+      : operation.requestBody.content[type].schema;
     const serializer = new DartSerializer(spec, (name, content) => {
-      inputs[join('inputs', `${name}.dart`)] = [
-        `import 'dart:io';`,
-        `import 'dart:typed_data';`,
-        `import '../models/index.dart';`,
-        `import './index.dart';`,
-        `import '../interceptors.dart';`,
-        content,
-      ].join('\n');
+      //
     });
+    inputName = objectSchema['x-inputname'] as string;
     const serialized = serializer.handle(inputName, objectSchema, true, {
       alias: isObjectSchema(objectSchema) ? undefined : inputName,
-      requestize: true,
+      requestize: objectSchema['x-requestbody'] === true,
+      noEmit: true,
     });
     encode = serialized.encode as string;
+    const [mediaType, mediaSubType] = partContentType(type).type.split('/');
+    if (mediaSubType === 'empty') {
+      contentType = 'empty';
+    } else if (mediaType === 'application') {
+      contentType = parseJsonContentType(type) as string;
+    } else {
+      contentType = mediaType;
+    }
     if (!isEmpty(objectSchema.properties)) {
       haveInput = true;
     }
+  }
+  if (!inputName) {
+    throw new Error(
+      `No input name found for operation ${operation.operationId} in ${entry.path}`,
+    );
   }
 
   return { inputs, inputName, contentType, encode, haveInput };
@@ -470,6 +322,8 @@ function toOutput(spec: OpenAPIObject, operation: OperationObject) {
     const response = isRef(operation.responses[status] as ReferenceObject)
       ? followRef<ResponseObject>(spec, operation.responses[status].$ref)
       : (operation.responses[status] as ResponseObject);
+    if (!isSuccessStatusCode(status)) continue;
+    if (isEmpty(response.content)) continue;
     for (const type in response.content) {
       const { schema } = response.content[type];
       if (!schema) {
@@ -478,10 +332,6 @@ function toOutput(spec: OpenAPIObject, operation: OperationObject) {
         );
         continue;
       }
-      const serializer = new DartSerializer(spec, (name, content) => {
-        // outputs[join(`outputs/${name}.dart`)] =
-        //   `import 'dart:typed_data'; import '../models/index.dart'; \n\n${content}`;
-      });
       if ((response.headers ?? {})['Transfer-Encoding']) {
         return {
           type: 'stream',
@@ -501,6 +351,9 @@ function toOutput(spec: OpenAPIObject, operation: OperationObject) {
         };
       }
       if (parseJsonContentType(type)) {
+        const serializer = new DartSerializer(spec, (name, content) => {
+          //
+        });
         const serialized = serializer.handle(outputName, schema, true, {
           // alias: outputName,
           noEmit: true,
