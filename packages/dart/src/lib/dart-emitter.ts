@@ -703,8 +703,7 @@ ${toJsonProperties.join(',\n')}
   toJson() => value;
 }`);
 
-    for (const index in varients) {
-      const { name: varientName, ...varient } = varients[index];
+    for (const { name: varientName, ...varient } of varients) {
       switch (varientName) {
         case 'empty':
           patterns.push({
@@ -725,7 +724,10 @@ ${toJsonProperties.join(',\n')}
           });
           break;
         case 'object': {
-          const objectSchema = resolveRef(this.#spec, schemas[index]);
+          const objectSchema = resolveRef(
+            this.#spec,
+            schemas[varient.position],
+          );
           const result = this.#object(
             pascalcase(`${name} ${varientName}`),
             objectSchema,
@@ -748,7 +750,10 @@ ${toJsonProperties.join(',\n')}
               });
               break;
             case 'object': {
-              const objectSchema = resolveRef(this.#spec, schemas[index]);
+              const objectSchema = resolveRef(
+                this.#spec,
+                schemas[varient.position],
+              );
               const { typeStr, map, fromJson } = this.#oneOfObject(
                 name,
                 varientName,

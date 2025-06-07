@@ -20,11 +20,16 @@ import {
 export function fixSpec(
   spec: OpenAPIObject,
   schemas: Record<string, SchemaObject | ReferenceObject>,
+  visited = new Set<string>(),
 ) {
   for (const [name, schemaOrRef] of Object.entries(schemas)) {
-    const schema = isRef(schemaOrRef)
-      ? followRef(spec, schemaOrRef.$ref)
-      : schemaOrRef;
+    const schema = resolveRef<SchemaObject>(spec, schemaOrRef);
+    if (isRef(schemaOrRef)) {
+      if (visited.has(schemaOrRef.$ref)) {
+        continue;
+      }
+      visited.add(schemaOrRef.$ref);
+    }
 
     if (!isEmpty(schema.properties) && (schema.oneOf || schema.anyOf)) {
       // fix invalid schema
@@ -33,7 +38,7 @@ export function fixSpec(
       delete schema.anyOf;
       schema.type = 'object';
 
-      fixSpec(spec, schema.properties);
+      fixSpec(spec, schema.properties, visited);
     }
 
     if (!isEmpty(schema.items)) {
@@ -60,7 +65,7 @@ export function fixSpec(
         ...nonrefs,
         ...refs.map((ref) => {
           const schemas = { $1: followRef(spec, ref.$ref) };
-          fixSpec(spec, schemas);
+          fixSpec(spec, schemas, visited);
           return schemas.$1;
         }),
       );
@@ -68,6 +73,15 @@ export function fixSpec(
     }
 
     if (!isEmpty(schema.anyOf)) {
+      const otherTypes = schema.anyOf.filter(
+        (it) => resolveRef<SchemaObject>(spec, it).type !== 'null',
+      );
+      if (otherTypes.length === 1) {
+        // replace anyOf with this single type
+        delete schema.anyOf;
+        Object.assign(schema, resolveRef<SchemaObject>(spec, otherTypes[0]));
+        continue;
+      }
       console.log(`Fixing anyOf for ${name}`);
       const { varients } = findVarients(
         spec,
@@ -92,10 +106,10 @@ export function fixSpec(
     }
 
     if (schema.type === 'object' && !isEmpty(schema.properties)) {
-      fixSpec(spec, schema.properties);
+      fixSpec(spec, schema.properties, visited);
     }
     if (schema.type === 'array' && notRef(schema.items)) {
-      fixSpec(spec, { $1: schema.items });
+      fixSpec(spec, { $1: schema.items }, visited);
     }
   }
 }
@@ -163,7 +177,7 @@ export function expandSpec(
         schema.items = { $ref: `#/components/schemas/${refName}` };
         continue;
       }
-      if (schema.items&&!isEmpty(schema.items.oneOf)) {
+      if (schema.items && !isEmpty(schema.items.oneOf)) {
         expandOneOf(spec, refName, schema.items, refs);
         continue;
       }
@@ -181,8 +195,8 @@ function expandOneOf(
   refs: Refs,
 ) {
   const varients = schema['x-varients'] as Varient[];
-  varients.forEach((varient, index) => {
-    const varientSchema = schema.oneOf![index];
+  varients.forEach((varient) => {
+    const varientSchema = schema.oneOf![varient.position];
     if (isRef(varientSchema)) return;
     const refName = pascalcase(`${name} ${varient.name}`);
     // refs.push({ name: refName, value: varientSchema });
@@ -193,6 +207,7 @@ function expandOneOf(
 export type Varient = {
   name: string;
   type: string;
+  position: number;
   source?: string;
   static?: boolean;
   subtype?: string;
@@ -200,73 +215,94 @@ export type Varient = {
 
 function findVarients(spec: OpenAPIObject, schemas: SchemaObject[]) {
   // todo: take a look at CompoundFilterFilters at the end
-  const varients: { name: string; type: string }[] = [];
+  const varients: { name: string; position: number; type: string }[] = [];
   if (schemas.length === 0) {
     return { varients: [], discriminatorProp: undefined };
   }
 
   const schemasByType = schemas.reduce<
-    Partial<Record<SchemaObjectType, SchemaObject[]>>
-  >((acc, schema) => {
+    Partial<
+      Record<SchemaObjectType, { schema: SchemaObject; position: number }[]>
+    >
+  >((acc, schema, index) => {
     const [type] = coerceTypes(schema);
     acc[type] ??= [];
-    acc[type].push(schema);
+    acc[type].push({ schema, position: index });
     return acc;
   }, {});
 
   if (!isEmpty(schemasByType.string)) {
-    for (const schema of schemasByType.string) {
+    for (const { schema, position } of schemasByType.string) {
       if (schema.format) {
-        varients.push({ name: schema.format, type: 'string' });
+        varients.push({ name: schema.format, type: 'string', position });
         continue;
       }
       if (!isEmpty(schema.enum)) {
         for (const enumValue of schema.enum) {
           if (enumValue === '') {
-            varients.push({ name: 'empty', type: 'string' });
+            varients.push({ name: 'empty', type: 'string', position });
             continue;
           }
-          varients.push({
-            name: enumValue,
-            type: 'string',
-          });
+          varients.push({ name: enumValue, type: 'string', position });
         }
         continue;
       }
 
-      varients.push({ name: 'text', type: 'string' });
+      varients.push({ name: 'text', type: 'string', position });
+    }
+    return {
+      varients: varients,
+      discriminatorProp: undefined,
+    };
+  }
+
+  if (!isEmpty(schemasByType.number)) {
+    for (const { schema, position } of schemasByType.number) {
+      if (schema.format === 'int64') {
+        varients.push({ name: 'integer', type: 'number', position });
+        continue;
+      }
+      if (schema.format === 'float') {
+        varients.push({ name: 'float', type: 'number', position });
+        continue;
+      }
+      if (schema.format === 'double') {
+        varients.push({ name: 'double', type: 'number', position });
+        continue;
+      }
+      varients.push({ name: 'number', type: 'number', position });
     }
     return { varients: varients, discriminatorProp: undefined };
   }
 
   if (!isEmpty(schemasByType.array)) {
-    for (const schema of schemasByType.array) {
+    for (const { schema, position } of schemasByType.array) {
       const items = schema.items ? resolveRef(spec, schema.items) : undefined;
       if (!items) {
-        varients.push({ name: 'any', type: 'array' });
+        varients.push({ name: 'any', type: 'array', position });
         continue;
       }
       const [type] = coerceTypes(items);
       if (type === 'string') {
-        varients.push({ name: 'text', type: 'array' });
+        varients.push({ name: 'text', type: 'array', position });
         continue;
       }
       if (type === 'object') {
-        varients.push({ name: 'object', type: 'array' });
+        varients.push({ name: 'object', type: 'array', position });
         continue;
       }
-      varients.push({ name: type, type: 'array' });
+      varients.push({ name: type, type: 'array', position });
     }
     return { varients: varients, discriminatorProp: undefined };
   }
 
   const matrix: Varient[][] = [];
-  for (const objectSchema of schemasByType.object ?? []) {
-    if (objectSchema.additionalProperties || isEmpty(objectSchema.properties)) {
+  for (const { schema, position } of schemasByType.object ?? []) {
+    if (schema.additionalProperties || isEmpty(schema.properties)) {
       continue;
     }
 
-    const list = Object.entries(objectSchema.properties).map(
+    const list = Object.entries(schema.properties).map(
       ([name, schemaOrRef]) => {
         const schema = resolveRef<SchemaObject>(spec, schemaOrRef);
         if (schema.type === 'string' && !isEmpty(schema.enum)) {
@@ -276,6 +312,7 @@ function findVarients(spec: OpenAPIObject, schemas: SchemaObject[]) {
             type: 'object',
             subtype: 'string',
             name: schema.enum[0],
+            position,
           } satisfies Varient;
         }
         return {
@@ -283,6 +320,7 @@ function findVarients(spec: OpenAPIObject, schemas: SchemaObject[]) {
           subtype: 'string',
           source: name,
           name: name,
+          position,
         } satisfies Varient;
       },
     );

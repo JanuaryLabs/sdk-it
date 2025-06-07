@@ -110,7 +110,7 @@ export async function generate(
   });
 
   await writeFile(
-    join(process.cwd(), 'openai.json'),
+    join(settings.output, 'openapi.json'),
     JSON.stringify(spec, null, 2),
   );
 

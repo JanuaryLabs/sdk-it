@@ -60,16 +60,16 @@ const specs = [
     spec: 'https://api.openstatus.dev/v1/openapi',
     flags: [],
   },
-  // {
-  //   name: 'Serverize',
-  //   spec: 'https://raw.githubusercontent.com/JanuaryLabs/serverize/refs/heads/main/openapi.json',
-  //   flags: [],
-  // },
-  // {
-  //   name: 'Box',
-  //   spec: 'https://raw.githubusercontent.com/box/box-openapi/refs/heads/main/openapi.json',
-  //   flags: [],
-  // },
+  {
+    name: 'Serverize',
+    spec: 'https://raw.githubusercontent.com/JanuaryLabs/serverize/refs/heads/main/openapi.json',
+    flags: [],
+  },
+  {
+    name: 'Box',
+    spec: 'https://raw.githubusercontent.com/box/box-openapi/refs/heads/main/openapi.json',
+    flags: [],
+  },
   // {
   //   name: 'AppStoreConnect',
   //   spec: 'https://raw.githubusercontent.com/EvanBacon/App-Store-Connect-OpenAPI-Spec/refs/heads/main/specs/latest.json',
