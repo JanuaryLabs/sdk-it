@@ -6,6 +6,7 @@ import type {
   SchemaObject,
   SchemaObjectType,
 } from 'openapi3-ts/oas31';
+import { camelcase } from 'stringcase';
 
 import {
   followRef,
@@ -13,6 +14,7 @@ import {
   isRef,
   joinSkipDigits,
   notRef,
+  parseRef,
   pascalcase,
   resolveRef,
 } from '@sdk-it/core';
@@ -53,11 +55,15 @@ export function fixSpec(
     }
 
     if (!isEmpty(schema.allOf)) {
-      console.log(`Fixing allOf for ${name}`);
+      console.log(`Fixing allOf for ${name} (${JSON.stringify(schema)})`);
       const schemas = schema.allOf;
       const refs = schemas.filter(isRef);
       const nonrefs = schemas.filter(notRef);
-      if (nonrefs.some((it) => it.type && it.type !== 'object')) {
+      const hasObjects = nonrefs.some((it) => it.type === 'object');
+      const hasOtherTypes = nonrefs.some(
+        (it) => it.type && it.type !== 'object',
+      );
+      if (hasObjects && hasOtherTypes) {
         assert(false, `allOf ${name} must be an object`);
       }
       merge(
@@ -72,42 +78,32 @@ export function fixSpec(
       delete schema.allOf;
     }
 
-    if (!isEmpty(schema.anyOf)) {
-      const otherTypes = schema.anyOf.filter(
-        (it) => resolveRef<SchemaObject>(spec, it).type !== 'null',
-      );
-      if (otherTypes.length === 1) {
-        // replace anyOf with this single type
-        delete schema.anyOf;
-        Object.assign(schema, resolveRef<SchemaObject>(spec, otherTypes[0]));
-        continue;
+    for (const kind of ['oneOf', 'anyOf'] as const) {
+      if (!isEmpty(schema[kind])) {
+        const otherTypes = schema[kind].filter(
+          (it) => resolveRef<SchemaObject>(spec, it).type !== 'null',
+        );
+        if (otherTypes.length === 1) {
+          Object.assign(schema, otherTypes[0]);
+          delete schema[kind];
+          continue;
+        }
+        const { varients } = findVarients(spec, schema[kind]);
+        schema['x-varients'] = varients;
+      } else {
+        delete schema[kind];
       }
-      console.log(`Fixing anyOf for ${name}`);
-      const { varients } = findVarients(
-        spec,
-        schema.anyOf.map((it) => resolveRef<SchemaObject>(spec, it)),
-      );
-      // console.log(
-      //   `Found ${varients.length} varients for ${name}: ${varients.join(', ')}`,
-      // );
-      schema['x-varients'] = varients;
     }
 
-    if (!isEmpty(schema.oneOf)) {
-      console.log(`Fixing oneOf for ${name}`);
-      const { varients } = findVarients(
-        spec,
-        schema.oneOf.map((it) => resolveRef<SchemaObject>(spec, it)),
-      );
-      // console.log(
-      //   `Found ${varients.length} varients for ${name}: ${varients.join(', ')}`,
-      // );
-      schema['x-varients'] = varients;
+    if (!isEmpty(schema.enum) && schema.enum.length === 1) {
+      schema.const = schema.enum[0];
+      delete schema.enum;
     }
 
     if (schema.type === 'object' && !isEmpty(schema.properties)) {
       fixSpec(spec, schema.properties, visited);
     }
+
     if (schema.type === 'array' && notRef(schema.items)) {
       fixSpec(spec, { $1: schema.items }, visited);
     }
@@ -184,6 +180,7 @@ export function expandSpec(
     }
     if (!isEmpty(schema.oneOf)) {
       expandOneOf(spec, name, schema, refs);
+      continue;
     }
   }
 }
@@ -195,6 +192,11 @@ function expandOneOf(
   refs: Refs,
 ) {
   const varients = schema['x-varients'] as Varient[];
+  if (!varients || varients.length === 0) {
+    console.warn(
+      `No varients found for ${name}. This might be an error in the OpenAPI spec.`,
+    );
+  }
   varients.forEach((varient) => {
     const varientSchema = schema.oneOf![varient.position];
     if (isRef(varientSchema)) return;
@@ -213,7 +215,10 @@ export type Varient = {
   subtype?: string;
 };
 
-function findVarients(spec: OpenAPIObject, schemas: SchemaObject[]) {
+function findVarients(
+  spec: OpenAPIObject,
+  schemas: (SchemaObject | ReferenceObject)[],
+) {
   // todo: take a look at CompoundFilterFilters at the end
   const varients: { name: string; position: number; type: string }[] = [];
   if (schemas.length === 0) {
@@ -221,10 +226,37 @@ function findVarients(spec: OpenAPIObject, schemas: SchemaObject[]) {
   }
 
   const schemasByType = schemas.reduce<
-    Partial<
-      Record<SchemaObjectType, { schema: SchemaObject; position: number }[]>
-    >
+    Partial<{
+      [K in SchemaObjectType | '$ref']: K extends SchemaObjectType
+        ? { schema: SchemaObject; position: number }[]
+        : { schema: ReferenceObject; position: number }[];
+    }>
   >((acc, schema, index) => {
+    if (isRef(schema)) {
+      acc['$ref'] ??= [];
+      acc['$ref'].push({ schema, position: index });
+      return acc;
+    }
+    if (schema.const) {
+      switch (typeof schema.const) {
+        case 'string':
+          acc.string ??= [];
+          acc.string.push({ schema, position: index });
+          return acc;
+        case 'number':
+          acc.number ??= [];
+          acc.number.push({ schema, position: index });
+          return acc;
+        case 'boolean':
+          acc.boolean ??= [];
+          acc.boolean.push({ schema, position: index });
+          return acc;
+        default:
+          throw new Error(
+            `Unsupported const type: ${typeof schema.const} for ${schema.const}`,
+          );
+      }
+    }
     const [type] = coerceTypes(schema);
     acc[type] ??= [];
     acc[type].push({ schema, position: index });
@@ -250,14 +282,15 @@ function findVarients(spec: OpenAPIObject, schemas: SchemaObject[]) {
 
       varients.push({ name: 'text', type: 'string', position });
     }
-    return {
-      varients: varients,
-      discriminatorProp: undefined,
-    };
+    return { varients, discriminatorProp: undefined };
   }
 
-  if (!isEmpty(schemasByType.number)) {
-    for (const { schema, position } of schemasByType.number) {
+  if (!isEmpty(schemasByType.number) || !isEmpty(schemasByType.integer)) {
+    const schemas = [
+      ...(schemasByType.number ?? []),
+      ...(schemasByType.integer ?? []),
+    ];
+    for (const { schema, position } of schemas) {
       if (schema.format === 'int64') {
         varients.push({ name: 'integer', type: 'number', position });
         continue;
@@ -272,14 +305,19 @@ function findVarients(spec: OpenAPIObject, schemas: SchemaObject[]) {
       }
       varients.push({ name: 'number', type: 'number', position });
     }
-    return { varients: varients, discriminatorProp: undefined };
+    return { varients, discriminatorProp: undefined };
   }
 
   if (!isEmpty(schemasByType.array)) {
     for (const { schema, position } of schemasByType.array) {
-      const items = schema.items ? resolveRef(spec, schema.items) : undefined;
+      const items = schema.items;
       if (!items) {
         varients.push({ name: 'any', type: 'array', position });
+        continue;
+      }
+      if (isRef(items)) {
+        const { model } = parseRef(items.$ref);
+        varients.push({ name: camelcase(model), type: 'array', position });
         continue;
       }
       const [type] = coerceTypes(items);
@@ -293,7 +331,15 @@ function findVarients(spec: OpenAPIObject, schemas: SchemaObject[]) {
       }
       varients.push({ name: type, type: 'array', position });
     }
-    return { varients: varients, discriminatorProp: undefined };
+    return { varients, discriminatorProp: undefined };
+  }
+
+  if (!isEmpty(schemasByType.$ref)) {
+    for (const { schema, position } of schemasByType.$ref) {
+      const { model } = parseRef(schema.$ref);
+      varients.push({ name: camelcase(model), type: 'object', position });
+    }
+    return { varients, discriminatorProp: undefined };
   }
 
   const matrix: Varient[][] = [];
@@ -327,6 +373,7 @@ function findVarients(spec: OpenAPIObject, schemas: SchemaObject[]) {
     matrix.push([...new Set(list)]);
   }
   if (matrix.length === 0) {
+    console.dir(schemasByType, { depth: null });
     throw new Error(
       'No valid objects found in anyOf. Please check your OpenAPI spec.',
     );
@@ -346,7 +393,7 @@ function findVarients(spec: OpenAPIObject, schemas: SchemaObject[]) {
     for (const prop of row) {
       // check if this prop is unique across all rows
       const isUnique = matrix.every((it) =>
-        it === row ? true : !it.includes(prop),
+        it === row ? true : !it.some((p) => p.name === prop.name),
       );
       if (isUnique) {
         varients.push(prop);

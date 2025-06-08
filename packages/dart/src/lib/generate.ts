@@ -109,11 +109,6 @@ export async function generate(
             `);
   });
 
-  await writeFile(
-    join(settings.output, 'openapi.json'),
-    JSON.stringify(spec, null, 2),
-  );
-
   const models = Object.entries(spec.components.schemas).reduce<
     Record<string, string>
   >((acc, [name, schema]) => {
@@ -130,7 +125,7 @@ export async function generate(
         `import '../interceptors.dart';`,
         folder === 'inputs' || folder === 'outputs'
           ? `import '../models/index.dart';`
-          : '',
+          : `import '../inputs/index.dart';`,
         content,
       ].join('\n');
     });
@@ -289,6 +284,11 @@ class Options {
       }),
     },
   });
+
+  await writeFile(
+    join(settings.output, 'openapi.json'),
+    JSON.stringify(spec, null, 2),
+  );
 
   await settings.formatCode?.({
     output: output,
