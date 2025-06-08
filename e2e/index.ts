@@ -55,6 +55,29 @@ const specs = [
     flags: [],
   },
   {
+    name: 'Nowa',
+    spec: 'https://nowa-server-dev-412327058882.europe-west1.run.app/swagger/v1/swagger.json',
+    flags: ['--output-type=default'],
+  },
+  {
+    name: 'UploadThings',
+    spec: 'https://api.uploadthing.com/openapi-spec.json',
+  },
+  {
+    name: 'OpenAPIWithRecursiveSchemas',
+    spec: join(process.cwd(), '.specs', 'problem.json'),
+  },
+  {
+    spec: 'https://docs.hetzner.cloud/spec.json',
+    name: 'hetzner',
+    flags: ['--output-type=default', '--error-as-value=true'],
+  },
+  {
+    spec: 'https://docs.hetzner.cloud/spec.json',
+    name: 'hetzner',
+    flags: ['--output-type=status', '--error-as-value=true'],
+  },
+  {
     name: 'Box',
     spec: 'https://raw.githubusercontent.com/box/box-openapi/refs/heads/main/openapi.json',
     flags: [],
@@ -73,19 +96,6 @@ const specs = [
     name: 'spotify',
     spec: 'https://developer.spotify.com/reference/web-api/open-api-schema.yaml',
     flags: [],
-  },
-  {
-    name: 'UploadThings',
-    spec: 'https://api.uploadthing.com/openapi-spec.json',
-  },
-  {
-    name: 'Nowa',
-    spec: 'https://nowa-server-dev-412327058882.europe-west1.run.app/swagger/v1/swagger.json',
-    flags: ['--output-type=default'],
-  },
-  {
-    name: 'OpenAPIWithRecursiveSchemas',
-    spec: join(process.cwd(), '.specs', 'problem.json'),
   },
   {
     spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
@@ -111,16 +121,6 @@ const specs = [
     spec: 'https://raw.githubusercontent.com/figma/rest-api-spec/refs/heads/main/openapi/openapi.yaml',
     name: 'figma',
     flags: ['--output-type=status'],
-  },
-  {
-    spec: 'https://docs.hetzner.cloud/spec.json',
-    name: 'hetzner',
-    flags: ['--output-type=default', '--error-as-value=true'],
-  },
-  {
-    spec: 'https://docs.hetzner.cloud/spec.json',
-    name: 'hetzner',
-    flags: ['--output-type=status', '--error-as-value=true'],
   },
   {
     spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',

@@ -66,10 +66,34 @@ const specs = [
     flags: [],
   },
   {
-    name: 'Box',
-    spec: 'https://raw.githubusercontent.com/box/box-openapi/refs/heads/main/openapi.json',
+    name: 'Nowa',
+    spec: 'https://nowa-server-dev-412327058882.europe-west1.run.app/swagger/v1/swagger.json',
     flags: [],
   },
+  {
+    name: 'UploadThings',
+    spec: 'https://api.uploadthing.com/openapi-spec.json',
+    flags: [],
+  },
+  {
+    name: 'OpenAPIWithRecursiveSchemas',
+    spec: join(process.cwd(), '.specs', 'problem.json'),
+  },
+  {
+    spec: 'https://docs.hetzner.cloud/spec.json',
+    name: 'hetzner',
+    flags: [],
+  },
+  {
+    spec: 'https://raw.githubusercontent.com/figma/rest-api-spec/refs/heads/main/openapi/openapi.yaml',
+    name: 'figma',
+    flags: [],
+  },
+  // {
+  //   name: 'Box',
+  //   spec: 'https://raw.githubusercontent.com/box/box-openapi/refs/heads/main/openapi.json',
+  //   flags: [],
+  // },
   // {
   //   name: 'AppStoreConnect',
   //   spec: 'https://raw.githubusercontent.com/EvanBacon/App-Store-Connect-OpenAPI-Spec/refs/heads/main/specs/latest.json',
@@ -85,19 +109,7 @@ const specs = [
   //   spec: 'https://developer.spotify.com/reference/web-api/open-api-schema.yaml',
   //   flags: [],
   // },
-  // {
-  //   name: 'UploadThings',
-  //   spec: 'https://api.uploadthing.com/openapi-spec.json',
-  // },
-  // {
-  //   name: 'Nowa',
-  //   spec: 'https://nowa-server-dev-412327058882.europe-west1.run.app/swagger/v1/swagger.json',
-  //   flags: ['--output-type=default'],
-  // },
-  // {
-  //   name: 'OpenAPIWithRecursiveSchemas',
-  //   spec: join(process.cwd(), '.specs', 'problem.json'),
-  // },
+
   // {
   //   spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
   //   name: 'openai',
@@ -119,29 +131,9 @@ const specs = [
   //   flags: ['--output-type=default', '--error-as-value=false'],
   // },
   // {
-  //   spec: 'https://raw.githubusercontent.com/figma/rest-api-spec/refs/heads/main/openapi/openapi.yaml',
-  //   name: 'figma',
-  //   flags: ['--output-type=status'],
-  // },
-  // {
-  //   spec: 'https://docs.hetzner.cloud/spec.json',
-  //   name: 'hetzner',
-  //   flags: ['--output-type=default', '--error-as-value=true'],
-  // },
-  // {
-  //   spec: 'https://docs.hetzner.cloud/spec.json',
-  //   name: 'hetzner',
-  //   flags: ['--output-type=status', '--error-as-value=true'],
-  // },
-  // {
   //   spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
   //   name: 'discord',
-  //   flags: ['--error-as-value=true', '--output-type=status'],
-  // },
-  // {
-  //   spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
-  //   name: 'discord',
-  //   flags: ['--error-as-value=false', '--output-type=status'],
+  //   flags: [],
   // },
 ];
 

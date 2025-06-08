@@ -129,6 +129,7 @@ type Serialized = {
   matches?: string;
   fromJson: string;
   type?: string;
+  literal?: unknown;
   content: string;
   simple?: boolean;
 };
@@ -240,6 +241,7 @@ export class DartSerializer {
           schema,
         );
       }
+
       return {
         content: '',
         use: 'Map<String, dynamic>',
@@ -252,6 +254,7 @@ export class DartSerializer {
         matches: `json['${camelcase(context.name)}'] is Map<String, dynamic>`,
       };
     }
+
     if (isEmpty(schema.properties)) {
       if (context.noEmit !== true) {
         this.#emit(
@@ -285,13 +288,13 @@ export class DartSerializer {
       };
     }
 
+    let requestContent = '';
     const props: string[] = [];
     const toJsonProperties: string[] = [];
     const constructorParams: string[] = [];
     const fromJsonParams: string[] = [];
     const matches: string[] = [];
 
-    let requestContent = '';
     const headers: string[] = [];
     const params: string[] = [];
     const queryParams: string[] = [];
@@ -312,12 +315,18 @@ export class DartSerializer {
       const nullable = typeStr.nullable || !required;
       const nullableSuffix =
         typeStr.use === 'dynamic' ? '' : nullable ? '?' : ''; // dynamic types requires no suffix
-      props.push(`final ${typeStr.use}${nullableSuffix} ${safePropName};`);
-      fromJsonParams.push(`${safePropName}: ${typeStr.fromJson}`);
-      toJsonProperties.push(`'${jsonKey}': ${typeStr.toJson}`);
-      constructorParams.push(
-        `${required ? 'required ' : ''}this.${safePropName},`,
+      const withValue =
+        typeStr.literal !== undefined ? ` = ${typeStr.literal}` : '';
+      props.push(
+        `final ${typeStr.use}${nullableSuffix} ${safePropName} ${withValue};`,
       );
+      toJsonProperties.push(`'${jsonKey}': ${typeStr.toJson}`);
+      if (!withValue) {
+        fromJsonParams.push(`${safePropName}: ${typeStr.fromJson}`);
+        constructorParams.push(
+          `${required ? 'required ' : ''}this.${safePropName},`,
+        );
+      }
       if (required) {
         matches.push(`(
   json.containsKey('${jsonKey}')
@@ -368,23 +377,24 @@ export class DartSerializer {
           query: ${queryParams.length ? `{${queryParams.join(', ')}}` : '{}'},
           params: ${params.length ? `{${params.join(', ')}}` : '{}'},
           body: ${body}
-    );
-
-      `;
+    );`;
     }
+
+    const constructorP = constructorParams.length
+      ? `{${constructorParams.join('\n')}}`
+      : '';
 
     const { mixins, withMixins } = this.#mixinise(className, context);
     const content = `class ${className} ${withMixins} {
       ${props.join('\n')}
-      ${!mixins.length ? 'const' : ''} ${className}({
-      ${constructorParams.join('\n')}})${mixins.length > 1 ? '' : `:super()`};
+      ${!mixins.length ? 'const' : ''} ${className}(${constructorP})${mixins.length > 1 ? '' : `:super()`};
        factory ${className}.fromJson(Map<String, dynamic> json) {
 return ${className}(\n${fromJsonParams.join(',\n')});
       }
       Map<String, dynamic> toJson() => {
 ${toJsonProperties.join(',\n')}
       };
-      ${!requestContent ? `static bool matches(Map<String, dynamic> json) {return ${matches.join(' && ')};}` : ''}
+      static bool matches(Map<String, dynamic> json) {return ${matches.join(' && ')};}
 
       ${requestContent}
 
@@ -423,7 +433,7 @@ ${toJsonProperties.join(',\n')}
       );
       return {
         typeStr: `${result.use}${result.nullable ? '?' : ''} ${key}`,
-        map: `{'${key}': ${result.toJson}};`,
+        map: `_Value({'${key}': ${result.toJson}});`,
         fromJson: result.fromJson,
       };
     }
@@ -435,7 +445,7 @@ ${toJsonProperties.join(',\n')}
     );
     return {
       typeStr: `${result.use} value`,
-      map: `_Value(value);`,
+      map: `_Value(value.toJson());`,
       fromJson: result.fromJson,
     };
     // const types: { name: string; required: boolean }[] = [];
@@ -603,7 +613,7 @@ ${toJsonProperties.join(',\n')}
     this.#generatedRefs.add(schemaName);
 
     const serialized = this.handle(
-      schemaName,
+      pascalcase(schemaName),
       followRef<SchemaObject>(this.#spec, $ref),
       required,
       {
@@ -707,19 +717,19 @@ ${toJsonProperties.join(',\n')}
       switch (varientName) {
         case 'empty':
           patterns.push({
-            name: `static ${varientName}() => _Value("");`,
+            name: `static ${name} ${varientName}() => _Value("");`,
             pattern: `case '': return ${name}.${varientName}();`,
           });
           break;
         case 'uri':
           patterns.push({
-            name: `static ${varientName}(Uri value) => _Value(value);`,
+            name: `static ${name} ${varientName}(Uri value) => _Value(value);`,
             pattern: `case String: return ${name}.${varientName}(Uri.parse(json));`,
           });
           break;
         case 'number':
           patterns.push({
-            name: `static ${varientName}(num value) => _Value(value);`,
+            name: `static ${name} ${varientName}(num value) => _Value(value);`,
             pattern: `case num: return ${name}.${varientName}(json);`,
           });
           break;
@@ -734,50 +744,56 @@ ${toJsonProperties.join(',\n')}
             { ...context, noEmit: false },
           );
           patterns.push({
-            name: `static ${varientName}(${result.use} value) => _Value(value);`,
+            name: `static ${name} ${varientName}(${result.use} value) => _Value(value);`,
             pattern: `case Map<String, dynamic> map: return ${name}.${varientName}(${pascalcase(
               `${name} ${varientName}`,
             )}.fromJson(map));`,
           });
           break;
         }
-        default:
-          switch (varient.type) {
-            case 'string':
-              patterns.push({
-                name: `static ${varientName}(String value) => _Value(value);`,
-                pattern: `case String: return ${name}.${varientName}(json);`,
-              });
-              break;
-            case 'object': {
-              const objectSchema = resolveRef(
-                this.#spec,
-                schemas[varient.position],
-              );
-              const { typeStr, map, fromJson } = this.#oneOfObject(
-                name,
-                varientName,
-                objectSchema,
-                context,
-              );
-              const staticStr = varient.static
-                ? `&& json['${varient.source}'] == '${varientName}'`
-                : '';
-              const caseStr = `case Map<String, dynamic> _ when json.containsKey('${varient.source}') ${staticStr}`;
-              // const returnStr = `return ${name}.${varientName}(${pascalcase(
-              //   `${name} ${varientName}`,
-              // )}.fromJson(map))`;
-              const returnStr = `return ${name}.${varientName}(${fromJson})`;
-              patterns.push({
-                name: `static ${varientName}(${typeStr}) => ${map}`,
-                pattern: `${caseStr}: ${returnStr};`,
-              });
-              break;
-            }
-            default: {
-              //
-            }
-          }
+      }
+      switch (varient.type) {
+        case 'string':
+          patterns.push({
+            name: `static ${name} ${varientName}(String value) => _Value(value);`,
+            pattern: `case String: return ${name}.${varientName}(json);`,
+          });
+          break;
+        case 'object': {
+          const objectSchema = resolveRef(
+            this.#spec,
+            schemas[varient.position],
+          );
+          const { typeStr, map, fromJson } = this.#oneOfObject(
+            name,
+            varientName,
+            objectSchema,
+            context,
+          );
+          const staticStr = varient.static
+            ? `&& json['${varient.source}'] == '${varientName}'`
+            : '';
+          const caseStr = `case Map<String, dynamic> _ when json.containsKey('${varient.source}') ${staticStr}`;
+          // const returnStr = `return ${name}.${varientName}(${pascalcase(
+          //   `${name} ${varientName}`,
+          // )}.fromJson(map))`;
+          const returnStr = `return ${name}.${varientName}(${fromJson})`;
+          patterns.push({
+            name: `static ${name} ${varientName}(${typeStr}) => ${map}`,
+            pattern: `${caseStr}: ${returnStr};`,
+          });
+          break;
+        }
+        case 'array': {
+          patterns.push({
+            name: `static ${name} ${varientName}(String value) => _Value(value);`,
+            pattern: `case String: return ${name}.${varientName}(json);`,
+          });
+          break;
+        }
+        default: {
+          //
+        }
       }
     }
     const { mixins, withMixins } = this.#mixinise(name, context);
@@ -788,7 +804,7 @@ ${toJsonProperties.join(',\n')}
         mixins,
         withMixins,
         content: [
-          'dynamic get value;',
+          // 'dynamic get value;',
           'dynamic toJson();',
 
           ...patterns.map((it) => it.name),
@@ -887,17 +903,34 @@ return false;
       this.#emit(name, content, schema);
     }
     return {
-      type: Array.isArray(schema.type)
-        ? this.#simple(schema.type[0])
-        : schema.type
-          ? this.#simple(schema.type)
-          : undefined,
+      type: this.#simple(coerceTypes(schema)[0]),
       content: content,
       use: pascalcase(name),
       toJson: `this.${camelcase(context.name)}${context.required ? '' : '?'}.toJson()`,
       encodeV2: context.required ? '' : '?.toJson()',
       fromJson: `${pascalcase(name)}.fromJson(json['${context.jsonKey || context.name}'])`,
       matches: `${pascalcase(name)}.matches(json['${context.jsonKey || context.name}'])`,
+    };
+  }
+
+  #const(
+    className: string,
+    schema: SchemaObject,
+    context: Context,
+  ): Serialized {
+    const valType = this.#simple((schema.type as string) || 'string');
+    return {
+      content: '',
+      literal: valType === 'String' ? `'${schema.const}'` : schema.const,
+      use: valType,
+      encode: 'input',
+      encodeV2: context.required ? '' : '?',
+      toJson: `${camelcase(context.safeName || context.name)}`,
+      fromJson: context.name
+        ? `json['${context.jsonKey || context.name}']`
+        : 'json',
+      matches: `json['${context.jsonKey || context.name}']`,
+      simple: true,
     };
   }
 
@@ -914,7 +947,7 @@ return false;
           content: '',
           use: 'DateTime',
           simple: true,
-          encodeV2: `.${context.required ? '' : '?'}.toIso8601String()`,
+          encodeV2: `${context.required ? '' : '?'}.toIso8601String()`,
           toJson: `${safeName}${context.required ? '' : '?'}.toIso8601String()`,
           fromJson: context.name
             ? `json['${context.jsonKey || context.name}'] != null ? DateTime.parse(json['${context.jsonKey || context.name}']) : null`
@@ -1012,6 +1045,9 @@ return false;
     }
     if (schema.anyOf && Array.isArray(schema.anyOf)) {
       return this.#oneOf(className, schema, context);
+    }
+    if (schema.const !== undefined) {
+      return this.#const(className, schema, context);
     }
     if (schema.enum && Array.isArray(schema.enum)) {
       return this.#enum(className, schema, context);
