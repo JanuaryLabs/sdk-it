@@ -140,7 +140,7 @@ type Emit = (name: string, content: string, schema: SchemaObject) => void;
 export class DartSerializer {
   #spec: OpenAPIObject;
   #emit: Emit;
-  #generatedRefs = new Set<string>();
+  #generatedRefs = new Map<string, Serialized | null>();
 
   constructor(spec: OpenAPIObject, emit: Emit) {
     this.#spec = spec;
@@ -151,7 +151,6 @@ export class DartSerializer {
     this.#spec.components ??= {};
     this.#spec.components.schemas ??= {};
     this.#spec.components.responses ??= {};
-    const canDebug = schemaName === 'Annotation';
 
     const checkSchema = (
       schema: SchemaObject | ReferenceObject,
@@ -482,6 +481,8 @@ ${toJsonProperties.join(',\n')}
     required = false,
     context: Context,
   ): Serialized {
+    const jsonKey = context.jsonKey || context.name;
+
     if (!schema.items) {
       return {
         content: '',
@@ -493,24 +494,23 @@ ${toJsonProperties.join(',\n')}
       };
     }
     const itemsType = this.handle(className, schema.items, true, context);
-
     const fromJson = required
       ? context.name
-        ? `(json['${context.jsonKey || context.name}'] as List)
-            .map((it) => ${itemsType.simple ? `it as ${itemsType.use}` : `${itemsType.use}.fromJson(it)`})
+        ? `(json['${jsonKey}'] as List)
+            .map((it) => ${itemsType.simple ? `it as ${itemsType.use}` : `${itemsType.fromJson}`})
             .toList()`
         : `(json as List)
-            .map((it) => ${itemsType.simple ? `it as ${itemsType.use}` : `${itemsType.use}.fromJson(it)`})
+            .map((it) => ${itemsType.simple ? `it as ${itemsType.use}` : `${itemsType.fromJson}`})
             .toList()`
       : context.name
-        ? `json['${context.jsonKey || context.name}'] != null
-            ? (json['${context.jsonKey || context.name}'] as List)
-                .map((it) => ${itemsType.simple ? `it as ${itemsType.use}` : `${itemsType.use}.fromJson(it)`})
+        ? `json['${jsonKey}'] != null
+            ? (json['${jsonKey}'] as List)
+                .map((it) => ${itemsType.simple ? `it as ${itemsType.use}` : `${itemsType.fromJson}`})
                 .toList()
             : null`
         : `json != null
             ? (json as List)
-                .map((it) => ${itemsType.simple ? `it as ${itemsType.use}` : `${itemsType.use}.fromJson(it)`})
+                .map((it) => ${itemsType.simple ? `it as ${itemsType.use}` : `${itemsType.fromJson}`})
                 .toList()
             : null`;
 
@@ -521,7 +521,7 @@ ${toJsonProperties.join(',\n')}
       fromJson,
       encodeV2: `${itemsType.simple ? '' : `${context.required ? '' : '?'}.map((it) => ${itemsType.simple ? 'it' : `it.toJson()`}).toList()`}`,
       toJson: `${context.required ? `${camelcase(context.safeName || context.name)}${itemsType.simple ? '' : '.map((it) => it.toJson()).toList()'}` : `${camelcase(context.safeName || context.name)} != null ? ${camelcase(context.safeName || context.name)}${itemsType.simple ? '' : '!.map((it) => it.toJson()).toList()'} : null`}`,
-      matches: `json['${context.jsonKey || context.name}'].every((it) => ${itemsType.matches})`,
+      matches: `json['${jsonKey}'].every((it) => ${itemsType.matches})`,
     };
   }
 
@@ -593,24 +593,26 @@ ${toJsonProperties.join(',\n')}
     context: Context,
   ): Serialized {
     const schemaName = cleanRef($ref).split('/').pop()!;
-
     // Check if we've already generated this ref to avoid circular dependencies
     if (this.#generatedRefs.has(schemaName)) {
-      return {
-        content: '',
-        use: pascalcase(schemaName),
-        encode: 'input.toJson()',
-        encodeV2: context.required ? '' : '?' + '.toJson()',
-        toJson: this.#safe(context),
-        fromJson: context.name
-          ? `${context.forJson || pascalcase(schemaName)}.fromJson(json['${context.jsonKey || context.name}'])`
-          : `${context.forJson || pascalcase(schemaName)}.fromJson(json)`,
-        matches: `${pascalcase(schemaName)}.matches(json['${context.jsonKey || context.name}'])`,
-      };
+      const jsonKey = context.jsonKey || context.name;
+      return (
+        this.#generatedRefs.get(schemaName) ?? {
+          content: '',
+          use: pascalcase(schemaName),
+          encode: 'input.toJson()',
+          encodeV2: context.required ? '' : '?' + '.toJson()',
+          toJson: this.#safe(context),
+          fromJson: context.name
+            ? `${context.forJson || pascalcase(schemaName)}.fromJson(json['${jsonKey}'])`
+            : `${context.forJson || pascalcase(schemaName)}.fromJson(json)`,
+          matches: `${pascalcase(schemaName)}.matches(json['${jsonKey}'])`,
+        }
+      );
     }
 
     // Add to generated refs before processing to prevent circular dependencies
-    this.#generatedRefs.add(schemaName);
+    this.#generatedRefs.set(schemaName, null);
 
     const serialized = this.handle(
       pascalcase(schemaName),
@@ -622,6 +624,8 @@ ${toJsonProperties.join(',\n')}
         noEmit: !!context.alias || !!className || !context.forceEmit,
       },
     );
+
+    this.#generatedRefs.set(schemaName, serialized);
     return serialized;
   }
 
@@ -809,6 +813,7 @@ ${toJsonProperties.join(',\n')}
 
           ...patterns.map((it) => it.name),
           // `factory ${name}.fromJson(Map<String, dynamic> json)`,
+          `${name}();`,
           `factory ${name}.fromJson(dynamic json)`,
           `{`,
           `switch (json) {`,
@@ -939,6 +944,7 @@ return false;
    */
   #string(schema: SchemaObject, context: Context): Serialized {
     const safeName = context.safeName || context.name;
+    const jsonKey = context.jsonKey || context.name;
     switch (schema.format) {
       case 'date-time':
       case 'datetime':
@@ -949,10 +955,12 @@ return false;
           simple: true,
           encodeV2: `${context.required ? '' : '?'}.toIso8601String()`,
           toJson: `${safeName}${context.required ? '' : '?'}.toIso8601String()`,
-          fromJson: context.name
-            ? `json['${context.jsonKey || context.name}'] != null ? DateTime.parse(json['${context.jsonKey || context.name}']) : null`
+          fromJson: jsonKey
+            ? context.required
+              ? `DateTime.parse(json['${jsonKey}'])`
+              : `json['${jsonKey}'] != null ? DateTime.parse(json['${jsonKey}']) : null`
             : 'json',
-          matches: `json['${context.jsonKey || context.name}'] is String`,
+          matches: `json['${jsonKey}'] is String`,
         };
       case 'binary':
       case 'byte':
@@ -1113,7 +1121,7 @@ return false;
       this.#emit(
         className,
         `typedef ${alias} = ${serialized.use};`,
-        isRef(schema) ? followRef(this.#spec, schema.$ref) : schema,
+        resolveRef(this.#spec, schema),
       );
       return serialized;
     }

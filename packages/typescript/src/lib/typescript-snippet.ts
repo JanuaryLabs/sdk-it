@@ -5,7 +5,7 @@ import type {
 } from 'openapi3-ts/oas31';
 import { camelcase, spinalcase } from 'stringcase';
 
-import { isEmpty, pascalcase } from '@sdk-it/core';
+import { isEmpty, pascalcase, resolveRef } from '@sdk-it/core';
 import {
   type OperationEntry,
   type OperationPagination,
@@ -50,42 +50,25 @@ export class TypeScriptGenerator {
     let payload = '{}';
     if (!isEmpty(operation.requestBody)) {
       const contentTypes = Object.keys(operation.requestBody.content || {});
-      if (contentTypes.length > 0) {
-        const firstContent = operation.requestBody.content[contentTypes[0]];
-        let schema = firstContent.schema;
-        if (schema) {
-          if (schema.type !== 'object') {
-            schema = {
-              type: 'object',
-              required: [operation.requestBody.required ? '$body' : ''],
-              properties: {
-                $body: schema,
-              },
-            };
-          }
-          const properties: Record<string, SchemaObject> = {};
-          patchParameters(
-            this.#spec,
-            schema,
-            operation.parameters,
-            operation.security ?? [],
-          );
-          const examplePayload = this.#snippetEmitter.handle({
-            ...schema,
-            properties: Object.assign({}, properties, schema.properties),
-          });
-          // merge explicit values into the example payload
-          Object.assign(
-            examplePayload as Record<string, unknown>,
-            values.requestBody ?? {},
-            values.pathParameters ?? {},
-            values.queryParameters ?? {},
-            values.headers ?? {},
-            values.cookies ?? {},
-          );
-          payload = examplePayload as any;
-        }
-      }
+      const schema = resolveRef(
+        this.#spec,
+        operation.requestBody.content[contentTypes[0]].schema,
+      );
+
+      const examplePayload = this.#snippetEmitter.handle({
+        ...schema,
+        properties: Object.assign({}, schema.properties, schema.properties),
+      });
+      // merge explicit values into the example payload
+      Object.assign(
+        examplePayload as Record<string, unknown>,
+        values.requestBody ?? {},
+        values.pathParameters ?? {},
+        values.queryParameters ?? {},
+        values.headers ?? {},
+        values.cookies ?? {},
+      );
+      payload = examplePayload as any;
     } else {
       const requestBody: SchemaObject = { type: 'object', properties: {} };
       patchParameters(
