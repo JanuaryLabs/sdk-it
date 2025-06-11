@@ -10,7 +10,14 @@ import type {
 import { camelcase } from 'stringcase';
 import yaml from 'yaml';
 
-import { followRef, isEmpty, isRef, pascalcase, snakecase } from '@sdk-it/core';
+import {
+  followRef,
+  isEmpty,
+  isRef,
+  pascalcase,
+  resolveRef,
+  snakecase,
+} from '@sdk-it/core';
 import {
   type ReadFolderFn,
   type Writer,
@@ -302,9 +309,10 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
   let encode = '';
   let haveInput = false;
   for (const type in operation.requestBody.content) {
-    const objectSchema = isRef(operation.requestBody.content[type].schema)
-      ? followRef(spec, operation.requestBody.content[type].schema.$ref)
-      : operation.requestBody.content[type].schema;
+    const objectSchema = resolveRef(
+      spec,
+      operation.requestBody.content[type].schema,
+    );
     const serializer = new DartSerializer(spec, (name, content) => {
       //
     });

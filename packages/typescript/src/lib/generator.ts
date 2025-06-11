@@ -9,7 +9,7 @@ import type {
 } from 'openapi3-ts/oas31';
 import { camelcase, pascalcase, spinalcase } from 'stringcase';
 
-import { followRef, isEmpty, isRef } from '@sdk-it/core';
+import { followRef, isEmpty, isRef, resolveRef } from '@sdk-it/core';
 import { type GenerateSdkConfig, forEachOperation } from '@sdk-it/spec';
 
 import { ZodEmitter } from './emitters/zod.ts';
@@ -124,7 +124,10 @@ export function generateCode(
 
     if (!isEmpty(operation.requestBody)) {
       for (const type in operation.requestBody.content) {
-        let objectSchema = operation.requestBody.content[type].schema;
+        let objectSchema = resolveRef(
+          config.spec,
+          operation.requestBody.content[type].schema,
+        );
         if (!objectSchema) {
           console.warn(
             `Schema not found for ${type} in ${entry.method} ${entry.path}`,
