@@ -437,13 +437,14 @@ ${toJsonProperties.join(',\n')}
         true,
         {
           ...context,
+          propName: joinSkipDigits([varientName, key], '_'),
           safeName: varientName,
           parsable: `json['${varientName}']`,
         },
       );
       return {
         typeStr: `${serializedType.use}${serializedType.nullable ? '?' : ''} ${key}`,
-        map: `_Value({'${key}': ${varientName}${serializedType.encodeV2}});`,
+        returnValue: `_Value({'${key}': ${key}${serializedType.encodeV2}});`,
         fromJson: serializedType.fromJson,
       };
     }
@@ -459,7 +460,7 @@ ${toJsonProperties.join(',\n')}
     );
     return {
       typeStr: `${result.use} value`,
-      map: `_Value(value.toJson());`,
+      returnValue: `_Value(value.toJson());`,
       fromJson: result.fromJson,
     };
   }
@@ -642,7 +643,7 @@ ${toJsonProperties.join(',\n')}
     }
     const withMixins =
       mixins.length > 1
-        ? ` with ${mixins.join(', ')}`
+        ? ` implements ${mixins.join(', ')}`
         : mixins.length === 1
           ? `extends ${mixins[0]}`
           : '';
@@ -751,7 +752,7 @@ ${toJsonProperties.join(',\n')}
             this.#spec,
             schemas[varient.position],
           );
-          const { typeStr, map, fromJson } = this.#oneOfObject(
+          const { typeStr, returnValue, fromJson } = this.#oneOfObject(
             name,
             formatName(varientName),
             objectSchema,
@@ -764,7 +765,7 @@ ${toJsonProperties.join(',\n')}
 
           const returnStr = `return ${name}.${formatName(varientName)}(${fromJson})`;
           patterns.push({
-            name: `static ${name} ${formatName(varientName)}(${typeStr}) => ${map}`,
+            name: `static ${name} ${formatName(varientName)}(${typeStr}) => ${returnValue}`,
             pattern: `${caseStr}: ${returnStr};`,
           });
           break;
