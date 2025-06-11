@@ -14,7 +14,7 @@ import type {
 import { camelcase } from 'stringcase';
 
 import { type Method, methods } from '@sdk-it/core/paths.js';
-import { followRef, isRef, parseRef } from '@sdk-it/core/ref.js';
+import { followRef, isRef, resolveRef } from '@sdk-it/core/ref.js';
 import { isEmpty, pascalcase } from '@sdk-it/core/utils.js';
 
 import {
@@ -285,9 +285,7 @@ function resolveResponses(
   operation.responses ??= {};
   let foundSuccessResponse = false;
   for (const status in responses) {
-    const response = isRef(responses[status] as ReferenceObject)
-      ? followRef<ResponseObject>(spec, responses[status].$ref)
-      : (responses[status] as ResponseObject);
+    const response = resolveRef<ResponseObject>(spec, responses[status]);
     operation.responses[status] = response;
     if (isSuccessStatusCode(status)) {
       foundSuccessResponse = true;
@@ -314,17 +312,24 @@ function resolveResponses(
       response.content as Record<string, MediaTypeObject>,
     )) {
       if (!parseJsonContentType(contentType)) continue;
-      if (mediaType.schema && !isRef(mediaType.schema)) {
-        const outputName = pascalcase(`${operationId} output`);
+      if (isRef(mediaType.schema)) continue;
+      const outputName = pascalcase(`${operationId} output`);
+      if (isEmpty(mediaType.schema)) {
+        // add "additionalProperties" because we're certain this is a response body is of json type
+        spec.components.schemas[outputName] = {
+          type: 'object',
+          additionalProperties: true,
+          'x-responsebody': true,
+        };
+      } else {
         spec.components.schemas[outputName] = {
           ...mediaType.schema,
           'x-responsebody': true,
         };
-        operation.responses[status].content ??= {};
-        operation.responses[status].content[contentType].schema = {
-          $ref: `#/components/schemas/${outputName}`,
-        };
       }
+      operation.responses[status].content[contentType].schema = {
+        $ref: `#/components/schemas/${outputName}`,
+      };
     }
   }
 
@@ -880,7 +885,7 @@ function tuneRequestBody(
 ): TunedRequestBody {
   spec.components ??= {};
   spec.components.schemas ??= {};
-  let inputName = pascalcase(`${operationId} input`);
+  const inputName = pascalcase(`${operationId} input`);
   const requestBody = isRef(operation.requestBody)
     ? followRef<RequestBodyObject>(spec, operation.requestBody.$ref)
     : (operation.requestBody ?? {
@@ -912,7 +917,8 @@ function tuneRequestBody(
 
     if (isRef(mediaType.schema)) {
       schema = followRef<SchemaObject>(spec, mediaType.schema.$ref);
-      inputName = parseRef(mediaType.schema.$ref).model;
+      // we cannot use the model name as inputName as it might be used in other places that are not request bodies
+      // inputName = parseRef(mediaType.schema.$ref).model;
     } else {
       schema = mediaType.schema;
     }
@@ -929,7 +935,7 @@ function tuneRequestBody(
         type: 'object',
         required: [requestBody.required ? '$body' : ''],
         properties: {
-          $body: { ...schema, 'x-special': true },
+          $body: { ...mediaType.schema, 'x-special': true },
         },
       };
       patchParameters(spec, mediaType.schema, parameters, security);

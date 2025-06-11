@@ -321,7 +321,7 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
     } else if (mediaType === 'application') {
       contentType = parseJsonContentType(type) as string;
     } else {
-      contentType = mediaType;
+      contentType = 'binary';
     }
     if (!isEmpty(objectSchema.properties)) {
       haveInput = true;

@@ -4,7 +4,7 @@ import type {
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { cleanRef, followRef, isRef } from '@sdk-it/core';
+import { followRef, isRef, parseRef } from '@sdk-it/core';
 import { sanitizeTag } from '@sdk-it/spec';
 
 type OnRefCallback = (ref: string, content: string) => void;
@@ -120,8 +120,8 @@ export class ZodEmitter {
     }
   }
 
-  ref($ref: string, required: boolean) {
-    const schemaName = sanitizeTag(cleanRef($ref).split('/').pop()!);
+  #ref($ref: string, required: boolean) {
+    const schemaName = sanitizeTag(parseRef($ref).model);
 
     if (this.#generatedRefs.has(schemaName)) {
       return schemaName;
@@ -303,7 +303,7 @@ export class ZodEmitter {
 
   handle(schema: SchemaObject | ReferenceObject, required: boolean): string {
     if (isRef(schema)) {
-      return `${this.ref(schema.$ref, true)}${appendOptional(required)}`;
+      return `${this.#ref(schema.$ref, true)}${appendOptional(required)}`;
     }
 
     // Handle allOf → intersection
