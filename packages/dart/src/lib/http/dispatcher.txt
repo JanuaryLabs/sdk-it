@@ -126,6 +126,34 @@ class Dispatcher {
 
     return request.send();
   }
+
+  Future<http.StreamedResponse> binary(RequestConfig config) async {
+    final modifiedConfig = interceptors.fold(
+      config,
+      (acc, interceptor) => interceptor.before(acc),
+    );
+    _setParams(modifiedConfig);
+    _setQuery(modifiedConfig);
+    final request = http.Request(modifiedConfig.method, modifiedConfig.url);
+    _setHeaders(request, modifiedConfig, 'application/octet-stream');
+
+    switch (config.input.body) {
+      case List<int> bytes:
+        request.bodyBytes = bytes;
+      case Stream<List<int>> stream:
+        request.bodyBytes = await stream.expand((x) => x).toList();
+      case String body:
+        request.body = body;
+      case File file:
+        request.bodyBytes = await file.readAsBytes();
+      default:
+        throw ArgumentError(
+          'Unsupported body type for binary request: ${config.input.body.runtimeType}',
+        );
+    }
+
+    return request.send();
+  }
 }
 
 class Receiver {
@@ -203,6 +231,7 @@ class Receiver {
   final parts = contentTypeHeader.split(';');
   final type = parts[0].trim();
   final parameters = <String, String>{};
+
   for (var i = 1; i < parts.length; i++) {
     final param = parts[i].split('=');
     if (param.length == 2) {
