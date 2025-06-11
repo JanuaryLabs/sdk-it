@@ -89,6 +89,21 @@ const specs = [
     name: 'figma',
     flags: [],
   },
+  {
+    name: 'spotify',
+    spec: 'https://developer.spotify.com/reference/web-api/open-api-schema.yaml',
+    flags: [],
+  },
+  {
+    name: 'Turso',
+    spec: 'https://raw.githubusercontent.com/tursodatabase/turso-docs/refs/heads/main/api-reference/openapi.json',
+    flags: [],
+  },
+  {
+    spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
+    name: 'openai',
+    flags: [],
+  },
   // {
   //   name: 'Box',
   //   spec: 'https://raw.githubusercontent.com/box/box-openapi/refs/heads/main/openapi.json',
@@ -98,37 +113,6 @@ const specs = [
   //   name: 'AppStoreConnect',
   //   spec: 'https://raw.githubusercontent.com/EvanBacon/App-Store-Connect-OpenAPI-Spec/refs/heads/main/specs/latest.json',
   //   flags: [],
-  // },
-  // {
-  //   name: 'Turso',
-  //   spec: 'https://raw.githubusercontent.com/tursodatabase/turso-docs/refs/heads/main/api-reference/openapi.json',
-  //   flags: [],
-  // },
-  // {
-  //   name: 'spotify',
-  //   spec: 'https://developer.spotify.com/reference/web-api/open-api-schema.yaml',
-  //   flags: [],
-  // },
-
-  // {
-  //   spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-  //   name: 'openai',
-  //   flags: ['--output-type=status', '--error-as-value=true'],
-  // },
-  // {
-  //   spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-  //   name: 'openai',
-  //   flags: ['--output-type=status', '--error-as-value=false'],
-  // },
-  // {
-  //   spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-  //   name: 'openai',
-  //   flags: ['--output-type=default', '--error-as-value=true'],
-  // },
-  // {
-  //   spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-  //   name: 'openai',
-  //   flags: ['--output-type=default', '--error-as-value=false'],
   // },
   // {
   //   spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
