@@ -21,12 +21,19 @@ export function cleanRef(ref: string) {
   return ref.replace(/^#\//, '');
 }
 
-export function parseRef(ref: string) {
+export function parseRef(ref:string) {
   const parts = ref.split('/');
+  const names: string[] = [];
   const [model] = parts.splice(-1);
+  names.push(model);
+  while (parts.lastIndexOf('properties') !== -1) {
+    parts.splice(parts.lastIndexOf('properties'), 1);
+    const [model] = parts.splice(-1);
+    names.push(model);
+  }
   const [namespace] = parts.splice(-1);
   return {
-    model,
+    model: names.reverse().join(' '),
     namespace,
     path: cleanRef(parts.join('/')),
   };
