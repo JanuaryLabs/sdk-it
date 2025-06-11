@@ -48,6 +48,8 @@ export function fixSpec(
       delete schema.oneOf;
       delete schema.anyOf;
       schema.type = 'array';
+
+      fixSpec(spec, { $1: schema.items }, visited);
     }
 
     if (!isEmpty(schema.anyOf) && !isEmpty(schema.oneOf)) {
@@ -78,8 +80,20 @@ export function fixSpec(
       delete schema.allOf;
     }
 
+    if (!isEmpty(schema.enum) && schema.enum.length === 1) {
+      schema.const = schema.enum[0];
+      delete schema.enum;
+    }
+
+    if (schema.type === 'object' && !isEmpty(schema.properties)) {
+      fixSpec(spec, schema.properties, visited);
+    }
+
     for (const kind of ['oneOf', 'anyOf'] as const) {
       if (!isEmpty(schema[kind])) {
+        for (const itemOrRef of schema[kind]) {
+          fixSpec(spec, { $1: itemOrRef }, visited);
+        }
         const otherTypes = schema[kind].filter(
           (it) => resolveRef<SchemaObject>(spec, it).type !== 'null',
         );
@@ -93,19 +107,6 @@ export function fixSpec(
       } else {
         delete schema[kind];
       }
-    }
-
-    if (!isEmpty(schema.enum) && schema.enum.length === 1) {
-      schema.const = schema.enum[0];
-      delete schema.enum;
-    }
-
-    if (schema.type === 'object' && !isEmpty(schema.properties)) {
-      fixSpec(spec, schema.properties, visited);
-    }
-
-    if (schema.type === 'array' && notRef(schema.items)) {
-      fixSpec(spec, { $1: schema.items }, visited);
     }
   }
 }
@@ -142,21 +143,17 @@ export function expandSpec(
       for (const [propName, value] of Object.entries(schema.properties)) {
         if (isRef(value)) continue;
 
+        const refName = pascalcase(
+          joinSkipDigits([name, propName.replace('[]', '')], ' '),
+        );
         if (!isEmpty(value.properties)) {
-          const refName = pascalcase(
-            joinSkipDigits([name, propName.replace('[]', '')], ' '),
-          );
           refs.push({ name: refName, value: value });
 
           schema.properties[propName] = {
             $ref: `#/components/schemas/${refName}`,
           };
-
           expandSpec(spec, { [refName]: value }, refs);
         } else {
-          const refName = pascalcase(
-            joinSkipDigits([name, propName.replace('[]', '')], ' '),
-          );
           expandSpec(spec, { [refName]: value }, refs);
         }
       }
@@ -257,7 +254,7 @@ function findVarients(
           );
       }
     }
-    const [type] = coerceTypes(schema);
+    const [type] = coerceTypes(schema, false);
     acc[type] ??= [];
     acc[type].push({ schema, position: index });
     return acc;
@@ -267,6 +264,10 @@ function findVarients(
     for (const { schema, position } of schemasByType.string) {
       if (schema.format) {
         varients.push({ name: schema.format, type: 'string', position });
+        continue;
+      }
+      if (schema.const !== undefined) {
+        varients.push({ name: schema.const, type: 'string', position });
         continue;
       }
       if (!isEmpty(schema.enum)) {
@@ -279,7 +280,6 @@ function findVarients(
         }
         continue;
       }
-
       varients.push({ name: 'text', type: 'string', position });
     }
     return { varients, discriminatorProp: undefined };
@@ -351,13 +351,14 @@ function findVarients(
     const list = Object.entries(schema.properties).map(
       ([name, schemaOrRef]) => {
         const schema = resolveRef<SchemaObject>(spec, schemaOrRef);
-        if (schema.type === 'string' && !isEmpty(schema.enum)) {
+        name = schema.const ?? schema.enum?.[0];
+        if (schema.type === 'string') {
           return {
             static: true,
             source: name,
             type: 'object',
             subtype: 'string',
-            name: schema.enum[0],
+            name: name,
             position,
           } satisfies Varient;
         }
@@ -403,20 +404,28 @@ function findVarients(
   }
 
   if (varients.length !== matrix.length) {
+    console.warn(`Varients: ${JSON.stringify(varients)}`);
+    console.warn(`Matrix: ${JSON.stringify(matrix)}`);
+    console.dir(schemasByType, { depth: null });
     throw new Error(
-      `Discriminator prop "${discriminatorProp}" does not cover all varients: ${varients.join(
-        ', ',
-      )}. Some varients might be missing.`,
+      `Discriminator prop "${discriminatorProp}" does not cover all varients, some varients might be missing.`,
     );
   }
 
   return { discriminatorProp, varients };
 }
 
-export function coerceTypes(schema: SchemaObject) {
-  return Array.isArray(schema.type)
+export function coerceTypes(
+  schema: SchemaObject,
+  excludeNull = true,
+): SchemaObjectType[] {
+  const types = Array.isArray(schema.type)
     ? schema.type
     : schema.type
       ? [schema.type]
       : [];
+  if (excludeNull) {
+    return types.filter((type) => type !== 'null');
+  }
+  return types;
 }
