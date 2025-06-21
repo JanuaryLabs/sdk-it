@@ -4,46 +4,28 @@ import type {
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { cleanRef, followRef, isRef, pascalcase } from '@sdk-it/core';
-import { sanitizeTag } from '@sdk-it/spec';
+import { followRef, isRef, parseRef, pascalcase } from '@sdk-it/core';
+import { isPrimitiveSchema, sanitizeTag } from '@sdk-it/spec';
 
-type OnRefCallback = (ref: string, interfaceContent: string) => void;
-
-/**
- * Convert an OpenAPI (JSON Schema style) object into TypeScript interfaces,
- */
 export class TypeScriptEmitter {
-  generatedRefs = new Set<string>();
   #spec: OpenAPIObject;
-  #onRef: OnRefCallback;
 
-  constructor(spec: OpenAPIObject, onRef: OnRefCallback) {
+  constructor(spec: OpenAPIObject) {
     this.#spec = spec;
-    this.#onRef = onRef;
   }
   #stringifyKey = (value: string): string => {
     return `'${value}'`;
   };
 
-  #isInternal = (schema: SchemaObject | ReferenceObject): boolean => {
-    return isRef(schema) ? false : !!schema['x-internal'];
-  };
-
-  /**
-   * Handle objects (properties)
-   */
   object(schema: SchemaObject, required = false): string {
     const properties = schema.properties || {};
 
-    // Convert each property
     const propEntries = Object.entries(properties).map(([key, propSchema]) => {
       const isRequired = (schema.required ?? []).includes(key);
       const tsType = this.handle(propSchema, isRequired);
-      // Add question mark for optional properties
-      return `${this.#isInternal(propSchema) ? key : this.#stringifyKey(key)}: ${tsType}`;
+      return `${this.#stringifyKey(key)}: ${tsType}`;
     });
 
-    // Handle additionalProperties
     if (schema.additionalProperties) {
       if (typeof schema.additionalProperties === 'object') {
         const indexType = this.handle(schema.additionalProperties, true);
@@ -59,7 +41,7 @@ export class TypeScriptEmitter {
   /**
    * Handle arrays (items could be a single schema or a tuple)
    */
-  array(schema: SchemaObject, required = false): string {
+  #array(schema: SchemaObject, required = false): string {
     const { items } = schema;
     if (!items) {
       // No items => any[]
@@ -92,7 +74,7 @@ export class TypeScriptEmitter {
       case 'object':
         return this.object(schema, required);
       case 'array':
-        return this.array(schema, required);
+        return this.#array(schema, required);
       case 'null':
         return 'null';
       default:
@@ -102,20 +84,14 @@ export class TypeScriptEmitter {
     }
   }
 
-  ref($ref: string, required: boolean): string {
-    const schemaName = sanitizeTag(cleanRef($ref).split('/').pop()!);
-
-    if (this.generatedRefs.has(schemaName)) {
-      return schemaName;
+  #ref($ref: string, required: boolean): string {
+    const schemaName = pascalcase(sanitizeTag(parseRef($ref).model));
+    const schema = followRef(this.#spec, $ref);
+    if (isPrimitiveSchema(schema)) {
+      return this.handle(schema, required);
     }
-    this.generatedRefs.add(schemaName);
 
-    this.#onRef?.(
-      pascalcase(schemaName),
-      this.handle(followRef<SchemaObject>(this.#spec, $ref), required),
-    );
-
-    return appendOptional(pascalcase(schemaName), required);
+    return `models.${appendOptional(schemaName, required)}`;
   }
 
   allOf(schemas: (SchemaObject | ReferenceObject)[]): string {
@@ -190,7 +166,7 @@ export class TypeScriptEmitter {
 
   handle(schema: SchemaObject | ReferenceObject, required: boolean): string {
     if (isRef(schema)) {
-      return this.ref(schema.$ref, required);
+      return this.#ref(schema.$ref, required);
     }
 
     // Handle allOf (intersection in TypeScript)
@@ -214,10 +190,7 @@ export class TypeScriptEmitter {
     }
 
     if (schema.const) {
-      if (schema['x-internal']) {
-        return `${schema.const}`;
-      }
-      return this.enum([schema.const], required);
+      return this.enum([schema.const], true);
     }
 
     // Handle types, in TypeScript we can have union types directly
@@ -255,9 +228,6 @@ export class TypeScriptEmitter {
   }
 }
 
-/**
- * Append "| undefined" if not required
- */
 function appendOptional(type: string, isRequired?: boolean): string {
   return isRequired ? type : `${type} | undefined`;
 }

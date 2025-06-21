@@ -1,11 +1,11 @@
 import { template } from 'lodash-es';
-import { readdir } from 'node:fs/promises';
+import { readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
-import { spinalcase } from 'stringcase';
+import { camelcase, spinalcase } from 'stringcase';
 
-import { methods, pascalcase } from '@sdk-it/core';
+import { methods, pascalcase, toLitObject } from '@sdk-it/core';
 import {
   type WriteContent,
   createWriterProxy,
@@ -13,9 +13,16 @@ import {
   writeFiles,
 } from '@sdk-it/core/file-system.js';
 import { toReadme } from '@sdk-it/readme';
-import { augmentSpec, cleanFiles, readWriteMetadata } from '@sdk-it/spec';
+import {
+  type OurOpenAPIObject,
+  augmentSpec,
+  cleanFiles,
+  readWriteMetadata,
+  sanitizeTag,
+} from '@sdk-it/spec';
 
 import backend from './client.ts';
+import { TypeScriptEmitter } from './emitters/interface.ts';
 import { generateCode } from './generator.ts';
 import dispatcherTxt from './http/dispatcher.txt';
 import interceptors from './http/interceptors.txt';
@@ -27,9 +34,9 @@ import type { TypeScriptGeneratorOptions } from './options.ts';
 import cursorPaginationTxt from './paginations/cursor-pagination.txt';
 import offsetPaginationTxt from './paginations/offset-pagination.txt';
 import paginationTxt from './paginations/page-pagination.txt';
-import { generateInputs } from './sdk.ts';
+import type { Operation } from './sdk.ts';
 import { TypeScriptGenerator } from './typescript-snippet.ts';
-import { exclude, securityToOptions } from './utils.ts';
+import { type MakeImportFn, securityToOptions } from './utils.ts';
 
 function security(spec: OpenAPIObject) {
   const security = spec.security || [];
@@ -59,14 +66,18 @@ function security(spec: OpenAPIObject) {
   return options;
 }
 
+// FIXME: there should not be default here
+// instead export this function from the cli package with
+// defaults for programmatic usage
 export async function generate(
-  spec: OpenAPIObject,
+  openapi: OpenAPIObject,
   settings: TypeScriptGeneratorOptions,
 ) {
-  // FIXME: there should not be default here
-  // instead export this function from the cli package with
-  // defaults for programmatic usage
-  spec = augmentSpec({ spec });
+  const spec = augmentSpec(
+    { spec: openapi, responses: { flattenErrorResponses: true } },
+    false,
+  );
+  
   const generator = new TypeScriptGenerator(spec, settings);
   const style = Object.assign(
     {},
@@ -97,13 +108,11 @@ export async function generate(
   const makeImport = (moduleSpecifier: string) => {
     return settings.useTsExtension ? `${moduleSpecifier}.ts` : moduleSpecifier;
   };
-  const { commonSchemas, endpoints, groups, outputs, commonZod } = generateCode(
-    {
-      spec,
-      style,
-      makeImport,
-    },
-  );
+  const { endpoints, groups, commonZod } = generateCode({
+    spec,
+    style,
+    makeImport,
+  });
   const options = security(spec);
   const clientName = pascalcase((settings.name || 'client').trim());
 
@@ -111,8 +120,8 @@ export async function generate(
     ? `@${spinalcase(settings.name.trim().toLowerCase())}/sdk`
     : 'sdk';
 
-  // FIXME: inputs, outputs should be generated before hand.
-  const inputFiles = generateInputs(groups, commonZod, makeImport);
+  const inputs = toInputs(groups, commonZod, makeImport);
+  const models = serializeModels(spec);
 
   await settings.writer(output, {
     'outputs/.gitkeep': '',
@@ -138,8 +147,6 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
     ${interceptors}`,
   });
 
-  await settings.writer(join(output, 'outputs'), outputs);
-  const modelsImports = Object.entries(commonSchemas).map(([name]) => name);
   await settings.writer(output, {
     'client.ts': backend(
       {
@@ -150,21 +157,11 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
       },
       style,
     ),
-    ...inputFiles,
+    ...inputs,
     ...endpoints,
-    ...Object.fromEntries(
-      Object.entries(commonSchemas).map(([name, schema]) => [
-        `models/${name}.ts`,
-        [
-          `import { z } from 'zod';`,
-          ...exclude(modelsImports, [name]).map(
-            (it) => `import type { ${it} } from './${it}.ts';`,
-          ),
-          `export type ${name} = ${schema};`,
-        ].join('\n'),
-      ]),
-    ),
   });
+
+  await settings.writer(output, models);
 
   await settings.writer(join(output, 'pagination'), {
     'cursor-pagination.ts': cursorPaginationTxt,
@@ -207,16 +204,12 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
       ['ts'],
       (dirent) => !['response.ts', 'parser.ts'].includes(dirent.fileName),
     ),
+    getFolderExports(
+      join(output, 'models'),
+      settings.readFolder,
+      settings.useTsExtension,
+    ),
   ];
-  if (modelsImports.length) {
-    folders.push(
-      getFolderExports(
-        join(output, 'models'),
-        settings.readFolder,
-        settings.useTsExtension,
-      ),
-    );
-  }
   const [outputIndex, inputsIndex, apiIndex, httpIndex, modelsIndex] =
     await Promise.all(folders);
 
@@ -233,7 +226,8 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
     'outputs/index.ts': outputIndex,
     'inputs/index.ts': inputsIndex || null,
     'http/index.ts': httpIndex,
-    ...(modelsImports.length ? { 'models/index.ts': modelsIndex } : {}),
+    'models/index.ts': modelsIndex,
+    // ...(modelsImports.length ? { 'models/index.ts': modelsIndex } : {}),
   });
   await settings.writer(output, {
     'index.ts': await getFolderExports(
@@ -314,4 +308,106 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
     output: output,
     env: npmRunPathEnv(),
   });
+}
+
+function serializeModels(spec: OurOpenAPIObject) {
+  const filesMap: Record<string, string[]> = {};
+  const files: Record<string, string> = {};
+  for (const [name, schema] of Object.entries(spec.components.schemas)) {
+    // if (isRef(schema)) {
+    //  continue;
+    // }
+    const isResponseBody = (schema as any)['x-responsebody'];
+    const isRequestBody = (schema as any)['x-requestbody'];
+    const responseGroup = (schema as any)['x-response-group'];
+    const stream = (schema as any)['x-stream'];
+    // if (isRequestBody) {
+    //   // we do not generate interfaces for request bodies. we use zod for that.
+    //   continue;
+    // }
+    const folder = isResponseBody ? 'outputs' : 'models';
+    let typeContent = 'ReadableStream';
+    if (!stream) {
+      const serializer = new TypeScriptEmitter(spec);
+      typeContent = serializer.handle(schema, true);
+    }
+
+    const fileContent = [
+      `\n${schema.description ? `\n/** \n * ${schema.description}\n */\n` : ''}`,
+      `export type ${pascalcase(sanitizeTag(name))} = ${typeContent};`,
+    ];
+    const fileName = responseGroup
+      ? join(folder, `${spinalcase(responseGroup)}.ts`)
+      : join(folder, `${spinalcase(name)}.ts`);
+    filesMap[fileName] ??= [];
+    filesMap[fileName].push(fileContent.join('\n'));
+  }
+
+  for (const [group, contents] of Object.entries(filesMap)) {
+    let fileContent = contents.join('\n');
+    if (fileContent.includes('models.')) {
+      fileContent = `import type * as models from '../index.ts';\n${fileContent}`;
+    }
+    files[group] = fileContent;
+  }
+  return files;
+}
+
+export function toInputs(
+  operationsSet: Record<string, Operation[]>,
+  commonZod: Map<string, string>,
+  makeImport: MakeImportFn,
+) {
+  const commonImports = commonZod.keys().toArray();
+  const inputs: Record<string, string> = {};
+  for (const [name, operations] of Object.entries(operationsSet)) {
+    const output: string[] = [];
+    const imports = new Set(['import { z } from "zod";']);
+
+    for (const operation of operations) {
+      const schemaName = camelcase(`${operation.name} schema`);
+
+      const schema = `export const ${schemaName} = ${
+        Object.keys(operation.schemas).length === 1
+          ? Object.values(operation.schemas)[0]
+          : toLitObject(operation.schemas)
+      };`;
+
+      for (const it of commonImports) {
+        if (schema.includes(it)) {
+          imports.add(
+            `import { ${it} } from './schemas/${makeImport(spinalcase(it))}';`,
+          );
+        }
+      }
+      output.push(schema);
+    }
+    inputs[`inputs/${spinalcase(name)}.ts`] =
+      [...imports, ...output].join('\n') + '\n';
+  }
+
+  const schemas = commonZod
+    .entries()
+    .reduce<string[][]>((acc, [name, schema]) => {
+      const output = [`import { z } from 'zod';`];
+      const content = `export const ${name} = ${schema};`;
+      for (const schema of commonImports) {
+        const preciseMatch = new RegExp(`\\b${schema}\\b`);
+        if (preciseMatch.test(content) && schema !== name) {
+          output.push(
+            `import { ${schema} } from './${makeImport(spinalcase(schema))}';`,
+          );
+        }
+      }
+      output.push(content);
+      return [
+        [`inputs/schemas/${spinalcase(name)}.ts`, output.join('\n')],
+        ...acc,
+      ];
+    }, []);
+
+  return {
+    ...Object.fromEntries(schemas),
+    ...inputs,
+  };
 }

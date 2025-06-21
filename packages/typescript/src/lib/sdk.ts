@@ -1,7 +1,7 @@
 import type { OpenAPIObject, ResponseObject } from 'openapi3-ts/oas31';
-import { camelcase, pascalcase, spinalcase } from 'stringcase';
+import { camelcase } from 'stringcase';
 
-import { isEmpty, toLitObject } from '@sdk-it/core';
+import { isEmpty, pascalcase } from '@sdk-it/core';
 import {
   type OperationPagination,
   type TunedOperationObject,
@@ -10,9 +10,11 @@ import {
   isSuccessStatusCode,
   isTextContentType,
   parseJsonContentType,
+  sanitizeTag,
 } from '@sdk-it/spec';
 
 import { TypeScriptEmitter } from './emitters/interface.ts';
+import statusMap from './status-map.ts';
 import type { Style } from './style.ts';
 import { type Import, type MakeImportFn } from './utils.ts';
 
@@ -24,7 +26,7 @@ export interface SdkConfig {
    */
   name: string;
   packageName?: string;
-  options?: Record<string, any>;
+  options?: Record<string, unknown>;
   emptyBodyAsNull?: boolean;
   stripBodyFromGetAndHead?: boolean;
   output: string;
@@ -52,73 +54,11 @@ export interface OperationInput {
 }
 export interface Operation {
   name: string;
-  type: string;
-  trigger: Record<string, any>;
+  method: string;
+  path: string;
   schemas: Record<string, string>;
   inputs: Record<string, OperationInput>;
   outgoingContentType?: string;
-}
-
-export function generateInputs(
-  operationsSet: Spec['operations'],
-  commonZod: Map<string, string>,
-  makeImport: MakeImportFn,
-) {
-  const commonImports = commonZod.keys().toArray();
-  const inputs: Record<string, string> = {};
-  for (const [name, operations] of Object.entries(operationsSet)) {
-    const output: string[] = [];
-    const imports = new Set(['import { z } from "zod";']);
-
-    for (const operation of operations) {
-      const schemaName = camelcase(`${operation.name} schema`);
-
-      const schema = `export const ${schemaName} = ${
-        Object.keys(operation.schemas).length === 1
-          ? Object.values(operation.schemas)[0]
-          : toLitObject(operation.schemas)
-      };`;
-
-      const inputContent = schema;
-
-      for (const schema of commonImports) {
-        if (inputContent.includes(schema)) {
-          imports.add(
-            `import { ${schema} } from './schemas/${makeImport(spinalcase(schema))}';`,
-          );
-        }
-      }
-      output.push(inputContent);
-    }
-    inputs[`inputs/${spinalcase(name)}.ts`] =
-      [...imports, ...output].join('\n') + '\n';
-  }
-
-  const schemas = commonZod
-    .entries()
-    .reduce<string[][]>((acc, [name, schema]) => {
-      const output = [`import { z } from 'zod';`];
-      const content = `export const ${name} = ${schema};`;
-      for (const schema of commonImports) {
-        const preciseMatch = new RegExp(`\\b${schema}\\b`);
-        if (preciseMatch.test(content) && schema !== name) {
-          output.push(
-            `import { ${schema} } from './${makeImport(spinalcase(schema))}';`,
-          );
-        }
-      }
-
-      output.push(content);
-      return [
-        [`inputs/schemas/${spinalcase(name)}.ts`, output.join('\n')],
-        ...acc,
-      ];
-    }, []);
-
-  return {
-    ...Object.fromEntries(schemas),
-    ...inputs,
-  };
 }
 
 export function toEndpoint(
@@ -165,9 +105,6 @@ export function toEndpoint(
   const outputs: string[] = [];
 
   for (const status in specOperation.responses) {
-    if (status === 'default') {
-      continue; // skip default response
-    }
     const handled = handleResponse(
       spec,
       operation.name,
@@ -186,7 +123,7 @@ export function toEndpoint(
       typePrefix = `${type} `;
     }
 
-    const endpoint = `${typePrefix}${operation.trigger.method.toUpperCase()} ${operation.trigger.path}`;
+    const endpoint = `${typePrefix}${operation.method.toUpperCase()} ${operation.path}`;
     schemas.push(
       `"${endpoint}": {
           schema: ${schemaRef}${addTypeParser ? `.${type}` : ''},
@@ -220,7 +157,7 @@ function normalOperation(style?: Style) {
 function paginationOperation(operation: TunedOperationObject, style?: Style) {
   const pagination = operation['x-pagination'] as OperationPagination;
   const data = `${style?.errorAsValue ? `result[0]${style.outputType === 'status' ? '' : ''}` : `${style?.outputType === 'default' ? 'result.data' : 'result.data'}`}`;
-  const returnValue = `${style?.errorAsValue ? `[${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}, null]` : `${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}`}`;
+  const returnValue = `${style?.errorAsValue ? `[${style?.outputType === 'status' ? 'new http.Ok(pagination)' : 'pagination'}, null]` : `${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}`}`;
   if (pagination.type === 'offset') {
     const sameInputNames =
       pagination.limitParamName === 'limit' &&
@@ -319,30 +256,6 @@ function paginationOperation(operation: TunedOperationObject, style?: Style) {
   return normalOperation(style);
 }
 
-const statusCodeToResponseMap: Record<string, string> = {
-  '200': 'Ok',
-  '201': 'Created',
-  '202': 'Accepted',
-  '204': 'NoContent',
-  '400': 'BadRequest',
-  '401': 'Unauthorized',
-  '402': 'PaymentRequired',
-  '403': 'Forbidden',
-  '404': 'NotFound',
-  '405': 'MethodNotAllowed',
-  '406': 'NotAcceptable',
-  '409': 'Conflict',
-  '412': 'PreconditionFailed',
-  '413': 'PayloadTooLarge',
-  '410': 'Gone',
-  '422': 'UnprocessableEntity',
-  '429': 'TooManyRequests',
-  '500': 'InternalServerError',
-  '501': 'NotImplemented',
-  '502': 'BadGateway',
-  '503': 'ServiceUnavailable',
-  '504': 'GatewayTimeout',
-};
 function handleResponse(
   spec: OpenAPIObject,
   operationName: string,
@@ -364,24 +277,10 @@ function handleResponse(
   const responses: { name: string; schema: string; description?: string }[] =
     [];
   const outputs: string[] = [];
-  const typeScriptDeserialzer = new TypeScriptEmitter(
-    spec,
-    (schemaName, zod) => {
-      schemas[schemaName] = zod;
-      imports[schemaName] = {
-        defaultImport: undefined,
-        isTypeOnly: true,
-        moduleSpecifier: `../models/${utils.makeImport(schemaName)}`,
-        namedImports: [{ isTypeOnly: true, name: schemaName }],
-        namespaceImport: undefined,
-      };
-    },
-  );
+  const typeScriptDeserialzer = new TypeScriptEmitter(spec);
   const statusCode = +status;
-  const statusName = `http.${statusCodeToResponseMap[status] || 'APIResponse'}`;
-  const interfaceName = pascalcase(
-    operationName + ` output${statusCode === 200 ? '' : status}`,
-  );
+  const statusName = `http.${statusMap[status] || 'APIResponse'}`;
+  const interfaceName = pascalcase(sanitizeTag(response['x-response-name']));
 
   let parser: Parser = 'buffered';
   if (isEmpty(response.content)) {
@@ -390,13 +289,13 @@ function handleResponse(
       schema: 'void',
       description: response.description,
     });
-    endpointImports[interfaceName] = {
-      defaultImport: undefined,
-      isTypeOnly: true,
-      moduleSpecifier: `../outputs/${utils.makeImport(spinalcase(operationName))}`,
-      namedImports: [{ isTypeOnly: true, name: interfaceName }],
-      namespaceImport: undefined,
-    };
+    // endpointImports[interfaceName] = {
+    //   defaultImport: undefined,
+    //   isTypeOnly: true,
+    //   moduleSpecifier: `../outputs/${utils.makeImport(spinalcase(operationName))}`,
+    //   namedImports: [{ isTypeOnly: true, name: interfaceName }],
+    //   namespaceImport: undefined,
+    // };
   } else {
     const contentTypeResult = fromContentType(
       spec,
@@ -416,23 +315,23 @@ function handleResponse(
       description: response.description,
     });
     if (isErrorStatusCode(statusCode)) {
-      endpointImports[statusCodeToResponseMap[status] ?? 'APIError'] = {
+      endpointImports[statusMap[status] ?? 'APIError'] = {
         moduleSpecifier: utils.makeImport('../http/response'),
-        namedImports: [{ name: statusCodeToResponseMap[status] ?? 'APIError' }],
+        namedImports: [{ name: statusMap[status] ?? 'APIError' }],
       };
-      endpointImports[interfaceName] = {
-        isTypeOnly: true,
-        moduleSpecifier: `../outputs/${utils.makeImport(spinalcase(operationName))}`,
-        namedImports: [{ isTypeOnly: true, name: interfaceName }],
-      };
+      // endpointImports[interfaceName] = {
+      //   isTypeOnly: true,
+      //   moduleSpecifier: `../outputs/${utils.makeImport(spinalcase(operationName))}`,
+      //   namedImports: [{ isTypeOnly: true, name: interfaceName }],
+      // };
     } else if (isSuccessStatusCode(statusCode)) {
-      endpointImports[interfaceName] = {
-        defaultImport: undefined,
-        isTypeOnly: true,
-        moduleSpecifier: `../outputs/${utils.makeImport(spinalcase(operationName))}`,
-        namedImports: [{ isTypeOnly: true, name: interfaceName }],
-        namespaceImport: undefined,
-      };
+      // endpointImports[interfaceName] = {
+      //   defaultImport: undefined,
+      //   isTypeOnly: true,
+      //   moduleSpecifier: `../outputs/${utils.makeImport(spinalcase(operationName))}`,
+      //   namedImports: [{ isTypeOnly: true, name: interfaceName }],
+      //   namespaceImport: undefined,
+      // };
     }
   }
 
@@ -440,12 +339,12 @@ function handleResponse(
     outputs.push(statusName);
   } else {
     if (status.endsWith('XX')) {
-      outputs.push(`http.APIError<${interfaceName}>`);
+      outputs.push(`http.APIError<outputs.${interfaceName}>`);
     } else {
       outputs.push(
         parser !== 'buffered'
-          ? `{type: ${statusName}<${interfaceName}>, parser: ${parser}}`
-          : `${statusName}<${interfaceName}>`,
+          ? `{type: ${statusName}<outputs.${interfaceName}>, parser: ${parser}}`
+          : `${statusName}<outputs.${interfaceName}>`,
       );
     }
   }
@@ -459,17 +358,11 @@ function fromContentType(
   response: ResponseObject,
 ) {
   if ((response.headers ?? {})['Transfer-Encoding']) {
-    return {
-      parser: 'chunked' as const,
-      responseSchema: 'ReadableStream',
-    };
+    return streamedOutput();
   }
   for (const type in response.content) {
     if (isStreamingContentType(type)) {
-      return {
-        parser: 'chunked' as const,
-        responseSchema: 'ReadableStream',
-      };
+      return streamedOutput();
     }
     if (parseJsonContentType(type)) {
       return {
@@ -488,6 +381,10 @@ function fromContentType(
       };
     }
   }
+  return streamedOutput();
+}
+
+function streamedOutput() {
   return {
     parser: 'chunked' as const,
     responseSchema: 'ReadableStream',

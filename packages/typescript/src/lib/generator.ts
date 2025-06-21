@@ -7,10 +7,10 @@ import type {
   ReferenceObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
-import { camelcase, pascalcase, spinalcase } from 'stringcase';
+import { camelcase, spinalcase } from 'stringcase';
 
 import { followRef, isEmpty, isRef, resolveRef } from '@sdk-it/core';
-import { type GenerateSdkConfig, forEachOperation } from '@sdk-it/spec';
+import { type OurOpenAPIObject, forEachOperation } from '@sdk-it/spec';
 
 import { ZodEmitter } from './emitters/zod.ts';
 import {
@@ -21,12 +21,7 @@ import {
 } from './sdk.ts';
 import type { Style } from './style.ts';
 import endpointsTxt from './styles/github/endpoints.txt';
-import {
-  importsToString,
-  mergeImports,
-  securityToOptions,
-  useImports,
-} from './utils.ts';
+import { importsToString, mergeImports, securityToOptions } from './utils.ts';
 
 export interface NamedImport {
   name: string;
@@ -41,16 +36,15 @@ export interface Import {
   namespaceImport: string | undefined;
 }
 
-export function generateCode(
-  config: GenerateSdkConfig & {
-    /**
-     * No support for jsdoc in vscode
-     * @issue https://github.com/microsoft/TypeScript/issues/38106
-     */
-    style: Style;
-    makeImport: (module: string) => string;
-  },
-) {
+export function generateCode(config: {
+  /**
+   * No support for jsdoc in vscode
+   * @issue https://github.com/microsoft/TypeScript/issues/38106
+   */
+  spec: OurOpenAPIObject;
+  style: Style;
+  makeImport: (module: string) => string;
+}) {
   const commonZod = new Map<string, string>();
   const commonZodImports: Import[] = [];
   const zodDeserialzer = new ZodEmitter(config.spec, (model, schema) => {
@@ -65,10 +59,9 @@ export function generateCode(
   });
 
   const groups: Spec['operations'] = {};
-  const outputs: Record<string, string> = {};
   const endpoints: Record<string, ReturnType<typeof toEndpoint>[]> = {};
 
-  forEachOperation(config, (entry, operation) => {
+  forEachOperation(config.spec, (entry, operation) => {
     console.log(`Processing ${entry.method} ${entry.path}`);
     groups[entry.groupName] ??= [];
     endpoints[entry.groupName] ??= [];
@@ -120,74 +113,57 @@ export function generateCode(
       'application/xml': 'xml',
       'text/plain': 'text',
     };
-    let outgoingContentType: string | undefined;
+    let outgoingContentType = 'empty';
 
-    if (!isEmpty(operation.requestBody)) {
-      for (const type in operation.requestBody.content) {
-        let objectSchema = resolveRef(
-          config.spec,
-          operation.requestBody.content[type].schema,
-        );
-        if (!objectSchema) {
-          console.warn(
-            `Schema not found for ${type} in ${entry.method} ${entry.path}`,
-          );
-          continue;
-        }
+    for (const type in operation.requestBody.content) {
+      let objectSchema = resolveRef(
+        config.spec,
+        operation.requestBody.content[type].schema,
+      );
 
+      if (type === 'application/empty') {
+        // if empty body and not params then we need to set it to object with additional properties
+        // to avoid unknown input ts errors.
+        objectSchema = {
+          type: 'object',
+          // properties: objectSchema['x-properties'],
+          additionalProperties: isEmpty(objectSchema['x-properties']),
+        };
+        // if (isEmpty(additionalProperties)) {
+        // }
+      } else {
         if (objectSchema.type !== 'object') {
           objectSchema = {
             type: 'object',
             required: [operation.requestBody.required ? '$body' : ''],
             properties: {
               $body: objectSchema,
+              // ...objectSchema['x-properties'],
             },
           };
         }
-        const schema = merge({}, objectSchema, {
-          required: Object.values(additionalProperties)
-            .filter((p) => p.required)
-            .map((p) => p.name),
-          properties: Object.entries(additionalProperties).reduce<
-            Record<string, unknown>
-          >((acc, [, p]) => ({ ...acc, [p.name]: p.schema }), {}),
-        });
-
-        Object.assign(inputs, bodyInputs(config, objectSchema));
-        schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
       }
+      const schema = merge({}, objectSchema, {
+        required: Object.values(additionalProperties)
+          .filter((p) => p.required)
+          .map((p) => p.name),
+        properties: Object.entries(additionalProperties).reduce<
+          Record<string, unknown>
+        >((acc, [, p]) => ({ ...acc, [p.name]: p.schema }), {}),
+      });
 
-      if (operation.requestBody.content['application/json']) {
-        outgoingContentType = 'json';
-      } else if (
-        operation.requestBody.content['application/x-www-form-urlencoded']
-      ) {
-        outgoingContentType = 'urlencoded';
-      } else if (operation.requestBody.content['multipart/form-data']) {
-        outgoingContentType = 'formdata';
-      } else {
-        outgoingContentType = 'json';
-      }
-    } else {
-      const properties = Object.entries(additionalProperties).reduce<
-        Record<string, any>
-      >(
-        (acc, [, p]) => ({
-          ...acc,
-          [p.name]: p.schema,
-        }),
-        {},
-      );
-      schemas[shortContenTypeMap['application/json']] = zodDeserialzer.handle(
-        {
-          type: 'object',
-          required: Object.values(additionalProperties)
-            .filter((p) => p.required)
-            .map((p) => p.name),
-          properties,
-        },
-        true,
-      );
+      Object.assign(inputs, bodyInputs(config.spec, objectSchema));
+      schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
+    }
+
+    if (operation.requestBody.content['application/json']) {
+      outgoingContentType = 'json';
+    } else if (
+      operation.requestBody.content['application/x-www-form-urlencoded']
+    ) {
+      outgoingContentType = 'urlencoded';
+    } else if (operation.requestBody.content['multipart/form-data']) {
+      outgoingContentType = 'formdata';
     }
 
     const endpoint = toEndpoint(
@@ -197,79 +173,33 @@ export function generateCode(
       {
         outgoingContentType,
         name: operation.operationId,
-        type: 'http',
-        trigger: entry,
+        method: entry.method,
+        path: entry.path,
         schemas,
-        inputs,
+        inputs: inputs,
       },
       { makeImport: config.makeImport, style: config.style },
     );
-
-    const output: string[] = [];
-    const responses = endpoint.responses.flatMap((it) => it.responses);
-    const responsesImports = endpoint.responses.flatMap((it) =>
-      Object.values(it.imports),
-    );
-    if (responses.length) {
-      output.push(
-        ...responses.map(
-          (it) =>
-            `${it.description ? `\n/** \n * ${it.description}\n */\n` : ''} export type ${it.name} = ${it.schema};`,
-        ),
-      );
-    } else {
-      output.push(
-        `export type ${pascalcase(operation.operationId + ' output')} = void;`,
-      );
-    }
-
-    output.unshift(...useImports(output.join(''), ...responsesImports));
-
-    outputs[`${spinalcase(operation.operationId)}.ts`] = output.join('\n');
 
     endpoints[entry.groupName].push(endpoint);
 
     groups[entry.groupName].push({
       name: operation.operationId,
-      type: 'http',
-      inputs,
+      inputs: inputs,
       outgoingContentType,
       schemas,
-      trigger: entry,
+      method: entry.method,
+      path: entry.path,
     });
   });
-  const commonSchemas = Object.values(endpoints).reduce<Record<string, string>>(
-    (acc, endpoint) => ({
-      ...acc,
-      ...endpoint.reduce<Record<string, string>>(
-        (acc, { responses }) => ({
-          ...acc,
-          ...responses.reduce<Record<string, string>>(
-            (acc, it) => ({ ...acc, ...it.schemas }),
-            {},
-          ),
-        }),
-        {},
-      ),
-    }),
-    {},
-  );
-
   const allSchemas = Object.keys(endpoints).map((it) => ({
     import: `import ${camelcase(it)} from './${config.makeImport(spinalcase(it))}';`,
     use: `  ...${camelcase(it)}`,
   }));
 
-  const imports = [
-    'import z from "zod";',
-    `import type { ParseError } from '${config.makeImport('../http/parser')}';`,
-    `import type { ServerError } from '${config.makeImport('../http/response')}';`,
-  ];
   return {
     groups,
-    commonSchemas,
     commonZod,
-    outputs,
     endpoints: {
       [join('api', 'endpoints.ts')]: `
 
@@ -308,6 +238,7 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
                   ...imps,
                   `import z from 'zod';`,
                   `import * as http from '${config.makeImport('../http/response')}';`,
+                  `import * as outputs from '${config.makeImport('../outputs/index')}';`,
                   `import { toRequest, json, urlencoded, empty, formdata, createUrl, type HeadersInit } from '${config.makeImport('../http/request')}';`,
                   `import { chunked, buffered } from "${config.makeImport('../http/parse-response')}";`,
                   `import * as ${camelcase(name)} from '../inputs/${config.makeImport(spinalcase(name))}';`,
@@ -366,11 +297,11 @@ function toProps(
 }
 
 function bodyInputs(
-  config: GenerateSdkConfig,
+  spec: OurOpenAPIObject,
   ctSchema: SchemaObject | ReferenceObject,
 ) {
   const props: string[] = [];
-  toProps(config.spec, ctSchema, props);
+  toProps(spec, ctSchema, props);
   return props.reduce<Record<string, OperationInput>>(
     (acc, prop) => ({
       ...acc,

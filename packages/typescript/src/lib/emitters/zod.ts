@@ -4,8 +4,8 @@ import type {
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { followRef, isRef, parseRef } from '@sdk-it/core';
-import { sanitizeTag } from '@sdk-it/spec';
+import { followRef, isRef, parseRef, pascalcase } from '@sdk-it/core';
+import { isPrimitiveSchema, sanitizeTag } from '@sdk-it/spec';
 
 type OnRefCallback = (ref: string, content: string) => void;
 
@@ -49,14 +49,9 @@ export class ZodEmitter {
     return `z.object({${propEntries.join(', ')}})${additionalProps}`;
   }
 
-  /**
-   * Handle arrays (items could be a single schema or a tuple (array of schemas)).
-   * In JSON Schema 2020-12, `items` can be an array → tuple style.
-   */
-  array(schema: SchemaObject, required = false): string {
+  #array(schema: SchemaObject, required = false): string {
     const { items } = schema;
     if (!items) {
-      // No items => z.array(z.unknown())
       return `z.array(z.unknown())${appendOptional(required)}`;
     }
 
@@ -79,7 +74,7 @@ export class ZodEmitter {
 
     // If items is a single schema => standard z.array(...)
     const itemsSchema = this.handle(items, true);
-    return `z.array(${itemsSchema})${appendOptional(required)}`;
+    return `z.array(${itemsSchema})${this.#suffixes(JSON.stringify(schema.default), required, false)}`;
   }
 
   #suffixes = (defaultValue: unknown, required: boolean, nullable: boolean) => {
@@ -110,7 +105,7 @@ export class ZodEmitter {
         return `${this.object(schema)}${this.#suffixes(JSON.stringify(schema.default), required, nullable)}`;
       // required always
       case 'array':
-        return this.array(schema, required);
+        return this.#array(schema, required);
       case 'null':
         // If "type": "null" alone, this is basically z.null()
         return `z.null()${appendOptional(required)}`;
@@ -121,16 +116,20 @@ export class ZodEmitter {
   }
 
   #ref($ref: string, required: boolean) {
-    const schemaName = sanitizeTag(parseRef($ref).model);
+    const schemaName = pascalcase(sanitizeTag(parseRef($ref).model));
+    const schema = followRef(this.#spec, $ref);
+
+    if (isPrimitiveSchema(schema)) {
+      const result = this.handle(schema, required);
+      this.#onRef?.(schemaName, result);
+      return result;
+    }
 
     if (this.#generatedRefs.has(schemaName)) {
       return schemaName;
     }
     this.#generatedRefs.add(schemaName);
-    this.#onRef?.(
-      schemaName,
-      this.handle(followRef<SchemaObject>(this.#spec, $ref), required),
-    );
+    this.#onRef?.(schemaName, this.handle(schema, required));
 
     return schemaName;
   }
@@ -368,16 +367,12 @@ export class ZodEmitter {
   }
 }
 
-/**
- * Append .optional() if not required
- */
 function appendOptional(isRequired?: boolean) {
   return isRequired ? '' : '.optional()';
 }
+
 function appendDefault(defaultValue?: any) {
   return defaultValue !== undefined || typeof defaultValue !== 'undefined'
     ? `.default(${defaultValue})`
     : '';
 }
-
-// Todo: convert openapi 3.0 to 3.1 before proccesing

@@ -1,14 +1,11 @@
-import type {
-  OpenAPIObject,
-  ResponseObject,
-  SchemaObject,
-} from 'openapi3-ts/oas31';
+import type { ResponseObject, SchemaObject } from 'openapi3-ts/oas31';
 import { camelcase, spinalcase } from 'stringcase';
 
 import { isEmpty, pascalcase, resolveRef } from '@sdk-it/core';
 import {
   type OperationEntry,
   type OperationPagination,
+  type OurOpenAPIObject,
   type TunedOperationObject,
   patchParameters,
   securityToOptions,
@@ -18,12 +15,12 @@ import { SnippetEmitter } from './emitters/snippet.ts';
 import type { TypeScriptGeneratorOptions } from './options.ts';
 
 export class TypeScriptGenerator {
-  #spec: OpenAPIObject;
+  #spec: OurOpenAPIObject;
   #settings: TypeScriptGeneratorOptions;
   #snippetEmitter: SnippetEmitter;
   #clientName: string;
   #packageName: string;
-  constructor(spec: OpenAPIObject, settings: TypeScriptGeneratorOptions) {
+  constructor(spec: OurOpenAPIObject, settings: TypeScriptGeneratorOptions) {
     this.#spec = spec;
     this.#settings = settings;
     this.#snippetEmitter = new SnippetEmitter(spec);
@@ -220,7 +217,7 @@ const ${camelcase(this.#clientName)} = new ${this.#clientName}({ \n\t${inputs.jo
 }
 
 export function generateSnippet(
-  spec: OpenAPIObject,
+  spec: OurOpenAPIObject,
   settings: TypeScriptGeneratorOptions,
   entry: OperationEntry,
   operation: TunedOperationObject,
