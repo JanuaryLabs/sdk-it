@@ -1,3 +1,7 @@
+export * from './lib/find-polymorphic-varients.js';
+export * from './lib/format-name.js';
+export * from './lib/get-ref-usage.js';
+export * from './lib/is-primitive-schema.js';
 export * from './lib/loaders/load-spec.js';
 export * from './lib/loaders/local-loader.js';
 export * from './lib/loaders/remote-loader.js';

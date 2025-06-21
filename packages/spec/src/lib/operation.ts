@@ -1,4 +1,5 @@
 import type {
+  ComponentsObject,
   MediaTypeObject,
   OpenAPIObject,
   OperationObject,
@@ -10,19 +11,21 @@ import type {
   ResponsesObject,
   SchemaObject,
   SecurityRequirementObject,
+  SecuritySchemeObject,
 } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
 import { type Method, methods } from '@sdk-it/core/paths.js';
-import { followRef, isRef, resolveRef } from '@sdk-it/core/ref.js';
-import { isEmpty, pascalcase } from '@sdk-it/core/utils.js';
+import { followRef, isRef, parseRef, resolveRef } from '@sdk-it/core/ref.js';
+import { isEmpty, pascalcase, snakecase } from '@sdk-it/core/utils.js';
 
+import { findUniqueSchemaName } from './find-unique-schema-name.ts';
 import {
   type PaginationGuess,
   guessPagination,
-} from './pagination/pagination.js';
-import { securityToOptions } from './security.js';
-import { expandSpec, fixSpec } from './tune.js';
+} from './pagination/pagination.ts';
+import { securityToOptions } from './security.ts';
+import { expandSpec, fixSpec } from './tune.ts';
 
 function findUniqueOperationId(
   usedOperationIds: Set<string>,
@@ -54,17 +57,27 @@ function findUniqueOperationId(
 
   return uniqueOperationId;
 }
-export function augmentSpec(config: GenerateSdkConfig, verbose = false) {
+export function augmentSpec(
+  config: GenerateSdkConfig,
+  verbose = false,
+): OurOpenAPIObject {
   if ('x-sdk-augmented' in config.spec) {
-    return config.spec; // Already augmented
+    return config.spec as OurOpenAPIObject; // Already augmented
   }
-  config.spec.paths ??= {};
-  config.spec.components ??= {};
-  config.spec.components.schemas ??= {};
+  const spec: OurOpenAPIObject = {
+    ...config.spec,
+    components: {
+      ...config.spec.components,
+      schemas: config.spec.components?.schemas ?? {},
+      securitySchemes: config.spec.components?.securitySchemes ?? {},
+    },
+    paths: config.spec.paths ?? {},
+  };
+
   const paths: PathsObject = {};
   const usedOperationIds = new Set<string>();
 
-  for (const [path, pathItem] of Object.entries(config.spec.paths)) {
+  for (const [path, pathItem] of Object.entries(spec.paths)) {
     // Convert Express-style routes (:param) to OpenAPI-style routes ({param})
     const fixedPath = path.replace(/:([^/]+)/g, '{$1}');
     for (const [method, operation] of Object.entries(pathItem) as [
@@ -93,17 +106,21 @@ export function augmentSpec(config: GenerateSdkConfig, verbose = false) {
       const parameters = [
         ...(pathItem.parameters ?? []),
         ...(operation.parameters ?? []),
-      ].map((it) =>
-        isRef(it) ? followRef<ParameterObject>(config.spec, it.$ref) : it,
-      );
+      ].map((it) => resolveRef<ParameterObject>(spec, it));
+
       const tunedOperation: TunedOperationObject = {
         ...operation,
         parameters,
-        tags: [operationTag],
+        tags: [snakecase(operationTag)],
         operationId: operationId,
-        responses: resolveResponses(config.spec, operationId, operation),
+        responses: resolveResponses(
+          spec,
+          operationId,
+          operation,
+          config.responses,
+        ),
         requestBody: tuneRequestBody(
-          config.spec,
+          spec,
           operationId,
           operation,
           parameters,
@@ -111,10 +128,7 @@ export function augmentSpec(config: GenerateSdkConfig, verbose = false) {
         ),
       };
 
-      tunedOperation['x-pagination'] = toPagination(
-        config.spec,
-        tunedOperation,
-      );
+      tunedOperation['x-pagination'] = toPagination(spec, tunedOperation);
 
       Object.assign(paths, {
         [fixedPath]: {
@@ -125,17 +139,18 @@ export function augmentSpec(config: GenerateSdkConfig, verbose = false) {
     }
   }
 
-  fixSpec(config.spec, config.spec.components.schemas);
+  fixSpec(spec, Object.values(spec.components.schemas));
 
   if (verbose) {
     const newRefs: { name: string; value: SchemaObject }[] = [];
-    expandSpec(config.spec, config.spec.components.schemas, newRefs);
-    for (const ref of newRefs) {
-      config.spec.components.schemas[ref.name] = ref.value;
-    }
+    expandSpec(spec, spec.components.schemas, newRefs);
+    // for (const ref of newRefs) {
+    //   spec.components.schemas[ref.name] = ref.value;
+    // }
   }
+
   return {
-    ...config.spec,
+    ...(spec as OurOpenAPIObject),
     paths,
     'x-sdk-augmented': true,
   };
@@ -244,24 +259,15 @@ export const defaults: Partial<GenerateSdkConfig> &
   },
 };
 
-export type TunedRequestBody = Omit<RequestBodyObject, 'content'> & {
-  content: Record<
-    string,
-    Omit<MediaTypeObject, 'schema'> & {
-      schema: SchemaObject | ReferenceObject;
-    }
-  >;
-};
-
 export type TunedOperationObject = Omit<
   OperationObject,
-  'operationId' | 'tags' | 'parameters' | 'responses'
+  'operationId' | 'tags' | 'parameters' | 'responses' | 'requestBody'
 > & {
   tags: string[];
   operationId: string;
   parameters: ParameterObject[];
   responses: Record<string, ResponseObject>;
-  requestBody: TunedRequestBody;
+  requestBody: OurRequestBodyObject;
 };
 
 export interface OperationEntry {
@@ -277,56 +283,121 @@ export type Operation = {
 };
 
 function resolveResponses(
-  spec: OpenAPIObject,
+  spec: OurOpenAPIObject,
   operationId: string,
   operation: OperationObject,
+  responsesConfig?: ResponsesConfig,
 ) {
   const responses = operation.responses ?? {};
   operation.responses ??= {};
   let foundSuccessResponse = false;
   for (const status in responses) {
-    const response = resolveRef<ResponseObject>(spec, responses[status]);
-    operation.responses[status] = response;
+    if (status === 'default') {
+      delete responses[status]; // Skip default response
+      continue;
+    }
+    // use structuredClone to avoid mutating a response object
+    // that is referenced by multiple operations
+    operation.responses[status] = structuredClone(
+      resolveRef<ResponseObject>(spec, responses[status]),
+    );
+
     if (isSuccessStatusCode(status)) {
       foundSuccessResponse = true;
     }
   }
+
   if (!foundSuccessResponse) {
     operation.responses['200'] = {
       description: 'OK',
       content: {
         'application/json': {
-          schema: { type: 'object' },
+          schema: {},
         },
       },
     };
   }
 
-  spec.components ??= {};
-  spec.components.schemas ??= {};
   for (const status in operation.responses) {
-    const response = operation.responses[status];
-    if (!isSuccessStatusCode(status)) continue;
-    if (isEmpty(response.content)) continue;
+    const response = operation.responses[status] as ResponseObject;
+    const statusCode = +status;
+
+    const outputName =
+      statusCode !== 200
+        ? pascalcase(operationId) + status
+        : findUniqueSchemaName(spec, operationId, [
+            'output',
+            'payload',
+            'result',
+          ]);
+
+    if (!responsesConfig?.flattenErrorResponses) {
+      if (!isSuccessStatusCode(status)) {
+        continue;
+      }
+    }
+
+    if (isEmpty(response.content)) {
+      response.content = {
+        'application/octet-stream': {},
+      };
+    }
+
+    response['x-response-name'] = outputName;
+
+    // if (isErrorStatusCode(status)) {
+    //   const mediaType = response.content?.['application/json'];
+    //   if (mediaType && isRef(mediaType.schema)) {
+    //     const { model } = parseRef(mediaType.schema.$ref);
+    //     Object.assign(config.spec.components.schemas[model], {
+    //       'x-responsebody': true,
+    //       // do not assign response ref to a group
+    //       // because they are supposed to be in a separate file only inlined
+    //       // schemas are grouped by operationId
+    //     });
+    //     response['x-response-name'] = model;
+    //   }
+    //   continue;
+    // }
+
     for (const [contentType, mediaType] of Object.entries(
       response.content as Record<string, MediaTypeObject>,
     )) {
-      if (!parseJsonContentType(contentType)) continue;
-      if (isRef(mediaType.schema)) continue;
-      const outputName = pascalcase(`${operationId} output`);
-      if (isEmpty(mediaType.schema)) {
-        // add "additionalProperties" because we're certain this is a response body is of json type
-        spec.components.schemas[outputName] = {
-          type: 'object',
-          additionalProperties: true,
+      if (isRef(mediaType.schema)) {
+        const { model } = parseRef(mediaType.schema.$ref);
+        Object.assign(spec.components.schemas[model], {
           'x-responsebody': true,
-        };
+          // do not assign response ref to a group
+          // because they are supposed to be in a separate file only inlined
+          // schemas are grouped by operationId
+        });
+        response['x-response-name'] = model;
+        continue;
+      }
+      if (isSseContentType(contentType)) {
+        continue; // Skip SSE content types
+      }
+      if (parseJsonContentType(contentType)) {
+        if (isEmpty(mediaType.schema)) {
+          // add "additionalProperties" because we're certain this is a response body is of json type
+          spec.components.schemas[outputName] = {
+            type: 'object',
+            additionalProperties: true,
+          };
+        }
       } else {
         spec.components.schemas[outputName] = {
-          ...mediaType.schema,
-          'x-responsebody': true,
+          ...spec.components.schemas[outputName],
+          'x-stream': !isTextContentType(contentType),
         };
       }
+
+      spec.components.schemas[outputName] = {
+        ...spec.components.schemas[outputName],
+        ...mediaType.schema,
+        'x-responsebody': true,
+        'x-response-group': operationId,
+      };
       operation.responses[status].content[contentType].schema = {
         $ref: `#/components/schemas/${outputName}`,
       };
@@ -337,17 +408,18 @@ function resolveResponses(
 }
 
 export function forEachOperation<T>(
-  config: GenerateSdkConfig,
+  spec: OurOpenAPIObject,
   callback: (entry: OperationEntry, operation: TunedOperationObject) => T,
 ) {
   const result: T[] = [];
-  for (const [path, pathItem] of Object.entries(config.spec.paths ?? {})) {
-    const { ...methods } = pathItem;
-
-    for (const [method, operation] of Object.entries(methods) as [
-      string,
+  for (const [path, pathItem] of Object.entries(spec.paths)) {
+    for (const [method, operation] of Object.entries(pathItem) as [
+      Method,
       OperationObject,
     ][]) {
+      if (!methods.includes(method)) {
+        continue;
+      }
       const metadata = operation['x-oaiMeta'] ?? {};
       const operationTag = operation.tags?.[0] as string;
 
@@ -368,8 +440,13 @@ export function forEachOperation<T>(
   return result;
 }
 
+interface ResponsesConfig {
+  flattenErrorResponses?: boolean;
+}
+
 export interface GenerateSdkConfig {
   spec: OpenAPIObject;
+  responses?: ResponsesConfig;
   operationId?: (
     operation: OperationObject,
     path: string,
@@ -434,7 +511,7 @@ const reservedKeywords = new Set([
   'arguments',
 ]);
 
-const reservedSdkKeywords = new Set(['ClientError']);
+const reservedSdkKeywords = new Set(['ClientError', 'Error', 'ConflictError']);
 /**
  * Sanitizes a potential tag name (assumed to be already camelCased)
  * to avoid conflicts with reserved keywords or invalid starting characters (numbers).
@@ -450,20 +527,18 @@ export function sanitizeTag(tag: string): string {
   }
   // Append underscore if it's a reserved keyword
   if (reservedKeywords.has(tag)) {
-    return `${tag}_`;
+    return `$${tag}`;
   }
   // Append dollar sign if it's a reserved SDK keyword
   if (reservedSdkKeywords.has(tag)) {
     return `$${tag}`;
   }
   return tag
-    .replace('(', ' ')
-    .replace(')', ' ')
-    .replace('--', ' ')
-    .split(' ')
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .join('');
+    .replace(/[()]/g, '')
+    .replace(/--/g, '')
+    .split(/\s+/) // split on one-or-more whitespace chars
+    .filter(Boolean) // drop any empty segments
+    .join(' ');
 }
 
 /**
@@ -768,21 +843,21 @@ export function isErrorStatusCode(statusCode: number | string): boolean {
 }
 
 export function patchParameters(
-  spec: OpenAPIObject,
-  objectSchema: SchemaObject,
+  spec: OurOpenAPIObject,
+  schema: SchemaObject,
   parameters: ParameterObject[],
   security: SecurityRequirementObject[],
 ) {
   const securitySchemes = spec.components?.securitySchemes ?? {};
   const securityOptions = securityToOptions(spec, security, securitySchemes);
 
-  objectSchema.properties ??= {};
-  objectSchema.required ??= [];
+  let required = Array.isArray(schema.required) ? schema.required : [];
+  schema['x-properties'] ??= {};
   for (const param of parameters) {
     if (param.required) {
-      objectSchema.required.push(param.name);
+      required.push(param.name);
     }
-    objectSchema.properties[param.name] = {
+    schema['x-properties'][param.name] = {
       'x-in': param.in,
       ...(isRef(param.schema)
         ? followRef<SchemaObject>(spec, param.schema.$ref)
@@ -790,16 +865,15 @@ export function patchParameters(
     };
   }
   for (const param of securityOptions) {
-    objectSchema.required = (objectSchema.required ?? []).filter(
-      (name) => name !== param.name,
-    );
-    objectSchema.properties[param.name] = {
+    required = required.filter((name) => name !== param.name);
+    schema['x-properties'][param.name] = {
       'x-in': 'header',
       ...(isRef(param.schema)
         ? followRef<SchemaObject>(spec, param.schema.$ref)
         : (param.schema ?? { type: 'string' })),
     };
   }
+  schema['x-required'] = required;
 }
 
 export function createOperation(options: {
@@ -813,7 +887,7 @@ export function createOperation(options: {
     cookie?: Record<string, { schema: SchemaObject; required?: boolean }>;
   };
   response: Record<string, SchemaObject | Record<string, SchemaObject>>; // Key is statusCode-contentType
-  request?: Record<string, SchemaObject>;
+  request?: Record<string, ReferenceObject>;
 }): TunedOperationObject {
   const parameters: ParameterObject[] = [];
   if (!isEmpty(options.parameters)) {
@@ -855,7 +929,7 @@ export function createOperation(options: {
     }
   }
 
-  let requestBody: TunedRequestBody | undefined = undefined;
+  let requestBody: OurRequestBodyObject | undefined = undefined;
 
   if (options.request) {
     requestBody = { description: 'Request body', content: {} };
@@ -877,15 +951,17 @@ export function createOperation(options: {
 }
 
 function tuneRequestBody(
-  spec: OpenAPIObject,
+  spec: OurOpenAPIObject,
   operationId: string,
   operation: OperationObject,
   parameters: ParameterObject[],
   security: SecurityRequirementObject[],
-): TunedRequestBody {
-  spec.components ??= {};
-  spec.components.schemas ??= {};
-  const inputName = pascalcase(`${operationId} input`);
+): OurRequestBodyObject {
+  const inputName = findUniqueSchemaName(spec, operationId, [
+    'input',
+    'payload',
+    'request',
+  ]);
   const requestBody = isRef(operation.requestBody)
     ? followRef<RequestBodyObject>(spec, operation.requestBody.$ref)
     : (operation.requestBody ?? {
@@ -894,12 +970,11 @@ function tuneRequestBody(
       });
   if (isEmpty(requestBody.content)) {
     const schema: SchemaObject = {
-      type: 'object',
       'x-inputname': inputName,
       'x-requestbody': true,
     };
     patchParameters(spec, schema, parameters, security);
-    const tuned: TunedRequestBody = {
+    const tuned: OurRequestBodyObject = {
       ...requestBody,
       content: {
         'application/empty': {
@@ -915,48 +990,49 @@ function tuneRequestBody(
     const mediaType = requestBody.content[contentType];
     let schema: SchemaObject | undefined;
 
-    if (isRef(mediaType.schema)) {
-      schema = followRef<SchemaObject>(spec, mediaType.schema.$ref);
-      // we cannot use the model name as inputName as it might be used in other places that are not request bodies
-      // inputName = parseRef(mediaType.schema.$ref).model;
-    } else {
-      schema = mediaType.schema;
+    switch (true) {
+      case isRef(mediaType.schema):
+        schema = followRef<SchemaObject>(spec, mediaType.schema.$ref);
+        // we cannot use the model name as inputName as it might be used in other places that are not request bodies
+        // inputName = parseRef(mediaType.schema.$ref).model;
+        break;
+      case isEmpty(mediaType.schema):
+        schema ??= {}; // default to empty schema if not defined
+        console.warn(
+          `Request body schema for content type "${contentType}" is empty.`,
+        );
+        break;
+      default:
+        schema = mediaType.schema;
+        break;
     }
 
-    if (isEmpty(schema)) {
-      schema ??= {}; // default to empty schema if not defined
-      console.warn(
-        `Request body schema for content type "${contentType}" is empty.`,
-      );
-    }
+    patchParameters(spec, schema, parameters, security);
+    spec.components.schemas[inputName] = {
+      ...schema,
+      'x-requestbody': true,
+      'x-inputname': inputName,
+    };
 
-    if (schema.type !== 'object') {
-      mediaType.schema = {
-        type: 'object',
-        required: [requestBody.required ? '$body' : ''],
-        properties: {
-          $body: { ...mediaType.schema, 'x-special': true },
-        },
-      };
-      patchParameters(spec, mediaType.schema, parameters, security);
-      spec.components.schemas[inputName] = {
-        ...mediaType.schema,
-        'x-requestbody': true,
-        'x-inputname': inputName,
-      };
-    } else {
-      patchParameters(spec, schema, parameters, security);
-      spec.components.schemas[inputName] = {
-        ...schema,
-        'x-requestbody': true,
-        'x-inputname': inputName,
-      };
-    }
-
-    requestBody.content ??= {};
     requestBody.content[contentType].schema = {
       $ref: `#/components/schemas/${inputName}`,
     };
   }
-  return requestBody as TunedRequestBody;
+  return requestBody as OurRequestBodyObject;
+}
+
+export interface OurOpenAPIObject extends OpenAPIObject {
+  'x-sdk-augmented'?: boolean;
+  components: Omit<ComponentsObject, 'schemas'> & {
+    schemas: Record<string, SchemaObject | ReferenceObject>;
+    securitySchemes: Record<string, SecuritySchemeObject | ReferenceObject>;
+  };
+  paths: PathsObject;
+}
+
+export interface OurRequestBodyObject extends RequestBodyObject {
+  content: Record<
+    string,
+    Omit<MediaTypeObject, 'schema'> & { schema: ReferenceObject }
+  >;
 }

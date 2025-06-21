@@ -11,7 +11,6 @@ import { camelcase } from 'stringcase';
 import yaml from 'yaml';
 
 import {
-  followRef,
   isEmpty,
   isRef,
   pascalcase,
@@ -27,9 +26,11 @@ import {
 } from '@sdk-it/core/file-system.js';
 import {
   type Operation,
+  type OurOpenAPIObject,
   augmentSpec,
   cleanFiles,
   forEachOperation,
+  isSseContentType,
   isStreamingContentType,
   isSuccessStatusCode,
   parseJsonContentType,
@@ -42,7 +43,7 @@ import interceptorsTxt from './http/interceptors.txt';
 import responsesTxt from './http/responses.txt';
 
 export async function generate(
-  spec: OpenAPIObject,
+  openapi: OpenAPIObject,
   settings: {
     output: string;
     cleanup?: boolean;
@@ -57,7 +58,8 @@ export async function generate(
     formatCode?: (options: { output: string }) => void | Promise<void>;
   },
 ) {
-  spec = augmentSpec({ spec }, true);
+  const spec = augmentSpec({ spec: openapi }, true);
+
   const clientName = settings.name || 'Client';
   const output = join(settings.output, 'lib');
   const { writer, files: writtenFiles } = createWriterProxy(
@@ -80,11 +82,7 @@ export async function generate(
       methods: string[];
     }
   > = {};
-  spec.components ??= {};
-  spec.components.schemas ??= {};
-  const inputs: Record<string, string> = {};
-  const outputs: Record<string, string> = {};
-  forEachOperation({ spec }, (entry, operation) => {
+  forEachOperation(spec, (entry, operation) => {
     // if (entry.path !== '/assistants' || entry.method !== 'post') {
     //   return;
     // }
@@ -96,12 +94,8 @@ export async function generate(
     });
 
     const input = toInputs(spec, { entry, operation });
-    Object.assign(inputs, input.inputs);
 
     const response = toOutput(spec, operation);
-    if (response) {
-      Object.assign(outputs, response.outputs);
-    }
     group.methods.push(`
         Future<${response ? response.returnType : 'http.StreamedResponse'}> ${camelcase(operation.operationId)}(
        ${input.haveInput ? `${input.inputName} input` : ''}
@@ -116,31 +110,7 @@ export async function generate(
             `);
   });
 
-  const models = Object.entries(spec.components.schemas).reduce<
-    Record<string, string>
-  >((acc, [name, schema]) => {
-    const serializer = new DartSerializer(spec, (name, content, schema) => {
-      const folder = schema['x-requestbody']
-        ? 'inputs'
-        : schema['x-responsebody']
-          ? 'outputs'
-          : 'models';
-      acc[join(folder, `${snakecase(name)}.dart`)] = [
-        `import 'dart:io';`,
-        `import 'dart:typed_data';`,
-        `import './index.dart';`,
-        `import '../interceptors.dart';`,
-        folder === 'inputs' || folder === 'outputs'
-          ? `import '../models/index.dart';`
-          : `import '../inputs/index.dart';`,
-        content,
-      ].join('\n');
-    });
-    serializer.handle(pascalcase(name), schema, true, {
-      requestize: isRef(schema) ? false : schema['x-requestbody'] === true,
-    });
-    return acc;
-  }, {});
+  const models = serializeModels(spec);
 
   const clazzez = Object.entries(groups).reduce<Record<string, string>>(
     (acc, [name, { methods }]) => {
@@ -209,16 +179,13 @@ class Options {
 }
 
   `;
-  await settings.writer(output, {
-    ...models,
-    ...inputs,
-    ...outputs,
-  });
+  await settings.writer(output, models);
 
   const metadata = await readWriteMetadata(
     settings.output,
     Array.from(writtenFiles),
   );
+
   if (settings.cleanup !== false && writtenFiles.size > 0) {
     await cleanFiles(metadata.content, settings.output, [
       '/package.dart',
@@ -302,8 +269,7 @@ class Options {
   });
 }
 
-function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
-  const inputs: Record<string, unknown> = {};
+function toInputs(spec: OurOpenAPIObject, { entry, operation }: Operation) {
   let inputName: string | undefined;
   let contentType = 'empty';
   let encode = '';
@@ -313,9 +279,7 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
       spec,
       operation.requestBody.content[type].schema,
     );
-    const serializer = new DartSerializer(spec, (name, content) => {
-      //
-    });
+    const serializer = new DartSerializer(spec);
     inputName = objectSchema['x-inputname'] as string;
     const serialized = serializer.handle(inputName, objectSchema, true, {
       alias: isObjectSchema(objectSchema) ? undefined : inputName,
@@ -326,12 +290,20 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
     const [mediaType, mediaSubType] = partContentType(type).type.split('/');
     if (mediaSubType === 'empty') {
       contentType = 'empty';
+    } else if (mediaSubType === 'x-www-form-urlencoded') {
+      contentType = 'urlencoded';
+    } else if (mediaSubType === 'octet-stream') {
+      contentType = 'binary';
     } else if (mediaType === 'application') {
       contentType = parseJsonContentType(type) as string;
+    } else if (mediaType === 'multipart') {
+      contentType = 'formdata';
     } else {
       contentType = 'binary';
     }
-    if (!isEmpty(objectSchema.properties)) {
+    if (
+      !isEmpty({ ...objectSchema.properties, ...objectSchema['x-properties'] })
+    ) {
       haveInput = true;
     }
   }
@@ -341,69 +313,134 @@ function toInputs(spec: OpenAPIObject, { entry, operation }: Operation) {
     );
   }
 
-  return { inputs, inputName, contentType, encode, haveInput };
+  return { inputName, contentType, encode, haveInput };
 }
 
-function toOutput(spec: OpenAPIObject, operation: OperationObject) {
-  const outputName = pascalcase(`${operation.operationId} output`);
+function toOutput(spec: OurOpenAPIObject, operation: OperationObject) {
   operation.responses ??= {};
-  const outputs: Record<string, string> = {};
   for (const status in operation.responses) {
-    const response = isRef(operation.responses[status] as ReferenceObject)
-      ? followRef<ResponseObject>(spec, operation.responses[status].$ref)
-      : (operation.responses[status] as ResponseObject);
     if (!isSuccessStatusCode(status)) continue;
-    if (isEmpty(response.content)) continue;
+    // if (isEmpty(response.content)) continue;
+    const response = operation.responses[status] as ResponseObject;
+    const outputName = response['x-response-name'];
+
+    if ((response.headers ?? {})['Transfer-Encoding']) {
+      return streamedOutput();
+    }
+
     for (const type in response.content) {
-      const { schema } = response.content[type];
-      if (!schema) {
-        console.warn(
-          `Schema not found for ${type} in ${operation.operationId}`,
-        );
+      const schema = response.content[type].schema as ReferenceObject;
+      if (isStreamingContentType(type)) {
+        return streamedOutput();
+      }
+      if (isSseContentType(type)) {
         continue;
       }
-      if ((response.headers ?? {})['Transfer-Encoding']) {
-        return {
-          type: 'stream',
-          outputName,
-          outputs,
-          decode: `return stream`,
-          returnType: `http.StreamedResponse`,
-        };
-      }
-      if (isStreamingContentType(type)) {
-        return {
-          type: 'stream',
-          outputName,
-          outputs,
-          decode: `return stream`,
-          returnType: `http.StreamedResponse`,
-        };
-      }
       if (parseJsonContentType(type)) {
-        const serializer = new DartSerializer(spec, (name, content) => {
-          //
-        });
+        if (!schema) {
+          return streamedOutput();
+        }
+        const serializer = new DartSerializer(spec);
+        // if (isRef(schema)) {
+        //   if (!isPrimitiveSchema(resolveRef(spec, schema))) {
+        //     const referenced = tapRef<ReferenceObject | SchemaObject>(
+        //       spec,
+        //       schema,
+        //     );
+        //     if (isRef(referenced)) {
+        //       const { model } = parseRef(referenced.$ref);
+        //       return {
+        //         type: 'json',
+        //         decode: `final json = await this.receiver.json(stream); return ${model}.fromJson(json)`,
+        //         returnType: model,
+        //       };
+        //     }
+        //   }
+        // }
         const serialized = serializer.handle(outputName, schema, true, {
           // alias: outputName,
           noEmit: true,
         });
+
         return {
           type: 'json',
-          outputName,
-          outputs,
           decode: `final json = await this.receiver.json(stream); return ${serialized.fromJson}`,
           returnType: serialized.use,
         };
       }
     }
   }
-  // default to stream. this should hanle transfer encoding chunked too.
+  return streamedOutput();
+}
+
+function streamedOutput() {
   return {
     type: 'stream',
-    outputName,
-    outputs,
     decode: `return stream`,
     returnType: `http.StreamedResponse`,
   };
+}
+
+function serializeModels(spec: OurOpenAPIObject) {
+  const serializer = new DartSerializer(spec);
+  return Object.entries(spec.components.schemas).reduce<Record<string, string>>(
+    (acc, [name, schema]) => {
+      serializer.onEmit((name, content, schema) => {
+        const isResponseBody = (schema as any)['x-responsebody'];
+        const isRequestBody = (schema as any)['x-requestbody'];
+        const folder = isRequestBody
+          ? 'inputs'
+          : isResponseBody
+            ? 'outputs'
+            : 'models';
+        acc[join(folder, `${snakecase(name)}.dart`)] = [
+          `import 'dart:io';`,
+          `import 'dart:typed_data';`,
+          // `import './index.dart';`,
+          // `import '../interceptors.dart';`,
+          `import '../package.dart';`,
+          // folder === 'inputs' || folder === 'outputs'
+          //   ? `import '../models/index.dart';`
+          //   : `import '../inputs/index.dart';`,
+          content,
+        ].join('\n');
+      });
+
+      if (isRef(schema)) {
+        // what if the schema is a request body?
+        serializer.handle(pascalcase(name), schema, true, {
+          alias: isRef(schema) ? name : undefined,
+        });
+        return acc;
+      }
+
+      if ((schema as any)['x-requestbody']) {
+        serializer.handle(
+          pascalcase(name),
+          schema.type !== 'object'
+            ? {
+                type: 'object',
+                required: ['$body'],
+                properties: {
+                  $body: {
+                    ...schema,
+                    'x-special': true,
+                  },
+                },
+              }
+            : schema,
+
+          true,
+          {
+            requestize: true,
+          },
+        );
+      } else {
+        serializer.handle(pascalcase(name), schema, true, {});
+      }
+
+      return acc;
+    },
+    {},
+  );
 }

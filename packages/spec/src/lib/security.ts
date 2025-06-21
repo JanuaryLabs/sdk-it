@@ -1,37 +1,40 @@
 import type {
-  ComponentsObject,
   OpenAPIObject,
   ParameterLocation,
   ParameterObject,
+  ReferenceObject,
   SecurityRequirementObject,
+  SecuritySchemeObject,
 } from 'openapi3-ts/oas31';
 
 import { methods } from '@sdk-it/core/paths.js';
-import { followRef, isRef } from '@sdk-it/core/ref.js';
+import { resolveRef } from '@sdk-it/core/ref.js';
+
+import type { OurOpenAPIObject } from './operation.ts';
 
 type OIn = ParameterLocation | 'input';
-type OParameter = Omit<ParameterObject, 'in'> & {
+type OurParameter = Omit<ParameterObject, 'in'> & {
   in: OIn;
 };
 
 export function securityToOptions(
   spec: OpenAPIObject,
   security: SecurityRequirementObject[],
-  securitySchemes: ComponentsObject['securitySchemes'],
+  securitySchemes: Record<string, SecuritySchemeObject | ReferenceObject>,
   staticIn?: OIn,
 ) {
-  securitySchemes ??= {};
-  const parameters: OParameter[] = [];
+  const parameters: OurParameter[] = [];
   for (const it of security) {
     const [name] = Object.keys(it);
     if (!name) {
       // this means the operation doesn't necessarily require security
       continue;
     }
-    const schema = isRef(securitySchemes[name])
-      ? followRef(spec, securitySchemes[name].$ref)
-      : securitySchemes[name];
 
+    const schema = resolveRef<SecuritySchemeObject>(
+      spec,
+      securitySchemes[name],
+    );
     if (schema.type === 'http') {
       parameters.push({
         in: staticIn ?? 'header',
@@ -63,13 +66,15 @@ export function securityToOptions(
   return parameters;
 }
 
-export function security(spec: OpenAPIObject) {
+export function security(spec: OurOpenAPIObject) {
   const security = spec.security || [];
-  const components = spec.components || {};
-  const securitySchemes = components.securitySchemes || {};
   const paths = Object.values(spec.paths ?? {});
 
-  const options = securityToOptions(spec, security, securitySchemes);
+  const options = securityToOptions(
+    spec,
+    security,
+    spec.components.securitySchemes,
+  );
 
   for (const it of paths) {
     for (const method of methods) {
@@ -82,7 +87,7 @@ export function security(spec: OpenAPIObject) {
         securityToOptions(
           spec,
           operation.security || [],
-          securitySchemes,
+          spec.components.securitySchemes,
           'input',
         ),
       );

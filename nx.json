@@ -96,13 +96,19 @@
     },
     "build": {
       "dependsOn": [
-        { "target": "client", "projects": "@sdk-it/source" },
+        {
+          "target": "client",
+          "projects": "@sdk-it/source"
+        },
         "^build"
       ]
     },
     "dev": {
       "dependsOn": [
-        { "target": "client", "projects": "@sdk-it/source" },
+        {
+          "target": "client",
+          "projects": "@sdk-it/source"
+        },
         "^build"
       ]
     }

@@ -6,6 +6,7 @@ import type {
   ReferenceObject,
   RequestBodyObject,
   SchemaObject,
+  SecuritySchemeObject,
 } from 'openapi3-ts/oas31';
 
 import { isEmpty } from './utils.js';
@@ -21,7 +22,7 @@ export function cleanRef(ref: string) {
   return ref.replace(/^#\//, '');
 }
 
-export function parseRef(ref:string) {
+export function parseRef(ref: string) {
   const parts = ref.split('/');
   const names: string[] = [];
   const [model] = parts.splice(-1);
@@ -46,12 +47,20 @@ export function resolveRef<
     | ParameterObject
     | ReferenceObject
     | RequestBodyObject = SchemaObject,
->(spec: OpenAPIObject, maybeRef: SchemaObject | ReferenceObject): T {
+>(
+  spec: OpenAPIObject,
+  maybeRef:
+    | SchemaObject
+    | ReferenceObject
+    | ParameterObject
+    | SecuritySchemeObject,
+): T {
   if (isRef(maybeRef)) {
     return followRef<T>(spec, maybeRef.$ref!);
   }
   return maybeRef as T;
 }
+
 export function followRef<
   T extends
     | SchemaObject
@@ -67,6 +76,22 @@ export function followRef<
   }
   return entry;
 }
+
+export function tapRef<
+  T extends
+    | SchemaObject
+    | HeaderObject
+    | ParameterObject
+    | ReferenceObject
+    | RequestBodyObject = SchemaObject,
+>(spec: OpenAPIObject, maybeRef: SchemaObject | ReferenceObject): T {
+  if (isRef(maybeRef)) {
+    const pathParts = cleanRef(maybeRef.$ref).split('/');
+    return get(spec, pathParts) as T;
+  }
+  return maybeRef as T;
+}
+
 export function distillRef<
   T extends
     | SchemaObject

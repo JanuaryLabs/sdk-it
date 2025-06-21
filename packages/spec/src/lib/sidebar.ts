@@ -1,7 +1,11 @@
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
-import { type TunedOperationObject, forEachOperation } from './operation.js';
+import {
+  type OurOpenAPIObject,
+  type TunedOperationObject,
+  forEachOperation,
+} from './operation.js';
 
 export type ChildNavItem = {
   id: string;
@@ -25,14 +29,14 @@ export type CategoryItem = {
 
 export type SidebarData = CategoryItem[];
 
-function createOAIMeta(spec: OpenAPIObject): XOaiMeta {
+function createOAIMeta(spec: OurOpenAPIObject): XOaiMeta {
   spec.paths ??= {};
   const navigationGroups: Record<string, NavigationGroup> = {
     default: { id: 'default', title: 'General' },
   };
   const groups: Record<string, Group> = {};
 
-  forEachOperation({ spec }, (entry, operation) => {
+  forEachOperation(spec, (entry, operation) => {
     const tag = entry.tag;
     groups[tag] ??= {
       id: tag,
@@ -54,9 +58,9 @@ function createOAIMeta(spec: OpenAPIObject): XOaiMeta {
   };
 }
 
-function getOperationById(spec: OpenAPIObject, operationId: string) {
+function getOperationById(spec: OurOpenAPIObject, operationId: string) {
   let operation: TunedOperationObject | undefined;
-  forEachOperation({ spec }, (entry, op) => {
+  forEachOperation(spec, (entry, op) => {
     if (op.operationId === operationId) {
       operation = op;
     }
@@ -64,7 +68,7 @@ function getOperationById(spec: OpenAPIObject, operationId: string) {
   return operation;
 }
 
-export function toSidebar(spec: OpenAPIObject) {
+export function toSidebar(spec: OurOpenAPIObject) {
   const openapi: OpenAPIObject & { 'x-oaiMeta': XOaiMeta } = spec as any;
   const sidebar: SidebarData = [];
   const oaiMeta = openapi['x-oaiMeta'] ?? createOAIMeta(spec);

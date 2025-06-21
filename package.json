@@ -4,7 +4,8 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "test": "node --experimental-strip-types ./e2e/index.ts",
+    "test": "bun ./e2e/index.ts",
+    "dart": "bun ./e2e/dart.ts",
     "client": "bun apps/api/sdk.ts"
   },
   "repository": "https://github.com/JanuaryLabs/sdk-it",

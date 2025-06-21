@@ -433,9 +433,11 @@ function requestToOperation(
                 contentTypeIdx !== -1
                   ? headers.splice(contentTypeIdx).map((h) => h.value)
                   : [];
-              const contentType = response.body
+
+              let contentType = response.body
                 ? parse(contentTypeValue || 'application/json')?.type
-                : 'application/octet-stream';
+                : null;
+              contentType ??= 'application/octet-stream';
 
               return {
                 ...acc,

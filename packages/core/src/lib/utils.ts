@@ -1,4 +1,5 @@
 import {
+  camelcase as _camelcase,
   pascalcase as _pascalcase,
   snakecase as _snakecase,
   spinalcase as _spinalcase,
@@ -59,6 +60,11 @@ export function spinalcase(value: string) {
 }
 export function snakecase(value: string) {
   return _snakecase(value.split('/').join(' '));
+}
+export function camelcase(value: string): string {
+  // remove any “special” chars immediately preceding a digit
+  const cleaned = value.replace(/[^A-Za-z0-9]+(?=\d)/g, '');
+  return _camelcase(cleaned);
 }
 
 /**

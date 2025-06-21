@@ -1,6 +1,8 @@
 import deubg from 'debug';
 import { readFile, unlink, writeFile } from 'node:fs/promises';
+import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
+import pLimit from 'p-limit';
 
 import {
   addLeadingSlash,
@@ -50,13 +52,30 @@ export async function cleanFiles(
   const generated = metadata.generatedFiles ?? [];
   const user = metadata.userFiles ?? [];
   const keep = [...generated, ...user, ...alwaysAvailableFiles];
-  const actualFiles = await readFolder(output, true);
-  for (const file of actualFiles) {
-    if (micromatch.isMatch(addLeadingSlash(file), keep)) {
-      continue;
-    }
-    const filePath = join(output, file);
-    await unlink(filePath);
-    log(`Deleted file: ${filePath}`);
-  }
+  const actualFiles = (await readFolder(output, true)).map(addLeadingSlash);
+
+  const filesToDelete = actualFiles.filter(
+    (file) =>
+      !micromatch.isMatch(file, keep, { cwd: join(process.cwd(), output) }),
+  );
+  const limit = pLimit(availableParallelism());
+
+  await Promise.all(
+    filesToDelete.map((file) =>
+      limit(async () => {
+        const filePath = join(output, file);
+        await unlink(filePath);
+        log(`Deleted file: ${filePath}`);
+      }),
+    ),
+  );
+
+  // for (const file of actualFiles) {
+  //   if (micromatch.isMatch(addLeadingSlash(file), keep)) {
+  //     continue;
+  //   }
+  //   const filePath = join(output, file);
+  //   await unlink(filePath);
+  //   log(`Deleted file: ${filePath}`);
+  // }
 }

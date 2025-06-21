@@ -7,8 +7,8 @@ import type {
 import { isRef } from '@sdk-it/core/ref.js';
 import { isEmpty } from '@sdk-it/core/utils.js';
 
-import type { TunedOperationObject } from '../operation';
-import { getHasMoreName, getItemsName } from './pagination-result.js';
+import type { TunedOperationObject } from '../operation.ts';
+import { getHasMoreName, getItemsName } from './pagination-result.ts';
 
 interface PaginationResultBase {
   type: 'offset' | 'page' | 'cursor' | 'none';

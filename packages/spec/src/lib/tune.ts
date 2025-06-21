@@ -1,4 +1,4 @@
-import { merge } from 'lodash-es';
+import { merge, uniq } from 'lodash-es';
 import assert from 'node:assert';
 import type {
   OpenAPIObject,
@@ -6,93 +6,166 @@ import type {
   SchemaObject,
   SchemaObjectType,
 } from 'openapi3-ts/oas31';
-import { camelcase } from 'stringcase';
 
 import {
-  followRef,
   isEmpty,
   isRef,
   joinSkipDigits,
   notRef,
-  parseRef,
   pascalcase,
   resolveRef,
+  snakecase,
 } from '@sdk-it/core';
 
+import { type Varient, findVarients } from './find-polymorphic-varients.ts';
+import { findUniqueSchemaName } from './find-unique-schema-name.ts';
+import { formatName } from './format-name.ts';
+import type { OurOpenAPIObject } from './operation.ts';
+
 export function fixSpec(
-  spec: OpenAPIObject,
-  schemas: Record<string, SchemaObject | ReferenceObject>,
+  spec: OurOpenAPIObject,
+  schemas: (SchemaObject | ReferenceObject)[],
   visited = new Set<string>(),
 ) {
-  for (const [name, schemaOrRef] of Object.entries(schemas)) {
-    const schema = resolveRef<SchemaObject>(spec, schemaOrRef);
-    if (isRef(schemaOrRef)) {
-      if (visited.has(schemaOrRef.$ref)) {
-        continue;
-      }
-      visited.add(schemaOrRef.$ref);
-    }
+  for (const schema of schemas) {
+    if (isRef(schema)) continue;
 
-    if (!isEmpty(schema.properties) && (schema.oneOf || schema.anyOf)) {
-      // fix invalid schema
-      console.log(`Fixing properties for ${name}`);
+    if (!isEmpty(schema.properties)) {
+      schema.type = 'object';
       delete schema.oneOf;
       delete schema.anyOf;
-      schema.type = 'object';
+      fixSpec(spec, Object.values(schema.properties), visited);
+    }
 
-      fixSpec(spec, schema.properties, visited);
+    if (!isEmpty(schema['x-properties'])) {
+      fixSpec(spec, Object.values(schema['x-properties']), visited);
     }
 
     if (!isEmpty(schema.items)) {
-      console.log(`Fixing items for ${name}`);
       delete schema.oneOf;
       delete schema.anyOf;
       schema.type = 'array';
-
-      fixSpec(spec, { $1: schema.items }, visited);
+      fixSpec(spec, [schema.items], visited);
+      const items = resolveRef<SchemaObject>(spec, schema.items);
+      if (Array.isArray(items.default)) {
+        schema.default ??= structuredClone(items.default);
+      }
+      delete items.default; // default should not be in items
     }
 
     if (!isEmpty(schema.anyOf) && !isEmpty(schema.oneOf)) {
       delete schema.anyOf;
     }
 
-    if (!isEmpty(schema.allOf)) {
-      console.log(`Fixing allOf for ${name} (${JSON.stringify(schema)})`);
-      const schemas = schema.allOf;
-      const refs = schemas.filter(isRef);
-      const nonrefs = schemas.filter(notRef);
-      const hasObjects = nonrefs.some((it) => it.type === 'object');
-      const hasOtherTypes = nonrefs.some(
-        (it) => it.type && it.type !== 'object',
-      );
-      if (hasObjects && hasOtherTypes) {
-        assert(false, `allOf ${name} must be an object`);
-      }
-      merge(
-        schema,
-        ...nonrefs,
-        ...refs.map((ref) => {
-          const schemas = { $1: followRef(spec, ref.$ref) };
-          fixSpec(spec, schemas, visited);
-          return schemas.$1;
-        }),
-      );
-      delete schema.allOf;
-    }
-
-    if (!isEmpty(schema.enum) && schema.enum.length === 1) {
-      schema.const = schema.enum[0];
+    if (isEmpty(schema.enum)) {
       delete schema.enum;
     }
 
-    if (schema.type === 'object' && !isEmpty(schema.properties)) {
-      fixSpec(spec, schema.properties, visited);
+    if (!isEmpty(schema.enum)) {
+      if (schema.enum.length === 1) {
+        schema.const = schema.enum[0];
+        delete schema.enum;
+      } else {
+        const valuesSet = new Set<string>();
+        const valuesList = [];
+        for (const it of schema.enum) {
+          const formattedValue = formatName(snakecase(formatName(it)));
+          if (!valuesSet.has(formattedValue)) {
+            valuesSet.add(formattedValue);
+            valuesList.push(it);
+          }
+        }
+        schema.enum = valuesList;
+      }
+      delete schema.allOf;
+    }
+
+    if (schema.const !== undefined) {
+      schema.default = schema.const;
+    }
+
+    if (!isEmpty(schema.allOf)) {
+      const schemas = schema.allOf;
+      // if (schemas.length === 1) {
+      //   fixSpec(spec, [schemas[0]], visited);
+      //   Object.assign(schema, schemas[0]);
+      //   delete schema.allOf;
+      // } else {
+      // }
+      const resolved = schemas.map((it) => resolveRef<SchemaObject>(spec, it));
+      const hasObjects = resolved.some((it) => it.type === 'object');
+      const hasOtherTypes = resolved.some(
+        (it) => it.type && it.type !== 'object',
+      );
+      if (hasObjects && hasOtherTypes) {
+        assert(false, `allOf must be an object`);
+      }
+      merge(
+        schema,
+        ...resolved.map((it) => {
+          fixSpec(spec, [it], visited);
+          return it;
+        }),
+      );
+      delete schema.allOf;
+    } else {
+      delete schema.allOf;
+    }
+
+    if (
+      schema.type === 'object' &&
+      isEmpty(schema.properties) &&
+      typeof schema.additionalProperties === 'object' &&
+      !isEmpty(schema.additionalProperties) &&
+      notRef(schema.additionalProperties) &&
+      !isEmpty(schema.additionalProperties.properties)
+    ) {
+      // additionalProperties is of type object and properties is empty
+      fixSpec(
+        spec,
+        Object.values(schema.additionalProperties.properties),
+        visited,
+      );
+      Object.assign(schema, schema.additionalProperties);
+      delete schema.additionalProperties;
     }
 
     for (const kind of ['oneOf', 'anyOf'] as const) {
       if (!isEmpty(schema[kind])) {
-        for (const itemOrRef of schema[kind]) {
-          fixSpec(spec, { $1: itemOrRef }, visited);
+        delete schema.type; // type is not allowed with oneOf or anyOf
+        fixSpec(spec, schema[kind], visited);
+        if (isEmpty(schema[kind])) {
+          // fixSpec can remove oneOf or anyOf if it has no items so we need to check again
+          // after fixing
+          continue;
+        }
+
+        let enumSchemaIndex = -1;
+        const enumValues: string[] = [];
+        for (let idx = 0; idx < schema[kind].length; idx++) {
+          // for (const idx in schema[kind]) {
+          const item = schema[kind][idx];
+          // just handle non ref for now
+          if (notRef(item) && item.type === 'string') {
+            // if enum equal one it'd already have been converted to const so check for more than one
+            if (item.enum && item.enum.length > 1) {
+              // foundEnum = true;
+              enumValues.push(...item.enum);
+              if (enumSchemaIndex === -1) {
+                enumSchemaIndex = idx;
+              }
+            }
+          }
+        }
+        if (enumSchemaIndex !== -1) {
+          const enumSchema = schema[kind][enumSchemaIndex];
+          if (notRef(enumSchema)) {
+            enumSchema.enum = uniq(enumValues);
+          }
+          // delete the other schemas that have enum
+          schema[kind] = schema[kind].filter(
+            (it, idx) => idx === enumSchemaIndex || isRef(it),
+          );
         }
         const otherTypes = schema[kind].filter(
           (it) => resolveRef<SchemaObject>(spec, it).type !== 'null',
@@ -102,8 +175,8 @@ export function fixSpec(
           delete schema[kind];
           continue;
         }
-        const { varients } = findVarients(spec, schema[kind]);
-        schema['x-varients'] = varients;
+
+        schema['x-varients'] = findVarients(spec, schema[kind]);
       } else {
         delete schema[kind];
       }
@@ -112,20 +185,24 @@ export function fixSpec(
 }
 
 type Refs = { name: string; value: SchemaObject }[];
+
 export function expandSpec(
-  spec: OpenAPIObject,
+  spec: OurOpenAPIObject,
   schemas: Record<string, SchemaObject | ReferenceObject>,
   refs: Refs,
 ) {
-  for (const [name, schemaOrRef] of Object.entries(schemas)) {
-    const schema = resolveRef<SchemaObject>(spec, schemaOrRef);
-    if (schema.type === 'object') {
+  for (const [name, schema] of Object.entries(schemas)) {
+    if (isRef(schema)) continue;
+
+    if (!isEmpty(schema.properties)) {
       if (!isEmpty(schema.oneOf)) {
         for (const oneOfIdx in schema.oneOf) {
           const oneOf = schema.oneOf[oneOfIdx];
           if (isRef(oneOf)) continue;
-          if (!isEmpty(oneOf.required) && schema.properties) {
-            schema.oneOf[oneOfIdx] = schema.properties[oneOf.required[0]];
+          for (const key of ['properties', 'x-properties'] as const) {
+            if (!isEmpty(oneOf.required) && schema[key]) {
+              schema.oneOf[oneOfIdx] = schema[key][oneOf.required[0]];
+            }
           }
         }
         delete schema.type;
@@ -135,23 +212,41 @@ export function expandSpec(
       if (schema.additionalProperties) {
         continue;
       }
-      if (isEmpty(schema.properties)) {
-        continue;
-      }
-      refs.push({ name, value: schema });
-
-      for (const [propName, value] of Object.entries(schema.properties)) {
+      // refs.push({ name, value: schema });
+      spec.components.schemas[name] = schema;
+      const properties = schema.properties as Record<
+        string,
+        SchemaObject | ReferenceObject
+      >;
+      for (const [propName, value] of Object.entries(properties)) {
         if (isRef(value)) continue;
 
-        const refName = pascalcase(
-          joinSkipDigits([name, propName.replace('[]', '')], ' '),
-        );
-        if (!isEmpty(value.properties)) {
-          refs.push({ name: refName, value: value });
+        const fixedPropName = propName.replace('[]', '');
+        // this neeeds inheritance logic first otherwise it'll create class mess
+        // const refName = findUniqueSchemaName(
+        //   spec,
+        //   propName,
+        //   ['Property', 'Field', 'Attribute'],
+        //   pascalcase(joinSkipDigits([name, fixedPropName], ' ')),
+        // );
+        const refName = pascalcase(joinSkipDigits([name, fixedPropName], ' '));
 
-          schema.properties[propName] = {
-            $ref: `#/components/schemas/${refName}`,
-          };
+        if (!isEmpty(value.properties)) {
+          // refs.push({ name: refName, value: value });
+          spec.components.schemas[refName] = value;
+          properties[propName] = { $ref: `#/components/schemas/${refName}` };
+          expandSpec(spec, { [refName]: value }, refs);
+        } else if (!isEmpty(value.oneOf)) {
+          expandOneOf(spec, name, value, refs, 'oneOf');
+
+          spec.components.schemas[refName] = value;
+          properties[propName] = { $ref: `#/components/schemas/${refName}` };
+          expandSpec(spec, { [refName]: value }, refs);
+        } else if (!isEmpty(value.anyOf)) {
+          expandOneOf(spec, name, value, refs, 'anyOf');
+
+          spec.components.schemas[refName] = value;
+          properties[propName] = { $ref: `#/components/schemas/${refName}` };
           expandSpec(spec, { [refName]: value }, refs);
         } else {
           expandSpec(spec, { [refName]: value }, refs);
@@ -160,33 +255,96 @@ export function expandSpec(
 
       continue;
     }
+    if (!isEmpty(schema['x-properties'])) {
+      // refs.push({ name, value: schema });
+      spec.components.schemas[name] = schema;
+
+      const properties = schema['x-properties'] as Record<
+        string,
+        SchemaObject | ReferenceObject
+      >;
+      for (const [propName, value] of Object.entries(properties)) {
+        if (isRef(value)) continue;
+
+        const fixedPropName = propName.replace('[]', '');
+        // this neeeds inheritance logic first otherwise it'll create class mess
+        // const refName = findUniqueSchemaName(
+        //   spec,
+        //   propName,
+        //   ['Property', 'Field', 'Attribute'],
+        //   pascalcase(joinSkipDigits([name, fixedPropName], ' ')),
+        // );
+        const refName = pascalcase(joinSkipDigits([name, fixedPropName], ' '));
+
+        if (!isEmpty(value.properties)) {
+          // refs.push({ name: refName, value: value });
+          spec.components.schemas[refName] = value;
+          properties[propName] = { $ref: `#/components/schemas/${refName}` };
+          expandSpec(spec, { [refName]: value }, refs);
+        } else if (!isEmpty(value.oneOf)) {
+          expandOneOf(spec, name, value, refs, 'oneOf');
+
+          spec.components.schemas[refName] = value;
+          properties[propName] = { $ref: `#/components/schemas/${refName}` };
+          expandSpec(spec, { [refName]: value }, refs);
+        } else if (!isEmpty(value.anyOf)) {
+          expandOneOf(spec, name, value, refs, 'anyOf');
+
+          spec.components.schemas[refName] = value;
+          properties[propName] = { $ref: `#/components/schemas/${refName}` };
+          expandSpec(spec, { [refName]: value }, refs);
+        } else {
+          expandSpec(spec, { [refName]: value }, refs);
+        }
+      }
+      continue;
+    }
 
     if (schema.type === 'array') {
       if (isRef(schema.items)) continue;
-      const refName = `${name}Entry`;
-      if (schema.items?.type === 'object') {
-        refs.push({ name: refName, value: schema.items });
+      if (isEmpty(schema.items)) continue;
+      const refName = findUniqueSchemaName(spec, name, ['Item', 'Entry']);
+      if (schema.items.type === 'object') {
+        // const refName = findUniqueSchemaName(spec, name, ['Object']);
+        // refs.push({ name: refName, value: schema.items });
+        spec.components.schemas[refName] = schema.items;
         expandSpec(spec, { [refName]: schema.items }, refs);
         schema.items = { $ref: `#/components/schemas/${refName}` };
         continue;
       }
-      if (schema.items && !isEmpty(schema.items.oneOf)) {
-        expandOneOf(spec, refName, schema.items, refs);
+      if (schema.items.type === 'array') {
+        // for nested arrays, we need to move the last nested items only
+        // so {type: 'array', items: { type: 'array', items: { type: 'object', properties: ... } }}
+        // only object schema is moved while the array hirarchy is intact.
+        expandSpec(spec, { [refName]: schema.items }, refs);
+        continue;
+      }
+      if (!isEmpty(schema.items.oneOf)) {
+        expandOneOf(spec, refName, schema.items, refs, 'oneOf');
+        continue;
+      }
+      if (!isEmpty(schema.items.anyOf)) {
+        expandOneOf(spec, refName, schema.items, refs, 'anyOf');
         continue;
       }
     }
     if (!isEmpty(schema.oneOf)) {
-      expandOneOf(spec, name, schema, refs);
+      expandOneOf(spec, name, schema, refs, 'oneOf');
+      continue;
+    }
+    if (!isEmpty(schema.anyOf)) {
+      expandOneOf(spec, name, schema, refs, 'anyOf');
       continue;
     }
   }
 }
 
 function expandOneOf(
-  spec: OpenAPIObject,
+  spec: OurOpenAPIObject,
   name: string,
   schema: SchemaObject,
   refs: Refs,
+  kind: 'oneOf' | 'anyOf',
 ) {
   const varients = schema['x-varients'] as Varient[];
   if (!varients || varients.length === 0) {
@@ -195,224 +353,30 @@ function expandOneOf(
     );
   }
   varients.forEach((varient) => {
-    const varientSchema = schema.oneOf![varient.position];
+    const varientSchema = schema[kind]![varient.position];
     if (isRef(varientSchema)) return;
-    const refName = pascalcase(`${name} ${varient.name}`);
-    // refs.push({ name: refName, value: varientSchema });
-    expandSpec(spec, { [refName]: varientSchema }, refs);
+    const refName = findUniqueSchemaName(
+      spec,
+      pascalcase(`${name} ${varient.name}`),
+      ['Varient'],
+    );
+
+    if (varientSchema.type === 'object') {
+      expandSpec(spec, { [refName]: varientSchema }, refs);
+      schema[kind]![varient.position] = {
+        $ref: `#/components/schemas/${refName}`,
+      };
+    } else {
+      expandSpec(spec, { [refName]: varientSchema }, refs);
+    }
+
+    // const referable = (['array', 'object'] as SchemaObjectType[]).some((type) =>
+    //   coerceTypes(varientSchema).includes(type),
+    // );
+    // if (!referable) {
+    //   return;
+    // }
   });
-}
-
-export type Varient = {
-  name: string;
-  type: string;
-  position: number;
-  source?: string;
-  static?: boolean;
-  subtype?: string;
-};
-
-function findVarients(
-  spec: OpenAPIObject,
-  schemas: (SchemaObject | ReferenceObject)[],
-) {
-  // todo: take a look at CompoundFilterFilters at the end
-  const varients: { name: string; position: number; type: string }[] = [];
-  if (schemas.length === 0) {
-    return { varients: [], discriminatorProp: undefined };
-  }
-
-  const schemasByType = schemas.reduce<
-    Partial<{
-      [K in SchemaObjectType | '$ref']: K extends SchemaObjectType
-        ? { schema: SchemaObject; position: number }[]
-        : { schema: ReferenceObject; position: number }[];
-    }>
-  >((acc, schema, index) => {
-    if (isRef(schema)) {
-      acc['$ref'] ??= [];
-      acc['$ref'].push({ schema, position: index });
-      return acc;
-    }
-    if (schema.const) {
-      switch (typeof schema.const) {
-        case 'string':
-          acc.string ??= [];
-          acc.string.push({ schema, position: index });
-          return acc;
-        case 'number':
-          acc.number ??= [];
-          acc.number.push({ schema, position: index });
-          return acc;
-        case 'boolean':
-          acc.boolean ??= [];
-          acc.boolean.push({ schema, position: index });
-          return acc;
-        default:
-          throw new Error(
-            `Unsupported const type: ${typeof schema.const} for ${schema.const}`,
-          );
-      }
-    }
-    const [type] = coerceTypes(schema, false);
-    acc[type] ??= [];
-    acc[type].push({ schema, position: index });
-    return acc;
-  }, {});
-
-  if (!isEmpty(schemasByType.string)) {
-    for (const { schema, position } of schemasByType.string) {
-      if (schema.format) {
-        varients.push({ name: schema.format, type: 'string', position });
-        continue;
-      }
-      if (schema.const !== undefined) {
-        varients.push({ name: schema.const, type: 'string', position });
-        continue;
-      }
-      if (!isEmpty(schema.enum)) {
-        for (const enumValue of schema.enum) {
-          if (enumValue === '') {
-            varients.push({ name: 'empty', type: 'string', position });
-            continue;
-          }
-          varients.push({ name: enumValue, type: 'string', position });
-        }
-        continue;
-      }
-      varients.push({ name: 'text', type: 'string', position });
-    }
-    return { varients, discriminatorProp: undefined };
-  }
-
-  if (!isEmpty(schemasByType.number) || !isEmpty(schemasByType.integer)) {
-    const schemas = [
-      ...(schemasByType.number ?? []),
-      ...(schemasByType.integer ?? []),
-    ];
-    for (const { schema, position } of schemas) {
-      if (schema.format === 'int64') {
-        varients.push({ name: 'integer', type: 'number', position });
-        continue;
-      }
-      if (schema.format === 'float') {
-        varients.push({ name: 'float', type: 'number', position });
-        continue;
-      }
-      if (schema.format === 'double') {
-        varients.push({ name: 'double', type: 'number', position });
-        continue;
-      }
-      varients.push({ name: 'number', type: 'number', position });
-    }
-    return { varients, discriminatorProp: undefined };
-  }
-
-  if (!isEmpty(schemasByType.array)) {
-    for (const { schema, position } of schemasByType.array) {
-      const items = schema.items;
-      if (!items) {
-        varients.push({ name: 'any', type: 'array', position });
-        continue;
-      }
-      if (isRef(items)) {
-        const { model } = parseRef(items.$ref);
-        varients.push({ name: camelcase(model), type: 'array', position });
-        continue;
-      }
-      const [type] = coerceTypes(items);
-      if (type === 'string') {
-        varients.push({ name: 'text', type: 'array', position });
-        continue;
-      }
-      if (type === 'object') {
-        varients.push({ name: 'object', type: 'array', position });
-        continue;
-      }
-      varients.push({ name: type, type: 'array', position });
-    }
-    return { varients, discriminatorProp: undefined };
-  }
-
-  if (!isEmpty(schemasByType.$ref)) {
-    for (const { schema, position } of schemasByType.$ref) {
-      const { model } = parseRef(schema.$ref);
-      varients.push({ name: camelcase(model), type: 'object', position });
-    }
-    return { varients, discriminatorProp: undefined };
-  }
-
-  const matrix: Varient[][] = [];
-  for (const { schema, position } of schemasByType.object ?? []) {
-    if (schema.additionalProperties || isEmpty(schema.properties)) {
-      continue;
-    }
-
-    const list = Object.entries(schema.properties).map(
-      ([name, schemaOrRef]) => {
-        const schema = resolveRef<SchemaObject>(spec, schemaOrRef);
-        name = schema.const ?? schema.enum?.[0];
-        if (schema.type === 'string') {
-          return {
-            static: true,
-            source: name,
-            type: 'object',
-            subtype: 'string',
-            name: name,
-            position,
-          } satisfies Varient;
-        }
-        return {
-          type: 'object',
-          subtype: 'string',
-          source: name,
-          name: name,
-          position,
-        } satisfies Varient;
-      },
-    );
-    matrix.push([...new Set(list)]);
-  }
-  if (matrix.length === 0) {
-    console.dir(schemasByType, { depth: null });
-    throw new Error(
-      'No valid objects found in anyOf. Please check your OpenAPI spec.',
-    );
-  }
-
-  let discriminatorProp: Varient | undefined;
-  const firstRow = matrix[0];
-  for (const prop of firstRow) {
-    // check if this prop is exists across all rows
-    const existsCrossAllRows = matrix.every((row) => row.includes(prop));
-    if (existsCrossAllRows) {
-      discriminatorProp = prop;
-      break;
-    }
-  }
-  for (const row of matrix) {
-    for (const prop of row) {
-      // check if this prop is unique across all rows
-      const isUnique = matrix.every((it) =>
-        it === row ? true : !it.some((p) => p.name === prop.name),
-      );
-      if (isUnique) {
-        varients.push(prop);
-        break;
-      }
-    }
-  }
-
-  if (varients.length !== matrix.length) {
-    console.warn(`Varients: ${JSON.stringify(varients)}`);
-    console.warn(`Matrix: ${JSON.stringify(matrix)}`);
-    console.dir(schemasByType, { depth: null });
-    throw new Error(
-      `Discriminator prop "${discriminatorProp}" does not cover all varients, some varients might be missing.`,
-    );
-  }
-
-  return { discriminatorProp, varients };
 }
 
 export function coerceTypes(
