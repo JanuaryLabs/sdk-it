@@ -1,6 +1,4 @@
 import { google } from '@ai-sdk/google';
-import { groq } from '@ai-sdk/groq';
-import { openai } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import {
   type CoreMessage,
@@ -11,10 +9,10 @@ import {
   tool,
 } from 'ai';
 import chalk from 'chalk';
-import { type OpenAPIObject } from 'openapi3-ts/oas31';
 import { z } from 'zod';
 
 import { distillRef } from '@sdk-it/core';
+import type { OurOpenAPIObject } from '@sdk-it/spec';
 import { TypeScriptGenerator } from '@sdk-it/typescript';
 
 import { database } from './db.js';
@@ -26,7 +24,7 @@ import {
 } from './operation-utils.js';
 
 export function talk(
-  spec: OpenAPIObject,
+  spec: OurOpenAPIObject,
   conversationId: string,
   messages: CoreMessage[],
 ) {

@@ -1,6 +1,7 @@
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { toReadme } from '@sdk-it/readme';
+import type { OurOpenAPIObject } from '@sdk-it/spec';
 import type { TypeScriptGenerator } from '@sdk-it/typescript';
 
 import db from './db';
@@ -9,7 +10,7 @@ import openai from './openai';
 export const VECTOR_STORE_ID = 'vs_6811cd14ce408191b504bef45808aed1';
 
 export async function vectorise(
-  spec: OpenAPIObject,
+  spec: OurOpenAPIObject,
   generator: TypeScriptGenerator,
 ) {
   // await openai.vectorStores.files.retrieve(VECTOR_STORE_ID);

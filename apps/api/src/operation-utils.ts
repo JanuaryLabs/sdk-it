@@ -1,10 +1,8 @@
-import type { OpenAPIObject } from 'openapi3-ts/oas31';
+import { type OurOpenAPIObject, forEachOperation } from '@sdk-it/spec';
 
-import { forEachOperation } from '@sdk-it/spec';
-
-export function toOperations(spec: OpenAPIObject) {
+export function toOperations(spec: OurOpenAPIObject) {
   return forEachOperation(
-    { spec },
+    spec,
     (entry, operation) => [entry, operation] as const,
   );
 }

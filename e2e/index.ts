@@ -40,6 +40,51 @@ function runCommand(title: string, command: string, memory?: number) {
 
 const specs = [
   {
+    spec: 'https://app.stainless.com/api/spec/documented/openai/openapi.documented.yml',
+    name: 'openai',
+    flags: ['--output-type=status', '--error-as-value=true'],
+  },
+  {
+    spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
+    name: 'discord',
+    flags: ['--error-as-value=true', '--output-type=status'],
+  },
+  {
+    spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
+    name: 'discord',
+    flags: ['--error-as-value=false', '--output-type=status'],
+  },
+  {
+    name: 'AppStoreConnect',
+    spec: 'https://raw.githubusercontent.com/EvanBacon/App-Store-Connect-OpenAPI-Spec/refs/heads/main/specs/latest.json',
+    flags: [],
+  },
+  {
+    name: 'Box',
+    spec: 'https://raw.githubusercontent.com/box/box-openapi/refs/heads/main/openapi.json',
+    flags: [],
+  },
+  {
+    spec: 'https://app.stainless.com/api/spec/documented/openai/openapi.documented.yml',
+    name: 'openai',
+    flags: ['--output-type=status', '--error-as-value=false'],
+  },
+  {
+    spec: 'https://app.stainless.com/api/spec/documented/openai/openapi.documented.yml',
+    name: 'openai',
+    flags: ['--output-type=default', '--error-as-value=true'],
+  },
+  {
+    spec: 'https://app.stainless.com/api/spec/documented/openai/openapi.documented.yml',
+    name: 'openai',
+    flags: ['--output-type=default', '--error-as-value=false'],
+  },
+  {
+    name: 'Turso',
+    spec: 'https://raw.githubusercontent.com/tursodatabase/turso-docs/refs/heads/main/api-reference/openapi.json',
+    flags: [],
+  },
+  {
     name: 'oto',
     spec: join(process.cwd(), '.specs', 'oto.json'),
     flags: ['--readme=false', '--error-as-value=true'],
@@ -78,59 +123,14 @@ const specs = [
     flags: ['--output-type=status', '--error-as-value=true'],
   },
   {
-    name: 'Box',
-    spec: 'https://raw.githubusercontent.com/box/box-openapi/refs/heads/main/openapi.json',
-    flags: [],
-  },
-  {
-    name: 'AppStoreConnect',
-    spec: 'https://raw.githubusercontent.com/EvanBacon/App-Store-Connect-OpenAPI-Spec/refs/heads/main/specs/latest.json',
-    flags: [],
-  },
-  {
-    name: 'Turso',
-    spec: 'https://raw.githubusercontent.com/tursodatabase/turso-docs/refs/heads/main/api-reference/openapi.json',
-    flags: [],
-  },
-  {
     name: 'spotify',
     spec: 'https://developer.spotify.com/reference/web-api/open-api-schema.yaml',
     flags: [],
   },
   {
-    spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-    name: 'openai',
-    flags: ['--output-type=status', '--error-as-value=true'],
-  },
-  {
-    spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-    name: 'openai',
-    flags: ['--output-type=status', '--error-as-value=false'],
-  },
-  {
-    spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-    name: 'openai',
-    flags: ['--output-type=default', '--error-as-value=true'],
-  },
-  {
-    spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-    name: 'openai',
-    flags: ['--output-type=default', '--error-as-value=false'],
-  },
-  {
     spec: 'https://raw.githubusercontent.com/figma/rest-api-spec/refs/heads/main/openapi/openapi.yaml',
     name: 'figma',
     flags: ['--output-type=status'],
-  },
-  {
-    spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
-    name: 'discord',
-    flags: ['--error-as-value=true', '--output-type=status'],
-  },
-  {
-    spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
-    name: 'discord',
-    flags: ['--error-as-value=false', '--output-type=status'],
   },
 ];
 

@@ -51,13 +51,33 @@ function runCommand(
 
 const specs = [
   {
-    name: 'oto',
-    spec: join(process.cwd(), '.specs', 'oto.json'),
+    spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
+    name: 'discord',
+    flags: [],
+  },
+  {
+    name: 'AppStoreConnect',
+    spec: 'https://raw.githubusercontent.com/EvanBacon/App-Store-Connect-OpenAPI-Spec/refs/heads/main/specs/latest.json',
     flags: [],
   },
   {
     name: 'openstatus',
     spec: 'https://api.openstatus.dev/v1/openapi',
+    flags: [],
+  },
+  {
+    name: 'Box',
+    spec: 'https://raw.githubusercontent.com/box/box-openapi/refs/heads/main/openapi.json',
+    flags: [],
+  },
+  {
+    name: 'openai',
+    spec: 'https://app.stainless.com/api/spec/documented/openai/openapi.documented.yml',
+    flags: [],
+  },
+  {
+    name: 'oto',
+    spec: join(process.cwd(), '.specs', 'oto.json'),
     flags: [],
   },
   {
@@ -99,26 +119,6 @@ const specs = [
     spec: 'https://raw.githubusercontent.com/tursodatabase/turso-docs/refs/heads/main/api-reference/openapi.json',
     flags: [],
   },
-  {
-    spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-    name: 'openai',
-    flags: [],
-  },
-  // {
-  //   name: 'Box',
-  //   spec: 'https://raw.githubusercontent.com/box/box-openapi/refs/heads/main/openapi.json',
-  //   flags: [],
-  // },
-  // {
-  //   name: 'AppStoreConnect',
-  //   spec: 'https://raw.githubusercontent.com/EvanBacon/App-Store-Connect-OpenAPI-Spec/refs/heads/main/specs/latest.json',
-  //   flags: [],
-  // },
-  // {
-  //   spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
-  //   name: 'discord',
-  //   flags: [],
-  // },
 ];
 
 for (const { spec, name, flags } of specs) {

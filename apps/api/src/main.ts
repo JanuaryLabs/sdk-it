@@ -19,7 +19,7 @@ import { z } from 'zod';
 
 import { pascalcase } from '@sdk-it/core';
 import * as tsDart from '@sdk-it/dart';
-import { forEachOperation, loadSpec } from '@sdk-it/spec';
+import { augmentSpec, forEachOperation, loadSpec } from '@sdk-it/spec';
 import { loadRemote } from '@sdk-it/spec';
 import * as tsSdk from '@sdk-it/typescript';
 
@@ -37,7 +37,7 @@ app.post('/', async (c) => {
   const { messages, id } = await c.req.json();
   const { specUrl } = c.req.query();
   const spec = await loadSpec(specUrl);
-  return talk(spec, id, messages).toDataStreamResponse();
+  return talk(augmentSpec({ spec }), id, messages).toDataStreamResponse();
 });
 
 const octokit = new Octokit({
@@ -327,12 +327,14 @@ app.get(
   async (c) => {
     const { page, pageSize } = c.var.input;
 
-    const spec = await loadSpec(
-      // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-      join(cwd(), '.specs', 'hetzner.json'),
-    );
+    const spec = augmentSpec({
+      spec: await loadSpec(
+        // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
+        join(cwd(), '.specs', 'hetzner.json'),
+      ),
+    });
 
-    const operations = forEachOperation({ spec }, (entry, operation) => {
+    const operations = forEachOperation(spec, (entry, operation) => {
       return {
         operationId: operation.operationId,
         method: entry.method.toUpperCase(),

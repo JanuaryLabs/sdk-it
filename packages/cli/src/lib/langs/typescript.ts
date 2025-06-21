@@ -94,7 +94,13 @@ const command = new Command('typescript')
       });
       return;
     }
-    const spec = augmentSpec({ spec: await loadSpec(options.spec) }, true);
+    const spec = augmentSpec(
+      {
+        spec: await loadSpec(options.spec),
+        responses: { flattenErrorResponses: true },
+      },
+      false,
+    );
     if (options.output) {
       await emitLocal(spec, { ...options, output: options.output });
     }

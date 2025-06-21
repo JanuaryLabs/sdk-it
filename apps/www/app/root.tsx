@@ -121,10 +121,29 @@ export async function loader({ request }: { request: Request }) {
           },
         },
         ...partialSpec,
+        components: {
+          ...partialSpec?.components,
+          schemas: {
+            ...partialSpec?.components?.schemas,
+            FileUploadRequest: {
+              type: 'object',
+              required: ['files'],
+              properties: {
+                files: {
+                  type: 'array',
+                  items: {
+                    type: 'string',
+                    format: 'binary',
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
     const [entry] = forEachOperation(
-      { spec: spec },
+      spec,
       (entry, operation) => [entry, operation] as const,
     );
     return processor.process(
@@ -464,17 +483,7 @@ console.log(result);`,
         },
         request: {
           'multipart/form-data': {
-            type: 'object',
-            required: ['files'],
-            properties: {
-              files: {
-                type: 'array',
-                items: {
-                  type: 'string',
-                  format: 'binary',
-                },
-              },
-            },
+            $ref: '#/components/schemas/FileUploadRequest',
           },
         },
       }),

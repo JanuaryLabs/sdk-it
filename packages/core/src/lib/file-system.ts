@@ -50,9 +50,14 @@ export type WriteContent = Record<
   null | string | { content: string; ignoreIfExists?: boolean }
 >;
 
-export type ReadFolderFn = (
-  folder: string,
-) => Promise<{ filePath: string; fileName: string; isFolder: boolean }[]>;
+export type ReadFolderFn = (folder: string) => Promise<
+  {
+    filePath: string;
+    fileName: string;
+    isFolder: boolean;
+    content?: string;
+  }[]
+>;
 export type Writer = (dir: string, contents: WriteContent) => Promise<void>;
 
 export async function writeFiles(dir: string, contents: WriteContent) {
@@ -99,7 +104,10 @@ export async function getFolderExports(
       continue;
     }
     if (file.isFolder) {
-      if (await exist(`${file.filePath}/index.ts`)) {
+      if (
+        (await exist(`${file.filePath}/index.ts`)) &&
+        (await readFile(`${file.filePath}/index.ts`, 'utf-8')) !== ''
+      ) {
         exports.push(
           `export * from './${file.fileName}/index${includeExtension ? '.ts' : ''}';`,
         );
@@ -157,9 +165,13 @@ export async function getFolderExportsV2(
       file.fileName !== `index.${options.extensions}` &&
       options.extensions.includes(getExt(file.fileName))
     ) {
-      exports.push(
-        `${options.exportSyntax} './${options.includeExtension ? file.fileName : file.fileName.replace(extname(file.fileName), '')}';`,
-      );
+      let name = options.includeExtension
+        ? file.fileName
+        : file.fileName.replace(extname(file.fileName), '');
+      if (name.startsWith('$')) {
+        name = `\\${name}`
+      }
+      exports.push(`${options.exportSyntax} './${name}';`);
     }
   }
   return exports.join('\n');
