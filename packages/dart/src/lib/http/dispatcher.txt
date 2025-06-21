@@ -57,7 +57,7 @@ class Dispatcher {
     config.url = uri.replace(queryParameters: queryParameters);
   }
 
-  Future<http.StreamedResponse> multipart(RequestConfig config) async {
+  Future<http.StreamedResponse> formdata(RequestConfig config) async {
     final modifiedConfig = interceptors.fold(
       config,
       (acc, interceptor) => interceptor.before(acc),
@@ -154,6 +154,28 @@ class Dispatcher {
 
     return request.send();
   }
+
+  Future<http.StreamedResponse> urlencoded(RequestConfig config) async {
+    final modifiedConfig = interceptors.fold(
+      config,
+      (acc, interceptor) => interceptor.before(acc),
+    );
+    _setParams(modifiedConfig);
+    _setQuery(modifiedConfig);
+    final request = http.Request(modifiedConfig.method, modifiedConfig.url);
+    _setHeaders(request, modifiedConfig, 'application/x-www-form-urlencoded');
+
+    // Convert body to URL-encoded string
+    final bodyMap = config.input.body;
+    request.body = bodyMap.entries
+        .map(
+          (entry) =>
+              '${Uri.encodeComponent(entry.key)}=${Uri.encodeComponent(entry.value.toString())}',
+        )
+        .join('&');
+
+    return request.send();
+  }
 }
 
 class Receiver {
@@ -163,9 +185,9 @@ class Receiver {
   dynamic _parse(http.Response response) {
     final contentTypeHeader = response.headers['content-type'];
     final parsed = parseContentType(contentTypeHeader);
-    if (parsed.type == 'application/json') {
+    if (parsed.type.startsWith('application/json')) {
       return jsonDecode(response.body);
-    } else if (parsed.type == 'text/plain') {
+    } else if (parsed.type.startsWith('text/')) {
       return response.body;
     } else if (parsed.type == 'application/octet-stream') {
       return response.bodyBytes;
@@ -174,11 +196,23 @@ class Receiver {
     }
   }
 
-  dynamic json(http.StreamedResponse stream) async {
+  Future<dynamic> json(http.StreamedResponse stream) async {
     if (stream.statusCode >= 200 && stream.statusCode < 300) {
       final response = await http.Response.fromStream(stream);
       return _parse(response);
     }
+    throw _handleError(stream);
+  }
+
+  Future<String> text(http.StreamedResponse stream) async {
+    if (stream.statusCode >= 200 && stream.statusCode < 300) {
+      final response = await http.Response.fromStream(stream);
+      return _parse(response);
+    }
+    throw _handleError(stream);
+  }
+
+  _handleError(http.StreamedResponse stream) {
     switch (stream.statusCode) {
       case 400:
         throw BadRequestError('');

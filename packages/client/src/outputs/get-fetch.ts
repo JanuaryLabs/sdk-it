@@ -1,11 +1,5 @@
-import { type ValidationError } from '../models/ValidationError.ts';
+import type * as models from '../index.ts';
 
-/**
- * Response for 200
- */
-export type GetFetchOutput = any;
+export type GetFetch = { [key: string]: any };
 
-/**
- * Bad Request
- */
-export type GetFetchOutput400 = ValidationError;
+export type GetFetch400 = models.ValidationError;

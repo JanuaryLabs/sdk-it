@@ -24,10 +24,7 @@ import {
 import { BadRequest } from '../http/response.ts';
 import * as http from '../http/response.ts';
 import * as publish from '../inputs/publish.ts';
-import {
-  type PostPublishOutput,
-  type PostPublishOutput400,
-} from '../outputs/post-publish.ts';
+import * as outputs from '../outputs/index.ts';
 import {
   CursorPagination,
   OffsetPagination,
@@ -37,7 +34,10 @@ import {
 export default {
   'POST /publish': {
     schema: publish.postPublishSchema,
-    output: [http.Ok<PostPublishOutput>, http.BadRequest<PostPublishOutput400>],
+    output: [
+      http.Ok<outputs.PostPublish>,
+      http.BadRequest<outputs.PostPublish400>,
+    ],
     toRequest(input: z.infer<typeof publish.postPublishSchema>) {
       return toRequest(
         'POST /publish',

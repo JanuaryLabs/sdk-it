@@ -3,9 +3,11 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "packages/client/src",
   "projectType": "library",
+  "implicitDependencies": ["@sdk-it/source"],
   "tags": [],
   "targets": {
     "build": {
+      "dependsOn": ["^client"],
       "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
       "options": {}

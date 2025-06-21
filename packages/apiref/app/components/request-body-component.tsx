@@ -1,7 +1,7 @@
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import React, { Fragment } from 'react';
 
-import { isEmpty } from '@sdk-it/core/ref.js';
+import { isEmpty } from '@sdk-it/core';
 import type { TunedRequestBody } from '@sdk-it/spec';
 
 import { Separator } from '../shadcn/separator';

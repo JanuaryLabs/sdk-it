@@ -24,10 +24,7 @@ import {
 import { BadRequest } from '../http/response.ts';
 import * as http from '../http/response.ts';
 import * as generate from '../inputs/generate.ts';
-import {
-  type PostGenerateOutput,
-  type PostGenerateOutput400,
-} from '../outputs/post-generate.ts';
+import * as outputs from '../outputs/index.ts';
 import {
   CursorPagination,
   OffsetPagination,
@@ -38,8 +35,8 @@ export default {
   'POST /generate': {
     schema: generate.postGenerateSchema,
     output: [
-      { type: http.Ok<PostGenerateOutput>, parser: chunked },
-      http.BadRequest<PostGenerateOutput400>,
+      { type: http.Ok<outputs.PostGenerate>, parser: chunked },
+      http.BadRequest<outputs.PostGenerate400>,
     ],
     toRequest(input: z.infer<typeof generate.postGenerateSchema>) {
       return toRequest(

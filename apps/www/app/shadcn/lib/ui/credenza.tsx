@@ -1,5 +1,7 @@
-'use client';
+import * as React from 'react';
 
+import { useIsMobile } from '../hooks/use-mobile';
+import { cn } from '../utils';
 import {
   Dialog,
   DialogClose,
@@ -20,9 +22,6 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from './drawer';
-import { useIsMobile } from '../hooks/use-mobile';
-import { cn } from '../utils';
-import * as React from 'react';
 
 interface BaseProps {
   children: React.ReactNode;
@@ -156,12 +155,12 @@ const CredenzaFooter = ({ className, children, ...props }: CredenzaProps) => {
 
 export {
   Credenza,
-  CredenzaTrigger,
+  CredenzaBody,
   CredenzaClose,
   CredenzaContent,
   CredenzaDescription,
+  CredenzaFooter,
   CredenzaHeader,
   CredenzaTitle,
-  CredenzaBody,
-  CredenzaFooter,
+  CredenzaTrigger,
 };

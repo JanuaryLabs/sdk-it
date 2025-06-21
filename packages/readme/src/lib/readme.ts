@@ -1,8 +1,7 @@
-import type { OpenAPIObject } from 'openapi3-ts/oas31';
-
 import { isEmpty } from '@sdk-it/core';
 import {
   type OperationEntry,
+  type OurOpenAPIObject,
   type TunedOperationObject,
   forEachOperation,
 } from '@sdk-it/spec';
@@ -10,7 +9,7 @@ import {
 import { PropEmitter } from './prop.emitter.ts';
 
 export function toReadme(
-  spec: OpenAPIObject,
+  spec: OurOpenAPIObject,
   generators: {
     generateSnippet: (
       entry: OperationEntry,
@@ -22,10 +21,8 @@ export function toReadme(
   const markdown: string[] = [];
   const propEmitter = new PropEmitter(spec);
 
-  forEachOperation({ spec }, (entry, operation) => {
+  forEachOperation(spec, (entry, operation) => {
     const { method, path, name } = entry;
-    spec.components ??= {};
-    spec.components.schemas ??= {};
     markdown.push(
       `#### ${name || operation.operationId} | ${`_${method.toUpperCase()} ${path}_`}`,
     );

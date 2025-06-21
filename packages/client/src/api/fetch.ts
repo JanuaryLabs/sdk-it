@@ -24,10 +24,7 @@ import {
 import { BadRequest } from '../http/response.ts';
 import * as http from '../http/response.ts';
 import * as fetch from '../inputs/fetch.ts';
-import {
-  type GetFetchOutput,
-  type GetFetchOutput400,
-} from '../outputs/get-fetch.ts';
+import * as outputs from '../outputs/index.ts';
 import {
   CursorPagination,
   OffsetPagination,
@@ -37,14 +34,14 @@ import {
 export default {
   'GET /fetch': {
     schema: fetch.getFetchSchema,
-    output: [http.Ok<GetFetchOutput>, http.BadRequest<GetFetchOutput400>],
+    output: [http.Ok<outputs.GetFetch>, http.BadRequest<outputs.GetFetch400>],
     toRequest(input: z.infer<typeof fetch.getFetchSchema>) {
       return toRequest(
         'GET /fetch',
-        json(input, {
+        empty(input, {
           inputHeaders: [],
-          inputQuery: [],
-          inputBody: ['url'],
+          inputQuery: ['url'],
+          inputBody: [],
           inputParams: [],
         }),
       );

@@ -1,14 +1,8 @@
-import { type ValidationError } from '../models/ValidationError.ts';
+import type * as models from '../index.ts';
 
-/**
- * Response for 200
- */
-export type PostPublishOutput = {
+export type PostPublish = {
   message: 'SDK published successfully';
   specUrl: string;
 };
 
-/**
- * Bad Request
- */
-export type PostPublishOutput400 = ValidationError;
+export type PostPublish400 = models.ValidationError;

@@ -1,14 +1,8 @@
-import { type ValidationError } from '../models/ValidationError.ts';
+import type * as models from '../index.ts';
 
-/**
- * Response for 200
- */
-export type GetOperationsOutput = {
+export type GetOperations = {
   operations: string[];
   pagination: { hasNextPage: boolean; hasPreviousPage: boolean };
 };
 
-/**
- * Bad Request
- */
-export type GetOperationsOutput400 = ValidationError;
+export type GetOperations400 = models.ValidationError;

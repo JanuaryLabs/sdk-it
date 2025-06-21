@@ -24,10 +24,7 @@ import {
 import { BadRequest } from '../http/response.ts';
 import * as http from '../http/response.ts';
 import * as operations from '../inputs/operations.ts';
-import {
-  type GetOperationsOutput,
-  type GetOperationsOutput400,
-} from '../outputs/get-operations.ts';
+import * as outputs from '../outputs/index.ts';
 import {
   CursorPagination,
   OffsetPagination,
@@ -38,16 +35,16 @@ export default {
   'GET /operations': {
     schema: operations.getOperationsSchema,
     output: [
-      http.Ok<GetOperationsOutput>,
-      http.BadRequest<GetOperationsOutput400>,
+      http.Ok<outputs.GetOperations>,
+      http.BadRequest<outputs.GetOperations400>,
     ],
     toRequest(input: z.infer<typeof operations.getOperationsSchema>) {
       return toRequest(
         'GET /operations',
-        json(input, {
+        empty(input, {
           inputHeaders: [],
-          inputQuery: [],
-          inputBody: ['page', 'pageSize'],
+          inputQuery: ['page', 'pageSize'],
+          inputBody: [],
           inputParams: [],
         }),
       );

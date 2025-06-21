@@ -1,11 +1,5 @@
-import { type ValidationError } from '../models/ValidationError.ts';
+import type * as models from '../index.ts';
 
-/**
- * OK
- */
-export type PostAugmentOutput = unknown;
+export type PostAugment = { [key: string]: any };
 
-/**
- * Bad Request
- */
-export type PostAugmentOutput400 = ValidationError;
+export type PostAugment400 = models.ValidationError;

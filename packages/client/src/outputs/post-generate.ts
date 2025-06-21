@@ -1,11 +1,5 @@
-import { type ValidationError } from '../models/ValidationError.ts';
+import type * as models from '../index.ts';
 
-/**
- * Response for 200
- */
-export type PostGenerateOutput = ReadableStream;
+export type PostGenerate = string;
 
-/**
- * Bad Request
- */
-export type PostGenerateOutput400 = ValidationError;
+export type PostGenerate400 = models.ValidationError;

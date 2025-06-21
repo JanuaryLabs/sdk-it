@@ -1,16 +1,10 @@
-import { type ValidationError } from '../models/ValidationError.ts';
+import type * as models from '../index.ts';
 
-/**
- * Response for 200
- */
-export type PostPlaygroundOutput = {
+export type PostPlayground = {
   url: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml';
   title: string;
   name: string;
   clientName: string;
 };
 
-/**
- * Bad Request
- */
-export type PostPlaygroundOutput400 = ValidationError;
+export type PostPlayground400 = models.ValidationError;

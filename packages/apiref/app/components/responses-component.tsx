@@ -39,7 +39,9 @@ const ContentTypeDropdown: React.FC<ResponseTypesProps> = ({
 }) => {
   // If there is only one content type, just render it without a dropdown
   if (contentTypes.length === 1) {
-    return <span className="text-muted-foreground text-xs">{contentTypes[0]}</span>;
+    return (
+      <span className="text-muted-foreground text-xs">{contentTypes[0]}</span>
+    );
   }
 
   return (

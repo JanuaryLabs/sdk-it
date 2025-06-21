@@ -1,0 +1,565 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SDK-IT API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Same host"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Local Server"
+    }
+  ],
+  "security": [
+    {
+      "bearer": []
+    }
+  ],
+  "paths": {
+    "/publish": {
+      "post": {
+        "operationId": "postPublish",
+        "parameters": [],
+        "tags": [
+          "publish"
+        ],
+        "description": "",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostPublishInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response for 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostPublishOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostPublishOutput400"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/augment": {
+      "post": {
+        "operationId": "postAugment",
+        "parameters": [],
+        "tags": [
+          "augment"
+        ],
+        "description": "Annotate the spec with additional information like code snippets, pagination, descriptions, examples, etc.\nusing LLM.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostAugmentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostAugmentOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostAugmentOutput400"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fetch": {
+      "get": {
+        "operationId": "getFetch",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "url",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "tags": [
+          "fetch"
+        ],
+        "description": "",
+        "requestBody": {
+          "content": {
+            "application/empty": {
+              "schema": {
+                "$ref": "#/components/schemas/GetFetchInput"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "description": "Response for 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetFetchOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetFetchOutput400"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/generate": {
+      "post": {
+        "operationId": "postGenerate",
+        "parameters": [],
+        "tags": [
+          "generate"
+        ],
+        "description": "",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/PostGenerateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response for 200",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostGenerateOutput"
+                }
+              }
+            },
+            "headers": {
+              "Transfer-Encoding": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "chunked"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostGenerateOutput400"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playground": {
+      "post": {
+        "operationId": "postPlayground",
+        "parameters": [],
+        "tags": [
+          "playground"
+        ],
+        "description": "",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/PostPlaygroundInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response for 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostPlaygroundOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostPlaygroundOutput400"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/operations": {
+      "get": {
+        "operationId": "getOperations",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "tags": [
+          "operations"
+        ],
+        "description": "",
+        "requestBody": {
+          "content": {
+            "application/empty": {
+              "schema": {
+                "$ref": "#/components/schemas/GetOperationsInput"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "description": "Response for 200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetOperationsOutput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetOperationsOutput400"
+                }
+              }
+            }
+          }
+        },
+        "x-pagination": {
+          "type": "page",
+          "pageNumberParamName": "page",
+          "pageNumberKeyword": "page",
+          "pageSizeParamName": "pageSize",
+          "pageSizeKeyword": "pageSize",
+          "items": "operations",
+          "hasMore": "pagination.hasNextPage"
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ValidationError": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "PostPublishOutput": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "const": "SDK published successfully"
+          },
+          "specUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "specUrl"
+        ],
+        "additionalProperties": false,
+        "x-responsebody": true,
+        "x-response-group": "postPublish"
+      },
+      "PostPublishOutput400": {
+        "x-responsebody": true,
+        "x-response-group": "postPublish",
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "PostPublishInput": {
+        "required": [
+          "specUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "specUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "x-requestbody": true,
+        "x-inputname": "PostPublishInput"
+      },
+      "PostAugmentOutput": {
+        "type": "object",
+        "x-responsebody": true,
+        "x-response-group": "postAugment"
+      },
+      "PostAugmentOutput400": {
+        "x-responsebody": true,
+        "x-response-group": "postAugment",
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "PostAugmentInput": {
+        "required": [
+          "specUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "specUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "x-requestbody": true,
+        "x-inputname": "PostAugmentInput"
+      },
+      "GetFetchOutput": {
+        "x-responsebody": true,
+        "x-response-group": "getFetch"
+      },
+      "GetFetchOutput400": {
+        "x-responsebody": true,
+        "x-response-group": "getFetch",
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "GetFetchInput": {
+        "type": "object",
+        "x-inputname": "GetFetchInput",
+        "x-requestbody": true,
+        "properties": {
+          "url": {
+            "x-in": "query",
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "PostGenerateOutput": {
+        "type": "string",
+        "x-responsebody": true,
+        "x-response-group": "postGenerate"
+      },
+      "PostGenerateOutput400": {
+        "x-responsebody": true,
+        "x-response-group": "postGenerate",
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "PostGenerateInput": {
+        "required": [
+          "specFile"
+        ],
+        "type": "object",
+        "properties": {
+          "specFile": {
+            "type": "string",
+            "format": "binary"
+          }
+        },
+        "x-requestbody": true,
+        "x-inputname": "PostGenerateInput"
+      },
+      "PostPlaygroundOutput": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "const": "https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml"
+          },
+          "title": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "clientName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "title",
+          "name",
+          "clientName"
+        ],
+        "additionalProperties": false,
+        "x-responsebody": true,
+        "x-response-group": "postPlayground"
+      },
+      "PostPlaygroundOutput400": {
+        "x-responsebody": true,
+        "x-response-group": "postPlayground",
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "PostPlaygroundInput": {
+        "required": [
+          "specFile"
+        ],
+        "type": "object",
+        "properties": {
+          "specFile": {
+            "type": "string",
+            "format": "binary"
+          }
+        },
+        "x-requestbody": true,
+        "x-inputname": "PostPlaygroundInput"
+      },
+      "GetOperationsOutput": {
+        "type": "object",
+        "properties": {
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "hasNextPage": {
+                "type": "boolean"
+              },
+              "hasPreviousPage": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "hasNextPage",
+              "hasPreviousPage"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "operations",
+          "pagination"
+        ],
+        "additionalProperties": false,
+        "x-responsebody": true,
+        "x-response-group": "getOperations"
+      },
+      "GetOperationsOutput400": {
+        "x-responsebody": true,
+        "x-response-group": "getOperations",
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "GetOperationsInput": {
+        "type": "object",
+        "x-inputname": "GetOperationsInput",
+        "x-requestbody": true,
+        "properties": {
+          "page": {
+            "x-in": "query",
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
+          },
+          "pageSize": {
+            "x-in": "query",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "required": [
+          "page",
+          "pageSize"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "x-sdk-augmented": true
+}
