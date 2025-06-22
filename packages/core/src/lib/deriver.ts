@@ -1,5 +1,7 @@
 import ts, { TypeFlags, symbolName } from 'typescript';
 
+import { isInterfaceType } from './program.js';
+
 type Collector = Record<string, any>;
 export const deriveSymbol = Symbol.for('serialize');
 export const $types = Symbol.for('types');
@@ -486,12 +488,4 @@ export class TypeDeriver {
       [$types]: ['any'],
     };
   }
-}
-
-export function isInterfaceType(type: ts.Type): boolean {
-  if (type.isClassOrInterface()) {
-    // Check if it's an interface
-    return !!(type.symbol.flags & ts.SymbolFlags.Interface);
-  }
-  return false;
 }
