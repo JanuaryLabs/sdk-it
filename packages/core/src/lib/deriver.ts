@@ -107,15 +107,15 @@ export class TypeDeriver {
     if (type.isIntersection()) {
       let optional: boolean | undefined;
       const types: any[] = [];
-      for (const unionType of type.types) {
+      for (const intersectionType of type.types) {
         if (optional === undefined) {
-          optional = (unionType.flags & ts.TypeFlags.Undefined) !== 0;
+          optional = (intersectionType.flags & ts.TypeFlags.Undefined) !== 0;
           if (optional) {
             continue;
           }
         }
 
-        types.push(this.serializeType(unionType));
+        types.push(this.serializeType(intersectionType));
       }
       return {
         [deriveSymbol]: true,
@@ -251,12 +251,15 @@ export class TypeDeriver {
               propAssingment.initializer,
             );
             serializedProps[prop.name] = this.serializeType(type);
-          }
-          if (
+          } else if (
             (prop.getDeclarations() ?? []).find((it) =>
               ts.isPropertySignature(it),
             )
           ) {
+            const propType = this.checker.getTypeOfSymbol(prop);
+            serializedProps[prop.name] = this.serializeType(propType);
+          } else {
+            // SymbolObject props
             const propType = this.checker.getTypeOfSymbol(prop);
             serializedProps[prop.name] = this.serializeType(propType);
           }
@@ -485,7 +488,7 @@ export class TypeDeriver {
   }
 }
 
-function isInterfaceType(type: ts.Type): boolean {
+export function isInterfaceType(type: ts.Type): boolean {
   if (type.isClassOrInterface()) {
     // Check if it's an interface
     return !!(type.symbol.flags & ts.SymbolFlags.Interface);
