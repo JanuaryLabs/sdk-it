@@ -1,5 +1,5 @@
 import { template } from 'lodash-es';
-import { readdir, writeFile } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
@@ -77,7 +77,7 @@ export async function generate(
     { spec: openapi, responses: { flattenErrorResponses: true } },
     false,
   );
-  
+
   const generator = new TypeScriptGenerator(spec, settings);
   const style = Object.assign(
     {},
@@ -321,10 +321,12 @@ function serializeModels(spec: OurOpenAPIObject) {
     const isRequestBody = (schema as any)['x-requestbody'];
     const responseGroup = (schema as any)['x-response-group'];
     const stream = (schema as any)['x-stream'];
-    // if (isRequestBody) {
-    //   // we do not generate interfaces for request bodies. we use zod for that.
-    //   continue;
-    // }
+    if (isRequestBody) {
+      // we do not generate interfaces for request bodies. we use zod for that.
+      // bewary that the sometimes request body content schema is used as model somewhere else.
+      // so we need to till the augmenter to create completeley separate model for request body suffixed by `Input`
+      continue;
+    }
     const folder = isResponseBody ? 'outputs' : 'models';
     let typeContent = 'ReadableStream';
     if (!stream) {

@@ -339,6 +339,18 @@
                     "pagination": {
                       "type": "object",
                       "properties": {
+                        "page": {
+                          "type": "number"
+                        },
+                        "pageSize": {
+                          "type": "number"
+                        },
+                        "totalItems": {
+                          "type": "number"
+                        },
+                        "totalPages": {
+                          "type": "number"
+                        },
                         "hasNextPage": {
                           "type": "boolean"
                         },
@@ -346,7 +358,14 @@
                           "type": "boolean"
                         }
                       },
-                      "required": ["hasNextPage", "hasPreviousPage"],
+                      "required": [
+                        "page",
+                        "pageSize",
+                        "totalItems",
+                        "totalPages",
+                        "hasNextPage",
+                        "hasPreviousPage"
+                      ],
                       "additionalProperties": false
                     }
                   },
