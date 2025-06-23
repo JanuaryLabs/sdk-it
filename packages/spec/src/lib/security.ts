@@ -64,7 +64,7 @@ export function securityToOptions(
         name: schema.name,
         required: false,
         schema: { type: 'string' },
-        example: `"proj-${crypto.randomUUID()}"`,
+        example: `"proj-${crypto.randomUUID().slice(0, 12)}"`,
       });
       continue;
     }

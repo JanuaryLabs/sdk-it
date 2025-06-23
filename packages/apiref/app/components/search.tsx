@@ -110,12 +110,10 @@ export function SearchCmdk() {
                             <div className="flex items-center">
                               <Badge
                                 variant={'ghost'}
-                                className="text-muted-foreground line-clamp-2 gap-x-1 px-0 font-mono text-[10px] hover:bg-transparent"
+                                className="text-muted-foreground line-clamp-2 gap-x-1 flex px-0 font-mono text-[10px] hover:bg-transparent"
                               >
-                                <span>
-                                  {operationsMap[
-                                    operationId
-                                  ].entry.method.toUpperCase()}
+                                <span className='uppercase'>
+                                  {operationsMap[operationId].entry.method}
                                 </span>
                                 <span className="font-normal">
                                   {operationsMap[operationId].entry.path}

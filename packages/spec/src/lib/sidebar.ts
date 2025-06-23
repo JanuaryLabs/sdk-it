@@ -32,7 +32,7 @@ export type SidebarData = CategoryItem[];
 function createOAIMeta(spec: OurOpenAPIObject): XOaiMeta {
   spec.paths ??= {};
   const navigationGroups: Record<string, NavigationGroup> = {
-    default: { id: 'default', title: 'General' },
+    default: { id: 'default', title: 'API' },
   };
   const groups: Record<string, Group> = {};
 

@@ -1,6 +1,7 @@
 /* eslint-disable @nx/enforce-module-boundaries */
 import { ChevronRight } from 'lucide-react';
 import { useParams } from 'react-router';
+import { titlecase } from 'stringcase';
 
 import { isEmpty } from '@sdk-it/core/utils.js';
 import type { CategoryItem, NavItem, SidebarData } from '@sdk-it/spec';
@@ -42,7 +43,7 @@ export function SidebarItem({ item }: { item: NavItem }) {
             tooltip={item.title}
           >
             {/* {item.icon && <item.icon />} */}
-            <span>{item.title}</span>
+            <span>{titlecase(item.title)}</span>
             <ChevronRight className="transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
           </SidebarMenuButton>
         </CollapsibleTrigger>
@@ -77,10 +78,12 @@ export function SidebarItem({ item }: { item: NavItem }) {
                     {subItem.id in operationsMap && (
                       <Badge
                         variant={'ghost'}
-                        className="px-0 hover:bg-transparent"
+                        className="min-w-8 px-0 hover:bg-transparent"
                       >
-                        <code>
-                          {operationsMap[subItem.id].entry.method.toUpperCase()}
+                        <code className="uppercase">
+                          {operationsMap[subItem.id].entry.method === 'delete'
+                            ? 'DEL'
+                            : operationsMap[subItem.id].entry.method}
                         </code>
                       </Badge>
                     )}
@@ -99,7 +102,7 @@ export function SidebarItem({ item }: { item: NavItem }) {
 export function CategoryNav({ category }: { category: CategoryItem }) {
   return (
     <SidebarGroup className="py-0">
-      <SidebarGroupLabel className="text-foreground text-xs font-semibold uppercase">
+      <SidebarGroupLabel className="text-foreground text-sm font-semibold uppercase">
         {category.category}
       </SidebarGroupLabel>
       <SidebarMenu className="gap-0">
@@ -113,15 +116,18 @@ export function CategoryNav({ category }: { category: CategoryItem }) {
 
 export function NavMain({ items }: { items: SidebarData }) {
   if (isEmpty(items)) return null;
-  return items.length === 1 ? (
-    <SidebarMenu className="gap-0">
-      {items[0].items.map((item) => (
-        <SidebarItem key={item.title} item={item} />
-      ))}
-    </SidebarMenu>
-  ) : (
-    items.map((category) => (
-      <CategoryNav key={category.category} category={category} />
-    ))
-  );
+  return items.map((category) => (
+    <CategoryNav key={category.category} category={category} />
+  ));
+  // return items.length === 1 ? (
+  //   <SidebarMenu className="gap-0">
+  //     {items[0].items.map((item) => (
+  //       <SidebarItem key={item.title} item={item} />
+  //     ))}
+  //   </SidebarMenu>
+  // ) : (
+  //   items.map((category) => (
+  //     <CategoryNav key={category.category} category={category} />
+  //   ))
+  // );
 }

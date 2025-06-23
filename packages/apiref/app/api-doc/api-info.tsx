@@ -10,9 +10,9 @@ export function ApiInfoSection() {
   return (
     <div className="border-b p-8">
       <div className="mx-auto max-w-6xl">
-        <Badge className="px-1.5 py-0" variant="secondary">
+        {/* <Badge className="px-1.5 py-0" variant="secondary">
           v{info.version}
-        </Badge>
+        </Badge> */}
         <h1 className="mb-2 text-3xl font-bold">{info.title}</h1>
 
         <MD
