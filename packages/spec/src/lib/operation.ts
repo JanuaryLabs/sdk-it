@@ -19,13 +19,13 @@ import { type Method, methods } from '@sdk-it/core/paths.js';
 import { followRef, isRef, parseRef, resolveRef } from '@sdk-it/core/ref.js';
 import { isEmpty, pascalcase, snakecase } from '@sdk-it/core/utils.js';
 
-import { findUniqueSchemaName } from './find-unique-schema-name.ts';
+import { findUniqueSchemaName } from './find-unique-schema-name.js';
 import {
   type PaginationGuess,
   guessPagination,
-} from './pagination/pagination.ts';
-import { securityToOptions } from './security.ts';
-import { expandSpec, fixSpec } from './tune.ts';
+} from './pagination/pagination.js';
+import { securityToOptions } from './security.js';
+import { expandSpec, fixSpec } from './tune.js';
 
 function findUniqueOperationId(
   usedOperationIds: Set<string>,

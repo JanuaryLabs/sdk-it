@@ -1,3 +1,4 @@
+/* eslint-disable @nx/enforce-module-boundaries */
 import { ChevronDown } from 'lucide-react';
 import type {
   HeaderObject,
@@ -7,7 +8,8 @@ import type {
 } from 'openapi3-ts/oas31';
 import React, { Fragment, useState } from 'react';
 
-import { followRef, isEmpty, isRef } from '@sdk-it/core';
+import { followRef, isRef, resolveRef } from '@sdk-it/core/ref.js';
+import { isEmpty } from '@sdk-it/core/utils.js';
 
 import { cn } from '../shadcn/cn';
 import {
@@ -88,53 +90,44 @@ const ResponseContent: React.FC<ResponseContentProps> = ({
 
   return (
     <>
-      <div key={selectedContentType}>
-        {response.content[selectedContentType].schema && (
-          <div>
-            <SchemaComponent
-              schema={
-                isRef(response.content[selectedContentType].schema)
-                  ? followRef(
-                      spec,
-                      response.content[selectedContentType].schema.$ref,
-                    )
-                  : response.content[selectedContentType].schema
-              }
-            />
-          </div>
-        )}
-        {response.content[selectedContentType].example && (
-          <div className="response-example">
-            <h6>Example:</h6>
-            <pre>
-              {JSON.stringify(
-                response.content[selectedContentType].example,
-                null,
-                2,
-              )}
-            </pre>
-          </div>
-        )}
-      </div>
+      {response.content[selectedContentType].schema && (
+        <SchemaComponent
+          hideType={(level) => level === 0}
+          schema={resolveRef(
+            spec,
+            response.content[selectedContentType].schema,
+          )}
+        />
+      )}
+      {response.content[selectedContentType].example && (
+        <div>
+          <h6>Example:</h6>
+          <pre>
+            {JSON.stringify(
+              response.content[selectedContentType].example,
+              null,
+              2,
+            )}
+          </pre>
+        </div>
+      )}
 
       {response.headers && Object.keys(response.headers).length > 0 && (
         <div className="response-headers">
           <h6>Headers:</h6>
           {Object.entries(response.headers).map(
-            ([headerName, headerSchema]) => {
-              const header = isRef(headerSchema)
-                ? followRef<ReferenceObject>(spec, headerSchema.$ref)
-                : headerSchema;
-              const resolvedHeader = isRef(header)
-                ? followRef<HeaderObject>(spec, header.$ref)
-                : header;
-
+            ([headerName, maybeHeaderObj]) => {
+              const headerObj = resolveRef<HeaderObject | ReferenceObject>(
+                spec,
+                maybeHeaderObj,
+              );
+              const headerSchema = resolveRef<HeaderObject>(spec, headerObj);
               return (
                 <div key={headerName} className="response-header">
                   <code>{headerName}</code>
-                  <Description description={resolvedHeader.description} />
-                  {resolvedHeader.schema && (
-                    <SchemaComponent schema={resolvedHeader.schema} />
+                  <Description description={headerSchema.description} />
+                  {headerSchema.schema && (
+                    <SchemaComponent schema={headerSchema.schema} />
                   )}
                 </div>
               );
@@ -325,7 +318,7 @@ function CompactMode({ responses }: CompactModeProps) {
   );
 
   return (
-    <>
+    <div>
       <div className="flex items-center justify-between">
         <h4 className="text-lg font-semibold">Returns</h4>
         <div className="flex items-center gap-2">
@@ -343,8 +336,8 @@ function CompactMode({ responses }: CompactModeProps) {
           />
         </div>
       </div>
-      <Separator className="my-4" />
-      <div>
+
+      <div className="space-y-1">
         {selectedResponse && (
           <ResponseContent
             response={selectedResponse}
@@ -352,7 +345,7 @@ function CompactMode({ responses }: CompactModeProps) {
           />
         )}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -365,22 +358,24 @@ function CollapsibleMode({ responses }: CollapsibleModeProps) {
   const single = entries.length === 1;
 
   return (
-    <>
+    <div>
       <h4 className="text-lg font-semibold">Returns</h4>
+
       <Separator className="my-4" />
-      <div>
-        {entries.map(([statusCode, response]) => (
+
+      <div className="space-y-1">
+        {entries.map(([statusCode, response], index) => (
           <Fragment key={statusCode}>
+            {index > 0 && <Separator className="my-4" />}
             <ResponseItem
               statusCode={statusCode}
               response={response}
               collapsible={!single}
             />
-            <Separator className="my-2" />
           </Fragment>
         ))}
       </div>
-    </>
+    </div>
   );
 }
 

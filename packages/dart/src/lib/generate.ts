@@ -429,7 +429,6 @@ function serializeModels(spec: OurOpenAPIObject) {
                 },
               }
             : schema,
-
           true,
           {
             requestize: true,

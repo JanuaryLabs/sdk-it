@@ -208,7 +208,9 @@ export class TypeScriptGenerator {
     const authOptions = this.#authentication();
     if (!isEmpty(authOptions)) {
       const [firstAuth] = authOptions;
-      inputs.push(`${firstAuth.name}: ${firstAuth.example}`);
+      inputs.push(
+        `'${firstAuth['x-optionName'] ?? firstAuth.name}': ${firstAuth.example}`,
+      );
     }
     return `import { ${this.#clientName} } from '${this.#packageName}';
 

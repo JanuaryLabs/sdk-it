@@ -53,7 +53,8 @@ export function resolveRef<
     | SchemaObject
     | ReferenceObject
     | ParameterObject
-    | SecuritySchemeObject,
+    | SecuritySchemeObject
+    | HeaderObject,
 ): T {
   if (isRef(maybeRef)) {
     return followRef<T>(spec, maybeRef.$ref!);

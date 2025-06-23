@@ -1,7 +1,8 @@
+/* eslint-disable @nx/enforce-module-boundaries */
 import { ChevronRight } from 'lucide-react';
 import { useParams } from 'react-router';
 
-import { isEmpty } from '@sdk-it/core';
+import { isEmpty } from '@sdk-it/core/utils.js';
 import type { CategoryItem, NavItem, SidebarData } from '@sdk-it/spec';
 
 import { Badge } from '../shadcn/badge';

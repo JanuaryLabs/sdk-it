@@ -44,7 +44,7 @@ const specs = [
     name: 'discord',
     flags: ['--error-as-value=true', '--output-type=status'],
   },
-  {
+  { 
     spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
     name: 'discord',
     flags: ['--error-as-value=false', '--output-type=status'],

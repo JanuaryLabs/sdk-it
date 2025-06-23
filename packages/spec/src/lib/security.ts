@@ -10,7 +10,7 @@ import type {
 import { methods } from '@sdk-it/core/paths.js';
 import { resolveRef } from '@sdk-it/core/ref.js';
 
-import type { OurOpenAPIObject } from './operation.ts';
+import type { OurOpenAPIObject } from './operation.js';
 
 type OIn = ParameterLocation | 'input';
 

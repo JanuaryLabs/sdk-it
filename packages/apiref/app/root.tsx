@@ -103,7 +103,8 @@ export async function loader({
     urlObj.searchParams.get('spec') ??
     import.meta.env.VITE_SPEC ??
     (import.meta.env.DEV
-      ? 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml'
+      ? // ? '/Users/ezzabuzaid/Desktop/mo/virtual-care/openapi.json'
+        'https://api.openstatus.dev/v1/openapi'
       : // ?'https://raw.githubusercontent.com/readmeio/oas-examples/main/3.1/json/petstore.json'
         '');
   const spec = augmentSpec({ spec: await loadSpec(specUrl) });
@@ -129,7 +130,7 @@ export async function loader({
     return `<${type}>`;
   };
 
-  forEachOperation({ spec }, (entry, operation) => {
+  forEachOperation(spec, (entry, operation) => {
     const operationId = operation.operationId;
 
     const generateExampleFromBody = (body: RequestBodyObject): string => {

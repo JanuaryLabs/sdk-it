@@ -7,8 +7,8 @@ import type {
 
 import { camelcase, isEmpty, isRef, resolveRef } from '@sdk-it/core';
 
-import type { OurOpenAPIObject } from './operation.ts';
-import { coerceTypes } from './tune.ts';
+import type { OurOpenAPIObject } from './operation.js';
+import { coerceTypes } from './tune.js';
 
 export type Varient = {
   name: string;

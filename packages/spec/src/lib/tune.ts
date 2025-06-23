@@ -1,7 +1,6 @@
 import { merge, uniq } from 'lodash-es';
 import assert from 'node:assert';
 import type {
-  OpenAPIObject,
   ReferenceObject,
   SchemaObject,
   SchemaObjectType,
@@ -17,10 +16,10 @@ import {
   snakecase,
 } from '@sdk-it/core';
 
-import { type Varient, findVarients } from './find-polymorphic-varients.ts';
-import { findUniqueSchemaName } from './find-unique-schema-name.ts';
-import { formatName } from './format-name.ts';
-import type { OurOpenAPIObject } from './operation.ts';
+import { type Varient, findVarients } from './find-polymorphic-varients.js';
+import { findUniqueSchemaName } from './find-unique-schema-name.js';
+import { formatName } from './format-name.js';
+import type { OurOpenAPIObject } from './operation.js';
 
 export function fixSpec(
   spec: OurOpenAPIObject,

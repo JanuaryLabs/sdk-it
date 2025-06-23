@@ -1,6 +1,6 @@
 #!/usr/bin/env ts-node-esm
 import { exec } from 'child_process';
-import { appendFile, readFile, writeFile } from 'fs/promises';
+import { appendFile, readFile, writeFile } from 'node:fs/promises';
 import { promisify } from 'util';
 
 const asyncExec = promisify(exec);

@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import Docker from 'dockerode';
-import { mkdirSync, rmSync } from 'fs';
+import { mkdirSync, rmSync } from 'node:fs';
 import { join } from 'path';
 
 const docker = new Docker();
