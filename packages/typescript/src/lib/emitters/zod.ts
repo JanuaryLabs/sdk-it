@@ -376,3 +376,20 @@ function appendDefault(defaultValue?: any) {
     ? `.default(${defaultValue})`
     : '';
 }
+
+export function toZod(schema: SchemaObject, required?: boolean): string {
+  const emitter = new ZodEmitter({} as OpenAPIObject);
+  const schemaStr = emitter.handle(schema, required ?? false);
+  if (schema['x-prefix']) {
+    const prefix = schema['x-prefix'];
+    if (required === false) {
+      return (
+        schemaStr +
+        `.transform((val) => (val ? \`${prefix}\${val}\` : undefined))`
+      );
+    } else {
+      return schemaStr + `.transform((val) => \`${prefix}\${val}\`)`;
+    }
+  }
+  return schemaStr;
+}

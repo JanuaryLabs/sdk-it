@@ -1,8 +1,8 @@
 import type {
-  OpenAPIObject,
   ParameterLocation,
   ParameterObject,
   ReferenceObject,
+  SchemaObject,
   SecurityRequirementObject,
   SecuritySchemeObject,
 } from 'openapi3-ts/oas31';
@@ -13,12 +13,15 @@ import { resolveRef } from '@sdk-it/core/ref.js';
 import type { OurOpenAPIObject } from './operation.ts';
 
 type OIn = ParameterLocation | 'input';
-type OurParameter = Omit<ParameterObject, 'in'> & {
+
+export type OurParameter = Omit<ParameterObject, 'in' | 'schema'> & {
   in: OIn;
+  'x-optionName'?: string;
+  schema: SchemaObject;
 };
 
 export function securityToOptions(
-  spec: OpenAPIObject,
+  spec: OurOpenAPIObject,
   security: SecurityRequirementObject[],
   securitySchemes: Record<string, SecuritySchemeObject | ReferenceObject>,
   staticIn?: OIn,
@@ -39,7 +42,9 @@ export function securityToOptions(
       parameters.push({
         in: staticIn ?? 'header',
         name: 'authorization',
-        schema: { type: 'string' },
+        required: false,
+        schema: { type: 'string', 'x-prefix': 'Bearer ' },
+        'x-optionName': 'token',
         example:
           schema.scheme === 'bearer'
             ? '"<token>"'
@@ -57,6 +62,7 @@ export function securityToOptions(
       parameters.push({
         in: staticIn ?? (schema.in as ParameterLocation),
         name: schema.name,
+        required: false,
         schema: { type: 'string' },
         example: `"proj-${crypto.randomUUID()}"`,
       });

@@ -40,11 +40,6 @@ function runCommand(title: string, command: string, memory?: number) {
 
 const specs = [
   {
-    spec: 'https://app.stainless.com/api/spec/documented/openai/openapi.documented.yml',
-    name: 'openai',
-    flags: ['--output-type=status', '--error-as-value=true'],
-  },
-  {
     spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
     name: 'discord',
     flags: ['--error-as-value=true', '--output-type=status'],
@@ -53,6 +48,11 @@ const specs = [
     spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
     name: 'discord',
     flags: ['--error-as-value=false', '--output-type=status'],
+  },
+  {
+    spec: 'https://app.stainless.com/api/spec/documented/openai/openapi.documented.yml',
+    name: 'openai',
+    flags: ['--output-type=status', '--error-as-value=true'],
   },
   {
     name: 'AppStoreConnect',

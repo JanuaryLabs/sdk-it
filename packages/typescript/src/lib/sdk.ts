@@ -4,6 +4,7 @@ import { camelcase } from 'stringcase';
 import { isEmpty, pascalcase } from '@sdk-it/core';
 import {
   type OperationPagination,
+  type OurParameter,
   type TunedOperationObject,
   isErrorStatusCode,
   isStreamingContentType,
@@ -14,9 +15,9 @@ import {
 } from '@sdk-it/spec';
 
 import { TypeScriptEmitter } from './emitters/interface.ts';
+import { type Import, type MakeImportFn } from './import-utilities.ts';
 import statusMap from './status-map.ts';
 import type { Style } from './style.ts';
-import { type Import, type MakeImportFn } from './utils.ts';
 
 export type Parser = 'chunked' | 'buffered';
 
@@ -32,17 +33,9 @@ export interface SdkConfig {
   output: string;
 }
 
-export type Options = Record<
-  string,
-  {
-    in: string;
-    schema: string;
-    optionName?: string;
-  }
->;
 export interface Spec {
   name: string;
-  options: Options;
+  options: OurParameter[];
   servers: string[];
   operations: Record<string, Operation[]>;
   makeImport: MakeImportFn;

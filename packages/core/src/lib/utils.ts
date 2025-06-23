@@ -89,3 +89,7 @@ export function joinSkipDigits(arr: string[], separator: string): string {
 
   return result;
 }
+
+export function exclude<T>(list: T[], exclude: T[]): T[] {
+  return list.filter((it) => !exclude.includes(it));
+}

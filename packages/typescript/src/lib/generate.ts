@@ -19,6 +19,7 @@ import {
   cleanFiles,
   readWriteMetadata,
   sanitizeTag,
+  securityToOptions,
 } from '@sdk-it/spec';
 
 import backend from './client.ts';
@@ -30,15 +31,15 @@ import parseResponse from './http/parse-response.txt';
 import parserTxt from './http/parser.txt';
 import requestTxt from './http/request.txt';
 import responseTxt from './http/response.txt';
+import { type MakeImportFn } from './import-utilities.ts';
 import type { TypeScriptGeneratorOptions } from './options.ts';
 import cursorPaginationTxt from './paginations/cursor-pagination.txt';
 import offsetPaginationTxt from './paginations/offset-pagination.txt';
 import paginationTxt from './paginations/page-pagination.txt';
 import type { Operation } from './sdk.ts';
 import { TypeScriptGenerator } from './typescript-snippet.ts';
-import { type MakeImportFn, securityToOptions } from './utils.ts';
 
-function security(spec: OpenAPIObject) {
+function security(spec: OurOpenAPIObject) {
   const security = spec.security || [];
   const components = spec.components || {};
   const securitySchemes = components.securitySchemes || {};
@@ -113,7 +114,7 @@ export async function generate(
     style,
     makeImport,
   });
-  const options = security(spec);
+
   const clientName = pascalcase((settings.name || 'client').trim());
 
   const packageName = settings.name
@@ -152,7 +153,7 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
       {
         name: clientName,
         servers: (spec.servers ?? []).map((server) => server.url) || [],
-        options: options,
+        options: security(spec),
         makeImport,
       },
       style,

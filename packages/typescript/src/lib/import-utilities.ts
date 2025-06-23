@@ -1,56 +1,4 @@
-import type {
-  ComponentsObject,
-  OpenAPIObject,
-  SecurityRequirementObject,
-} from 'openapi3-ts/oas31';
-
-import { followRef, isRef, removeDuplicates } from '@sdk-it/core';
-
-import { type Options } from './sdk.ts';
-
-export function securityToOptions(
-  spec: OpenAPIObject,
-  security: SecurityRequirementObject[],
-  securitySchemes: ComponentsObject['securitySchemes'],
-  staticIn?: string,
-) {
-  securitySchemes ??= {};
-  const options: Options = {};
-  for (const it of security) {
-    const [name] = Object.keys(it);
-    if (!name) {
-      // this means the operation doesn't necessarily require security
-      continue;
-    }
-    const schema = isRef(securitySchemes[name])
-      ? followRef(spec, securitySchemes[name].$ref)
-      : securitySchemes[name];
-
-    if (schema.type === 'http') {
-      options['authorization'] = {
-        in: staticIn ?? 'header',
-        schema:
-          'z.string().optional().transform((val) => (val ? `Bearer ${val}` : undefined))',
-        optionName: 'token',
-      };
-      continue;
-    }
-    if (schema.type === 'apiKey') {
-      if (!schema.in) {
-        throw new Error(`apiKey security schema must have an "in" field`);
-      }
-      if (!schema.name) {
-        throw new Error(`apiKey security schema must have a "name" field`);
-      }
-      options[schema.name] = {
-        in: staticIn ?? schema.in,
-        schema: 'z.string().optional()',
-      };
-      continue;
-    }
-  }
-  return options;
-}
+import { removeDuplicates } from '@sdk-it/core';
 
 export function mergeImports(...imports: Import[]) {
   const merged: Record<string, Import> = {};
@@ -104,10 +52,6 @@ export function importsToString(...imports: Import[]) {
     }
     throw new Error(`Invalid import ${JSON.stringify(it)}`);
   });
-}
-
-export function exclude<T>(list: T[], exclude: T[]): T[] {
-  return list.filter((it) => !exclude.includes(it));
 }
 
 export function useImports(content: string, ...imports: Import[]) {

@@ -2,7 +2,6 @@ import { merge, template } from 'lodash-es';
 import { join } from 'node:path';
 import type {
   OpenAPIObject,
-  ParameterLocation,
   ParameterObject,
   ReferenceObject,
   SchemaObject,
@@ -13,6 +12,7 @@ import { followRef, isEmpty, isRef, resolveRef } from '@sdk-it/core';
 import { type OurOpenAPIObject, forEachOperation } from '@sdk-it/spec';
 
 import { ZodEmitter } from './emitters/zod.ts';
+import { importsToString, mergeImports } from './import-utilities.ts';
 import {
   type Operation,
   type OperationInput,
@@ -21,7 +21,6 @@ import {
 } from './sdk.ts';
 import type { Style } from './style.ts';
 import endpointsTxt from './styles/github/endpoints.txt';
-import { importsToString, mergeImports, securityToOptions } from './utils.ts';
 
 export interface NamedImport {
   name: string;
@@ -66,43 +65,6 @@ export function generateCode(config: {
     groups[entry.groupName] ??= [];
     endpoints[entry.groupName] ??= [];
     const inputs: Operation['inputs'] = {};
-
-    const additionalProperties: Record<string, ParameterObject> = {};
-    for (const param of operation.parameters) {
-      if (!param.schema) {
-        param.schema = {
-          type: 'string',
-        };
-      }
-      inputs[param.name] = {
-        in: param.in,
-        schema: '',
-      };
-      additionalProperties[param.name] = param;
-    }
-
-    const securitySchemes = config.spec.components?.securitySchemes ?? {};
-    const securityOptions = securityToOptions(
-      config.spec,
-      operation.security ?? [],
-      securitySchemes,
-    );
-
-    Object.assign(inputs, securityOptions);
-
-    // the spec might have explict security param for security set
-    // which we need to overwrite it by ours. (avoid having it mandatory)
-    Object.entries(securityOptions).forEach(([name, value]) => {
-      additionalProperties[name] = {
-        name: name,
-        required: false,
-        schema: {
-          type: 'string',
-        },
-        in: value.in as ParameterLocation,
-      } satisfies ParameterObject;
-    });
-
     const schemas: Record<string, string> = {};
     const shortContenTypeMap: Record<string, string> = {
       'application/json': 'json',
@@ -120,17 +82,17 @@ export function generateCode(config: {
         config.spec,
         operation.requestBody.content[type].schema,
       );
+      const xProperties: Record<string, SchemaObject> =
+        objectSchema['x-properties'] ?? {};
+      const xRequired: string[] = objectSchema['x-required'] ?? [];
 
       if (type === 'application/empty') {
         // if empty body and not params then we need to set it to object with additional properties
         // to avoid unknown input ts errors.
         objectSchema = {
           type: 'object',
-          // properties: objectSchema['x-properties'],
-          additionalProperties: isEmpty(objectSchema['x-properties']),
+          additionalProperties: isEmpty(xProperties),
         };
-        // if (isEmpty(additionalProperties)) {
-        // }
       } else {
         if (objectSchema.type !== 'object') {
           objectSchema = {
@@ -138,18 +100,31 @@ export function generateCode(config: {
             required: [operation.requestBody.required ? '$body' : ''],
             properties: {
               $body: objectSchema,
-              // ...objectSchema['x-properties'],
             },
           };
         }
+      }
+      const additionalProperties: Record<string, ParameterObject> = {};
+      for (const [name, prop] of Object.entries(xProperties)) {
+        additionalProperties[name] = {
+          name: name,
+          required: xRequired?.includes(name),
+          schema: prop,
+          in: prop['x-in'],
+        };
+        inputs[name] = {
+          in: prop['x-in'],
+          schema: '',
+        };
       }
       const schema = merge({}, objectSchema, {
         required: Object.values(additionalProperties)
           .filter((p) => p.required)
           .map((p) => p.name),
-        properties: Object.entries(additionalProperties).reduce<
-          Record<string, unknown>
-        >((acc, [, p]) => ({ ...acc, [p.name]: p.schema }), {}),
+        properties: Object.entries(additionalProperties).reduce(
+          (acc, [, p]) => ({ ...acc, [p.name]: p.schema }),
+          {},
+        ),
       });
 
       Object.assign(inputs, bodyInputs(config.spec, objectSchema));

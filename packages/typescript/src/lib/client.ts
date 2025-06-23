@@ -1,29 +1,30 @@
 import { toLitObject } from '@sdk-it/core';
 
+import { toZod } from './emitters/zod.ts';
 import type { Spec } from './sdk.ts';
 import type { Style } from './style.ts';
 
 export default (spec: Omit<Spec, 'operations'>, style: Style) => {
-  const optionsEntries = Object.entries(spec.options).map(
-    ([key, value]) => [`'${key}'`, value] as const,
-  );
-  const defaultHeaders = `{${optionsEntries
-    .filter(([, value]) => value.in === 'header')
+  const defaultHeaders = `{${spec.options
+    .filter((value) => value.in === 'header')
     .map(
-      ([key, value]) =>
-        `${key}: this.options[${value.optionName ? `'${value.optionName}'` : key}]`,
+      (value) =>
+        `'${value.name}': this.options['${value['x-optionName'] ?? value.name}']`,
     )
     .join(',\n')}}`;
-  const defaultInputs = `{${optionsEntries
-    .filter(([, value]) => value.in === 'input')
+  const defaultInputs = `{${spec.options
+    .filter((value) => value.in === 'input')
     .map(
-      ([key, value]) =>
-        `${key}: this.options[${value.optionName ? `'${value.optionName}'` : key}]`,
+      (value) =>
+        `'${value.name}': this.options['${value['x-optionName'] ?? value.name}']`,
     )
     .join(',\n')}}`;
   const specOptions: Record<string, { schema: string }> = {
     ...Object.fromEntries(
-      optionsEntries.map(([key, value]) => [value.optionName ?? key, value]),
+      spec.options.map((value) => [
+        `'${value['x-optionName'] ?? value.name}'`,
+        { schema: toZod(value.schema, value.required) },
+      ]),
     ),
     fetch: {
       schema: 'fetchType',
