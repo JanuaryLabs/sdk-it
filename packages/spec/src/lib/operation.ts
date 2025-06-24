@@ -1,5 +1,4 @@
 import type {
-  ComponentsObject,
   MediaTypeObject,
   OpenAPIObject,
   OperationObject,
@@ -11,7 +10,6 @@ import type {
   ResponsesObject,
   SchemaObject,
   SecurityRequirementObject,
-  SecuritySchemeObject,
 } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
@@ -20,12 +18,19 @@ import { followRef, isRef, parseRef, resolveRef } from '@sdk-it/core/ref.js';
 import { isEmpty, pascalcase, snakecase } from '@sdk-it/core/utils.js';
 
 import { findUniqueSchemaName } from './find-unique-schema-name.js';
+import { isSuccessStatusCode } from './is.js';
+import { extractOverviewDocs } from './overview-docs.js';
 import {
   type PaginationGuess,
   guessPagination,
 } from './pagination/pagination.js';
 import { securityToOptions } from './security.js';
 import { expandSpec, fixSpec } from './tune.js';
+import type {
+  OurOpenAPIObject,
+  OurRequestBodyObject,
+  TunedOperationObject,
+} from './types.js';
 
 function findUniqueOperationId(
   usedOperationIds: Set<string>,
@@ -152,6 +157,7 @@ export function augmentSpec(
   return {
     ...(spec as OurOpenAPIObject),
     paths,
+    'x-docs': extractOverviewDocs(spec),
     'x-sdk-augmented': true,
   };
 }
@@ -161,7 +167,7 @@ export type OperationPagination = PaginationGuess & {
 };
 
 function toPagination(
-  spec: OpenAPIObject,
+  spec: OurOpenAPIObject,
   tunedOperation: TunedOperationObject,
 ) {
   if (tunedOperation['x-pagination']) {
@@ -190,7 +196,7 @@ function toPagination(
 }
 
 function getResponseContentSchema(
-  spec: OpenAPIObject,
+  spec: OurOpenAPIObject,
   response: ResponseObject,
   type: string,
 ) {
@@ -212,7 +218,7 @@ function getResponseContentSchema(
 }
 
 function getRequestContentSchema(
-  spec: OpenAPIObject,
+  spec: OurOpenAPIObject,
   requestBody: RequestBodyObject,
   type: string,
 ) {
@@ -257,29 +263,6 @@ export const defaults: Partial<GenerateSdkConfig> &
       ? sanitizeTag(operation.tags?.[0])
       : determineGenericTag(path, operation);
   },
-};
-
-export type TunedOperationObject = Omit<
-  OperationObject,
-  'operationId' | 'tags' | 'parameters' | 'responses' | 'requestBody'
-> & {
-  tags: string[];
-  operationId: string;
-  parameters: ParameterObject[];
-  responses: Record<string, ResponseObject>;
-  requestBody: OurRequestBodyObject;
-};
-
-export interface OperationEntry {
-  name?: string;
-  method: string;
-  path: string;
-  groupName: string;
-  tag: string;
-}
-export type Operation = {
-  entry: OperationEntry;
-  operation: TunedOperationObject;
 };
 
 function resolveResponses(
@@ -405,39 +388,6 @@ function resolveResponses(
   }
 
   return operation.responses;
-}
-
-export function forEachOperation<T>(
-  spec: OurOpenAPIObject,
-  callback: (entry: OperationEntry, operation: TunedOperationObject) => T,
-) {
-  const result: T[] = [];
-  for (const [path, pathItem] of Object.entries(spec.paths)) {
-    for (const [method, operation] of Object.entries(pathItem) as [
-      Method,
-      OperationObject,
-    ][]) {
-      if (!methods.includes(method)) {
-        continue;
-      }
-      const metadata = operation['x-oaiMeta'] ?? {};
-      const operationTag = operation.tags?.[0] as string;
-
-      result.push(
-        callback(
-          {
-            name: metadata.name,
-            method,
-            path: path,
-            groupName: operationTag,
-            tag: operationTag,
-          },
-          operation as TunedOperationObject,
-        ),
-      );
-    }
-  }
-  return result;
 }
 
 interface ResponsesConfig {
@@ -810,38 +760,6 @@ export function isSseContentType(
   return mainType === 'text/event-stream';
 }
 
-export function isStreamingContentType(
-  contentType: string | null | undefined,
-): boolean {
-  return contentType === 'application/octet-stream';
-}
-
-export function isSuccessStatusCode(statusCode: number | string): boolean {
-  if (typeof statusCode === 'string') {
-    const statusGroup = +statusCode.slice(0, 1);
-    const status = Number(statusCode);
-    return (status >= 200 && status < 300) || (status >= 2 && statusGroup <= 3);
-  }
-  statusCode = Number(statusCode);
-  return statusCode >= 200 && statusCode < 300;
-}
-
-export function isErrorStatusCode(statusCode: number | string): boolean {
-  if (typeof statusCode === 'string') {
-    const statusGroup = +statusCode.slice(0, 1);
-    const status = Number(statusCode);
-    return (
-      status < 200 ||
-      status >= 300 ||
-      statusGroup >= 4 ||
-      statusGroup === 0 ||
-      statusGroup === 1
-    );
-  }
-  statusCode = Number(statusCode);
-  return statusCode < 200 || statusCode >= 300;
-}
-
 export function patchParameters(
   spec: OurOpenAPIObject,
   schema: SchemaObject,
@@ -1019,20 +937,4 @@ function tuneRequestBody(
     };
   }
   return requestBody as OurRequestBodyObject;
-}
-
-export interface OurOpenAPIObject extends OpenAPIObject {
-  'x-sdk-augmented'?: boolean;
-  components: Omit<ComponentsObject, 'schemas'> & {
-    schemas: Record<string, SchemaObject | ReferenceObject>;
-    securitySchemes: Record<string, SecuritySchemeObject | ReferenceObject>;
-  };
-  paths: PathsObject;
-}
-
-export interface OurRequestBodyObject extends RequestBodyObject {
-  content: Record<
-    string,
-    Omit<MediaTypeObject, 'schema'> & { schema: ReferenceObject }
-  >;
 }

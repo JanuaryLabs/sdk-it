@@ -1,7 +1,8 @@
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
 import { isEmpty, isRef, parseRef, pascalcase } from '@sdk-it/core';
-import { type OurOpenAPIObject } from './operation.js';
+
+import type { OurOpenAPIObject } from './types.ts';
 
 export function getRefUsage(
   spec: OurOpenAPIObject,

@@ -19,7 +19,7 @@ import {
 import { type Varient, findVarients } from './find-polymorphic-varients.js';
 import { findUniqueSchemaName } from './find-unique-schema-name.js';
 import { formatName } from './format-name.js';
-import type { OurOpenAPIObject } from './operation.js';
+import type { OurOpenAPIObject } from './types.js';
 
 export function fixSpec(
   spec: OurOpenAPIObject,

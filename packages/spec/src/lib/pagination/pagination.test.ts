@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { ParameterObject } from 'openapi3-ts/oas31';
 
-import type { TunedOperationObject } from '../operation.ts';
+import type { TunedOperationObject } from '../types.ts';
 import {
   CURSOR_LIMIT_REGEXES,
   CURSOR_REGEXES,
