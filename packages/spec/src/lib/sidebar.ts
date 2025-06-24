@@ -1,11 +1,8 @@
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
-import {
-  type OurOpenAPIObject,
-  type TunedOperationObject,
-  forEachOperation,
-} from './operation.js';
+import { forEachOperation } from './for-each-operation.js';
+import type { OurOpenAPIObject, TunedOperationObject } from './types.ts';
 
 export type ChildNavItem = {
   id: string;
@@ -32,6 +29,7 @@ export type SidebarData = CategoryItem[];
 function createOAIMeta(spec: OurOpenAPIObject): XOaiMeta {
   spec.paths ??= {};
   const navigationGroups: Record<string, NavigationGroup> = {
+    overview: { id: 'overview', title: 'Overview' },
     default: { id: 'default', title: 'API' },
   };
   const groups: Record<string, Group> = {};
@@ -70,7 +68,28 @@ function getOperationById(spec: OurOpenAPIObject, operationId: string) {
 
 export function toSidebar(spec: OurOpenAPIObject) {
   const openapi: OpenAPIObject & { 'x-oaiMeta': XOaiMeta } = spec as any;
-  const sidebar: SidebarData = [];
+  const sidebar: SidebarData = [
+    {
+      category: 'Overview',
+      items: [
+        {
+          id: 'introduction',
+          title: 'Introduction',
+          url: '/introduction',
+        },
+        {
+          id: 'errors',
+          title: 'Errors',
+          url: '/errors',
+        },
+        {
+          id: 'authorization',
+          title: 'Authorization',
+          url: '/authorization',
+        },
+      ],
+    },
+  ];
   const oaiMeta = openapi['x-oaiMeta'] ?? createOAIMeta(spec);
   for (const navGroup of oaiMeta.navigationGroups) {
     const group = oaiMeta.groups.filter(
@@ -125,7 +144,7 @@ export interface Group {
 }
 
 export interface Section {
-  type: 'endpoint' | 'object';
+  type: 'endpoint' | 'object' | 'overview';
   key: string;
   path: string;
 }

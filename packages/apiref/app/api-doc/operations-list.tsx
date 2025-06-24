@@ -15,12 +15,12 @@ function useMounted() {
 }
 
 export function OperationsList() {
-  const { sidebar: sidebarData, operationsMap } = useRootData();
+  const { sidebar, operationsMap } = useRootData();
   const mounted = useMounted();
 
   return (
     <div className="api-doc-content mx-auto max-w-6xl p-8">
-      {sidebarData.map((category) => (
+      {sidebar.slice(1).map((category) => (
         <div key={category.category} className="api-doc-section mb-12">
           {/* <h2 className="mb-6 text-2xl font-bold">{category.category}</h2>
           <MD content={category.description} /> */}
@@ -28,7 +28,11 @@ export function OperationsList() {
           {category.items.map((group) => (
             <div key={group.title} className="api-doc-section mb-8">
               <h3 className="mb-4 text-3xl font-semibold">{group.title}</h3>
-              <Description className='prose' id={group.id} description={group.description} />
+              <Description
+                className="prose"
+                id={group.id}
+                description={group.description}
+              />
               <Separator className="mt-12" />
               <div className="grid gap-6">
                 {group.items?.map((item) => {

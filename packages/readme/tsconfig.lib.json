@@ -10,7 +10,7 @@
     "moduleResolution": "nodenext",
     "types": ["node"]
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "global.d.ts"],
   "references": [
     {
       "path": "../spec/tsconfig.lib.json"

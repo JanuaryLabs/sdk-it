@@ -57,3 +57,4 @@ combined.txt
 # sst
 .sst
 .tasks.json
+packages/apiref/app/_generated/

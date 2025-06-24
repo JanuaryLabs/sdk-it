@@ -72,7 +72,7 @@ export function SearchCmdk() {
               </CommandItem>
             </CommandGroup>
             <CommandEmpty>No results found.</CommandEmpty>
-            {sidebar.map((category) => (
+            {sidebar.slice(1).map((category) => (
               <Fragment key={category.category}>
                 <CommandGroup heading={category.category}>
                   {category.items.map((item) => (
@@ -110,9 +110,9 @@ export function SearchCmdk() {
                             <div className="flex items-center">
                               <Badge
                                 variant={'ghost'}
-                                className="text-muted-foreground line-clamp-2 gap-x-1 flex px-0 font-mono text-[10px] hover:bg-transparent"
+                                className="text-muted-foreground line-clamp-2 flex gap-x-1 px-0 font-mono text-[10px] hover:bg-transparent"
                               >
-                                <span className='uppercase'>
+                                <span className="uppercase">
                                   {operationsMap[operationId].entry.method}
                                 </span>
                                 <span className="font-normal">

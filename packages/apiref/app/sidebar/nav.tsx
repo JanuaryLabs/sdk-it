@@ -1,6 +1,6 @@
 /* eslint-disable @nx/enforce-module-boundaries */
 import { ChevronRight } from 'lucide-react';
-import { useParams } from 'react-router';
+import { NavLink, useParams } from 'react-router';
 import { titlecase } from 'stringcase';
 
 import { isEmpty } from '@sdk-it/core/utils.js';
@@ -36,64 +36,79 @@ export function SidebarItem({ item }: { item: NavItem }) {
       className="group/collapsible"
     >
       <SidebarMenuItem>
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton
-            className="flex items-center justify-between p-2 text-sm font-normal"
-            size={'default'}
-            tooltip={item.title}
-          >
-            {/* {item.icon && <item.icon />} */}
-            <span>{titlecase(item.title)}</span>
-            <ChevronRight className="transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-          </SidebarMenuButton>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <SidebarMenuSub className="gap-0">
-            {item.items?.map((subItem) => (
-              <SidebarMenuSubItem key={subItem.title}>
-                <SidebarMenuSubButton
-                  asChild
-                  isActive={activeOperation === subItem.id}
-                  size="md"
-                >
-                  <a
-                    href={import.meta.env.BASE_URL + subItem.url}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      window.history.replaceState(
-                        null,
-                        '',
-                        `${import.meta.env.BASE_URL}${subItem.url}`,
-                      );
-                      const element = document.getElementById(subItem.id);
-                      if (element) {
-                        element.scrollIntoView({
-                          behavior: 'instant',
-                          block: 'start',
-                          inline: 'nearest',
-                        });
-                      }
-                    }}
-                  >
-                    {subItem.id in operationsMap && (
-                      <Badge
-                        variant={'ghost'}
-                        className="min-w-8 px-0 hover:bg-transparent"
+        {!item.items?.length && (
+          <NavLink to={item.url}>
+            <SidebarMenuButton
+              className="flex items-center justify-between p-2 text-sm font-normal"
+              size={'default'}
+              tooltip={item.title}
+            >
+              <span>{titlecase(item.title)}</span>
+            </SidebarMenuButton>
+          </NavLink>
+        )}
+        {item.items?.length && (
+          <>
+            <CollapsibleTrigger asChild>
+              <SidebarMenuButton
+                className="flex items-center justify-between p-2 text-sm font-normal"
+                size={'default'}
+                tooltip={item.title}
+              >
+                <span>{titlecase(item.title)}</span>
+                <ChevronRight className="transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+              </SidebarMenuButton>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarMenuSub className="gap-0">
+                {item.items?.map((subItem) => (
+                  <SidebarMenuSubItem key={subItem.title}>
+                    <SidebarMenuSubButton
+                      asChild
+                      isActive={activeOperation === subItem.id}
+                      size="md"
+                    >
+                      <a
+                        href={import.meta.env.BASE_URL + subItem.url}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          window.history.replaceState(
+                            null,
+                            '',
+                            `${import.meta.env.BASE_URL}${subItem.url}`,
+                          );
+                          const element = document.getElementById(subItem.id);
+                          if (element) {
+                            element.scrollIntoView({
+                              behavior: 'instant',
+                              block: 'start',
+                              inline: 'nearest',
+                            });
+                          }
+                        }}
                       >
-                        <code className="uppercase">
-                          {operationsMap[subItem.id].entry.method === 'delete'
-                            ? 'DEL'
-                            : operationsMap[subItem.id].entry.method}
-                        </code>
-                      </Badge>
-                    )}
-                    <span>{subItem.title}</span>
-                  </a>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-            ))}
-          </SidebarMenuSub>
-        </CollapsibleContent>
+                        {subItem.id in operationsMap && (
+                          <Badge
+                            variant={'ghost'}
+                            className="min-w-8 px-0 hover:bg-transparent"
+                          >
+                            <code className="uppercase">
+                              {operationsMap[subItem.id].entry.method ===
+                              'delete'
+                                ? 'DEL'
+                                : operationsMap[subItem.id].entry.method}
+                            </code>
+                          </Badge>
+                        )}
+                        <span>{subItem.title}</span>
+                      </a>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                ))}
+              </SidebarMenuSub>
+            </CollapsibleContent>
+          </>
+        )}
       </SidebarMenuItem>
     </Collapsible>
   );

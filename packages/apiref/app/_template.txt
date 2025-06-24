@@ -1,0 +1,50 @@
+import { Loader } from 'lucide-react';
+import { useLayoutEffect } from 'react';
+
+import { MD } from '../api-doc/md.tsx';
+import { SearchCmdk } from '../components/search.tsx';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarInset,
+  SidebarProvider,
+} from '../shadcn/sidebar.tsx';
+import { NavMain } from '../sidebar/nav.tsx';
+import { SpecProvider } from '../spec-context.tsx';
+import { useRootData } from '../use-root-data.tsx';
+
+export function HydrateFallback() {
+  return <Loader className="animate-spin" />;
+}
+
+export default function Page() {
+  const { spec, sidebar } = useRootData();
+  useLayoutEffect(
+    () => {
+      document.body.classList.remove('invisible');
+    },
+    [
+      // only scroll on page open
+    ],
+  );
+
+  return (
+    <SpecProvider spec={spec}>
+      <SidebarProvider>
+        <Sidebar collapsible="icon">
+          <SidebarHeader>
+            <SearchCmdk />
+          </SidebarHeader>
+          <SidebarContent className="gap-x-2 gap-y-0">
+            <NavMain items={sidebar} />
+          </SidebarContent>
+          {/* <SidebarFooter></SidebarFooter> */}
+        </Sidebar>
+        <SidebarInset>
+         <div className="prose dark:prose-invert">###PLACE_HERE###</div>
+        </SidebarInset>
+      </SidebarProvider>
+    </SpecProvider>
+  );
+}
