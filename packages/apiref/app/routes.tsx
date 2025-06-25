@@ -7,7 +7,9 @@ import { writeFiles } from '@sdk-it/core/file-system.js';
 import { augmentSpec, loadSpec } from '@sdk-it/spec';
 
 const spec = augmentSpec({
-  spec: await loadSpec('https://api.openstatus.dev/v1/openapi'),
+  spec: await loadSpec(
+    process.env.VITE_SPEC || 'https://api.openstatus.dev/v1/openapi',
+  ),
 });
 
 const template = await readFile(

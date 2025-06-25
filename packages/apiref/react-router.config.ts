@@ -1,8 +1,9 @@
 import type { Config } from '@react-router/dev/config';
+import { join } from 'node:path';
 
 export default {
   ssr: true,
-  buildDirectory: 'dist',
+  buildDirectory: join(process.env.VITE_SDK_IT_OUTPUT ?? './', 'dist'),
   serverModuleFormat: 'esm',
 } satisfies Config;
 

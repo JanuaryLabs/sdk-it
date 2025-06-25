@@ -1,9 +1,5 @@
 import { Option } from 'commander';
 
-
-
-
-
 export const specOption = new Option(
   '-s, --spec <spec>',
   'Path to OpenAPI specification file',
