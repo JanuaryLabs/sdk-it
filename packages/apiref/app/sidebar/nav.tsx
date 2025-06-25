@@ -1,5 +1,6 @@
 /* eslint-disable @nx/enforce-module-boundaries */
 import { ChevronRight, ExternalLink } from 'lucide-react';
+import { useState } from 'react';
 import { NavLink, useParams } from 'react-router';
 import { titlecase } from 'stringcase';
 
@@ -38,8 +39,10 @@ const isExternalUrl = (url: string): boolean => {
 
 export function SidebarItem({ item }: { item: NavItem }) {
   const params = useParams();
-  const route = params['*'] || '/';
-  const [activeGroup, activeOperation] = route.split('/');
+  const [activeGroup, setActiveGroup] = useState(params.group || '');
+  const [activeOperationId, setActiveOperationId] = useState(
+    params.operationId || '',
+  );
   const { operationsMap } = useRootData();
   return (
     <Collapsible
@@ -50,8 +53,8 @@ export function SidebarItem({ item }: { item: NavItem }) {
       <SidebarMenuItem>
         {item.url &&
           (isExternalUrl(item.url) ? (
-            <a
-              href={item.url}
+            <NavLink
+              to={item.url}
               target="_blank"
               rel="noopener noreferrer"
               className="no-underline"
@@ -64,7 +67,7 @@ export function SidebarItem({ item }: { item: NavItem }) {
                 <span className="truncate">{titlecase(item.title)}</span>
                 <ExternalLink />
               </SidebarMenuButton>
-            </a>
+            </NavLink>
           ) : (
             <NavLink to={item.url}>
               <SidebarMenuButton
@@ -94,12 +97,14 @@ export function SidebarItem({ item }: { item: NavItem }) {
                   <SidebarMenuSubItem key={subItem.title}>
                     <SidebarMenuSubButton
                       asChild
-                      isActive={activeOperation === subItem.id}
+                      isActive={activeOperationId === subItem.id}
                       size="md"
                     >
-                      <a
-                        href={import.meta.env.BASE_URL + subItem.url}
+                      <NavLink
+                        to={import.meta.env.BASE_URL + subItem.url}
                         onClick={(e) => {
+                          setActiveGroup(item.id);
+                          setActiveOperationId(subItem.id);
                           e.preventDefault();
                           window.history.replaceState(
                             null,
@@ -130,7 +135,7 @@ export function SidebarItem({ item }: { item: NavItem }) {
                           </Badge>
                         )}
                         <span>{subItem.title}</span>
-                      </a>
+                      </NavLink>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
                 ))}

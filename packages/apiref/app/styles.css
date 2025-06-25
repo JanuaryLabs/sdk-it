@@ -167,9 +167,6 @@
   .shiki {
     @apply overflow-auto p-4;
   }
-  .api-doc-content {
-    padding-bottom: 3rem;
-  }
 
   .api-doc-section:not(:last-child) {
     margin-bottom: 2.5rem;

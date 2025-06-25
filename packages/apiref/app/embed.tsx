@@ -1,6 +1,5 @@
 import { Loader } from 'lucide-react';
 
-import { ApiHeader } from './api-doc/api-header';
 import { OperationsList } from './api-doc/operations-list.tsx';
 import { SearchCmdk } from './components/search';
 import { useScrollOperations } from './hooks/use-scroll-operations';
@@ -19,7 +18,7 @@ export function HydrateFallback() {
 }
 
 export default function Embed() {
-  const { spec, sidebar } = useRootData();
+  const { sidebar } = useRootData();
   useScrollOperations();
   return (
     <SidebarProvider>
@@ -33,7 +32,6 @@ export default function Embed() {
         {/* <SidebarFooter></SidebarFooter> */}
       </Sidebar>
       <SidebarInset>
-        <ApiHeader title={spec.info.title} />
         <div className="h-[calc(100vh-4rem)] overflow-y-auto">
           <OperationsList />
         </div>

@@ -19,7 +19,7 @@ export function OperationsList() {
   const mounted = useMounted();
 
   return (
-    <div className="api-doc-content mx-auto max-w-6xl p-8">
+    <div className="mx-auto p-10">
       {sidebar
         .filter((it) => it.id.startsWith('api'))
         .map((category) => (

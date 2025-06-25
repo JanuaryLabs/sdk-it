@@ -1,14 +1,15 @@
-import { Loader } from 'lucide-react';
+import { Loader, Wand2 } from 'lucide-react';
 
-import { ApiHeader } from './api-doc/api-header';
 import { OperationsList } from './api-doc/operations-list.tsx';
 import { SearchCmdk } from './components/search';
 import { useScrollOperations } from './hooks/use-scroll-operations';
+import { Separator } from './shadcn/separator.tsx';
 import {
   Sidebar,
   SidebarContent,
-  SidebarHeader,
+  SidebarFooter,
   SidebarInset,
+  SidebarMenuSubButton,
   SidebarProvider,
 } from './shadcn/sidebar';
 import { NavMain } from './sidebar/nav';
@@ -19,22 +20,31 @@ export function HydrateFallback() {
 }
 
 export default function Page() {
-  const { spec, sidebar } = useRootData();
+  const { sidebar } = useRootData();
   useScrollOperations();
 
   return (
     <SidebarProvider>
-      <Sidebar collapsible="icon">
-        <SidebarHeader>
+      <Sidebar
+        collapsible="icon"
+        className="left-5 group-data-[side=left]:border-none"
+      >
+        {/* <SidebarHeader>
           <SearchCmdk />
-        </SidebarHeader>
+        </SidebarHeader> */}
         <SidebarContent className="gap-x-2 gap-y-0">
           <NavMain items={sidebar} />
         </SidebarContent>
-        {/* <SidebarFooter></SidebarFooter> */}
+        <SidebarFooter>
+          <SidebarMenuSubButton className="h-10 cursor-pointer">
+            <Wand2 className="size-4" />
+            Ask AI
+          </SidebarMenuSubButton>
+          <Separator />
+          <SearchCmdk />
+        </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <ApiHeader title={spec.info.title} />
         <div className="h-[calc(100vh-4rem)] overflow-y-auto">
           <OperationsList />
         </div>
