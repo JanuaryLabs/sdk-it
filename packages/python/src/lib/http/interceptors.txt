@@ -1,0 +1,571 @@
+"""HTTP interceptors for request/response processing."""
+
+import asyncio
+import logging
+import time
+from abc import ABC, abstractmethod
+from typing import Dict, Optional, List, Any, Union
+from urllib.parse import urljoin
+
+import httpx
+
+from .dispatcher import RequestConfig
+
+
+class Interceptor(ABC):
+    """Base class for HTTP interceptors."""
+
+    @abstractmethod
+    async def process_request(self, config: RequestConfig) -> RequestConfig:
+        """Process an outgoing request.
+
+        Args:
+            config: The request configuration to process
+
+        Returns:
+            The modified request configuration
+        """
+        pass
+
+    @abstractmethod
+    async def process_response(self, response: httpx.Response) -> httpx.Response:
+        """Process an incoming response.
+
+        Args:
+            response: The HTTP response to process
+
+        Returns:
+            The processed response
+        """
+        pass
+
+
+class BaseUrlInterceptor(Interceptor):
+    """Interceptor that prepends base URL to relative URLs."""
+
+    def __init__(self, base_url: str):
+        """Initialize the base URL interceptor.
+
+        Args:
+            base_url: The base URL to prepend to relative URLs
+        """
+        self.base_url = base_url.rstrip('/')
+
+    async def process_request(self, config: RequestConfig) -> RequestConfig:
+        """Prepend base URL if the request URL is relative.
+
+        Args:
+            config: The request configuration
+
+        Returns:
+            The modified request configuration with absolute URL
+        """
+        if not config.url.startswith(('http://', 'https://')):
+            # Use urljoin for proper URL joining, ensuring single slash
+            config.url = urljoin(self.base_url + '/', config.url.lstrip('/'))
+        return config
+
+    async def process_response(self, response: httpx.Response) -> httpx.Response:
+        """Pass through response unchanged.
+
+        Args:
+            response: The HTTP response
+
+        Returns:
+            The unmodified response
+        """
+        return response
+
+
+class LoggingInterceptor(Interceptor):
+    """Interceptor that logs requests and responses using Python's logging module."""
+
+    def __init__(
+        self,
+        enabled: bool = True,
+        logger: Optional[logging.Logger] = None,
+        log_level: int = logging.INFO,
+        include_headers: bool = True,
+        include_sensitive_headers: bool = False
+    ):
+        """Initialize the logging interceptor.
+
+        Args:
+            enabled: Whether logging is enabled
+            logger: Custom logger instance (creates default if None)
+            log_level: Logging level to use
+            include_headers: Whether to log request/response headers
+            include_sensitive_headers: Whether to log sensitive headers like Authorization
+        """
+        self.enabled = enabled
+        self.logger = logger or logging.getLogger(__name__)
+        self.log_level = log_level
+        self.include_headers = include_headers
+        self.include_sensitive_headers = include_sensitive_headers
+        self._sensitive_headers = {'authorization', 'x-api-key', 'cookie', 'set-cookie'}
+
+    async def process_request(self, config: RequestConfig) -> RequestConfig:
+        """Log outgoing request.
+
+        Args:
+            config: The request configuration
+
+        Returns:
+            The unmodified request configuration
+        """
+        if not self.enabled:
+            return config
+
+        self.logger.log(self.log_level, f"→ {config.method.upper()} {config.url}")
+
+        if self.include_headers and config.headers:
+            for key, value in config.headers.items():
+                if (key.lower() in self._sensitive_headers and
+                    not self.include_sensitive_headers):
+                    self.logger.log(self.log_level, f"  {key}: [REDACTED]")
+                else:
+                    self.logger.log(self.log_level, f"  {key}: {value}")
+
+        return config
+
+    async def process_response(self, response: httpx.Response) -> httpx.Response:
+        """Log incoming response.
+
+        Args:
+            response: The HTTP response
+
+        Returns:
+            The unmodified response
+        """
+        if not self.enabled:
+            return response
+
+        status_icon = "✓" if 200 <= response.status_code < 300 else "✗"
+        self.logger.log(
+            self.log_level,
+            f"← {status_icon} {response.status_code} {response.reason_phrase or ''}"
+        )
+
+        if self.include_headers and response.headers:
+            for key, value in response.headers.items():
+                if (key.lower() in self._sensitive_headers and
+                    not self.include_sensitive_headers):
+                    self.logger.log(self.log_level, f"  {key}: [REDACTED]")
+                else:
+                    self.logger.log(self.log_level, f"  {key}: {value}")
+
+        return response
+
+
+class AuthInterceptor(Interceptor):
+    """Interceptor that adds authentication headers."""
+
+    def __init__(
+        self,
+        token: Optional[str] = None,
+        api_key: Optional[str] = None,
+        api_key_header: str = 'X-API-Key',
+        auth_type: str = 'Bearer'
+    ):
+        """Initialize the authentication interceptor.
+
+        Args:
+            token: Bearer token for Authorization header
+            api_key: API key value
+            api_key_header: Header name for API key
+            auth_type: Type of authentication (Bearer, Basic, etc.)
+        """
+        self.token = token
+        self.api_key = api_key
+        self.api_key_header = api_key_header
+        self.auth_type = auth_type
+
+    async def process_request(self, config: RequestConfig) -> RequestConfig:
+        """Add authentication headers.
+
+        Args:
+            config: The request configuration
+
+        Returns:
+            The modified request configuration with auth headers
+        """
+        if config.headers is None:
+            config.headers = {}
+
+        if self.token:
+            config.headers['Authorization'] = f'{self.auth_type} {self.token}'
+        elif self.api_key:
+            config.headers[self.api_key_header] = self.api_key
+
+        return config
+
+    async def process_response(self, response: httpx.Response) -> httpx.Response:
+        """Pass through response unchanged.
+
+        Args:
+            response: The HTTP response
+
+        Returns:
+            The unmodified response
+        """
+        return response
+
+
+class RetryInterceptor(Interceptor):
+    """Interceptor that retries failed requests with exponential backoff."""
+
+    def __init__(
+        self,
+        max_retries: int = 3,
+        retry_delay: float = 1.0,
+        backoff_factor: float = 2.0,
+        retry_on_status: Optional[List[int]] = None,
+        retry_on_exceptions: Optional[List[type]] = None
+    ):
+        """Initialize the retry interceptor.
+
+        Args:
+            max_retries: Maximum number of retry attempts
+            retry_delay: Initial delay between retries in seconds
+            backoff_factor: Exponential backoff multiplier
+            retry_on_status: HTTP status codes that should trigger retries
+            retry_on_exceptions: Exception types that should trigger retries
+        """
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
+        self.backoff_factor = backoff_factor
+        self.retry_on_status = retry_on_status or [500, 502, 503, 504, 408, 429]
+        self.retry_on_exceptions = retry_on_exceptions or [
+            httpx.TimeoutException,
+            httpx.ConnectError,
+            httpx.RemoteProtocolError
+        ]
+        self._original_request_func = None
+        self.logger = logging.getLogger(__name__)
+
+    async def process_request(self, config: RequestConfig) -> RequestConfig:
+        """Store original request for potential retries.
+
+        Args:
+            config: The request configuration
+
+        Returns:
+            The unmodified request configuration
+        """
+        # Store the original config for retries
+        self._original_config = config.model_copy() if hasattr(config, 'model_copy') else config
+        return config
+
+    async def process_response(self, response: httpx.Response) -> httpx.Response:
+        """Check if response needs retry and handle accordingly.
+
+        Args:
+            response: The HTTP response
+
+        Returns:
+            The response (possibly after retries)
+        """
+        # For retry logic to work properly, it needs to be integrated at the dispatcher level
+        # This is a simplified version that just passes through
+        # In a full implementation, the retry logic would need access to the original request method
+        return response
+
+    async def execute_with_retry(self, request_func, *args, **kwargs) -> httpx.Response:
+        """Execute a request function with retry logic.
+
+        Args:
+            request_func: Function that executes the HTTP request
+            *args: Arguments to pass to request_func
+            **kwargs: Keyword arguments to pass to request_func
+
+        Returns:
+            The HTTP response after potential retries
+
+        Raises:
+            The last exception encountered if all retries fail
+        """
+        last_exception = None
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = await request_func(*args, **kwargs)
+
+                # Check if response status requires retry
+                if response.status_code not in self.retry_on_status:
+                    return response
+
+                if attempt == self.max_retries:
+                    self.logger.warning(
+                        f"Max retries ({self.max_retries}) reached for request. "
+                        f"Final status: {response.status_code}"
+                    )
+                    return response
+
+                # Wait before retry
+                delay = self.retry_delay * (self.backoff_factor ** attempt)
+                self.logger.info(
+                    f"Retrying request (attempt {attempt + 1}/{self.max_retries + 1}) "
+                    f"after {delay:.2f}s due to status {response.status_code}"
+                )
+                await asyncio.sleep(delay)
+
+            except Exception as e:
+                # Check if exception type requires retry
+                if not any(isinstance(e, exc_type) for exc_type in self.retry_on_exceptions):
+                    raise e
+
+                last_exception = e
+
+                if attempt == self.max_retries:
+                    self.logger.error(
+                        f"Max retries ({self.max_retries}) reached. "
+                        f"Final exception: {type(e).__name__}: {e}"
+                    )
+                    raise e
+
+                # Wait before retry
+                delay = self.retry_delay * (self.backoff_factor ** attempt)
+                self.logger.info(
+                    f"Retrying request (attempt {attempt + 1}/{self.max_retries + 1}) "
+                    f"after {delay:.2f}s due to {type(e).__name__}: {e}"
+                )
+                await asyncio.sleep(delay)
+
+
+class UserAgentInterceptor(Interceptor):
+    """Interceptor that adds a User-Agent header."""
+
+    def __init__(self, user_agent: str):
+        """Initialize the User-Agent interceptor.
+
+        Args:
+            user_agent: The User-Agent string to set
+        """
+        self.user_agent = user_agent
+
+    async def process_request(self, config: RequestConfig) -> RequestConfig:
+        """Add User-Agent header if not already present.
+
+        Args:
+            config: The request configuration
+
+        Returns:
+            The modified request configuration with User-Agent header
+        """
+        if config.headers is None:
+            config.headers = {}
+
+        # Only set User-Agent if not already present (case-insensitive check)
+        has_user_agent = any(
+            key.lower() == 'user-agent'
+            for key in config.headers.keys()
+        )
+
+        if not has_user_agent:
+            config.headers['User-Agent'] = self.user_agent
+
+        return config
+
+    async def process_response(self, response: httpx.Response) -> httpx.Response:
+        """Pass through response unchanged.
+
+        Args:
+            response: The HTTP response
+
+        Returns:
+            The unmodified response
+        """
+        return response
+
+
+class TimeoutInterceptor(Interceptor):
+    """Interceptor that sets request timeouts."""
+
+    def __init__(self, timeout: Union[float, httpx.Timeout]):
+        """Initialize the timeout interceptor.
+
+        Args:
+            timeout: Timeout value in seconds or httpx.Timeout object
+        """
+        self.timeout = timeout
+
+    async def process_request(self, config: RequestConfig) -> RequestConfig:
+        """Set timeout for the request.
+
+        Args:
+            config: The request configuration
+
+        Returns:
+            The modified request configuration with timeout
+        """
+        if config.timeout is None:
+            config.timeout = self.timeout
+        return config
+
+    async def process_response(self, response: httpx.Response) -> httpx.Response:
+        """Pass through response unchanged.
+
+        Args:
+            response: The HTTP response
+
+        Returns:
+            The unmodified response
+        """
+        return response
+
+
+class RateLimitInterceptor(Interceptor):
+    """Interceptor that implements client-side rate limiting."""
+
+    def __init__(self, max_requests: int, time_window: float = 60.0):
+        """Initialize the rate limit interceptor.
+
+        Args:
+            max_requests: Maximum number of requests allowed in the time window
+            time_window: Time window in seconds
+        """
+        self.max_requests = max_requests
+        self.time_window = time_window
+        self.requests = []
+        self._lock = asyncio.Lock()
+
+    async def process_request(self, config: RequestConfig) -> RequestConfig:
+        """Apply rate limiting before request.
+
+        Args:
+            config: The request configuration
+
+        Returns:
+            The unmodified request configuration
+        """
+        async with self._lock:
+            now = time.time()
+
+            # Remove requests outside the time window
+            self.requests = [req_time for req_time in self.requests
+                           if now - req_time < self.time_window]
+
+            # Check if we've exceeded the rate limit
+            if len(self.requests) >= self.max_requests:
+                # Calculate how long to wait
+                oldest_request = min(self.requests)
+                wait_time = self.time_window - (now - oldest_request)
+
+                if wait_time > 0:
+                    await asyncio.sleep(wait_time)
+
+            # Record this request
+            self.requests.append(now)
+
+        return config
+
+    async def process_response(self, response: httpx.Response) -> httpx.Response:
+        """Pass through response unchanged.
+
+        Args:
+            response: The HTTP response
+
+        Returns:
+            The unmodified response
+        """
+        return response
+
+
+# Factory functions for convenient interceptor creation
+def create_base_url_interceptor(base_url: str) -> BaseUrlInterceptor:
+    """Create a BaseUrlInterceptor instance.
+
+    Args:
+        base_url: The base URL to prepend to relative URLs
+
+    Returns:
+        Configured BaseUrlInterceptor instance
+    """
+    return BaseUrlInterceptor(base_url)
+
+
+def create_logging_interceptor(
+    enabled: bool = True,
+    log_level: int = logging.INFO,
+    include_headers: bool = True,
+    include_sensitive_headers: bool = False
+) -> LoggingInterceptor:
+    """Create a LoggingInterceptor instance.
+
+    Args:
+        enabled: Whether logging is enabled
+        log_level: Logging level to use
+        include_headers: Whether to log headers
+        include_sensitive_headers: Whether to log sensitive headers
+
+    Returns:
+        Configured LoggingInterceptor instance
+    """
+    return LoggingInterceptor(
+        enabled=enabled,
+        log_level=log_level,
+        include_headers=include_headers,
+        include_sensitive_headers=include_sensitive_headers
+    )
+
+
+def create_auth_interceptor(
+    token: Optional[str] = None,
+    api_key: Optional[str] = None,
+    api_key_header: str = 'X-API-Key',
+    auth_type: str = 'Bearer'
+) -> AuthInterceptor:
+    """Create an AuthInterceptor instance.
+
+    Args:
+        token: Bearer token for Authorization header
+        api_key: API key value
+        api_key_header: Header name for API key
+        auth_type: Type of authentication
+
+    Returns:
+        Configured AuthInterceptor instance
+    """
+    return AuthInterceptor(
+        token=token,
+        api_key=api_key,
+        api_key_header=api_key_header,
+        auth_type=auth_type
+    )
+
+
+def create_retry_interceptor(
+    max_retries: int = 3,
+    retry_delay: float = 1.0,
+    backoff_factor: float = 2.0,
+    retry_on_status: Optional[List[int]] = None
+) -> RetryInterceptor:
+    """Create a RetryInterceptor instance.
+
+    Args:
+        max_retries: Maximum number of retry attempts
+        retry_delay: Initial delay between retries in seconds
+        backoff_factor: Exponential backoff multiplier
+        retry_on_status: HTTP status codes that should trigger retries
+
+    Returns:
+        Configured RetryInterceptor instance
+    """
+    return RetryInterceptor(
+        max_retries=max_retries,
+        retry_delay=retry_delay,
+        backoff_factor=backoff_factor,
+        retry_on_status=retry_on_status
+    )
+
+
+def create_user_agent_interceptor(user_agent: str) -> UserAgentInterceptor:
+    """Create a UserAgentInterceptor instance.
+
+    Args:
+        user_agent: The User-Agent string to set
+
+    Returns:
+        Configured UserAgentInterceptor instance
+    """
+    return UserAgentInterceptor(user_agent)

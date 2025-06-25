@@ -41,6 +41,9 @@
     },
     {
       "path": "./packages/client"
+    },
+    {
+      "path": "./packages/python"
     }
   ]
 }

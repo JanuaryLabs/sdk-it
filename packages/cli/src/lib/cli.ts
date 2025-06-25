@@ -2,10 +2,12 @@
 import { Command, program } from 'commander';
 
 import dart from './langs/dart.ts';
+import python from './langs/python.ts';
 import typescript from './langs/typescript.ts';
 
 const generate = new Command('generate')
   .addCommand(typescript)
+  .addCommand(python)
   .addCommand(dart);
 const cli = program
   .description(`CLI tool to interact with SDK-IT.`)

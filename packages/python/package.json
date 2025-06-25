@@ -1,11 +1,13 @@
 {
-  "name": "@sdk-it/cli",
+  "name": "@sdk-it/python",
   "version": "0.22.1",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": "./dist/index.js",
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     "./package.json": "./package.json",
     ".": {
@@ -14,22 +16,22 @@
       "default": "./dist/index.js"
     }
   },
+  "scripts": {
+    "test": "node --loader tsx --test src/**/*.test.ts",
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
   "files": [
     "dist",
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "@sdk-it/typescript": "0.22.1",
-    "@sdk-it/dart": "0.22.1",
-    "@sdk-it/spec": "0.22.1",
-    "commander": "^13.1.0",
-    "@sdk-it/core": "0.22.1",
-    "libnpmpublish": "^11.0.0",
     "openapi3-ts": "4.4.0",
-    "registry-auth-token": "^5.1.0",
-    "@sdk-it/python": "0.22.1"
-  },
-  "publishConfig": {
-    "access": "public"
+    "@sdk-it/core": "0.22.1",
+    "lodash-es": "^4.17.21",
+    "stringcase": "^4.3.1",
+    "@sdk-it/spec": "0.22.1",
+    "fast-content-type-parse": "^3.0.0",
+    "yaml": "^2.7.0"
   }
 }

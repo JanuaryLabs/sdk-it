@@ -4,19 +4,10 @@
   "include": [],
   "references": [
     {
-      "path": "../python"
-    },
-    {
-      "path": "../core"
-    },
-    {
       "path": "../spec"
     },
     {
-      "path": "../dart"
-    },
-    {
-      "path": "../typescript"
+      "path": "../core"
     },
     {
       "path": "./tsconfig.lib.json"

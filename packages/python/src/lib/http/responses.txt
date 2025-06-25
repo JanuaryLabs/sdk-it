@@ -1,0 +1,225 @@
+"""HTTP response models and exceptions."""
+
+from typing import Any, Dict, Optional, Union
+
+import httpx
+from pydantic import BaseModel
+
+
+class ApiResponse(BaseModel):
+    """Base class for API responses."""
+
+    status_code: int
+    headers: Dict[str, str]
+    data: Any
+
+    class Config:
+        """Pydantic configuration."""
+        arbitrary_types_allowed = True
+
+
+class SuccessResponse(ApiResponse):
+    """Represents a successful API response."""
+
+    def __init__(self, data: Any, status_code: int = 200, headers: Optional[Dict[str, str]] = None):
+        """Initialize success response.
+
+        Args:
+            data: Response data
+            status_code: HTTP status code
+            headers: Response headers
+        """
+        super().__init__(
+            status_code=status_code,
+            headers=headers or {},
+            data=data
+        )
+
+
+class ErrorResponse(Exception):
+    """Exception raised for HTTP error responses."""
+
+    def __init__(
+        self,
+        data: Any,
+        status_code: int,
+        headers: Optional[Dict[str, str]] = None,
+        message: Optional[str] = None
+    ):
+        """Initialize error response.
+
+        Args:
+            data: Error response data
+            status_code: HTTP status code
+            headers: Response headers
+            message: Custom error message
+        """
+        self.data = data
+        self.status_code = status_code
+        self.headers = headers or {}
+        self.message = message or f"HTTP {status_code} Error"
+
+        super().__init__(self.message)
+
+    def __str__(self) -> str:
+        """String representation of the error."""
+        return f"ErrorResponse(status_code={self.status_code}, message='{self.message}')"
+
+    def __repr__(self) -> str:
+        """Detailed string representation of the error."""
+        return (
+            f"ErrorResponse(status_code={self.status_code}, "
+            f"message='{self.message}', data={self.data})"
+        )
+
+
+class TimeoutError(ErrorResponse):
+    """Exception raised for request timeouts."""
+
+    def __init__(self, message: str = "Request timed out"):
+        """Initialize timeout error.
+
+        Args:
+            message: Error message
+        """
+        super().__init__(
+            data={'error': 'timeout'},
+            status_code=408,
+            message=message
+        )
+
+
+class ConnectionError(ErrorResponse):
+    """Exception raised for connection errors."""
+
+    def __init__(self, message: str = "Connection failed"):
+        """Initialize connection error.
+
+        Args:
+            message: Error message
+        """
+        super().__init__(
+            data={'error': 'connection'},
+            status_code=503,
+            message=message
+        )
+
+
+class BadRequestError(ErrorResponse):
+    """Exception raised for 400 Bad Request errors."""
+
+    def __init__(self, data: Any = None, message: str = "Bad Request"):
+        """Initialize bad request error.
+
+        Args:
+            data: Error data
+            message: Error message
+        """
+        super().__init__(
+            data=data or {'error': 'bad_request'},
+            status_code=400,
+            message=message
+        )
+
+
+class UnauthorizedError(ErrorResponse):
+    """Exception raised for 401 Unauthorized errors."""
+
+    def __init__(self, data: Any = None, message: str = "Unauthorized"):
+        """Initialize unauthorized error.
+
+        Args:
+            data: Error data
+            message: Error message
+        """
+        super().__init__(
+            data=data or {'error': 'unauthorized'},
+            status_code=401,
+            message=message
+        )
+
+
+class ForbiddenError(ErrorResponse):
+    """Exception raised for 403 Forbidden errors."""
+
+    def __init__(self, data: Any = None, message: str = "Forbidden"):
+        """Initialize forbidden error.
+
+        Args:
+            data: Error data
+            message: Error message
+        """
+        super().__init__(
+            data=data or {'error': 'forbidden'},
+            status_code=403,
+            message=message
+        )
+
+
+class NotFoundError(ErrorResponse):
+    """Exception raised for 404 Not Found errors."""
+
+    def __init__(self, data: Any = None, message: str = "Not Found"):
+        """Initialize not found error.
+
+        Args:
+            data: Error data
+            message: Error message
+        """
+        super().__init__(
+            data=data or {'error': 'not_found'},
+            status_code=404,
+            message=message
+        )
+
+
+class InternalServerError(ErrorResponse):
+    """Exception raised for 500 Internal Server Error."""
+
+    def __init__(self, data: Any = None, message: str = "Internal Server Error"):
+        """Initialize internal server error.
+
+        Args:
+            data: Error data
+            message: Error message
+        """
+        super().__init__(
+            data=data or {'error': 'internal_server_error'},
+            status_code=500,
+            message=message
+        )
+
+
+def create_error_from_response(response: httpx.Response) -> ErrorResponse:
+    """Create appropriate error exception from HTTP response.
+
+    Args:
+        response: HTTP response
+
+    Returns:
+        Appropriate error exception
+    """
+    status_code = response.status_code
+    headers = dict(response.headers)
+
+    # Try to parse error data
+    try:
+        data = response.json()
+    except Exception:
+        data = {'message': response.text}
+
+    # Create specific error types based on status code
+    error_classes = {
+        400: BadRequestError,
+        401: UnauthorizedError,
+        403: ForbiddenError,
+        404: NotFoundError,
+        500: InternalServerError,
+    }
+
+    error_class = error_classes.get(status_code, ErrorResponse)
+
+    if error_class == ErrorResponse:
+        return ErrorResponse(data, status_code, headers)
+    else:
+        return error_class(data)

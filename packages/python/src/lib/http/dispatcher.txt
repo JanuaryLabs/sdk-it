@@ -1,0 +1,422 @@
+"""HTTP dispatcher for making API requests."""
+
+import asyncio
+import logging
+from typing import Any, Dict, List, Optional, Union
+from urllib.parse import urljoin, urlparse
+
+import httpx
+from pydantic import BaseModel
+
+from .interceptors import Interceptor
+from .responses import ApiResponse, ErrorResponse
+
+
+class RequestConfig(BaseModel):
+    """Configuration for an HTTP request."""
+
+    method: str
+    url: str
+    headers: Optional[Dict[str, str]] = None
+    params: Optional[Dict[str, Any]] = None
+    json_data: Optional[Dict[str, Any]] = None
+    form_data: Optional[Dict[str, Any]] = None
+    files: Optional[Dict[str, Any]] = None
+    timeout: Optional[Union[float, httpx.Timeout]] = None
+    
+    class Config:
+        """Pydantic configuration."""
+        arbitrary_types_allowed = True
+
+
+class Dispatcher:
+    """HTTP client dispatcher with interceptor support."""
+
+    def __init__(
+        self, 
+        interceptors: Optional[List[Interceptor]] = None,
+        client: Optional[httpx.AsyncClient] = None,
+        timeout: Optional[Union[float, httpx.Timeout]] = None
+    ):
+        """Initialize the dispatcher.
+        
+        Args:
+            interceptors: List of interceptors to apply to requests/responses
+            client: Custom httpx.AsyncClient instance (creates default if None)
+            timeout: Default timeout for requests
+        """
+        self.interceptors = interceptors or []
+        self.client = client or httpx.AsyncClient(timeout=timeout)
+        self.logger = logging.getLogger(__name__)
+
+    async def __aenter__(self):
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await self.client.aclose()
+
+    async def request(self, config: RequestConfig) -> httpx.Response:
+        """Execute an HTTP request with interceptor processing.
+        
+        Args:
+            config: Request configuration
+            
+        Returns:
+            HTTP response after processing through interceptors
+            
+        Raises:
+            httpx.HTTPError: For HTTP-related errors
+            ValueError: For invalid request configuration
+        """
+        # Process request interceptors
+        processed_config = config
+        for interceptor in self.interceptors:
+            processed_config = await interceptor.process_request(processed_config)
+
+        # Prepare request arguments
+        request_kwargs = self._prepare_request_kwargs(processed_config)
+
+        try:
+            # Execute request
+            response = await self.client.request(**request_kwargs)
+            
+            # Process response interceptors (in reverse order)
+            for interceptor in reversed(self.interceptors):
+                response = await interceptor.process_response(response)
+
+            return response
+            
+        except httpx.RequestError as e:
+            self.logger.error(f"Request failed: {e}")
+            raise
+        except Exception as e:
+            self.logger.error(f"Unexpected error during request: {e}")
+            raise
+
+    def _prepare_request_kwargs(self, config: RequestConfig) -> Dict[str, Any]:
+        """Prepare keyword arguments for httpx request.
+        
+        Args:
+            config: Request configuration
+            
+        Returns:
+            Dictionary of kwargs for httpx.request
+            
+        Raises:
+            ValueError: If request configuration is invalid
+        """
+        if not config.method:
+            raise ValueError("Request method cannot be empty")
+        
+        if not config.url:
+            raise ValueError("Request URL cannot be empty")
+
+        request_kwargs = {
+            'method': config.method.upper(),
+            'url': config.url,
+            'headers': config.headers or {},
+            'params': config.params,
+            'timeout': config.timeout,
+        }
+
+        # Handle different content types
+        content_type_set = False
+        
+        if config.json_data is not None:
+            request_kwargs['json'] = config.json_data
+            if 'Content-Type' not in request_kwargs['headers']:
+                request_kwargs['headers']['Content-Type'] = 'application/json'
+            content_type_set = True
+            
+        elif config.form_data is not None:
+            request_kwargs['data'] = config.form_data
+            if 'Content-Type' not in request_kwargs['headers']:
+                request_kwargs['headers']['Content-Type'] = 'application/x-www-form-urlencoded'
+            content_type_set = True
+            
+        elif config.files is not None:
+            request_kwargs['files'] = config.files
+            # Don't set Content-Type for multipart/form-data - httpx will handle it automatically
+            content_type_set = True
+
+        # Validate that only one content type is set
+        content_fields = [config.json_data, config.form_data, config.files]
+        non_none_count = sum(1 for field in content_fields if field is not None)
+        
+        if non_none_count > 1:
+            raise ValueError(
+                "Only one of json_data, form_data, or files can be set in a single request"
+            )
+
+        return request_kwargs
+
+    async def json(self, config: RequestConfig) -> httpx.Response:
+        """Make a JSON request.
+        
+        Args:
+            config: Request configuration
+            
+        Returns:
+            HTTP response
+        """
+        return await self.request(config)
+
+    async def form(self, config: RequestConfig) -> httpx.Response:
+        """Make a form-encoded request.
+        
+        Args:
+            config: Request configuration
+            
+        Returns:
+            HTTP response
+        """
+        return await self.request(config)
+
+    async def multipart(self, config: RequestConfig) -> httpx.Response:
+        """Make a multipart/form-data request.
+        
+        Args:
+            config: Request configuration
+            
+        Returns:
+            HTTP response
+        """
+        return await self.request(config)
+
+    async def close(self):
+        """Close the HTTP client and clean up resources."""
+        await self.client.aclose()
+
+
+class Receiver:
+    """Response processor with interceptor support."""
+
+    def __init__(
+        self, 
+        interceptors: Optional[List[Interceptor]] = None,
+        logger: Optional[logging.Logger] = None
+    ):
+        """Initialize the receiver.
+        
+        Args:
+            interceptors: List of interceptors to apply to responses
+            logger: Custom logger instance
+        """
+        self.interceptors = interceptors or []
+        self.logger = logger or logging.getLogger(__name__)
+
+    async def json(
+        self, 
+        response: httpx.Response, 
+        success_model: Optional[type] = None, 
+        error_model: Optional[type] = None
+    ) -> Any:
+        """Process a JSON response.
+        
+        Args:
+            response: HTTP response to process
+            success_model: Pydantic model for successful responses
+            error_model: Pydantic model for error responses
+            
+        Returns:
+            Parsed response data, optionally as model instances
+            
+        Raises:
+            ErrorResponse: For HTTP error status codes
+            ValueError: For response parsing errors
+        """
+        # Process response interceptors
+        processed_response = response
+        for interceptor in self.interceptors:
+            processed_response = await interceptor.process_response(processed_response)
+
+        # Handle different status codes
+        if 200 <= processed_response.status_code < 300:
+            return await self._handle_success_response(
+                processed_response, success_model
+            )
+        else:
+            await self._handle_error_response(
+                processed_response, error_model
+            )
+
+    async def _handle_success_response(
+        self, 
+        response: httpx.Response, 
+        success_model: Optional[type] = None
+    ) -> Any:
+        """Handle successful response.
+        
+        Args:
+            response: HTTP response
+            success_model: Pydantic model for successful responses
+            
+        Returns:
+            Parsed response data
+            
+        Raises:
+            ValueError: For parsing errors
+        """
+        if not response.content:
+            return None
+
+        try:
+            data = response.json()
+            
+            if success_model:
+                if isinstance(data, list):
+                    return [success_model(**item) for item in data]
+                else:
+                    return success_model(**data)
+            
+            return data
+            
+        except Exception as e:
+            self.logger.error(f"Failed to parse success response: {e}")
+            raise ValueError(f"Failed to parse response: {e}")
+
+    async def _handle_error_response(
+        self, 
+        response: httpx.Response, 
+        error_model: Optional[type] = None
+    ) -> None:
+        """Handle error response.
+        
+        Args:
+            response: HTTP response
+            error_model: Pydantic model for error responses
+            
+        Raises:
+            ErrorResponse: Always raises with error details
+        """
+        error_data = {}
+        
+        if response.content:
+            try:
+                error_data = response.json()
+            except Exception:
+                # Fallback to text content if JSON parsing fails
+                error_data = {'message': response.text}
+
+        if error_model:
+            try:
+                error = error_model(**error_data)
+                raise ErrorResponse(error, response.status_code, dict(response.headers))
+            except Exception as e:
+                self.logger.warning(f"Failed to parse error with model {error_model}: {e}")
+
+        raise ErrorResponse(error_data, response.status_code, dict(response.headers))
+
+    async def stream(self, response: httpx.Response) -> httpx.Response:
+        """Return streaming response as-is.
+        
+        Args:
+            response: HTTP response
+            
+        Returns:
+            The unmodified streaming response
+        """
+        return response
+
+    async def text(self, response: httpx.Response) -> str:
+        """Get response as text.
+        
+        Args:
+            response: HTTP response
+            
+        Returns:
+            Response body as text
+            
+        Raises:
+            ErrorResponse: For HTTP error status codes
+        """
+        # Process response interceptors
+        processed_response = response
+        for interceptor in self.interceptors:
+            processed_response = await interceptor.process_response(processed_response)
+
+        if 200 <= processed_response.status_code < 300:
+            return processed_response.text
+        else:
+            error_data = {'message': processed_response.text}
+            raise ErrorResponse(error_data, processed_response.status_code, dict(processed_response.headers))
+
+    async def bytes(self, response: httpx.Response) -> bytes:
+        """Get response as bytes.
+        
+        Args:
+            response: HTTP response
+            
+        Returns:
+            Response body as bytes
+            
+        Raises:
+            ErrorResponse: For HTTP error status codes
+        """
+        # Process response interceptors
+        processed_response = response
+        for interceptor in self.interceptors:
+            processed_response = await interceptor.process_response(processed_response)
+
+        if 200 <= processed_response.status_code < 300:
+            return processed_response.content
+        else:
+            error_data = {'message': 'Binary response error'}
+            raise ErrorResponse(error_data, processed_response.status_code, dict(processed_response.headers))
+
+
+# Convenience functions for common use cases
+async def quick_request(
+    method: str,
+    url: str,
+    interceptors: Optional[List[Interceptor]] = None,
+    **kwargs
+) -> httpx.Response:
+    """Make a quick HTTP request with interceptors.
+    
+    Args:
+        method: HTTP method
+        url: Request URL
+        interceptors: List of interceptors to apply
+        **kwargs: Additional request configuration
+        
+    Returns:
+        HTTP response
+    """
+    config = RequestConfig(method=method, url=url, **kwargs)
+    
+    async with Dispatcher(interceptors=interceptors) as dispatcher:
+        return await dispatcher.request(config)
+
+
+async def quick_json_request(
+    method: str,
+    url: str,
+    json_data: Optional[Dict[str, Any]] = None,
+    interceptors: Optional[List[Interceptor]] = None,
+    success_model: Optional[type] = None,
+    error_model: Optional[type] = None,
+    **kwargs
+) -> Any:
+    """Make a quick JSON HTTP request with interceptors.
+    
+    Args:
+        method: HTTP method
+        url: Request URL
+        json_data: JSON data to send
+        interceptors: List of interceptors to apply
+        success_model: Pydantic model for successful responses
+        error_model: Pydantic model for error responses
+        **kwargs: Additional request configuration
+        
+    Returns:
+        Parsed JSON response
+    """
+    config = RequestConfig(method=method, url=url, json_data=json_data, **kwargs)
+    
+    async with Dispatcher(interceptors=interceptors) as dispatcher:
+        response = await dispatcher.request(config)
+        receiver = Receiver(interceptors=interceptors)
+        return await receiver.json(response, success_model, error_model)
