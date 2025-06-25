@@ -77,6 +77,7 @@ export function augmentSpec(
       securitySchemes: config.spec.components?.securitySchemes ?? {},
     },
     paths: config.spec.paths ?? {},
+    'x-docs': [],
   };
 
   const paths: PathsObject = {};
@@ -149,9 +150,6 @@ export function augmentSpec(
   if (verbose) {
     const newRefs: { name: string; value: SchemaObject }[] = [];
     expandSpec(spec, spec.components.schemas, newRefs);
-    // for (const ref of newRefs) {
-    //   spec.components.schemas[ref.name] = ref.value;
-    // }
   }
 
   return {

@@ -12,6 +12,8 @@
     ],
     "sharedGlobals": []
   },
+  
+  "tui": { "enabled": false },
   "plugins": [
     {
       "plugin": "@nx/eslint/plugin",

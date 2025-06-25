@@ -20,55 +20,57 @@ export function OperationsList() {
 
   return (
     <div className="api-doc-content mx-auto max-w-6xl p-8">
-      {sidebar.slice(1).map((category) => (
-        <div key={category.category} className="api-doc-section mb-12">
-          {/* <h2 className="mb-6 text-2xl font-bold">{category.category}</h2>
+      {sidebar
+        .filter((it) => it.id.startsWith('api'))
+        .map((category) => (
+          <div key={category.category} className="api-doc-section mb-12">
+            {/* <h2 className="mb-6 text-2xl font-bold">{category.category}</h2>
           <MD content={category.description} /> */}
 
-          {category.items.map((group) => (
-            <div key={group.title} className="api-doc-section mb-8">
-              <h3 className="mb-4 text-3xl font-semibold">{group.title}</h3>
-              <Description
-                className="prose"
-                id={group.id}
-                description={group.description}
-              />
-              <Separator className="mt-12" />
-              <div className="grid gap-6">
-                {group.items?.map((item) => {
-                  const operationId = item.url.split('/').pop() || '';
-                  const { entry, operation } = operationsMap[operationId];
-                  return (
-                    <motion.div
-                      key={operationId}
-                      id={operationId}
-                      viewport={{
-                        amount: 'some',
-                        margin: '0px 0px -50% 0px',
-                      }}
-                      onViewportEnter={() => {
-                        if (!mounted) return;
-                        window.history.replaceState(
-                          null,
-                          '',
-                          `${import.meta.env.BASE_URL}${item.url}`,
-                        );
-                      }}
-                    >
-                      <OperationCard
-                        key={`${operationId}-card`}
-                        entry={entry}
-                        operation={operation}
-                      />
-                    </motion.div>
-                  );
-                })}
+            {category.items.map((group) => (
+              <div key={group.title} className="api-doc-section mb-8">
+                <h3 className="mb-4 text-3xl font-semibold">{group.title}</h3>
+                <Description
+                  className="prose"
+                  id={group.id}
+                  description={group.description}
+                />
+                <Separator className="mt-12" />
+                <div className="grid gap-6">
+                  {group.items?.map((item) => {
+                    const operationId = item.url.split('/').pop() || '';
+                    const { entry, operation } = operationsMap[operationId];
+                    return (
+                      <motion.div
+                        key={operationId}
+                        id={operationId}
+                        viewport={{
+                          amount: 'some',
+                          margin: '0px 0px -50% 0px',
+                        }}
+                        onViewportEnter={() => {
+                          if (!mounted) return;
+                          window.history.replaceState(
+                            null,
+                            '',
+                            `${import.meta.env.BASE_URL}${item.url}`,
+                          );
+                        }}
+                      >
+                        <OperationCard
+                          key={`${operationId}-card`}
+                          entry={entry}
+                          operation={operation}
+                        />
+                      </motion.div>
+                    );
+                  })}
+                </div>
+                <Separator className="mt-12" />
               </div>
-              <Separator className="mt-12" />
-            </div>
-          ))}
-        </div>
-      ))}
+            ))}
+          </div>
+        ))}
     </div>
   );
 }

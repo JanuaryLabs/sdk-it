@@ -114,7 +114,7 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --font-sans: 'Rubik', sans-serif;
+  --font-sans: 'Geist', sans-serif;
   --font-mono: 'Geist Mono', monospace;
   --text-base: 14px;
 }
@@ -208,7 +208,7 @@
 .shiki {
   @apply light:!bg-muted/20 h-full rounded-none;
 }
-
+/*
 
 :root {
   --background: oklch(0.9818 0.0054 95.0986);
@@ -355,4 +355,4 @@
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
   --shadow-2xl: var(--shadow-2xl);
-}
+} */

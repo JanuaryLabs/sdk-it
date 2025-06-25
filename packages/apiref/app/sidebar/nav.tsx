@@ -1,5 +1,5 @@
 /* eslint-disable @nx/enforce-module-boundaries */
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, ExternalLink } from 'lucide-react';
 import { NavLink, useParams } from 'react-router';
 import { titlecase } from 'stringcase';
 
@@ -7,6 +7,7 @@ import { isEmpty } from '@sdk-it/core/utils.js';
 import type { CategoryItem, NavItem, SidebarData } from '@sdk-it/spec';
 
 import { Badge } from '../shadcn/badge';
+import { cn } from '../shadcn/cn.tsx';
 import {
   Collapsible,
   CollapsibleContent,
@@ -24,6 +25,17 @@ import {
 } from '../shadcn/sidebar';
 import { useRootData } from '../use-root-data';
 
+// Helper function to check if a URL is external
+const isExternalUrl = (url: string): boolean => {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+  } catch {
+    // If URL parsing fails, it's likely a relative URL
+    return false;
+  }
+};
+
 export function SidebarItem({ item }: { item: NavItem }) {
   const params = useParams();
   const route = params['*'] || '/';
@@ -36,17 +48,34 @@ export function SidebarItem({ item }: { item: NavItem }) {
       className="group/collapsible"
     >
       <SidebarMenuItem>
-        {!item.items?.length && (
-          <NavLink to={item.url}>
-            <SidebarMenuButton
-              className="flex items-center justify-between p-2 text-sm font-normal"
-              size={'default'}
-              tooltip={item.title}
+        {item.url &&
+          (isExternalUrl(item.url) ? (
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="no-underline"
             >
-              <span>{titlecase(item.title)}</span>
-            </SidebarMenuButton>
-          </NavLink>
-        )}
+              <SidebarMenuButton
+                className="text-muted-foreground hover:text-foreground flex items-center justify-between p-2 text-sm font-normal"
+                size={'default'}
+                tooltip={item.title}
+              >
+                <span className="truncate">{titlecase(item.title)}</span>
+                <ExternalLink />
+              </SidebarMenuButton>
+            </a>
+          ) : (
+            <NavLink to={item.url}>
+              <SidebarMenuButton
+                className="flex items-center justify-between p-2 text-sm font-normal"
+                size={'default'}
+                tooltip={item.title}
+              >
+                <span>{titlecase(item.title)}</span>
+              </SidebarMenuButton>
+            </NavLink>
+          ))}
         {item.items?.length && (
           <>
             <CollapsibleTrigger asChild>
@@ -116,8 +145,13 @@ export function SidebarItem({ item }: { item: NavItem }) {
 
 export function CategoryNav({ category }: { category: CategoryItem }) {
   return (
-    <SidebarGroup className="py-0">
-      <SidebarGroupLabel className="text-foreground text-sm font-semibold uppercase">
+    <SidebarGroup className={cn('py-0', 'mt-4')}>
+      <SidebarGroupLabel
+        className={cn(
+          'text-foreground text-xs font-semibold uppercase',
+          !category.category && 'h-auto',
+        )}
+      >
         {category.category}
       </SidebarGroupLabel>
       <SidebarMenu className="gap-0">

@@ -4,17 +4,8 @@ import { resolveRef } from '@sdk-it/core/ref.js';
 
 import { forEachOperation } from './for-each-operation.js';
 import { isErrorStatusCode } from './is.js';
+import type { NavItem, SidebarData } from './sidebar.js';
 import type { OurOpenAPIObject } from './types.js';
-
-export interface DocPage {
-  id: string;
-  title: string;
-  description?: string;
-  /**
-   * Markdown content
-   */
-  content: string;
-}
 
 interface ErrorSchema {
   statusCode: string;
@@ -209,12 +200,11 @@ function generateAuthorizationMarkdown(spec: OurOpenAPIObject): string {
   return markdown;
 }
 
-export function extractOverviewDocs(spec: OurOpenAPIObject): DocPage[] {
-  const docs: DocPage[] = [];
-
-  const introduction: DocPage = {
+export function extractOverviewDocs(spec: OurOpenAPIObject): SidebarData {
+  const introduction: NavItem = {
     id: 'introduction',
     title: 'Introduction',
+    url: '/introduction',
     description: 'API overview and getting started guide',
     content: generateIntroductionMarkdown(spec),
   };
@@ -244,21 +234,28 @@ export function extractOverviewDocs(spec: OurOpenAPIObject): DocPage[] {
     }
   });
 
-  const errors: DocPage = {
+  const errors: NavItem = {
     id: 'errors',
     title: 'Errors',
+    url: '/errors',
     description: 'Error handling and HTTP status codes',
     content: generateErrorsMarkdown(errorSchemas),
   };
 
-  // Extract authorization documentation
-  const authorization: DocPage = {
+  const authorization: NavItem = {
     id: 'authorization',
+    url: '/authorization',
     title: 'Authorization',
     description: 'Authentication methods and security schemes',
     content: generateAuthorizationMarkdown(spec),
   };
+  const docs: NavItem[] = [introduction, errors, authorization];
 
-  docs.push(introduction, errors, authorization);
-  return docs;
+  return [
+    {
+      id: 'overview',
+      category: 'Overview',
+      items: docs,
+    },
+  ];
 }

@@ -12,11 +12,11 @@ import type {
   SecuritySchemeObject,
 } from 'openapi3-ts/oas31';
 
-import { type DocPage } from './overview-docs.js';
+import type { SidebarData } from './sidebar.ts';
 
 export interface OurOpenAPIObject extends OpenAPIObject {
   'x-sdk-augmented'?: boolean;
-  'x-docs'?: DocPage[];
+  'x-docs': SidebarData;
   components: Omit<ComponentsObject, 'schemas'> & {
     schemas: Record<string, SchemaObject | ReferenceObject>;
     securitySchemes: Record<string, SecuritySchemeObject | ReferenceObject>;

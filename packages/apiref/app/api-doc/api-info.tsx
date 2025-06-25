@@ -1,4 +1,3 @@
-import { Badge } from '../shadcn/badge';
 import { useRootData } from '../use-root-data';
 import { MD } from './md';
 

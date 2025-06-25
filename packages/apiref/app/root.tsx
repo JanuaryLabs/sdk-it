@@ -1,4 +1,5 @@
-import HTTPSnippet from 'httpsnippet';
+/* eslint-disable @nx/enforce-module-boundaries */
+import { HTTPSnippet } from 'httpsnippet';
 import type { ParameterObject, RequestBodyObject } from 'openapi3-ts/oas31';
 import type { ShouldRevalidateFunctionArgs } from 'react-router';
 import {
@@ -10,6 +11,7 @@ import {
   ScrollRestoration,
 } from 'react-router';
 
+import { resolveRef } from '@sdk-it/core';
 import { TypeScriptGenerator } from '@sdk-it/typescript';
 
 import type { AugmentedOperation } from './api-doc/types';
@@ -127,7 +129,19 @@ export async function loader({
     }
     const type =
       (param.schema && 'type' in param.schema && param.schema.type) || 'string';
-    return `<${type}>`;
+
+    // Return valid placeholder values instead of <type> format
+    switch (type) {
+      case 'integer':
+      case 'number':
+        return '1';
+      case 'boolean':
+        return 'true';
+      case 'array':
+        return 'item1,item2';
+      default: // string and others
+        return 'example';
+    }
   };
 
   forEachOperation(spec, (entry, operation) => {
@@ -138,15 +152,11 @@ export async function loader({
         return '{}';
       }
 
-      const schema = isRef(body.content['application/json'].schema)
-        ? followRef(spec, body.content['application/json'].schema.$ref)
-        : body.content['application/json'].schema;
+      const schema = resolveRef(spec, body.content['application/json'].schema);
       const example: Record<string, unknown> = {};
       schema.properties ??= {};
       for (const key in schema.properties) {
-        const property = isRef(schema.properties[key])
-          ? followRef(spec, schema.properties[key].$ref)
-          : schema.properties[key];
+        const property = resolveRef(spec, schema.properties[key]);
         example[key] = property.type || key;
       }
       return JSON.stringify(example, null, 2);
@@ -156,8 +166,8 @@ export async function loader({
     operation.parameters
       .filter((it) => it.in === 'path')
       .forEach((param) => {
-        const value = getExampleOrPlaceholder(param);
-        urlPath = urlPath.replace(`{${param.name}}`, value);
+        const example = getExampleOrPlaceholder(param);
+        urlPath = urlPath.replace(`{${param.name}}`, example);
       });
 
     const url = spec.servers?.[0]?.url;
@@ -203,7 +213,6 @@ export async function loader({
       throw new Error(`Failed to convert to curl for ${operationId}`);
     }
 
-    // const curlOutput = '';
     operationsMap[operationId] = {
       entry: {
         ...entry,

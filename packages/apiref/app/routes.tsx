@@ -18,16 +18,19 @@ const template = await readFile(
 const docs = spec['x-docs'] ?? [];
 await writeFiles(
   join(import.meta.dirname, '_generated'),
-  docs.reduce(
-    (acc, curr) => ({
-      ...acc,
-      [`${curr.id}.tsx`]: template.replace(
-        '###PLACE_HERE###',
-        `<MD id={'${curr.id}'} content={${JSON.stringify(curr.content)}} />`,
-      ),
-    }),
-    {},
-  ),
+  docs
+    .flatMap((it) => it.items)
+    .filter((it) => it.content)
+    .reduce(
+      (acc, curr) => ({
+        ...acc,
+        [`${curr.id}.tsx`]: template.replace(
+          '###PLACE_HERE###',
+          `<MD id={'${curr.id}'} content={${JSON.stringify(curr.content)}} />`,
+        ),
+      }),
+      {},
+    ),
 );
 
 export default [
@@ -36,11 +39,14 @@ export default [
   route('/:group/:operationId', './app.tsx', {
     id: 'operation',
   }),
-  ...docs.map((doc) =>
-    route(doc.id, `./_generated/${doc.id}.tsx`, {
-      id: doc.id,
-    }),
-  ),
+  ...docs
+    .flatMap((it) => it.items)
+    .filter((it) => it.content)
+    .map((doc) =>
+      route(doc.id, `./_generated/${doc.id}.tsx`, {
+        id: doc.id,
+      }),
+    ),
   route('*', './app.tsx', {
     id: 'catch-all',
   }), // catch all

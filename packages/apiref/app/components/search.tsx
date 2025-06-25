@@ -72,62 +72,66 @@ export function SearchCmdk() {
               </CommandItem>
             </CommandGroup>
             <CommandEmpty>No results found.</CommandEmpty>
-            {sidebar.slice(1).map((category) => (
-              <Fragment key={category.category}>
-                <CommandGroup heading={category.category}>
-                  {category.items.map((item) => (
-                    <React.Fragment key={item.id}>
-                      {/* <CommandItem disabled className="pl-2 opacity-80">
+            {sidebar
+              .filter((it) => it.id.startsWith('api'))
+              .map((category) => (
+                <Fragment key={category.category}>
+                  <CommandGroup heading={category.category}>
+                    {category.items.map((item) => (
+                      <React.Fragment key={item.id}>
+                        {/* <CommandItem disabled className="pl-2 opacity-80">
                         <span className="font-medium">{item.title}</span>
                       </CommandItem> */}
-                      {item.items?.map((child) => {
-                        const operationId = child.url.split('/').pop() || '';
-                        return (
-                          <CommandItem
-                            key={child.id}
-                            className="flex flex-col items-start gap-0 p-0 pl-6"
-                            onSelect={() => {
-                              window.history.replaceState(
-                                null,
-                                '',
-                                `${import.meta.env.BASE_URL}${child.url}`,
-                              );
-                              const element = document.getElementById(child.id);
-                              if (element) {
-                                element.scrollIntoView({
-                                  behavior: 'instant',
-                                  block: 'start',
-                                  inline: 'nearest',
-                                });
+                        {item.items?.map((child) => {
+                          const operationId = child.url.split('/').pop() || '';
+                          return (
+                            <CommandItem
+                              key={child.id}
+                              className="flex flex-col items-start gap-0 p-0 pl-6"
+                              onSelect={() => {
+                                window.history.replaceState(
+                                  null,
+                                  '',
+                                  `${import.meta.env.BASE_URL}${child.url}`,
+                                );
+                                const element = document.getElementById(
+                                  child.id,
+                                );
+                                if (element) {
+                                  element.scrollIntoView({
+                                    behavior: 'instant',
+                                    block: 'start',
+                                    inline: 'nearest',
+                                  });
+                                }
+                                setOpen(false);
+                              }}
+                              onMouseEnter={() =>
+                                setSelectedOperationId(operationId)
                               }
-                              setOpen(false);
-                            }}
-                            onMouseEnter={() =>
-                              setSelectedOperationId(operationId)
-                            }
-                          >
-                            <span>{child.title}</span>
-                            <div className="flex items-center">
-                              <Badge
-                                variant={'ghost'}
-                                className="text-muted-foreground line-clamp-2 flex gap-x-1 px-0 font-mono text-[10px] hover:bg-transparent"
-                              >
-                                <span className="uppercase">
-                                  {operationsMap[operationId].entry.method}
-                                </span>
-                                <span className="font-normal">
-                                  {operationsMap[operationId].entry.path}
-                                </span>
-                              </Badge>
-                            </div>
-                          </CommandItem>
-                        );
-                      })}
-                    </React.Fragment>
-                  ))}
-                </CommandGroup>
-              </Fragment>
-            ))}
+                            >
+                              <span>{child.title}</span>
+                              <div className="flex items-center">
+                                <Badge
+                                  variant={'ghost'}
+                                  className="text-muted-foreground line-clamp-2 flex gap-x-1 px-0 font-mono text-[10px] hover:bg-transparent"
+                                >
+                                  <span className="uppercase">
+                                    {operationsMap[operationId].entry.method}
+                                  </span>
+                                  <span className="font-normal">
+                                    {operationsMap[operationId].entry.path}
+                                  </span>
+                                </Badge>
+                              </div>
+                            </CommandItem>
+                          );
+                        })}
+                      </React.Fragment>
+                    ))}
+                  </CommandGroup>
+                </Fragment>
+              ))}
           </CommandList>
 
           {/* Right Pane - Operation Card */}

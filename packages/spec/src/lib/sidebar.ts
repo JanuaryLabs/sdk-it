@@ -14,11 +14,13 @@ export type NavItem = {
   id: string;
   title: string;
   description?: string;
-  url: string;
+  url?: string;
   items?: ChildNavItem[];
+  content?: string; // Markdown content
 };
 
 export type CategoryItem = {
+  id: string;
   category: string;
   description?: string;
   items: NavItem[];
@@ -29,8 +31,7 @@ export type SidebarData = CategoryItem[];
 function createOAIMeta(spec: OurOpenAPIObject): XOaiMeta {
   spec.paths ??= {};
   const navigationGroups: Record<string, NavigationGroup> = {
-    overview: { id: 'overview', title: 'Overview' },
-    default: { id: 'default', title: 'API' },
+    api: { id: 'api', title: 'API' },
   };
   const groups: Record<string, Group> = {};
 
@@ -40,7 +41,7 @@ function createOAIMeta(spec: OurOpenAPIObject): XOaiMeta {
       id: tag,
       title: tag,
       description: spec.tags?.find((t) => t.name === tag)?.description,
-      navigationGroup: 'default',
+      navigationGroup: 'api',
       sections: [],
     };
     groups[tag].sections.push({
@@ -68,28 +69,7 @@ function getOperationById(spec: OurOpenAPIObject, operationId: string) {
 
 export function toSidebar(spec: OurOpenAPIObject) {
   const openapi: OpenAPIObject & { 'x-oaiMeta': XOaiMeta } = spec as any;
-  const sidebar: SidebarData = [
-    {
-      category: 'Overview',
-      items: [
-        {
-          id: 'introduction',
-          title: 'Introduction',
-          url: '/introduction',
-        },
-        {
-          id: 'errors',
-          title: 'Errors',
-          url: '/errors',
-        },
-        {
-          id: 'authorization',
-          title: 'Authorization',
-          url: '/authorization',
-        },
-      ],
-    },
-  ];
+  const sidebar: SidebarData = spec['x-docs'];
   const oaiMeta = openapi['x-oaiMeta'] ?? createOAIMeta(spec);
   for (const navGroup of oaiMeta.navigationGroups) {
     const group = oaiMeta.groups.filter(
@@ -114,13 +94,14 @@ export function toSidebar(spec: OurOpenAPIObject) {
       groupItems.push({
         id: item.id,
         title: item.title,
-        url: `/${item.id}`,
+        // url: `/${item.id}`,
         description: item.description,
         items: subitems,
       });
     }
     if (groupItems.length === 0) continue;
     sidebar.push({
+      id: navGroup.id,
       category: navGroup.title,
       items: groupItems,
     });
