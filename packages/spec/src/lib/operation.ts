@@ -146,6 +146,8 @@ export function augmentSpec(
         if (coearcedConfig.pagination.guess) {
           tunedOperation['x-pagination'] = toPagination(spec, tunedOperation);
         }
+      } else {
+        delete tunedOperation['x-pagination'];
       }
 
       Object.assign(paths, {
