@@ -1,6 +1,5 @@
 import type {
   MediaTypeObject,
-  OpenAPIObject,
   OperationObject,
   ParameterObject,
   PathsObject,
@@ -11,7 +10,6 @@ import type {
   SchemaObject,
   SecurityRequirementObject,
 } from 'openapi3-ts/oas31';
-import { camelcase } from 'stringcase';
 
 import { type Method, methods } from '@sdk-it/core/paths.js';
 import { followRef, isRef, parseRef, resolveRef } from '@sdk-it/core/ref.js';
@@ -24,13 +22,17 @@ import {
   isTextContentType,
   parseJsonContentType,
 } from './is.js';
+import {
+  type GenerateSdkConfig,
+  type ResponsesConfig,
+  coeraceConfig,
+} from './options.js';
 import { extractOverviewDocs } from './overview-docs.js';
 import {
   type PaginationGuess,
   guessPagination,
 } from './pagination/pagination.js';
 import { securityToOptions } from './security.js';
-import { determineGenericTag, sanitizeTag } from './tag.js';
 import { expandSpec, fixSpec } from './tune.js';
 import type {
   OurOpenAPIObject,
@@ -73,6 +75,7 @@ export function augmentSpec(
   config: GenerateSdkConfig,
   verbose = false,
 ): OurOpenAPIObject {
+  const coearcedConfig = coeraceConfig(config);
   if ('x-sdk-augmented' in config.spec) {
     return config.spec as OurOpenAPIObject; // Already augmented
   }
@@ -100,15 +103,13 @@ export function augmentSpec(
       if (!methods.includes(method)) {
         continue;
       }
-      const formatOperationId = config.operationId ?? defaults.operationId;
-      const formatTag = config.tag ?? defaults.tag;
-      const operationTag = formatTag(operation, fixedPath);
+      const operationTag = coearcedConfig.tag(operation, fixedPath);
       const operationId = findUniqueOperationId(
         usedOperationIds,
-        formatOperationId(operation, fixedPath, method),
+        coearcedConfig.operationId(operation, fixedPath, method),
         [operationTag, method, fixedPath.split('/').filter(Boolean).join('')],
         (id) =>
-          formatOperationId(
+          coearcedConfig.operationId(
             { ...operation, operationId: id },
             fixedPath,
             method,
@@ -141,7 +142,11 @@ export function augmentSpec(
         ),
       };
 
-      tunedOperation['x-pagination'] = toPagination(spec, tunedOperation);
+      if (coearcedConfig.pagination.enabled) {
+        if (coearcedConfig.pagination.guess) {
+          tunedOperation['x-pagination'] = toPagination(spec, tunedOperation);
+        }
+      }
 
       Object.assign(paths, {
         [fixedPath]: {
@@ -240,35 +245,6 @@ function getRequestContentSchema(
   }
   return undefined;
 }
-
-export const defaults: Partial<GenerateSdkConfig> &
-  Required<Pick<GenerateSdkConfig, 'operationId' | 'tag'>> = {
-  operationId: (operation, path, method) => {
-    if (operation.operationId) {
-      return camelcase(
-        operation.operationId
-          .split('#')
-          .pop()!
-          .replace(/-(?=\d)/g, ''),
-      );
-    }
-    const metadata = operation['x-oaiMeta'];
-    if (metadata && metadata.name) {
-      return camelcase(metadata.name);
-    }
-    return camelcase(
-      [method, ...path.replace(/[\\/\\{\\}]/g, ' ').split(' ')]
-        .filter(Boolean)
-        .join(' ')
-        .trim(),
-    );
-  },
-  tag: (operation, path) => {
-    return operation.tags?.[0]
-      ? sanitizeTag(operation.tags?.[0])
-      : determineGenericTag(path, operation);
-  },
-};
 
 function resolveResponses(
   spec: OurOpenAPIObject,
@@ -393,21 +369,6 @@ function resolveResponses(
   }
 
   return operation.responses;
-}
-
-interface ResponsesConfig {
-  flattenErrorResponses?: boolean;
-}
-
-export interface GenerateSdkConfig {
-  spec: OpenAPIObject;
-  responses?: ResponsesConfig;
-  operationId?: (
-    operation: OperationObject,
-    path: string,
-    method: string,
-  ) => string;
-  tag?: (operation: OperationObject, path: string) => string;
 }
 
 export function patchParameters(
