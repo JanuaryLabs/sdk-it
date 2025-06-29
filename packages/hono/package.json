@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/hono",
-  "version": "0.22.1",
+  "version": "0.23.0",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -26,7 +26,7 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.22.1",
+    "@sdk-it/core": "0.23.0",
     "hono": "^4.7.4",
     "zod": "^3.24.2",
     "fast-content-type-parse": "^3.0.0"
