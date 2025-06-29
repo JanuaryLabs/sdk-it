@@ -77,7 +77,7 @@ Let's generate a client SDK for the Hetzner Cloud API with automatic formatting:
 
 ```bash
 # Generate SDK from Hetzner Cloud API spec with Prettier formatting
-npx sdk-it -s https://docs.hetzner.cloud/spec.json -o ./client --formatter "prettier $SDK_IT_OUTPUT --write"
+npx sdk-it -s https://raw.githubusercontent.com/MaximilianKoestler/hcloud-openapi/refs/heads/main/openapi/hcloud.json -o ./client --formatter "prettier $SDK_IT_OUTPUT --write"
 ```
 
 After running this command:

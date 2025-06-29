@@ -22,10 +22,8 @@ export class ZodEmitter {
     this.#spec = spec;
     this.#onRef = onRef;
   }
-  /**
-   * Handle objects (properties, additionalProperties).
-   */
-  object(schema: SchemaObject): string {
+
+  #object(schema: SchemaObject): string {
     const properties = schema.properties || {};
 
     // Convert each property
@@ -96,13 +94,13 @@ export class ZodEmitter {
         return `${this.string(schema)}${this.#suffixes(JSON.stringify(schema.default), required, nullable)}`;
       case 'number':
       case 'integer': {
-        const { base, defaultValue } = this.number(schema);
+        const { base, defaultValue } = this.#number(schema);
         return `${base}${this.#suffixes(defaultValue, required, nullable)}`;
       }
       case 'boolean':
         return `z.boolean()${this.#suffixes(schema.default, required, nullable)}`;
       case 'object':
-        return `${this.object(schema)}${this.#suffixes(JSON.stringify(schema.default), required, nullable)}`;
+        return `${this.#object(schema)}${this.#suffixes(JSON.stringify(schema.default), required, nullable)}`;
       // required always
       case 'array':
         return this.#array(schema, required);
@@ -249,7 +247,7 @@ export class ZodEmitter {
    * In 3.1, exclusiveMinimum/Maximum hold the actual numeric threshold,
    * rather than a boolean toggling `minimum`/`maximum`.
    */
-  number(schema: SchemaObject) {
+  #number(schema: SchemaObject) {
     let defaultValue = schema.default;
     let base = 'z.number()';
     if (schema.format === 'int64') {

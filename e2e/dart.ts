@@ -100,7 +100,7 @@ const specs = [
     spec: join(process.cwd(), '.specs', 'problem.json'),
   },
   {
-    spec: 'https://docs.hetzner.cloud/spec.json',
+    spec: 'https://raw.githubusercontent.com/MaximilianKoestler/hcloud-openapi/refs/heads/main/openapi/hcloud.json',
     name: 'hetzner',
     flags: [],
   },

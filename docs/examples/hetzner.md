@@ -4,7 +4,7 @@
 
 ```bash
 npx @sdk-it/cli@latest typescript \
-  --spec https://docs.hetzner.cloud/spec.json \
+  --spec https://raw.githubusercontent.com/MaximilianKoestler/hcloud-openapi/refs/heads/main/openapi/hcloud.json \
   --output ./hetzner \
   --name Hetzner \
   --mode full

@@ -19,6 +19,7 @@ import {
 import { type Varient, findVarients } from './find-polymorphic-varients.js';
 import { findUniqueSchemaName } from './find-unique-schema-name.js';
 import { formatName } from './format-name.js';
+import { isPrimitiveSchema } from './is-primitive-schema.js';
 import type { OurOpenAPIObject } from './types.js';
 
 export function fixSpec(
@@ -34,6 +35,15 @@ export function fixSpec(
       delete schema.oneOf;
       delete schema.anyOf;
       fixSpec(spec, Object.values(schema.properties), visited);
+      // path param are required and if it happens to have
+      // body with defaults then zod would break off. so flat the defaults from object itself to properties
+      for (const [key, value] of Object.entries(schema.properties)) {
+        if (notRef(value) && isPrimitiveSchema(value)) {
+          value.default ??= schema.default?.[key];
+          delete schema.default?.[key];
+        }
+      }
+      delete schema.default; // default should not be in properties
     }
 
     if (!isEmpty(schema['x-properties'])) {

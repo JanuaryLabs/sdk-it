@@ -1,6 +1,5 @@
 import chalk from 'chalk';
 import { execSync } from 'child_process';
-import { writeFile } from 'fs/promises';
 import { join } from 'path';
 
 function runCommand(
@@ -105,7 +104,7 @@ const specs = [
   //   spec: join(process.cwd(), '.specs', 'problem.json'),
   // },
   // {
-  //   spec: 'https://docs.hetzner.cloud/spec.json',
+  //   spec: 'https://raw.githubusercontent.com/MaximilianKoestler/hcloud-openapi/refs/heads/main/openapi/hcloud.json',
   //   name: 'hetzner',
   //   flags: [],
   // },

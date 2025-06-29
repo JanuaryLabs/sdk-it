@@ -40,11 +40,21 @@ function runCommand(title: string, command: string, memory?: number) {
 
 const specs = [
   {
+    spec: 'https://raw.githubusercontent.com/MaximilianKoestler/hcloud-openapi/refs/heads/main/openapi/hcloud.json',
+    name: 'hetzner',
+    flags: ['--output-type=default', '--error-as-value=true'],
+  },
+  {
+    spec: 'https://raw.githubusercontent.com/MaximilianKoestler/hcloud-openapi/refs/heads/main/openapi/hcloud.json',
+    name: 'hetzner',
+    flags: ['--output-type=status', '--error-as-value=true'],
+  },
+  {
     spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
     name: 'discord',
     flags: ['--error-as-value=true', '--output-type=status'],
   },
-  { 
+  {
     spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
     name: 'discord',
     flags: ['--error-as-value=false', '--output-type=status'],
@@ -111,16 +121,6 @@ const specs = [
   {
     name: 'OpenAPIWithRecursiveSchemas',
     spec: join(process.cwd(), '.specs', 'problem.json'),
-  },
-  {
-    spec: 'https://docs.hetzner.cloud/spec.json',
-    name: 'hetzner',
-    flags: ['--output-type=default', '--error-as-value=true'],
-  },
-  {
-    spec: 'https://docs.hetzner.cloud/spec.json',
-    name: 'hetzner',
-    flags: ['--output-type=status', '--error-as-value=true'],
   },
   {
     name: 'spotify',
