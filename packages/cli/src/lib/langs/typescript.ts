@@ -8,10 +8,15 @@ import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import getAuthToken from 'registry-auth-token';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
-import { augmentSpec, loadSpec } from '@sdk-it/spec';
+import { loadSpec } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
 
-import { outputOption, specOption } from '../options.ts';
+import {
+  outputOption,
+  parseDotConfig,
+  parsePagination,
+  specOption,
+} from '../options.ts';
 
 interface Options {
   spec: string;
@@ -31,9 +36,10 @@ interface Options {
   verbose: boolean;
   defaultFormatter: boolean;
   outputType?: 'default' | 'status';
-  errorAsValue?: boolean;
+  errorAsValue?: false;
   readme?: boolean;
   publish?: string;
+  pagination?: string;
 }
 
 const command = new Command('typescript')
@@ -79,6 +85,11 @@ const command = new Command('typescript')
   .option('--no-default-formatter', 'Do not use the default formatter')
   .option('--no-install', 'Do not install dependencies')
   .option('-v, --verbose', 'Verbose output', false)
+  .option(
+    '--pagination <pagination>',
+    'Configure pagination (e.g., "false", "true", "guess=false")',
+    'true',
+  )
   .addOption(
     new Option(
       '--publish <publish>',
@@ -94,13 +105,8 @@ const command = new Command('typescript')
       });
       return;
     }
-    const spec = augmentSpec(
-      {
-        spec: await loadSpec(options.spec),
-        responses: { flattenErrorResponses: true },
-      },
-      false,
-    );
+    const spec = await loadSpec(options.spec);
+
     if (options.output) {
       await emitLocal(spec, { ...options, output: options.output });
     }
@@ -121,6 +127,7 @@ async function emitLocal(
     output: options.output,
     mode: options.mode || 'minimal',
     name: options.name,
+    pagination: parsePagination(parseDotConfig(options.pagination ?? 'true')),
     style: {
       name: 'github',
       outputType: options.outputType,

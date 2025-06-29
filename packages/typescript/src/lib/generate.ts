@@ -75,7 +75,11 @@ export async function generate(
   settings: TypeScriptGeneratorOptions,
 ) {
   const spec = augmentSpec(
-    { spec: openapi, responses: { flattenErrorResponses: true } },
+    {
+      spec: openapi,
+      responses: { flattenErrorResponses: true },
+      pagination: settings.pagination,
+    },
     false,
   );
 
@@ -93,6 +97,7 @@ export async function generate(
     settings.mode === 'full' ? join(settings.output, 'src') : settings.output;
 
   settings.useTsExtension ??= true;
+  settings.readme ??= true;
   const { writer, files: writtenFiles } = createWriterProxy(
     settings.writer ?? writeFiles,
     output,
@@ -295,12 +300,9 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
       },
     };
     if (settings.readme) {
-      configFiles['README.md'] = {
-        ignoreIfExists: false,
-        content: toReadme(spec, {
-          generateSnippet: (...args) => generator.snippet(...args),
-        }),
-      };
+      configFiles['README.md'] = toReadme(spec, {
+        generateSnippet: (...args) => generator.snippet(...args),
+      });
     }
     await settings.writer(settings.output, configFiles);
   }

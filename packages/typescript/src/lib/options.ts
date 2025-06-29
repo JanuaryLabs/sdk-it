@@ -1,6 +1,7 @@
 import { npmRunPathEnv } from 'npm-run-path';
 
 import { type ReadFolderFn, type Writer } from '@sdk-it/core/file-system.js';
+import type { PaginationConfig } from '@sdk-it/spec';
 
 import type { Style } from './style.ts';
 
@@ -10,6 +11,7 @@ export interface TypeScriptGeneratorOptions {
   output: string;
   useTsExtension?: boolean;
   name?: string;
+  pagination?: PaginationConfig | false;
   writer?: Writer;
   readFolder?: ReadFolderFn;
   /**

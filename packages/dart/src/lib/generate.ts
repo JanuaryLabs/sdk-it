@@ -27,6 +27,7 @@ import {
 import {
   type Operation,
   type OurOpenAPIObject,
+  type PaginationConfig,
   augmentSpec,
   cleanFiles,
   forEachOperation,
@@ -48,6 +49,7 @@ export async function generate(
     output: string;
     cleanup?: boolean;
     name?: string;
+    pagination?: PaginationConfig | false;
     writer?: Writer;
     readFolder?: ReadFolderFn;
     /**
@@ -58,7 +60,14 @@ export async function generate(
     formatCode?: (options: { output: string }) => void | Promise<void>;
   },
 ) {
-  const spec = augmentSpec({ spec: openapi }, true);
+  const spec = augmentSpec(
+    {
+      spec: openapi,
+      pagination: settings.pagination ?? false,
+      responses: { flattenErrorResponses: false },
+    },
+    true,
+  );
 
   const clientName = settings.name || 'Client';
   const output = join(settings.output, 'lib');

@@ -2,9 +2,15 @@ import { Command } from 'commander';
 import { execFile, execSync } from 'node:child_process';
 
 import { generate } from '@sdk-it/dart';
-import { augmentSpec, loadSpec } from '@sdk-it/spec';
+import { loadSpec } from '@sdk-it/spec';
 
-import { outputOption, shellEnv, specOption } from '../options.ts';
+import {
+  outputOption,
+  parseDotConfig,
+  parsePagination,
+  shellEnv,
+  specOption,
+} from '../options.ts';
 
 interface Options {
   spec: string;
@@ -20,6 +26,7 @@ interface Options {
    */
   formatter?: string;
   verbose: boolean;
+  pagination?: string;
 }
 
 export default new Command('dart')
@@ -32,14 +39,19 @@ export default new Command('dart')
   //   'full: generate a full project including package.json and tsconfig.json. useful for monorepo/workspaces minimal: generate only the client sdk',
   // )
   .option('-n, --name <name>', 'Name of the generated client', 'Client')
+  .option(
+    '--pagination <pagination>',
+    'Configure pagination (e.g., "false", "true", "guess=false")',
+    'true',
+  )
   .option('-v, --verbose', 'Verbose output', false)
   // .option('--formatter <formatter>', 'Formatter to use for the generated code')
   .action(async (options: Options) => {
-    const spec = augmentSpec({ spec: await loadSpec(options.spec) }, true);
-    await generate(spec, {
+    await generate(await loadSpec(options.spec), {
       output: options.output,
       mode: options.mode || 'full',
       name: options.name,
+      pagination: parsePagination(parseDotConfig(options.pagination ?? 'true')),
       formatCode: ({ output }) => {
         if (options.formatter) {
           const [command, ...args] = options.formatter.split(' ');
