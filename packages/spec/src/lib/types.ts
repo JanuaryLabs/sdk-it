@@ -38,7 +38,12 @@ export type TunedOperationObject = Omit<
   tags: string[];
   operationId: string;
   parameters: ParameterObject[];
-  responses: Record<string, ResponseObject>;
+  responses: Record<
+    string,
+    Omit<ResponseObject, 'content'> & {
+      content: Record<string, MediaTypeObject>;
+    }
+  >;
   requestBody: OurRequestBodyObject;
 };
 

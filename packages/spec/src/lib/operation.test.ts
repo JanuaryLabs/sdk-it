@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { OperationObject } from 'openapi3-ts/oas31';
 
-import { determineGenericTag } from './operation.ts';
+import { determineGenericTag } from './tag.ts';
 
 const mockOperation = (operationId = ''): OperationObject => ({ operationId });
 

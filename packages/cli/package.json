@@ -27,7 +27,8 @@
     "libnpmpublish": "^11.0.0",
     "openapi3-ts": "4.4.0",
     "registry-auth-token": "^5.1.0",
-    "@sdk-it/python": "0.22.1"
+    "@sdk-it/python": "0.22.1",
+    "execa": "^9.6.0"
   },
   "publishConfig": {
     "access": "public"

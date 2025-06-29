@@ -6,6 +6,7 @@ import type {
 } from 'openapi3-ts/oas31';
 
 import { followRef, isRef } from '@sdk-it/core';
+import { coerceTypes } from '@sdk-it/spec';
 
 /**
  * PropEmitter handles converting OpenAPI schemas to Markdown documentation
@@ -282,11 +283,7 @@ export class PropEmitter {
     }
 
     // Determine type(s) and nullability
-    let types = Array.isArray(schema.type)
-      ? schema.type
-      : schema.type
-        ? [schema.type]
-        : [];
+    let types = coerceTypes(schema);
     let nullable = false; // Default to false
 
     if (types.includes('null')) {

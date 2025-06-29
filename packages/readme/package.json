@@ -21,7 +21,6 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "openapi3-ts": "4.4.0",
     "@sdk-it/core": "0.22.1",
     "@sdk-it/spec": "0.22.1"
   }

@@ -11,8 +11,8 @@
       "!{projectRoot}/src/test-setup.[jt]s"
     ],
     "sharedGlobals": []
-  },
-  
+},
+
   "tui": { "enabled": false },
   "plugins": [
     {
