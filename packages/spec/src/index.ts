@@ -1,4 +1,5 @@
 export * from './lib/find-polymorphic-varients.js';
+export * from './lib/find-unique-schema-name.js';
 export * from './lib/for-each-operation.js';
 export * from './lib/format-name.js';
 export * from './lib/get-ref-usage.js';

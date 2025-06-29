@@ -64,13 +64,21 @@ export function coeraceConfig(config: GenerateSdkConfig) {
 export function coearcePaginationConfig(
   options: PaginationConfig | undefined | false,
 ) {
-  return !options
-    ? {
-        guess: false,
-        enabled: false,
-      }
-    : {
-        enabled: true,
-        guess: options.guess ?? true,
-      };
+  if (options === undefined) {
+    return {
+      guess: true,
+      enabled: true,
+    };
+  }
+  if (options === false) {
+    return {
+      enabled: false,
+      guess: false,
+    };
+  }
+  // If options is true, we assume pagination is enabled with guessing
+  return {
+    guess: options.guess ?? true,
+    enabled: true,
+  };
 }
