@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/cli",
-  "version": "0.24.0",
+  "version": "0.25.0",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -19,15 +19,15 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "@sdk-it/typescript": "0.24.0",
-    "@sdk-it/dart": "0.24.0",
-    "@sdk-it/spec": "0.24.0",
+    "@sdk-it/typescript": "0.25.0",
+    "@sdk-it/dart": "0.25.0",
+    "@sdk-it/spec": "0.25.0",
     "commander": "^13.1.0",
-    "@sdk-it/core": "0.24.0",
+    "@sdk-it/core": "0.25.0",
     "libnpmpublish": "^11.0.0",
     "openapi3-ts": "4.4.0",
     "registry-auth-token": "^5.1.0",
-    "@sdk-it/python": "0.24.0",
+    "@sdk-it/python": "0.25.0",
     "execa": "^9.6.0"
   },
   "publishConfig": {
