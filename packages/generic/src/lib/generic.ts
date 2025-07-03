@@ -218,6 +218,7 @@ export async function analyze(
      * Additional code to inject before resolving zod schemas
      */
     imports?: InjectImport[];
+    typesMap?: Record<string, string>;
     responseAnalyzer: ResponseAnalyzerFn | NaunceResponseAnalyzer;
     onOperation?: OnOperation;
   },
@@ -228,7 +229,7 @@ export async function analyze(
   const typeChecker = program.getTypeChecker();
 
   logger(`Type checker created`);
-  const typeDeriver = new TypeDeriver(typeChecker);
+  const typeDeriver = new TypeDeriver(typeChecker, config.typesMap);
   const paths = new Paths({
     imports: config.imports ?? [],
     onOperation: config.onOperation,
