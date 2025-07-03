@@ -53,7 +53,6 @@ export async function cleanFiles(
   const user = metadata.userFiles ?? [];
   const keep = [...generated, ...user, ...alwaysAvailableFiles];
   const actualFiles = (await readFolder(output, true)).map(addLeadingSlash);
-
   const filesToDelete = [
     ...new Set(
       actualFiles.filter(
@@ -72,11 +71,12 @@ export async function cleanFiles(
           await unlink(filePath);
           log(`Deleted file: ${filePath}`);
         } catch (error: unknown) {
-          // Ignore ENOENT errors - file was already deleted by another process
-          if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+          // Ignore ENOENT errors - file was already deleted or doesn't exist
+          if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
+            log(`File already deleted or doesn't exist: ${filePath}`);
+          } else {
             throw error;
           }
-          log(`File already deleted: ${filePath}`);
         }
       }),
     ),
