@@ -12,7 +12,7 @@ import type {
   SecuritySchemeObject,
 } from 'openapi3-ts/oas31';
 
-import type { SidebarData } from './sidebar.ts';
+import type { SidebarData } from './sidebar.js';
 
 export interface OurOpenAPIObject extends OpenAPIObject {
   'x-sdk-augmented'?: boolean;

@@ -18,7 +18,7 @@ export async function readWriteJson<T = Record<string, unknown>>(path: string) {
   ) as Partial<T>;
   return {
     content,
-    write: (value: Record<string, any> = content) =>
+    write: (value: Record<string, unknown> = content) =>
       writeFile(path, JSON.stringify(value, null, 2), 'utf-8'),
   };
 }
@@ -54,18 +54,30 @@ export async function cleanFiles(
   const keep = [...generated, ...user, ...alwaysAvailableFiles];
   const actualFiles = (await readFolder(output, true)).map(addLeadingSlash);
 
-  const filesToDelete = actualFiles.filter(
-    (file) =>
-      !micromatch.isMatch(file, keep, { cwd: join(process.cwd(), output) }),
-  );
+  const filesToDelete = [
+    ...new Set(
+      actualFiles.filter(
+        (file) =>
+          !micromatch.isMatch(file, keep, { cwd: join(process.cwd(), output) }),
+      ),
+    ),
+  ];
   const limit = pLimit(availableParallelism());
 
   await Promise.all(
     filesToDelete.map((file) =>
       limit(async () => {
         const filePath = join(output, file);
-        await unlink(filePath);
-        log(`Deleted file: ${filePath}`);
+        try {
+          await unlink(filePath);
+          log(`Deleted file: ${filePath}`);
+        } catch (error: unknown) {
+          // Ignore ENOENT errors - file was already deleted by another process
+          if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+            throw error;
+          }
+          log(`File already deleted: ${filePath}`);
+        }
       }),
     ),
   );

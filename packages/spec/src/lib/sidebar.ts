@@ -2,7 +2,7 @@ import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
 import { forEachOperation } from './for-each-operation.js';
-import type { OurOpenAPIObject, TunedOperationObject } from './types.ts';
+import type { OurOpenAPIObject, TunedOperationObject } from './types.js';
 
 export type ChildNavItem = {
   id: string;
