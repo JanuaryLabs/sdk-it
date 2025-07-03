@@ -3,9 +3,10 @@ import ts, { TypeFlags, symbolName } from 'typescript';
 import { isInterfaceType } from './program.js';
 
 type Collector = Record<string, any>;
+
 export const deriveSymbol = Symbol.for('serialize');
 export const $types = Symbol.for('types');
-const defaults: Record<string, string> = {
+export const defaultTypesMap: Record<string, string> = {
   Readable: 'any',
   ReadableStream: 'any',
   DateConstructor: 'string',
@@ -17,8 +18,13 @@ const defaults: Record<string, string> = {
 export class TypeDeriver {
   public readonly collector: Collector = {};
   public readonly checker: ts.TypeChecker;
-  constructor(checker: ts.TypeChecker) {
+  public readonly typesMap: Record<string, string>;
+  constructor(
+    checker: ts.TypeChecker,
+    typeMappings: Record<string, string> = defaultTypesMap,
+  ) {
     this.checker = checker;
+    this.typesMap = typeMappings;
   }
 
   serializeType(type: ts.Type): any {
@@ -70,7 +76,6 @@ export class TypeDeriver {
         [$types]: ['boolean'],
       };
     }
-
     if (type.flags & TypeFlags.TemplateLiteral) {
       return {
         [deriveSymbol]: true,
@@ -233,11 +238,11 @@ export class TypeDeriver {
       return this.serializeNode(valueDeclaration);
     }
     if (type.flags & TypeFlags.Object) {
-      if (defaults[symbolName(type.symbol)]) {
+      if (this.typesMap[symbolName(type.symbol)]) {
         return {
           [deriveSymbol]: true,
           optional: false,
-          [$types]: [defaults[type.symbol.name]],
+          [$types]: [this.typesMap[type.symbol.name]],
         };
       }
       const properties = this.checker.getPropertiesOfType(type);
@@ -284,6 +289,7 @@ export class TypeDeriver {
       }
       return this.serializeNode(declaration);
     }
+
     console.warn(`Unhandled type: ${type.flags} ${ts.TypeFlags[type.flags]}`);
 
     return {
@@ -349,11 +355,11 @@ export class TypeDeriver {
       if (!node.name?.text) {
         throw new Error('Interface has no name');
       }
-      if (defaults[node.name.text]) {
+      if (this.typesMap[node.name.text]) {
         return {
           [deriveSymbol]: true,
           optional: false,
-          [$types]: [defaults[node.name.text]],
+          [$types]: [this.typesMap[node.name.text]],
         };
       }
       if (!this.collector[node.name.text]) {
@@ -374,11 +380,11 @@ export class TypeDeriver {
       if (!node.name?.text) {
         throw new Error('Class has no name');
       }
-      if (defaults[node.name.text]) {
+      if (this.typesMap[node.name.text]) {
         return {
           [deriveSymbol]: true,
           optional: false,
-          [$types]: [defaults[node.name.text]],
+          [$types]: [this.typesMap[node.name.text]],
         };
       }
 
@@ -476,12 +482,53 @@ export class TypeDeriver {
         [$types]: ['boolean'],
       };
     }
+    if (ts.isFunctionDeclaration(node)) {
+      if (!node.name) {
+        console.warn('Function declaration has no name');
+        return {
+          [deriveSymbol]: true,
+          optional: false,
+          [$types]: ['any'],
+        };
+      }
+
+      const functionName = node.name.text;
+      if (this.typesMap[functionName]) {
+        return {
+          [deriveSymbol]: true,
+          optional: false,
+          [$types]: [this.typesMap[functionName]],
+        };
+      }
+
+      if (node.type) {
+        const returnType = this.checker.getTypeFromTypeNode(node.type);
+        return this.serializeType(returnType);
+      }
+
+      return {
+        [deriveSymbol]: true,
+        optional: false,
+        [$types]: ['any'],
+      };
+    }
     if (ts.isArrayLiteralExpression(node)) {
       const type = this.checker.getTypeAtLocation(node);
       return this.serializeType(type);
     }
 
-    console.warn(`Unhandled node: ${ts.SyntaxKind[node.kind]} ${node.flags}`);
+    console.warn(
+      'Unhandled node details:',
+      `Node kind: ${ts.SyntaxKind[node.kind]}`,
+      `Node flags: ${node.flags}`,
+      `Node text: ${node.getText()}`,
+      `Node type: ${this.checker.typeToString(
+        this.checker.getTypeAtLocation(node),
+        undefined,
+        ts.TypeFormatFlags.NoTruncation,
+      )}`,
+    );
+
     return {
       [deriveSymbol]: true,
       optional: false,
