@@ -58,7 +58,6 @@ const { paths, components } = await analyze('path/to/tsconfig.json', {
   responseAnalyzer,
 });
 
-// Now you can use the generated specification to create an SDK or save it to a file
 const spec = {
   info: {
     title: 'My API',
@@ -67,13 +66,15 @@ const spec = {
   paths,
   components,
 };
-await generate(spec, {
-  output: join(process.cwd(), './client'),
-});
+
+await writeFile(
+  join(process.cwd(), 'openapi.json'),
+  JSON.stringify(spec, null, 2),
+);
 ```
 
 > [!TIP]
-> See [typescript](../typescript/README.md) for more info.
+> See [typescript](../typescript/README.md) to create fully functional SDKs from the generated OpenAPI specification.
 
 ### Customizing Operations
 
@@ -115,3 +116,46 @@ const { paths, components } = await analyze('apps/backend/tsconfig.app.json', {
   },
 });
 ```
+
+### Customizing Type Mappings
+
+The type analysis can be customized to handle types that are not standard in TypeScript, such as `Decimal` from Prisma. The `typesMap` option in the `analyze` function allows you to provide your own type mappings.
+
+The example below shows how to map a `Decimal` type to a `string`.
+
+```typescript
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { cwd } from 'node:process';
+
+import { defaultTypesMap } from '@sdk-it/core';
+import { analyze } from '@sdk-it/generic';
+import { responseAnalyzer } from '@sdk-it/hono';
+
+// Define custom type mappings
+const customTypeMappings = {
+  Decimal: 'string',
+};
+
+const { paths, components } = await analyze('path/to/tsconfig.json', {
+  responseAnalyzer,
+  typesMap: {
+    ...defaultTypesMap,
+    Decimal: 'string',
+  },
+});
+
+const spec = {
+  openapi: '3.1.0',
+  info: {
+    title: 'My API',
+    version: '1.0.0',
+  },
+  paths,
+  components,
+};
+
+await writeFile('openapi.json', JSON.stringify(spec, null, 2));
+```
+
+This configuration ensures that any property with the `Decimal` type is represented as a `string` in the generated OpenAPI specification.
