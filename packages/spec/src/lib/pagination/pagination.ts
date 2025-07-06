@@ -6,8 +6,8 @@ import type {
 
 import { followRef, isRef } from '@sdk-it/core/ref.js';
 
-import type { OurOpenAPIObject, TunedOperationObject } from '../types.ts';
-import { guessPagination } from './guess-pagination.ts';
+import type { OurOpenAPIObject, TunedOperationObject } from '../types.js';
+import { guessPagination } from './guess-pagination.js';
 
 export function toPagination(
   spec: OurOpenAPIObject,

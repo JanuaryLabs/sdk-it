@@ -40,6 +40,7 @@ export type TunedOperationObject = Omit<
   operationId: string;
   parameters: ParameterObject[];
   ['x-fn-name']: string;
+  ['x-fn-group']?: string;
   responses: Record<
     string,
     Omit<ResponseObject, 'content'> & {

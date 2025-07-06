@@ -9,6 +9,7 @@ import { type Method, methods } from '@sdk-it/core/paths.js';
 import { resolveRef } from '@sdk-it/core/ref.js';
 import { snakecase } from '@sdk-it/core/utils.js';
 
+import { toResource } from './guess/guess-resource.js';
 import { type GenerateSdkConfig, coeraceConfig } from './options.js';
 import { extractOverviewDocs } from './overview-docs.js';
 import { toPagination } from './pagination/pagination.js';
@@ -48,15 +49,6 @@ function findUniqueOperationId(
   return uniqueOperationId;
 }
 
-function getName(operation: OperationObject) {
-  if (operation['x-oaiMeta']?.path) {
-    return operation['x-oaiMeta'].path;
-  }
-  if (operation.operationId) {
-    return operation.operationId;
-  }
-}
-
 export function augmentSpec(
   config: GenerateSdkConfig,
   verbose = false,
@@ -79,7 +71,7 @@ export function augmentSpec(
       if (!methods.includes(method)) {
         continue;
       }
-      const name = getName(operation);
+      const { name, group } = toResource(operation, fixedPath, method);
       const operationTag = coearcedConfig.tag(operation, fixedPath);
       const operationId = findUniqueOperationId(
         usedOperationIds,
@@ -103,6 +95,7 @@ export function augmentSpec(
         ...operation,
         parameters,
         'x-fn-name': name,
+        'x-fn-group': group,
         tags: [snakecase(operationTag)],
         operationId: operationId,
         responses: resolveResponses(

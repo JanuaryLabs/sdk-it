@@ -13,7 +13,7 @@ import { findUniqueSchemaName } from './find-unique-schema-name.js';
 import { securityToOptions } from './security.js';
 import type { OurOpenAPIObject, OurRequestBodyObject } from './types.js';
 
-function patchParameters(
+export function patchParameters(
   spec: OurOpenAPIObject,
   schema: SchemaObject,
   parameters: ParameterObject[],

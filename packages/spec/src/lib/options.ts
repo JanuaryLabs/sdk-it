@@ -22,16 +22,20 @@ export type PaginationConfig = {
   guess?: boolean;
 };
 
+export function cleanOperationId(operationId: string) {
+  return camelcase(
+    operationId
+      .split('#')
+      .pop()!
+      .replace(/-(?=\d)/g, ''),
+  );
+}
+
 export const defaults: Partial<GenerateSdkConfig> &
   Required<Pick<GenerateSdkConfig, 'operationId' | 'tag'>> = {
   operationId: (operation, path, method) => {
     if (operation.operationId) {
-      return camelcase(
-        operation.operationId
-          .split('#')
-          .pop()!
-          .replace(/-(?=\d)/g, ''),
-      );
+      return cleanOperationId(operation.operationId);
     }
     const metadata = operation['x-oaiMeta'];
     if (metadata && metadata.path) {

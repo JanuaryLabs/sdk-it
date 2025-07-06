@@ -201,12 +201,20 @@ export function talk(
       smoothStream({ chunking: 'line', delayInMs: 100 }),
       markdownJoinerTransform(),
     ],
+    model: google('gemini-2.5-flash-preview-05-20'),
+
+    messages: [...messages],
+    temperature: 0.1,
+    topP: 0.5,
+    // toolChoice: 'required',
+    tools,
+    maxSteps: 25, // Allow multiple steps of tool calls and responses
+
     // model: openai('gpt-4.1-nano'),
     // providerOptions: {
     //   openai: { service_tier: 'flex' },
     // },
     // model: lmstudio('qwen3-8b'),
-    model: google('gemini-2.5-flash-preview-05-20'),
     // model: anthropic('claude-4-sonnet-20250514'),
     system: `
 # Role and Objective
@@ -251,12 +259,6 @@ ${availableOperations(operations)}
 
 Always generate code snippets using the \`generateSnippet\` tool no matter what the user asks.
 `,
-    messages: [...messages],
-    temperature: 0.1,
-    topP: 0.5,
-    // toolChoice: 'required',
-    tools,
-    maxSteps: 25, // Allow multiple steps of tool calls and responses
     onError(event) {
       console.error('Error:', event.error);
     },
