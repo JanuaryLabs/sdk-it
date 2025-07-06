@@ -202,8 +202,23 @@ export class Paths {
     return { parameters, bodySchemaProps };
   }
 
+  getTags(): string[] {
+    const tags = new Set<string>();
+
+    for (const operation of this.#operations) {
+      if (operation.tags) {
+        for (const tag of operation.tags) {
+          tags.add(tag);
+        }
+      }
+    }
+
+    return Array.from(tags);
+  }
+
   async getPaths() {
     const operations: PathsObject = {};
+
     for (const operation of this.#operations) {
       const { path, method, selectors } = operation;
       const { parameters, bodySchemaProps } =
@@ -216,6 +231,7 @@ export class Paths {
         }
         bodySchema[key] = value.schema;
       }
+
       const operationObject: OperationObject = {
         operationId: operation.name,
         parameters,

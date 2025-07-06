@@ -149,7 +149,7 @@ export function augmentSpec(
   }
 
   return {
-    ...(coearcedConfig.spec as OurOpenAPIObject),
+    ...coearcedConfig.spec,
     paths,
     'x-docs': extractOverviewDocs(coearcedConfig.spec),
     'x-sdk-augmented': true,

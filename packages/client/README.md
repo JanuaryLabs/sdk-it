@@ -1,3 +1,23 @@
+## Table of Contents
+
+### Overview
+
+- **Introduction**
+
+- **Errors**
+
+- **Authorization**
+
+### API
+
+- **playground**
+  - [postPlayground](#postplayground)
+
+- **operations**
+  - [getOperations](#getoperations)
+
+- [Schemas](#schemas)
+
 # API Reference
 
 This document provides an overview of the API endpoints available in this service. Each endpoint includes a brief description, example usage, and details about request and response formats.

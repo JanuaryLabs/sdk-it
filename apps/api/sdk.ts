@@ -9,33 +9,36 @@ import {
 import { responseAnalyzer } from '@sdk-it/hono';
 import { generate } from '@sdk-it/typescript';
 
-const { paths, components } = await analyze('apps/api/tsconfig.app.json', {
-  imports: [],
-  responseAnalyzer: {
-    ...genericResponseAnalyzer,
-    ...responseAnalyzer,
-  },
-  onOperation: (sourceFile, method, path, operation) => {
-    operation.responses ??= {};
-    const existing400 = operation.responses[400];
-    operation.responses[400] = {
-      description: 'Bad Request',
-      content: {
-        'application/json': {
-          schema: {
-            oneOf: [
-              existing400?.content?.['application/json'],
-              { $ref: '#/components/schemas/ValidationError' },
-            ].filter(Boolean),
+const { paths, components, tags } = await analyze(
+  'apps/api/tsconfig.app.json',
+  {
+    imports: [],
+    responseAnalyzer: {
+      ...genericResponseAnalyzer,
+      ...responseAnalyzer,
+    },
+    onOperation: (sourceFile, method, path, operation) => {
+      operation.responses ??= {};
+      const existing400 = operation.responses[400];
+      operation.responses[400] = {
+        description: 'Bad Request',
+        content: {
+          'application/json': {
+            schema: {
+              oneOf: [
+                existing400?.content?.['application/json'],
+                { $ref: '#/components/schemas/ValidationError' },
+              ].filter(Boolean),
+            },
           },
         },
-      },
-    };
-    return {};
+      };
+      return {};
+    },
   },
-});
+);
 
-const spec = {
+const spec: Parameters<typeof generate>[0] = {
   openapi: '3.1.0',
   info: { title: 'SDK-IT API', version: '1.0.0' },
   servers: [
@@ -45,6 +48,7 @@ const spec = {
     },
     { url: 'http://localhost:3000', description: 'Local Server' },
   ],
+  tags: tags.map((tag) => ({ name: tag })),
   security: [{ bearer: [] }],
   paths,
   components: {

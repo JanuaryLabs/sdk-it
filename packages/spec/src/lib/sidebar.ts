@@ -3,7 +3,7 @@ import { camelcase } from 'stringcase';
 import { notNullOrUndefined } from '@sdk-it/core/file-system.js';
 
 import { forEachOperation } from './for-each-operation.js';
-import type { OurOpenAPIObject, TunedOperationObject } from './types.js';
+import type { OurOpenAPIObject } from './types.js';
 
 export type ChildNavItem = {
   id: string;
@@ -32,16 +32,6 @@ export type SidebarData = CategoryItem[];
 export interface TagGroups {
   name: string;
   tags: string[];
-}
-
-function getOperationById(spec: OurOpenAPIObject, operationId: string) {
-  let operation: TunedOperationObject | undefined;
-  forEachOperation(spec, (entry, op) => {
-    if (op.operationId === operationId) {
-      operation = op;
-    }
-  });
-  return operation;
 }
 
 export function toSidebar(spec: OurOpenAPIObject) {

@@ -66,11 +66,10 @@ export function coeraceConfig(config: GenerateSdkConfig) {
       },
       paths: config.spec.paths ?? {},
       'x-docs': [],
-      'x-sdk-augmented': true,
       'x-tagGroups': config.spec['x-tagGroups'] ?? [
         {
           name: 'API',
-          tags: config.spec.tags?.map((tag) => tag.name),
+          tags: config.spec.tags?.map((tag) => tag.name) ?? [],
         },
       ],
     } satisfies OurOpenAPIObject,

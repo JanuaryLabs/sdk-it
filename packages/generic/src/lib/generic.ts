@@ -267,6 +267,7 @@ export async function analyze(
 
   return {
     paths: await paths.getPaths(),
+    tags: paths.getTags(),
     components,
   };
 }
