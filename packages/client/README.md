@@ -1,3 +1,16 @@
+# API Reference
+
+This document provides an overview of the API endpoints available in this service. Each endpoint includes a brief description, example usage, and details about request and response formats.
+
+```
+import { SdkIt } from '@sdkit/sdk';
+
+const sdkIt = new SdkIt({
+		baseUrl: '/',
+		'token': "<token>"
+});
+```
+
 #### postPublish | _POST /publish_
 
 ##### Example usage
@@ -18,8 +31,6 @@ console.log(result.data);
 ```
 
 ##### Request Body
-
-_This request body is required._
 
 **Content Type:** `application/json`
 
@@ -67,8 +78,6 @@ console.log(result.data);
 ```
 
 ##### Request Body
-
-_This request body is required._
 
 **Content Type:** `application/json`
 
@@ -164,8 +173,6 @@ for await (const chunk of stream) {
 
 ##### Request Body
 
-_This request body is required._
-
 **Content Type:** `multipart/form-data`
 
 **Type:** [`PostGenerateInput`](#postgenerateinput)
@@ -212,8 +219,6 @@ console.log(result.data);
 ```
 
 ##### Request Body
-
-_This request body is required._
 
 **Content Type:** `multipart/form-data`
 
@@ -312,9 +317,9 @@ for await (const page of result) {
 
 </details>
 
-### PostPublishInput
-
 <details>
+
+<summary><h3 id="postpublishinput">PostPublishInput</h3></summary>
 
 **Type:** `object`
 

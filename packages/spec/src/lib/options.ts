@@ -2,6 +2,7 @@ import type { OpenAPIObject, OperationObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
 import { determineGenericTag, sanitizeTag } from './tag.js';
+import type { OurOpenAPIObject } from './types.js';
 
 export interface GenerateSdkConfig {
   spec: OpenAPIObject;
@@ -37,7 +38,7 @@ export const defaults: Partial<GenerateSdkConfig> &
     if (operation.operationId) {
       return cleanOperationId(operation.operationId);
     }
-      
+
     return camelcase(
       [method, ...path.replace(/[\\/\\{\\}]/g, ' ').split(' ')]
         .filter(Boolean)
@@ -65,7 +66,14 @@ export function coeraceConfig(config: GenerateSdkConfig) {
       },
       paths: config.spec.paths ?? {},
       'x-docs': [],
-    },
+      'x-sdk-augmented': true,
+      'x-tagGroups': config.spec['x-tagGroups'] ?? [
+        {
+          name: 'API',
+          tags: config.spec.tags?.map((tag) => tag.name),
+        },
+      ],
+    } satisfies OurOpenAPIObject,
     operationId: config.operationId ?? defaults.operationId,
     tag: config.tag ?? defaults.tag,
   };

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import type { PostPlaygroundOutput } from '@sdk-it/client';
+import type { PostPlayground } from '@sdk-it/client';
 
 import SpecBox from './components/spec-box';
 import {
@@ -13,7 +13,7 @@ import {
 export function SpecBoxDemo() {
   const [selectedTab, setSelectedTab] = useState('generate-sdk');
   const [open, setOpen] = useState(false);
-  const [sdkInfo, setSdkInfo] = useState<PostPlaygroundOutput | undefined>();
+  const [sdkInfo, setSdkInfo] = useState<PostPlayground | undefined>();
   return (
     <div className="z-10 w-full max-w-xl lg:max-w-none">
       <SpecBox

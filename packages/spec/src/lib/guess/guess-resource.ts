@@ -118,7 +118,7 @@ export function toResource(
   operation: OperationObject,
   path: string,
   method: Method,
-): { name: string; group: string } {
+) {
   // Priority 1: Non-guessed operationId
   const resourceInfo = extractResourceInfo(path);
   if (operation.operationId) {

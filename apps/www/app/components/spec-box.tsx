@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { useLocalStorage } from 'usehooks-ts';
 import { z } from 'zod';
 
-import { type PostPlaygroundOutput, SdkIt } from '@sdk-it/client';
+import { type PostPlayground, SdkIt } from '@sdk-it/client';
 
 import { Button, cn } from '../shadcn';
 import { Loader } from './loading-text';
@@ -14,34 +14,34 @@ const client = new SdkIt({
   baseUrl: 'http://localhost:3000',
 });
 
-async function toSdks(file: File) {
-  const result = await client.request('POST /generate', {
-    specFile: file,
-  });
-  const decoder = new TextDecoder('utf-8');
-  const chunks = await Array.fromAsync(result);
+// async function toSdks(file: File) {
+//   const result = await client.request('POST /generate', {
+//     specFile: file,
+//   });
+//   const decoder = new TextDecoder('utf-8');
+//   const chunks = await Array.fromAsync(result);
 
-  let fullText = '';
-  for (const chunk of chunks) {
-    fullText += decoder.decode(chunk, { stream: true });
-  }
-  fullText += decoder.decode();
-  const lines = fullText.split('\n');
+//   let fullText = '';
+//   for (const chunk of chunks) {
+//     fullText += decoder.decode(chunk, { stream: true });
+//   }
+//   fullText += decoder.decode();
+//   const lines = fullText.split('\n');
 
-  return lines
-    .map((line) => line.trim())
-    .filter((line) => line)
-    .map((l) => {
-      try {
-        return JSON.parse(l);
-      } catch (e) {
-        console.log('Failed to parse JSON line:', l);
-        console.error(e);
-        return null; // Return null for lines that fail to parse
-      }
-    })
-    .filter((obj) => obj !== null); // Filter out nulls (failed parses)
-}
+//   return lines
+//     .map((line) => line.trim())
+//     .filter((line) => line)
+//     .map((l) => {
+//       try {
+//         return JSON.parse(l);
+//       } catch (e) {
+//         console.log('Failed to parse JSON line:', l);
+//         console.error(e);
+//         return null; // Return null for lines that fail to parse
+//       }
+//     })
+//     .filter((obj) => obj !== null); // Filter out nulls (failed parses)
+// }
 
 export default function SpecBox({
   onGenerate,
@@ -49,7 +49,7 @@ export default function SpecBox({
 }: {
   className?: string;
   projectId?: number;
-  onGenerate: (sdkInfo: PostPlaygroundOutput) => void;
+  onGenerate: (sdkInfo: PostPlayground) => void;
 }) {
   const [boxValue, setBoxValue] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -57,7 +57,7 @@ export default function SpecBox({
   const [content, setContent] = useLocalStorage<any[]>('ts-sdk', [], {
     initializeWithValue: false,
   });
-  const [sdkInfo, setSdkInfo] = useLocalStorage<PostPlaygroundOutput | null>(
+  const [sdkInfo, setSdkInfo] = useLocalStorage<PostPlayground | null>(
     'ts-sdk-info',
     null,
     {

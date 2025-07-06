@@ -54,8 +54,8 @@ export function augmentSpec(
   verbose = false,
 ): OurOpenAPIObject {
   const coearcedConfig = coeraceConfig(config);
-  if ('x-sdk-augmented' in coearcedConfig.spec) {
-    return coearcedConfig.spec as OurOpenAPIObject; // Already augmented
+  if ('x-sdk-augmented' in config.spec) {
+    return config.spec as OurOpenAPIObject; // Already augmented
   }
 
   const paths: PathsObject = {};
@@ -71,7 +71,7 @@ export function augmentSpec(
       if (!methods.includes(method)) {
         continue;
       }
-      const { name, group } = toResource(operation, fixedPath, method);
+      const { name } = toResource(operation, fixedPath, method);
       const operationTag = coearcedConfig.tag(operation, fixedPath);
       const operationId = findUniqueOperationId(
         usedOperationIds,
@@ -95,7 +95,7 @@ export function augmentSpec(
         ...operation,
         parameters,
         'x-fn-name': name,
-        'x-fn-group': group,
+        'x-fn-group': operationTag,
         tags: [snakecase(operationTag)],
         operationId: operationId,
         responses: resolveResponses(
@@ -107,6 +107,7 @@ export function augmentSpec(
         requestBody: tuneRequestBody(
           coearcedConfig.spec,
           operationId,
+          // camelcase(`${name} ${operationTag}`),
           operation,
           parameters,
           operation.security ?? [],

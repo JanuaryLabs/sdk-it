@@ -13,11 +13,12 @@ import type {
 } from 'openapi3-ts/oas31';
 
 import type { PaginationGuess } from './pagination/guess-pagination.js';
-import type { SidebarData } from './sidebar.js';
+import type { SidebarData, TagGroups } from './sidebar.js';
 
 export interface OurOpenAPIObject extends OpenAPIObject {
   'x-sdk-augmented'?: boolean;
   'x-docs': SidebarData;
+  'x-tagGroups': TagGroups[];
   components: Omit<ComponentsObject, 'schemas'> & {
     schemas: Record<string, SchemaObject | ReferenceObject>;
     securitySchemes: Record<string, SecuritySchemeObject | ReferenceObject>;

@@ -24,8 +24,11 @@ export class JSXEmitter {
    */
   handle(operation: TunedOperationObject): React.ReactNode {
     return (
-      <div className="">
-        <Description description={operation.description} />
+      <div>
+        <Description
+          id={operation.operationId + '-description'}
+          description={operation.description}
+        />
 
         {operation.parameters.length > 0 && (
           <div className="mt-6 space-y-6">

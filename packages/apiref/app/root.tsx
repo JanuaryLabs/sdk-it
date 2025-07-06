@@ -1,4 +1,3 @@
-/* eslint-disable @nx/enforce-module-boundaries */
 import { HTTPSnippet } from 'httpsnippet';
 import type { ParameterObject, RequestBodyObject } from 'openapi3-ts/oas31';
 import type { ShouldRevalidateFunctionArgs } from 'react-router';
@@ -10,9 +9,6 @@ import {
   Scripts,
   ScrollRestoration,
 } from 'react-router';
-
-import { resolveRef } from '@sdk-it/core';
-import { TypeScriptGenerator } from '@sdk-it/typescript';
 
 import type { AugmentedOperation } from './api-doc/types';
 import { cn } from './shadcn/cn';
@@ -92,7 +88,8 @@ export async function loader({
   request: Request;
   params: { '*'?: string };
 }) {
-  const { followRef, isRef } = await import('@sdk-it/core');
+  const { TypeScriptGenerator } = await import('@sdk-it/typescript');
+  const { followRef, isRef, resolveRef } = await import('@sdk-it/core');
   const { augmentSpec, toSidebar, forEachOperation, loadSpec } = await import(
     '@sdk-it/spec'
   );

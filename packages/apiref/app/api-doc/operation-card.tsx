@@ -46,7 +46,7 @@ export function OperationCard({
   return (
     <div className={cn('pt-12', className)}>
       <span className="text-3xl font-semibold">
-        {operation['x-fn-name']}
+        {operation.summary || operation['x-fn-name']}
       </span>
       <div className="grid grid-cols-[55%_minmax(0,100%)] items-start gap-x-8">
         <div id="left" className="sticky top-0 self-start">
@@ -55,10 +55,6 @@ export function OperationCard({
               <span className="font-mono">{entry.method.toUpperCase()}</span>
               <span className="font-normal">{entry.path}</span>
             </Badge>
-          </div>
-
-          <div className="prose dark:prose-invert max-w-none text-sm">
-            <MD id={operation.operationId} content={operation.summary}></MD>
           </div>
 
           <div>{operationContent}</div>
