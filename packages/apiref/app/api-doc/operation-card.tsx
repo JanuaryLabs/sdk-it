@@ -46,7 +46,7 @@ export function OperationCard({
   return (
     <div className={cn('pt-12', className)}>
       <span className="text-3xl font-semibold">
-        {entry.name || operation.operationId}
+        {operation['x-fn-name']}
       </span>
       <div className="grid grid-cols-[55%_minmax(0,100%)] items-start gap-x-8">
         <div id="left" className="sticky top-0 self-start">

@@ -37,10 +37,7 @@ export const defaults: Partial<GenerateSdkConfig> &
     if (operation.operationId) {
       return cleanOperationId(operation.operationId);
     }
-    const metadata = operation['x-oaiMeta'];
-    if (metadata && metadata.path) {
-      return camelcase(metadata.path);
-    }
+      
     return camelcase(
       [method, ...path.replace(/[\\/\\{\\}]/g, ' ').split(' ')]
         .filter(Boolean)

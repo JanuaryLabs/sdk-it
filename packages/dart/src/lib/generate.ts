@@ -97,9 +97,9 @@ export async function generate(
     // }
 
     console.log(`Processing ${entry.method} ${entry.path}`);
-    const group = (groups[entry.groupName] ??= {
+    const group = (groups[entry.tag] ??= {
       methods: [],
-      use: `final ${entry.groupName} = new ${pascalcase(entry.groupName)}();`,
+      use: `final ${entry.tag} = new ${pascalcase(entry.tag)}();`,
     });
 
     const input = toInputs(spec, { entry, operation });

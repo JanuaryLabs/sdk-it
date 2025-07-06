@@ -18,9 +18,9 @@ export function toReadme(spec: OurOpenAPIObject, generators: Generator) {
   markdown.push('```\n' + generators.client() + '\n```');
 
   forEachOperation(spec, (entry, operation) => {
-    const { method, path, name } = entry;
+    const { method, path } = entry;
     markdown.push(
-      `#### ${name || operation.operationId} | ${`_${method.toUpperCase()} ${path}_`}`,
+      `#### ${operation['x-fn-name']} | ${`_${method.toUpperCase()} ${path}_`}`,
     );
     markdown.push(operation.summary || '');
 

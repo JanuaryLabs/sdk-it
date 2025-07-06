@@ -51,10 +51,8 @@ export type TunedOperationObject = Omit<
 };
 
 export interface OperationEntry {
-  name?: string;
   method: string;
   path: string;
-  groupName: string;
   tag: string;
 }
 export type Operation = {

@@ -119,24 +119,15 @@ export function toResource(
   path: string,
   method: Method,
 ): { name: string; group: string } {
-  const { resourceName } = extractResourceInfo(path);
-  // Priority 1: Explicit name (x-oaiMeta.path)
-  if (operation['x-oaiMeta']?.path) {
-    return {
-      name: operation['x-oaiMeta'].path,
-      group: camelcase(resourceName),
-    };
-  }
-
-  // Priority 2: Non-guessed operationId
+  // Priority 1: Non-guessed operationId
+  const resourceInfo = extractResourceInfo(path);
   if (operation.operationId) {
-    const { resourceName } = extractResourceInfo(path);
     return {
       name: cleanOperationId(operation.operationId),
-      group: camelcase(resourceName),
+      group: camelcase(resourceInfo.resourceName),
     };
   }
 
-  // Priority 3: CRUD operation name
-  return guessOperationName(method, extractResourceInfo(path));
+  // Priority 2: CRUD operation name
+  return guessOperationName(method, resourceInfo);
 }

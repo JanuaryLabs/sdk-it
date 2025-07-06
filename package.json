@@ -88,6 +88,7 @@
     "@radix-ui/react-hover-card": "^1.1.14",
     "@radix-ui/react-toast": "^1.2.14",
     "@react-hooks-library/core": "^0.6.2",
+    "@scalar/snippetz": "^0.3.1",
     "@tailwindcss/typography": "^0.5.16",
     "@types/marked-terminal": "^6.1.1",
     "@types/pluralize": "^0.0.33",

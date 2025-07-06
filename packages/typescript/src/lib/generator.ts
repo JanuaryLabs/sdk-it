@@ -62,8 +62,8 @@ export function generateCode(config: {
 
   forEachOperation(config.spec, (entry, operation) => {
     console.log(`Processing ${entry.method} ${entry.path}`);
-    groups[entry.groupName] ??= [];
-    endpoints[entry.groupName] ??= [];
+    groups[entry.tag] ??= [];
+    endpoints[entry.tag] ??= [];
     const inputs: Operation['inputs'] = {};
     const schemas: Record<string, string> = {};
     const shortContenTypeMap: Record<string, string> = {
@@ -142,7 +142,7 @@ export function generateCode(config: {
     }
 
     const endpoint = toEndpoint(
-      entry.groupName,
+      entry.tag,
       config.spec,
       operation,
       {
@@ -156,9 +156,9 @@ export function generateCode(config: {
       { makeImport: config.makeImport, style: config.style },
     );
 
-    endpoints[entry.groupName].push(endpoint);
+    endpoints[entry.tag].push(endpoint);
 
-    groups[entry.groupName].push({
+    groups[entry.tag].push({
       name: operation.operationId,
       inputs: inputs,
       outgoingContentType,

@@ -17,16 +17,13 @@ export function forEachOperation<T>(
       if (!methods.includes(method)) {
         continue;
       }
-      const metadata = operation['x-oaiMeta'] ?? {};
       const operationTag = operation.tags?.[0] as string;
 
       result.push(
         callback(
           {
-            name: metadata.name,
             method,
             path: path,
-            groupName: operationTag,
             tag: operationTag,
           },
           operation as TunedOperationObject,

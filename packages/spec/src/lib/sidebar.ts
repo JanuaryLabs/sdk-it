@@ -28,6 +28,11 @@ export type CategoryItem = {
 
 export type SidebarData = CategoryItem[];
 
+interface TagGroups {
+  name: string;
+  tags: string[];
+}
+
 function createOAIMeta(spec: OurOpenAPIObject): XOaiMeta {
   spec.paths ??= {};
   const navigationGroups: Record<string, NavigationGroup> = {
