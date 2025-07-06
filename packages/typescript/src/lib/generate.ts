@@ -300,9 +300,7 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
       },
     };
     if (settings.readme) {
-      configFiles['README.md'] = toReadme(spec, {
-        generateSnippet: (...args) => generator.snippet(...args),
-      });
+      configFiles['README.md'] = toReadme(spec, generator);
     }
     await settings.writer(settings.output, configFiles);
   }

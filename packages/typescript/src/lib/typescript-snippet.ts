@@ -2,6 +2,7 @@ import type { ResponseObject, SchemaObject } from 'openapi3-ts/oas31';
 import { camelcase, spinalcase } from 'stringcase';
 
 import { isEmpty, pascalcase, resolveRef } from '@sdk-it/core';
+import { type Generator } from '@sdk-it/readme';
 import {
   type OperationEntry,
   type OperationPagination,
@@ -14,7 +15,7 @@ import {
 import { SnippetEmitter } from './emitters/snippet.ts';
 import type { TypeScriptGeneratorOptions } from './options.ts';
 
-export class TypeScriptGenerator {
+export class TypeScriptGenerator implements Generator {
   #spec: OurOpenAPIObject;
   #settings: TypeScriptGeneratorOptions;
   #snippetEmitter: SnippetEmitter;

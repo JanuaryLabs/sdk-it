@@ -3,7 +3,7 @@ import { camelcase } from 'stringcase';
 
 import { type Method } from '@sdk-it/core/paths.js';
 
-import { cleanOperationId } from '../options.ts';
+import { cleanOperationId } from '../options.js';
 
 const HTTP_METHOD_ACTIONS = {
   get: { single: 'get', collection: 'list' },

@@ -2,8 +2,8 @@ import { toReadme } from '@sdk-it/readme';
 import type { OurOpenAPIObject } from '@sdk-it/spec';
 import type { TypeScriptGenerator } from '@sdk-it/typescript';
 
-import openai from './openai';
 import db from './db';
+import openai from './openai';
 
 export const VECTOR_STORE_ID = 'vs_6811cd14ce408191b504bef45808aed1';
 
@@ -20,9 +20,7 @@ export async function vectorise(
     return;
   }
   console.log('Vectorising spec:', spec.info.title);
-  const content = toReadme(spec, {
-    generateSnippet: (...args) => generator.snippet(...args),
-  });
+  const content = toReadme(spec, generator);
 
   const file = await openai.files.create({
     purpose: 'assistants',

@@ -337,10 +337,6 @@ export class PropEmitter {
     if (requestBody.description) {
       lines.push(requestBody.description);
     }
-    if (requestBody.required) {
-      lines.push(`*This request body is required.*`);
-    }
-
     if (requestBody.content) {
       for (const [contentType, mediaType] of Object.entries(
         requestBody.content,

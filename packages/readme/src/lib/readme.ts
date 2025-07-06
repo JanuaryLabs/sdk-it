@@ -1,25 +1,21 @@
 import { isEmpty } from '@sdk-it/core';
-import {
-  type OperationEntry,
-  type OurOpenAPIObject,
-  type TunedOperationObject,
-  forEachOperation,
-} from '@sdk-it/spec';
+import { type OurOpenAPIObject, forEachOperation } from '@sdk-it/spec';
 
+import type { Generator } from './generator.ts';
 import { PropEmitter } from './prop.emitter.ts';
 
-export function toReadme(
-  spec: OurOpenAPIObject,
-  generators: {
-    generateSnippet: (
-      entry: OperationEntry,
-      operation: TunedOperationObject,
-    ) => string;
-  },
-) {
+export function toReadme(spec: OurOpenAPIObject, generators: Generator) {
   // table of content is the navigation headers in apiref
   const markdown: string[] = [];
   const propEmitter = new PropEmitter(spec);
+
+  markdown.push('# API Reference');
+  markdown.push('');
+  markdown.push(
+    'This document provides an overview of the API endpoints available in this service. Each endpoint includes a brief description, example usage, and details about request and response formats.',
+  );
+  markdown.push('');
+  markdown.push('```\n' + generators.client() + '\n```');
 
   forEachOperation(spec, (entry, operation) => {
     const { method, path, name } = entry;
@@ -28,7 +24,7 @@ export function toReadme(
     );
     markdown.push(operation.summary || '');
 
-    const snippet = generators.generateSnippet(entry, operation);
+    const snippet = generators.snippet(entry, operation);
     markdown.push(`##### Example usage`);
     markdown.push(snippet);
 
@@ -61,6 +57,33 @@ export function toReadme(
       }
       markdown.push(`</details>`);
     }
-  });
+  }); // Add schemas section at the bottom
+  if (spec.components?.schemas) {
+    markdown.push('## Schemas');
+    markdown.push('');
+
+    for (const [schemaName, schema] of Object.entries(
+      spec.components.schemas,
+    )) {
+      // Include all schemas except ValidationError which is internal
+      if (schemaName === 'ValidationError') {
+        continue;
+      }
+
+      markdown.push(`<details>`);
+      markdown.push(
+        `<summary><h3 id="${schemaName.toLowerCase()}">${schemaName}</h3></summary>`,
+      );
+      markdown.push('');
+
+      const schemaDocs = propEmitter.handle(schema);
+      markdown.push(...schemaDocs.map((line) => line.trim()));
+
+      markdown.push('');
+      markdown.push(`</details>`);
+      markdown.push('');
+    }
+  }
+
   return markdown.join('\n\n');
 }
