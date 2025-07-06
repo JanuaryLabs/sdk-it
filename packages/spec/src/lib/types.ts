@@ -12,6 +12,7 @@ import type {
   SecuritySchemeObject,
 } from 'openapi3-ts/oas31';
 
+import type { PaginationGuess } from './pagination/guess-pagination.js';
 import type { SidebarData } from './sidebar.js';
 
 export interface OurOpenAPIObject extends OpenAPIObject {
@@ -38,6 +39,7 @@ export type TunedOperationObject = Omit<
   tags: string[];
   operationId: string;
   parameters: ParameterObject[];
+  ['x-fn-name']: string;
   responses: Record<
     string,
     Omit<ResponseObject, 'content'> & {
@@ -57,4 +59,8 @@ export interface OperationEntry {
 export type Operation = {
   entry: OperationEntry;
   operation: TunedOperationObject;
+};
+
+export type OperationPagination = PaginationGuess & {
+  items: string;
 };

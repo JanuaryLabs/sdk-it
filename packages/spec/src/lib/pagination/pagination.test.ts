@@ -11,10 +11,11 @@ import {
   PAGE_NUMBER_REGEXES,
   PAGE_SIZE_REGEXES,
   guessPagination,
-} from './pagination.ts';
+} from './guess-pagination.ts';
 
 function createOperation(params: ParameterObject[]): TunedOperationObject {
   return {
+    'x-fn-name': 'testFunction',
     tags: ['test'],
     operationId: 'testOperation',
     parameters: params,

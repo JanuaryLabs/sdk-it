@@ -34,8 +34,8 @@ export const defaults: Partial<GenerateSdkConfig> &
       );
     }
     const metadata = operation['x-oaiMeta'];
-    if (metadata && metadata.name) {
-      return camelcase(metadata.name);
+    if (metadata && metadata.path) {
+      return camelcase(metadata.path);
     }
     return camelcase(
       [method, ...path.replace(/[\\/\\{\\}]/g, ' ').split(' ')]
@@ -55,7 +55,16 @@ export function coeraceConfig(config: GenerateSdkConfig) {
   return {
     pagination: coearcePaginationConfig(config.pagination),
     responses: config.responses ?? {},
-    spec: config.spec,
+    spec: {
+      ...config.spec,
+      components: {
+        ...config.spec.components,
+        schemas: config.spec.components?.schemas ?? {},
+        securitySchemes: config.spec.components?.securitySchemes ?? {},
+      },
+      paths: config.spec.paths ?? {},
+      'x-docs': [],
+    },
     operationId: config.operationId ?? defaults.operationId,
     tag: config.tag ?? defaults.tag,
   };
