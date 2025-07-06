@@ -1,27 +1,17 @@
 import { google } from '@ai-sdk/google';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import {
-  type CoreMessage,
-  type ToolCallUnion,
-  type ToolResultUnion,
-  smoothStream,
-  streamText,
-  tool,
-} from 'ai';
+import { type CoreMessage, smoothStream, streamText, tool } from 'ai';
 import chalk from 'chalk';
 import { z } from 'zod';
 
-import { distillRef } from '@sdk-it/core';
 import type { OurOpenAPIObject } from '@sdk-it/spec';
-import { TypeScriptGenerator } from '@sdk-it/typescript';
 
 import { database } from '../utils/db.js';
 import { markdownJoinerTransform } from '../utils/markdown-joiner-transformer.js';
-import {
-  availableOperations,
-  findOperationById,
-  toOperations,
-} from '../utils/operation-utils.js';
+import { availableOperations, toOperations } from '../utils/operation-utils.js';
+import { generateSnippetTool } from './tools/generate-snippet-tool.js';
+import { getOperationsTool } from './tools/get-operations-tool.js';
+import { getSchemaDefinition } from './tools/get-schema-difintion.js';
 
 export function talk(
   spec: OurOpenAPIObject,
@@ -65,131 +55,10 @@ export function talk(
     //     return "I've processed this thought. Proceed to action.";
     //   },
     // }),
-    generateSnippet: tool({
-      description:
-        'Generate a code snippet in TypeScript for the specified operation ID. ',
-      parameters: z.object({
-        operationId: z
-          .string()
-          .describe('The operation ID to generate a snippet for.'),
-        requestBody: z
-          .string()
-          .default('{}')
-          .describe(
-            'JSON stringifed opereation body to be passed in the request. only if needed.',
-          ),
-        queryParameters: z
-          .string()
-          .default('{}')
-          .describe(
-            'JSON stringifed object of query parameters to be passed in the request. only if needed.',
-          ),
-        pathParameters: z
-          .string()
-          .default('{}')
-          .describe(
-            'JSON stringifed object of path parameters to be passed in the request. only if needed.',
-          ),
-        headers: z
-          .string()
-          .default('{}')
-          .describe(
-            'JSON stringifed object of headers to be passed in the request. only if needed.',
-          ),
-        cookies: z
-          .string()
-          .default('{}')
-          .describe(
-            'JSON stringifed object of cookies to be passed in the request. only if needed.',
-          ),
-      }),
-      execute: async (args) => {
-        // FIXME: generate the snippet with providede values
-        // otherwise the model keep repeating the same tool call
-
-        console.log(
-          'Generating snippet for operation with ID:',
-          'operationId',
-          args.operationId,
-          'requestBody',
-          args.requestBody,
-          'queryParameters',
-          args.queryParameters,
-          'pathParameters',
-          args.pathParameters,
-        );
-        const generator = new TypeScriptGenerator(spec, { output: '' });
-        const operation = findOperationById(operations, args.operationId);
-        if (typeof operation === 'string') {
-          return operation;
-        }
-        return generator.succinct(operation.entry, operation.operation, {
-          requestBody: JSON.parse(args.requestBody || '{}'),
-          queryParameters: JSON.parse(args.queryParameters || '{}'),
-          pathParameters: JSON.parse(args.pathParameters || '{}'),
-          headers: JSON.parse(args.headers || '{}'),
-          cookies: JSON.parse(args.cookies || '{}'),
-        });
-      },
-    }),
-    getSchemaDefinition: tool({
-      description: 'Get the schema definition for a given reference path.',
-      parameters: z.object({
-        ref: z
-          .string()
-          .describe(
-            'The complete reference path starting with a hash (e.g., "#/components/schemas/ModelName").',
-          ),
-      }),
-      execute: async (args) => {
-        console.log('Fetching schema definition for:', args.ref);
-        const def = distillRef(spec, args.ref);
-        if (!def) {
-          return `Schema definition not found for: ${args.ref}`;
-        }
-        return JSON.stringify(def);
-      },
-    }),
-    getOperations: tool({
-      description: 'Find list of operation in the OpenAPI spec.',
-      parameters: z.object({
-        operationsIds: z
-          .string()
-          .or(z.array(z.string()))
-          .describe('Comma seperated list of  operations IDs to find.'),
-      }),
-      execute: async (args) => {
-        const operationsIds = Array.isArray(args.operationsIds)
-          ? args.operationsIds
-          : args.operationsIds.split(',').map((id) => id.trim());
-        if (operationsIds.length === 1 && operationsIds[0] === '*') {
-          return 'Using * to find all operations will break the server. Please provide a list of operation IDs.';
-        }
-        console.log('Finding operation with ID:', operationsIds);
-        return JSON.stringify(
-          operationsIds
-            .map((id) => id.trim())
-            .map((id) => findOperationById(operations, id))
-            .map((result) => {
-              if (typeof result === 'string') {
-                return result;
-              }
-              return {
-                operationId: result.operation.operationId,
-                method: result.entry.method,
-                parameters: result.operation.parameters,
-                path: result.entry.path,
-                requestBody: result.operation.requestBody,
-                description: result.operation.description,
-                summary: result.operation.summary,
-              };
-            }),
-        );
-      },
-    }),
+    generateSnippet: generateSnippetTool(spec),
+    getSchemaDefinition: getSchemaDefinition(spec),
+    getOperations: getOperationsTool(spec),
   };
-  type MyToolCall = ToolCallUnion<typeof tools>;
-  type MyToolResult = ToolResultUnion<typeof tools>;
 
   const lmstudio = createOpenAICompatible({
     name: 'lmstudio',

@@ -337,16 +337,35 @@ export class PropEmitter {
     if (requestBody.description) {
       lines.push(requestBody.description);
     }
+
     if (requestBody.content) {
-      for (const [contentType, mediaType] of Object.entries(
-        requestBody.content,
-      )) {
+      const contentEntries = Object.entries(requestBody.content);
+
+      // If only one content type, show it directly without toggles
+      if (contentEntries.length === 1) {
+        const [contentType, mediaType] = contentEntries[0];
         lines.push(`**Content Type:** \`${contentType}\``);
 
         if (mediaType.schema) {
-          // Use the main handle method here
           const schemaDocs = this.handle(mediaType.schema);
-          lines.push(...schemaDocs); // Add schema docs directly
+          lines.push(...schemaDocs);
+        }
+      } else {
+        // Multiple content types - use collapsible toggles
+        for (const [contentType, mediaType] of contentEntries) {
+          lines.push(`<details>`);
+          lines.push(
+            `<summary><b>Content Type:</b> \`${contentType}\`</summary>`,
+          );
+          lines.push('');
+
+          if (mediaType.schema) {
+            const schemaDocs = this.handle(mediaType.schema);
+            lines.push(...schemaDocs.map((l) => l));
+          }
+
+          lines.push('');
+          lines.push(`</details>`);
         }
       }
     }

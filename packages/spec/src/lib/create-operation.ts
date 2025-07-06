@@ -71,11 +71,12 @@ export function createOperation(options: {
       requestBody.content[contentType] = { schema: schema };
     }
   }
+
   return {
     security: (options.security ?? []).map((name) => ({
       [name]: [],
     })),
-    "x-fn-name": options.name,
+    'x-fn-name': options.name,
     operationId: options.name,
     tags: [options.group],
     parameters,

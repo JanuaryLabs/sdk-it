@@ -33,7 +33,6 @@ export class TypeScriptGenerator implements Generator {
       ? `@${spinalcase(this.#clientName.toLowerCase())}/sdk`
       : 'sdk';
   }
-
   succinct(
     entry: OperationEntry,
     operation: TunedOperationObject,
@@ -133,17 +132,17 @@ export class TypeScriptGenerator implements Generator {
       case 'page':
         return {
           content: `const result = ${this.#ddd(entry, payload)}`,
-          footer: `for await (const page of result) {\n\tconsole.log(page);\n}`,
+          footer: `for await (const page of result) {\n\t\tconsole.log(page);\n}`,
         };
       case 'offset':
         return {
           content: `const result = ${this.#ddd(entry, payload)}`,
-          footer: `for await (const page of result) {\n\tconsole.log(page);\n}`,
+          footer: `for await (const page of result) {\n\t\tconsole.log(page);\n}`,
         };
       case 'cursor':
         return {
           content: `const result = ${this.#ddd(entry, payload)}`,
-          footer: `for await (const page of result) {\n\tconsole.log(page);\n}`,
+          footer: `for await (const page of result) {\n\t\tconsole.log(page);\n}`,
         };
     }
     return this.#normal(entry, payload);
@@ -166,7 +165,7 @@ export class TypeScriptGenerator implements Generator {
   #httpStreaming(entry: OperationEntry, payload: string) {
     return {
       content: `const stream = ${this.#ddd(entry, payload)}`,
-      footer: `for await (const chunk of stream) {\n\tconsole.log(chunk);\n}`,
+      footer: `for await (const chunk of stream) {\n\t\tconsole.log(chunk);\n}`,
     };
   }
 
@@ -215,7 +214,7 @@ export class TypeScriptGenerator implements Generator {
     }
     return `import { ${this.#clientName} } from '${this.#packageName}';
 
-const ${camelcase(this.#clientName)} = new ${this.#clientName}({ \n\t${inputs.join(',\n\t')}\n});`;
+const ${camelcase(this.#clientName)} = new ${this.#clientName}({\n\t\t${inputs.join(',\n\t\t')}\n});`;
   }
 }
 
