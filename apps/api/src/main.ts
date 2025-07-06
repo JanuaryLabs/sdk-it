@@ -19,11 +19,15 @@ import { z } from 'zod';
 
 import { pascalcase } from '@sdk-it/core';
 import * as tsDart from '@sdk-it/dart';
-import { augmentSpec, forEachOperation, loadSpec } from '@sdk-it/spec';
-import { loadRemote } from '@sdk-it/spec';
+import {
+  augmentSpec,
+  forEachOperation,
+  loadRemote,
+  loadSpec,
+} from '@sdk-it/spec';
 import * as tsSdk from '@sdk-it/typescript';
 
-import { talk } from './groq.js';
+import { talk } from './genai/chat.js';
 import { validate } from './middlewares/validator.js';
 
 const app = new Hono().use(

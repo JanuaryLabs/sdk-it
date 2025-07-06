@@ -15,13 +15,13 @@ import { distillRef } from '@sdk-it/core';
 import type { OurOpenAPIObject } from '@sdk-it/spec';
 import { TypeScriptGenerator } from '@sdk-it/typescript';
 
-import { database } from './db.js';
-import { markdownJoinerTransform } from './markdown-joiner-transformer.js';
+import { database } from '../utils/db.js';
+import { markdownJoinerTransform } from '../utils/markdown-joiner-transformer.js';
 import {
   availableOperations,
   findOperationById,
   toOperations,
-} from './operation-utils.js';
+} from '../utils/operation-utils.js';
 
 export function talk(
   spec: OurOpenAPIObject,
@@ -260,11 +260,6 @@ Always generate code snippets using the \`generateSnippet\` tool no matter what 
     onError(event) {
       console.error('Error:', event.error);
     },
-    // experimental_generateMessageId: createIdGenerator({
-    //   prefix: 'msgs',
-    //   size: 16,
-    // }),
-
     onStepFinish: async ({ text, toolCalls, toolResults }) => {
       // 2. Print to console
       if (text) {

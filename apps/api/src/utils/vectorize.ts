@@ -1,11 +1,9 @@
-import type { OpenAPIObject } from 'openapi3-ts/oas31';
-
 import { toReadme } from '@sdk-it/readme';
 import type { OurOpenAPIObject } from '@sdk-it/spec';
 import type { TypeScriptGenerator } from '@sdk-it/typescript';
 
-import db from './db';
 import openai from './openai';
+import db from './db';
 
 export const VECTOR_STORE_ID = 'vs_6811cd14ce408191b504bef45808aed1';
 

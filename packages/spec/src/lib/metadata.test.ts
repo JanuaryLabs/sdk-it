@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { mkdir, writeFile, rm, readFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
-import { readWriteJson, readWriteMetadata, cleanFiles } from './metadata.ts';
+import { cleanFiles, readWriteJson, readWriteMetadata } from './metadata.ts';
 
 describe('Metadata File Management - Error-First Testing', () => {
   let testDir: string;
@@ -23,21 +23,19 @@ describe('Metadata File Management - Error-First Testing', () => {
       const malformedJsonPath = join(testDir, 'malformed.json');
       await writeFile(malformedJsonPath, '{ invalid json }', 'utf-8');
 
-      await assert.rejects(
-        () => readWriteJson(malformedJsonPath),
-        { name: 'SyntaxError' }
-      );
+      await assert.rejects(() => readWriteJson(malformedJsonPath), {
+        name: 'SyntaxError',
+      });
     });
 
     it('should throw error for binary file disguised as JSON', async () => {
       const binaryPath = join(testDir, 'binary.json');
-      const binaryData = Buffer.from([0x00, 0x01, 0xFF, 0xFE]);
+      const binaryData = Buffer.from([0x00, 0x01, 0xff, 0xfe]);
       await writeFile(binaryPath, binaryData);
 
-      await assert.rejects(
-        () => readWriteJson(binaryPath),
-        { name: 'SyntaxError' }
-      );
+      await assert.rejects(() => readWriteJson(binaryPath), {
+        name: 'SyntaxError',
+      });
     });
 
     it('should handle permission denied on read', async () => {
@@ -52,11 +50,11 @@ describe('Metadata File Management - Error-First Testing', () => {
       const emptyPath = join(testDir, 'empty.json');
       await writeFile(emptyPath, '', 'utf-8');
 
-      await assert.rejects(
-        () => readWriteJson(emptyPath),
-        { name: 'SyntaxError' }
-      );
-    });    it('should handle null byte in path gracefully', async () => {
+      await assert.rejects(() => readWriteJson(emptyPath), {
+        name: 'SyntaxError',
+      });
+    });
+    it('should handle null byte in path gracefully', async () => {
       const nullBytePath = join(testDir, 'file\0null.json');
 
       // On most systems, null byte in path returns empty object rather than throwing
@@ -88,7 +86,7 @@ describe('Metadata File Management - Error-First Testing', () => {
         boolean: true,
         null_value: null,
         array: [1, 2, 3],
-        nested: { deep: { value: 'nested' } }
+        nested: { deep: { value: 'nested' } },
       };
 
       const rw = await readWriteJson(testPath);
@@ -116,17 +114,29 @@ describe('Metadata File Management - Error-First Testing', () => {
     });
   });
 
-  describe('readWriteMetadata - Attack Phase: Corrupted Metadata States', () => {    it('should handle missing generatedFiles array', async () => {
+  describe('readWriteMetadata - Attack Phase: Corrupted Metadata States', () => {
+    it('should handle missing generatedFiles array', async () => {
       const corruptedPath = join(testDir, 'corrupted-metadata.json');
-      await writeFile(corruptedPath, JSON.stringify({
-        userFiles: ['/dist/**']
-      }), 'utf-8');
+      await writeFile(
+        corruptedPath,
+        JSON.stringify({
+          userFiles: ['/dist/**'],
+        }),
+        'utf-8',
+      );
 
       const result = await readWriteMetadata(testDir, ['file1.ts', 'file2.ts']);
 
-      assert.deepStrictEqual(result.content.generatedFiles, ['file1.ts', 'file2.ts']);
+      assert.deepStrictEqual(result.content.generatedFiles, [
+        'file1.ts',
+        'file2.ts',
+      ]);
       // userFiles gets defaults added, so it should include the existing plus defaults
-      assert.deepStrictEqual(result.content.userFiles, ['/dist/**', '/build/**', '/readme.md']);
+      assert.deepStrictEqual(result.content.userFiles, [
+        '/dist/**',
+        '/build/**',
+        '/readme.md',
+      ]);
     });
 
     it('should handle completely empty metadata file', async () => {
@@ -136,7 +146,11 @@ describe('Metadata File Management - Error-First Testing', () => {
       const result = await readWriteMetadata(emptyMetadataDir, ['new-file.ts']);
 
       assert.deepStrictEqual(result.content.generatedFiles, ['new-file.ts']);
-      assert.deepStrictEqual(result.content.userFiles, ['/dist/**', '/build/**', '/readme.md']);
+      assert.deepStrictEqual(result.content.userFiles, [
+        '/dist/**',
+        '/build/**',
+        '/readme.md',
+      ]);
     });
 
     it('should overwrite generatedFiles but preserve existing userFiles', async () => {
@@ -144,15 +158,27 @@ describe('Metadata File Management - Error-First Testing', () => {
       await mkdir(preserveDir);
 
       // First write
-      const result1 = await readWriteMetadata(preserveDir, ['old1.ts', 'old2.ts']);
+      const result1 = await readWriteMetadata(preserveDir, [
+        'old1.ts',
+        'old2.ts',
+      ]);
       result1.content.userFiles = ['/custom/**', '/special.md'];
       await result1.write();
 
       // Second write should preserve userFiles
-      const result2 = await readWriteMetadata(preserveDir, ['new1.ts', 'new2.ts']);
+      const result2 = await readWriteMetadata(preserveDir, [
+        'new1.ts',
+        'new2.ts',
+      ]);
 
-      assert.deepStrictEqual(result2.content.generatedFiles, ['new1.ts', 'new2.ts']);
-      assert.deepStrictEqual(result2.content.userFiles, ['/custom/**', '/special.md']);
+      assert.deepStrictEqual(result2.content.generatedFiles, [
+        'new1.ts',
+        'new2.ts',
+      ]);
+      assert.deepStrictEqual(result2.content.userFiles, [
+        '/custom/**',
+        '/special.md',
+      ]);
     });
   });
 
@@ -169,7 +195,7 @@ describe('Metadata File Management - Error-First Testing', () => {
     it('should handle undefined metadata fields', async () => {
       const undefinedMetadata = {
         generatedFiles: undefined,
-        userFiles: undefined
+        userFiles: undefined,
       };
       const undefinedDir = join(testDir, 'undefined-clean');
       await mkdir(undefinedDir);
@@ -181,7 +207,7 @@ describe('Metadata File Management - Error-First Testing', () => {
     it('should handle attempts to delete non-existent files (ENOENT)', async () => {
       const metadata = {
         generatedFiles: ['/src/existing.ts'],
-        userFiles: ['/dist/**']
+        userFiles: ['/dist/**'],
       };
 
       const testCleanDir = join(testDir, 'clean-test');
@@ -201,7 +227,7 @@ describe('Metadata File Management - Error-First Testing', () => {
     it('should handle permission denied errors during deletion', async () => {
       const metadata = {
         generatedFiles: ['/protected/**'],
-        userFiles: []
+        userFiles: [],
       };
 
       const protectedDir = join(testDir, 'protected-clean');
@@ -224,7 +250,7 @@ describe('Metadata File Management - Error-First Testing', () => {
 
       const metadata = {
         generatedFiles: [],
-        userFiles: []
+        userFiles: [],
       };
 
       // Should handle deduplication internally and not fail
@@ -238,13 +264,15 @@ describe('Metadata File Management - Error-First Testing', () => {
       // Create many files
       const promises = [];
       for (let i = 0; i < 100; i++) {
-        promises.push(writeFile(join(largeListDir, `file${i}.ts`), `content${i}`));
+        promises.push(
+          writeFile(join(largeListDir, `file${i}.ts`), `content${i}`),
+        );
       }
       await Promise.all(promises);
 
       const metadata = {
         generatedFiles: [],
-        userFiles: []
+        userFiles: [],
       };
 
       // Should handle large lists efficiently
@@ -264,13 +292,16 @@ describe('Metadata File Management - Error-First Testing', () => {
 
       const metadata = {
         generatedFiles: ['/src/protected.ts'],
-        userFiles: []
+        userFiles: [],
       };
 
       await cleanFiles(metadata, protectionDir);
 
       // Protected file should still exist
-      const protectedExists = await readFile(join(protectionDir, 'src', 'protected.ts'), 'utf-8');
+      const protectedExists = await readFile(
+        join(protectionDir, 'src', 'protected.ts'),
+        'utf-8',
+      );
       assert.strictEqual(protectedExists, 'protected');
     });
 
@@ -284,13 +315,16 @@ describe('Metadata File Management - Error-First Testing', () => {
 
       const metadata = {
         generatedFiles: [],
-        userFiles: ['/dist/**']
+        userFiles: ['/dist/**'],
       };
 
       await cleanFiles(metadata, userDir);
 
       // User file should be protected
-      const userFileExists = await readFile(join(userDir, 'dist', 'user-file.js'), 'utf-8');
+      const userFileExists = await readFile(
+        join(userDir, 'dist', 'user-file.js'),
+        'utf-8',
+      );
       assert.strictEqual(userFileExists, 'user content');
     });
 
@@ -303,13 +337,16 @@ describe('Metadata File Management - Error-First Testing', () => {
 
       const metadata = {
         generatedFiles: [],
-        userFiles: []
+        userFiles: [],
       };
 
       await cleanFiles(metadata, alwaysDir, ['/package.json']);
 
       // Always available file should be protected
-      const packageExists = await readFile(join(alwaysDir, 'package.json'), 'utf-8');
+      const packageExists = await readFile(
+        join(alwaysDir, 'package.json'),
+        'utf-8',
+      );
       assert.strictEqual(packageExists, '{"name": "test"}');
     });
   });
@@ -328,32 +365,43 @@ describe('Metadata File Management - Error-First Testing', () => {
 
       const metadata = {
         generatedFiles: ['/src/keep.ts'],
-        userFiles: []
+        userFiles: [],
       };
 
       await cleanFiles(metadata, transitionDir, ['/package.json']);
 
       // Verify final state: only protected files remain
-      const keepExists = await readFile(join(transitionDir, 'src', 'keep.ts'), 'utf-8');
+      const keepExists = await readFile(
+        join(transitionDir, 'src', 'keep.ts'),
+        'utf-8',
+      );
       assert.strictEqual(keepExists, 'keep');
 
-      const packageExists = await readFile(join(transitionDir, 'package.json'), 'utf-8');
+      const packageExists = await readFile(
+        join(transitionDir, 'package.json'),
+        'utf-8',
+      );
       assert.strictEqual(packageExists, '{}');
 
       // Old files should be gone
-      await assert.rejects(() => readFile(join(transitionDir, 'old1.ts'), 'utf-8'));
-      await assert.rejects(() => readFile(join(transitionDir, 'old2.ts'), 'utf-8'));
+      await assert.rejects(() =>
+        readFile(join(transitionDir, 'old1.ts'), 'utf-8'),
+      );
+      await assert.rejects(() =>
+        readFile(join(transitionDir, 'old2.ts'), 'utf-8'),
+      );
     });
   });
 
-  describe('Combined Scenarios - Complex Real-World Edge Cases', () => {    it('should handle metadata corruption + file system race conditions simultaneously', async () => {
+  describe('Combined Scenarios - Complex Real-World Edge Cases', () => {
+    it('should handle metadata corruption + file system race conditions simultaneously', async () => {
       const chaosDir = join(testDir, 'chaos-test');
       await mkdir(chaosDir, { recursive: true });
 
       // Corrupted metadata with valid patterns only (empty strings break micromatch)
       const corruptedMetadata = {
         generatedFiles: [] as string[], // Empty array instead of null
-        userFiles: ['/dist/**'] // Valid patterns only
+        userFiles: ['/dist/**'], // Valid patterns only
       };
 
       await writeFile(join(chaosDir, 'survivor.ts'), 'should survive');
@@ -362,7 +410,10 @@ describe('Metadata File Management - Error-First Testing', () => {
       await cleanFiles(corruptedMetadata, chaosDir, ['/survivor.ts']);
 
       // File should survive due to alwaysAvailable pattern
-      const survivorExists = await readFile(join(chaosDir, 'survivor.ts'), 'utf-8');
+      const survivorExists = await readFile(
+        join(chaosDir, 'survivor.ts'),
+        'utf-8',
+      );
       assert.strictEqual(survivorExists, 'should survive');
     });
   });
@@ -383,9 +434,19 @@ describe('Metadata File Management - Error-First Testing', () => {
       const lifecycleDir = join(testDir, 'lifecycle');
       await mkdir(lifecycleDir);
 
-      const result = await readWriteMetadata(lifecycleDir, ['app.ts', 'utils.ts']);
-      assert.deepStrictEqual(result.content.generatedFiles, ['app.ts', 'utils.ts']);
-      assert.deepStrictEqual(result.content.userFiles, ['/dist/**', '/build/**', '/readme.md']);
+      const result = await readWriteMetadata(lifecycleDir, [
+        'app.ts',
+        'utils.ts',
+      ]);
+      assert.deepStrictEqual(result.content.generatedFiles, [
+        'app.ts',
+        'utils.ts',
+      ]);
+      assert.deepStrictEqual(result.content.userFiles, [
+        '/dist/**',
+        '/build/**',
+        '/readme.md',
+      ]);
     });
 
     it('should successfully clean files while preserving protected ones', async () => {
@@ -399,16 +460,22 @@ describe('Metadata File Management - Error-First Testing', () => {
 
       const metadata = {
         generatedFiles: ['/src/index.ts'],
-        userFiles: []
+        userFiles: [],
       };
 
       await cleanFiles(metadata, cleanDir, ['/package.json']);
 
       // Verify expected state
-      const indexExists = await readFile(join(cleanDir, 'src', 'index.ts'), 'utf-8');
+      const indexExists = await readFile(
+        join(cleanDir, 'src', 'index.ts'),
+        'utf-8',
+      );
       assert.strictEqual(indexExists, 'main');
 
-      const packageExists = await readFile(join(cleanDir, 'package.json'), 'utf-8');
+      const packageExists = await readFile(
+        join(cleanDir, 'package.json'),
+        'utf-8',
+      );
       assert.strictEqual(packageExists, '{"version": "1.0.0"}');
 
       await assert.rejects(() => readFile(join(cleanDir, 'old.ts'), 'utf-8'));
