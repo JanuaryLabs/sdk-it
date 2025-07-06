@@ -1,8 +1,60 @@
 import { isEmpty } from '@sdk-it/core';
-import { type OurOpenAPIObject, forEachOperation } from '@sdk-it/spec';
+import {
+  type OurOpenAPIObject,
+  forEachOperation,
+  toSidebar,
+} from '@sdk-it/spec';
 
 import type { Generator } from './generator.ts';
 import { PropEmitter } from './prop.emitter.ts';
+
+/**
+ * Generate Table of Contents from sidebar data
+ */
+function generateTableOfContents(spec: OurOpenAPIObject): string[] {
+  const tocLines: string[] = [];
+  const sidebar = toSidebar(spec);
+
+  tocLines.push('## Table of Contents');
+  tocLines.push('');
+
+  // Generate TOC based on sidebar structure
+  for (const category of sidebar) {
+    if (category.category) {
+      tocLines.push(`### ${category.category}`);
+      tocLines.push('');
+    }
+
+    for (const item of category.items) {
+      if (item.items && item.items.length > 0) {
+        // This is a tag/group with operations
+        tocLines.push(`- **${item.title}**`);
+
+        // Add each operation in this tag
+        for (const subItem of item.items) {
+          // Create anchor that matches the markdown header format
+          const anchor = `#${subItem.title
+            .toLowerCase()
+            .replace(/[^\w\s-]/g, '')
+            .replace(/\s+/g, '-')}`;
+          tocLines.push(`  - [${subItem.title}](${anchor})`);
+        }
+      } else {
+        // This might be a standalone item
+        tocLines.push(`- **${item.title}**`);
+      }
+    }
+    tocLines.push('');
+  }
+
+  // Add link to Schemas section if it exists
+  if (spec.components?.schemas) {
+    tocLines.push('- [Schemas](#schemas)');
+    tocLines.push('');
+  }
+
+  return tocLines;
+}
 
 export function toReadme(spec: OurOpenAPIObject, generators: Generator) {
   // table of content is the navigation headers in apiref
@@ -15,7 +67,10 @@ export function toReadme(spec: OurOpenAPIObject, generators: Generator) {
     'This document provides an overview of the API endpoints available in this service. Each endpoint includes a brief description, example usage, and details about request and response formats.',
   );
   markdown.push('');
+  markdown.unshift(...generateTableOfContents(spec));
+  markdown.push('');
   markdown.push('```\n' + generators.client() + '\n```');
+  markdown.push('');
 
   forEachOperation(spec, (entry, operation) => {
     const { method, path } = entry;
@@ -84,6 +139,8 @@ export function toReadme(spec: OurOpenAPIObject, generators: Generator) {
       markdown.push('');
     }
   }
+
+  // Generate Table of Contents
 
   return markdown.join('\n\n');
 }
