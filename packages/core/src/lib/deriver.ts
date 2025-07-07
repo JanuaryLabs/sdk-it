@@ -28,6 +28,15 @@ export class TypeDeriver {
   }
 
   serializeType(type: ts.Type): any {
+    if (this.typesMap[type.aliasSymbol?.getName() || type.symbol?.getName()]) {
+      return {
+        [deriveSymbol]: true,
+        optional: false,
+        [$types]: [
+          this.typesMap[type.aliasSymbol?.getName() || type.symbol?.getName()],
+        ],
+      };
+    }
     const indexType = type.getStringIndexType();
     if (indexType) {
       return {
@@ -242,7 +251,7 @@ export class TypeDeriver {
         return {
           [deriveSymbol]: true,
           optional: false,
-          [$types]: [this.typesMap[type.symbol.name]],
+          [$types]: [this.typesMap[symbolName(type.symbol)]],
         };
       }
       const properties = this.checker.getPropertiesOfType(type);
