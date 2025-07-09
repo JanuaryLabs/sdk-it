@@ -11,7 +11,7 @@ import { snakecase } from '@sdk-it/core/utils.js';
 
 import { toResource } from './guess/guess-resource.js';
 import { type GenerateSdkConfig, coeraceConfig } from './options.js';
-import { extractOverviewDocs } from './overview-docs.js';
+import { extractOverviewDocs } from './overview-docs/overview-docs.js';
 import { toPagination } from './pagination/pagination.js';
 import { tuneRequestBody } from './tune-request-body.js';
 import { resolveResponses } from './tune-response.js';

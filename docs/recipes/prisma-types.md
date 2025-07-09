@@ -32,6 +32,7 @@ The SDK generation script can be configured to pass custom `typesMap` to the `an
 import { analyze, ts } from '@sdk-gen/core';
 import { generate } from '@sdk-gen/typescript';
 import { writeFile } from 'fs/promises';
+
 import { defaultTypesMap } from '@sdk-it/core';
 
 const { paths, components } = await analyze('./tsconfig.json', {
@@ -102,6 +103,7 @@ To handle `JsonValue` properly, you can map it to a custom OpenAPI schema refere
 ```typescript
 import { analyze, ts } from '@sdk-gen/core';
 import { generate } from '@sdk-gen/typescript';
+
 import { defaultTypesMap } from '@sdk-it/core';
 
 const { paths, components } = await analyze('./tsconfig.json', {

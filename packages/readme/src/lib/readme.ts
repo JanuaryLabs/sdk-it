@@ -8,17 +8,11 @@ import {
 import type { Generator } from './generator.ts';
 import { PropEmitter } from './prop.emitter.ts';
 
-/**
- * Generate Table of Contents from sidebar data
- */
-function generateTableOfContents(spec: OurOpenAPIObject): string[] {
+function toTOC(spec: OurOpenAPIObject) {
   const tocLines: string[] = [];
   const sidebar = toSidebar(spec);
+  const contents: string[] = [];
 
-  tocLines.push('## Table of Contents');
-  tocLines.push('');
-
-  // Generate TOC based on sidebar structure
   for (const category of sidebar) {
     if (category.category) {
       tocLines.push(`### ${category.category}`);
@@ -26,6 +20,9 @@ function generateTableOfContents(spec: OurOpenAPIObject): string[] {
     }
 
     for (const item of category.items) {
+      if (item.id === 'generated-introduction') continue;
+
+      contents.push(item.content || '');
       if (item.items && item.items.length > 0) {
         // This is a tag/group with operations
         tocLines.push(`- **${item.title}**`);
@@ -47,30 +44,41 @@ function generateTableOfContents(spec: OurOpenAPIObject): string[] {
     tocLines.push('');
   }
 
-  // Add link to Schemas section if it exists
   if (spec.components?.schemas) {
     tocLines.push('- [Schemas](#schemas)');
     tocLines.push('');
   }
 
-  return tocLines;
+  return { tocLines, contents };
 }
 
 export function toReadme(spec: OurOpenAPIObject, generators: Generator) {
-  // table of content is the navigation headers in apiref
-  const markdown: string[] = [];
   const propEmitter = new PropEmitter(spec);
+  const toc = toTOC(spec);
+  const markdown: string[] = [];
 
-  markdown.push('# API Reference');
-  markdown.push('');
+  const generatedIntro = spec['x-docs']
+    .flatMap((it) => it.items)
+    .find((doc) => doc.id === 'generated-introduction');
+
+  if (generatedIntro && generatedIntro.content) {
+    markdown.push(generatedIntro.content);
+  }
+
+  markdown.push('---');
+  markdown.push('## Table of Contents');
+  markdown.push(...toc.tocLines);
+  markdown.push('---');
+
   markdown.push(
     'This document provides an overview of the API endpoints available in this service. Each endpoint includes a brief description, example usage, and details about request and response formats.',
   );
   markdown.push('');
-  markdown.unshift(...generateTableOfContents(spec));
   markdown.push('');
-  markdown.push('```\n' + generators.client() + '\n```');
+  markdown.push('```ts\n' + generators.client() + '\n```');
   markdown.push('');
+
+  markdown.push(toc.contents.join('\n\n'));
 
   forEachOperation(spec, (entry, operation) => {
     const { method, path } = entry;

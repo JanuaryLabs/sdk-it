@@ -12,6 +12,7 @@ export * from './lib/loaders/remote-loader.js';
 export * from './lib/metadata.js';
 export * from './lib/operation.js';
 export * from './lib/options.js';
+export * from './lib/overview-docs/overview-errors.js';
 export * from './lib/reserved-keywords.js';
 export * from './lib/security.js';
 export * from './lib/sidebar.js';

@@ -1,6 +1,10 @@
 ## Table of Contents
 
+
+
 ### Overview
+
+
 
 - **Introduction**
 
@@ -8,19 +12,35 @@
 
 - **Authorization**
 
+
+
 ### API
 
+
+
 - **playground**
+
   - [postPlayground](#postplayground)
 
 - **operations**
+
   - [getOperations](#getoperations)
+
+
 
 - [Schemas](#schemas)
 
+
+
 # API Reference
 
+
+
 This document provides an overview of the API endpoints available in this service. Each endpoint includes a brief description, example usage, and details about request and response formats.
+
+
+
+
 
 ```
 import { SdkIt } from '@sdkit/sdk';
@@ -31,7 +51,11 @@ const sdkIt = new SdkIt({
 });
 ```
 
+
+
 #### postPublish | _POST /publish_
+
+
 
 ##### Example usage
 
@@ -39,15 +63,15 @@ const sdkIt = new SdkIt({
 import { SdkIt } from '@sdkit/sdk';
 
 const sdkIt = new SdkIt({
-  baseUrl: '/',
-  token: '<token>',
+		baseUrl: '/',
+		'token': "<token>"
 });
 
 const result = await sdkIt.request('POST /publish', {
-  specUrl: 'https://example.com',
-});
+  "specUrl": "https://example.com"
+});;
 
-console.log(result.data);
+console.log(result.data)
 ```
 
 ##### Request Body
@@ -62,7 +86,9 @@ console.log(result.data);
 
 <summary><b>200</b>  <i>Response for 200</i></summary>
 
+
 **Content Type:** `application/json`
+
 
 **Type:** [`PostPublish`](#postpublish)
 
@@ -72,7 +98,9 @@ console.log(result.data);
 
 <summary><b>400</b>  <i>Bad Request</i></summary>
 
+
 **Content Type:** `application/json`
+
 
 **Type:** [`PostPublish400`](#postpublish400)
 
@@ -80,21 +108,23 @@ console.log(result.data);
 
 #### postAugment | _POST /augment_
 
+
+
 ##### Example usage
 
 ```typescript
 import { SdkIt } from '@sdkit/sdk';
 
 const sdkIt = new SdkIt({
-  baseUrl: '/',
-  token: '<token>',
+		baseUrl: '/',
+		'token': "<token>"
 });
 
 const result = await sdkIt.request('POST /augment', {
-  specUrl: 'https://example.com',
-});
+  "specUrl": "https://example.com"
+});;
 
-console.log(result.data);
+console.log(result.data)
 ```
 
 ##### Request Body
@@ -109,7 +139,9 @@ console.log(result.data);
 
 <summary><b>200</b>  <i>OK</i></summary>
 
+
 **Content Type:** `application/json`
+
 
 **Type:** [`PostAugment`](#postaugment)
 
@@ -119,7 +151,9 @@ console.log(result.data);
 
 <summary><b>400</b>  <i>Bad Request</i></summary>
 
+
 **Content Type:** `application/json`
+
 
 **Type:** [`PostAugment400`](#postaugment400)
 
@@ -127,19 +161,21 @@ console.log(result.data);
 
 #### getFetch | _GET /fetch_
 
+
+
 ##### Example usage
 
 ```typescript
 import { SdkIt } from '@sdkit/sdk';
 
 const sdkIt = new SdkIt({
-  baseUrl: '/',
-  token: '<token>',
+		baseUrl: '/',
+		'token': "<token>"
 });
 
-const result = await sdkIt.request('GET /fetch', {});
+const result = await sdkIt.request('GET /fetch', {});;
 
-console.log(result.data);
+console.log(result.data)
 ```
 
 ##### Request Body
@@ -154,7 +190,9 @@ console.log(result.data);
 
 <summary><b>200</b>  <i>Response for 200</i></summary>
 
+
 **Content Type:** `application/json`
+
 
 **Type:** [`GetFetch`](#getfetch)
 
@@ -164,7 +202,9 @@ console.log(result.data);
 
 <summary><b>400</b>  <i>Bad Request</i></summary>
 
+
 **Content Type:** `application/json`
+
 
 **Type:** [`GetFetch400`](#getfetch400)
 
@@ -172,22 +212,24 @@ console.log(result.data);
 
 #### postGenerate | _POST /generate_
 
+
+
 ##### Example usage
 
 ```typescript
 import { SdkIt } from '@sdkit/sdk';
 
 const sdkIt = new SdkIt({
-  baseUrl: '/',
-  token: '<token>',
+		baseUrl: '/',
+		'token': "<token>"
 });
 
 const stream = await sdkIt.request('POST /generate', {
-  specFile: new Blob(['example'], { type: 'text/plain' }),
+  "specFile": new Blob(['example'], { type: 'text/plain' })
 });
 
 for await (const chunk of stream) {
-  console.log(chunk);
+		console.log(chunk);
 }
 ```
 
@@ -203,7 +245,9 @@ for await (const chunk of stream) {
 
 <summary><b>200</b>  <i>Response for 200</i></summary>
 
+
 **Content Type:** `text/plain`
+
 
 **Type:** [`PostGenerate`](#postgenerate)
 
@@ -213,7 +257,9 @@ for await (const chunk of stream) {
 
 <summary><b>400</b>  <i>Bad Request</i></summary>
 
+
 **Content Type:** `application/json`
+
 
 **Type:** [`PostGenerate400`](#postgenerate400)
 
@@ -221,21 +267,23 @@ for await (const chunk of stream) {
 
 #### postPlayground | _POST /playground_
 
+
+
 ##### Example usage
 
 ```typescript
 import { SdkIt } from '@sdkit/sdk';
 
 const sdkIt = new SdkIt({
-  baseUrl: '/',
-  token: '<token>',
+		baseUrl: '/',
+		'token': "<token>"
 });
 
 const result = await sdkIt.request('POST /playground', {
-  specFile: new Blob(['example'], { type: 'text/plain' }),
-});
+  "specFile": new Blob(['example'], { type: 'text/plain' })
+});;
 
-console.log(result.data);
+console.log(result.data)
 ```
 
 ##### Request Body
@@ -250,7 +298,9 @@ console.log(result.data);
 
 <summary><b>200</b>  <i>Response for 200</i></summary>
 
+
 **Content Type:** `application/json`
+
 
 **Type:** [`PostPlayground`](#postplayground)
 
@@ -260,7 +310,9 @@ console.log(result.data);
 
 <summary><b>400</b>  <i>Bad Request</i></summary>
 
+
 **Content Type:** `application/json`
+
 
 **Type:** [`PostPlayground400`](#postplayground400)
 
@@ -268,20 +320,22 @@ console.log(result.data);
 
 #### getOperations | _GET /operations_
 
+
+
 ##### Example usage
 
 ```typescript
 import { SdkIt } from '@sdkit/sdk';
 
 const sdkIt = new SdkIt({
-  baseUrl: '/',
-  token: '<token>',
+		baseUrl: '/',
+		'token': "<token>"
 });
 
 const result = await sdkIt.request('GET /operations', {});
 
 for await (const page of result) {
-  console.log(page);
+		console.log(page);
 }
 ```
 
@@ -297,7 +351,9 @@ for await (const page of result) {
 
 <summary><b>200</b>  <i>Response for 200</i></summary>
 
+
 **Content Type:** `application/json`
+
 
 **Type:** [`GetOperations`](#getoperations)
 
@@ -307,7 +363,9 @@ for await (const page of result) {
 
 <summary><b>400</b>  <i>Bad Request</i></summary>
 
+
 **Content Type:** `application/json`
+
 
 **Type:** [`GetOperations400`](#getoperations400)
 
@@ -315,9 +373,13 @@ for await (const page of result) {
 
 ## Schemas
 
+
+
 <details>
 
 <summary><h3 id="postpublish">PostPublish</h3></summary>
+
+
 
 **Type:** `object`
 
@@ -327,51 +389,81 @@ for await (const page of result) {
 
 - `specUrl` `string` required:
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="postpublish400">PostPublish400</h3></summary>
 
+
+
 **Type:** [`ValidationError`](#validationerror)
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="postpublishinput">PostPublishInput</h3></summary>
 
+
+
 **Type:** `object`
 
 **Properties:**
 
 - `specUrl` `string` (format: uri) required:
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="postaugment">PostAugment</h3></summary>
 
+
+
 **Type:** `object`
 
 **Additional Properties:**
 
 - Allowed: true
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="postaugment400">PostAugment400</h3></summary>
 
+
+
 **Type:** [`ValidationError`](#validationerror)
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="postaugmentinput">PostAugmentInput</h3></summary>
+
+
 
 **Type:** `object`
 
@@ -379,11 +471,17 @@ for await (const page of result) {
 
 - `specUrl` `string` (format: uri) required:
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="getfetch">GetFetch</h3></summary>
+
+
 
 **Type:** `object`
 
@@ -391,43 +489,73 @@ for await (const page of result) {
 
 - Allowed: true
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="getfetch400">GetFetch400</h3></summary>
 
+
+
 **Type:** [`ValidationError`](#validationerror)
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="getfetchinput">GetFetchInput</h3></summary>
 
+
+
 **Type:** `unknown`
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="postgenerate">PostGenerate</h3></summary>
 
+
+
 **Type:** `string`
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="postgenerate400">PostGenerate400</h3></summary>
 
+
+
 **Type:** [`ValidationError`](#validationerror)
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="postgenerateinput">PostGenerateInput</h3></summary>
+
+
 
 **Type:** `object`
 
@@ -435,11 +563,17 @@ for await (const page of result) {
 
 - `specFile` `string` (format: binary) required:
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="postplayground">PostPlayground</h3></summary>
+
+
 
 **Type:** `object`
 
@@ -453,19 +587,31 @@ for await (const page of result) {
 
 - `clientName` `string` required:
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="postplayground400">PostPlayground400</h3></summary>
 
+
+
 **Type:** [`ValidationError`](#validationerror)
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="postplaygroundinput">PostPlaygroundInput</h3></summary>
+
+
 
 **Type:** `object`
 
@@ -473,11 +619,17 @@ for await (const page of result) {
 
 - `specFile` `string` (format: binary) required:
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="getoperations">GetOperations</h3></summary>
+
+
 
 **Type:** `object`
 
@@ -505,20 +657,35 @@ for await (const page of result) {
 
 - `hasPreviousPage` `boolean` required:
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="getoperations400">GetOperations400</h3></summary>
 
+
+
 **Type:** [`ValidationError`](#validationerror)
 
+
+
 </details>
+
+
 
 <details>
 
 <summary><h3 id="getoperationsinput">GetOperationsInput</h3></summary>
 
+
+
 **Type:** `unknown`
 
+
+
 </details>
+

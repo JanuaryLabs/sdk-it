@@ -1,4 +1,4 @@
-import { template } from 'lodash-es';
+import { set, template } from 'lodash-es';
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
@@ -299,10 +299,13 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
         ),
       },
     };
-    if (settings.readme) {
-      configFiles['README.md'] = toReadme(spec, generator);
-    }
     await settings.writer(settings.output, configFiles);
+  }
+
+  if (settings.readme) {
+    await settings.writer(settings.mode === 'full' ? settings.output : output, {
+      'README.md': toReadme(spec, generator),
+    });
   }
 
   await settings.formatCode?.({
