@@ -196,12 +196,10 @@ export class ZodEmitter {
     switch (schema.format) {
       case 'date-time':
       case 'datetime':
-        // parse to JS Date
-        base = 'z.coerce.date()';
+        base = 'z.string().datetime()';
         break;
       case 'date':
-        base =
-          'z.coerce.date() /* or z.string() if you want raw date strings */';
+        base = 'z.coerce.date()';
         break;
       case 'time':
         base =
