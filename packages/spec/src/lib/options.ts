@@ -1,5 +1,11 @@
-import type { OpenAPIObject, OperationObject } from 'openapi3-ts/oas31';
+import type {
+  OpenAPIObject,
+  OperationObject,
+  SecuritySchemeObject,
+} from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
+
+import { resolveRef } from '@sdk-it/core';
 
 import { determineGenericTag, sanitizeTag } from './tag.js';
 import type { OurOpenAPIObject } from './types.js';
@@ -62,7 +68,14 @@ export function coeraceConfig(config: GenerateSdkConfig) {
       components: {
         ...config.spec.components,
         schemas: config.spec.components?.schemas ?? {},
-        securitySchemes: config.spec.components?.securitySchemes ?? {},
+        securitySchemes: Object.fromEntries(
+          Object.entries(config.spec.components?.securitySchemes ?? {}).map(
+            ([name, schema]) => [
+              name,
+              resolveRef<SecuritySchemeObject>(config.spec, schema),
+            ],
+          ),
+        ),
       },
       paths: config.spec.paths ?? {},
       'x-docs': [],

@@ -1,4 +1,4 @@
-import { set, template } from 'lodash-es';
+import { template } from 'lodash-es';
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
@@ -12,7 +12,6 @@ import {
   getFolderExports,
   writeFiles,
 } from '@sdk-it/core/file-system.js';
-import { toReadme } from '@sdk-it/readme';
 import {
   type OurOpenAPIObject,
   augmentSpec,
@@ -36,6 +35,7 @@ import type { TypeScriptGeneratorOptions } from './options.ts';
 import cursorPaginationTxt from './paginations/cursor-pagination.txt';
 import offsetPaginationTxt from './paginations/offset-pagination.txt';
 import paginationTxt from './paginations/page-pagination.txt';
+import { toReadme } from './readme/readme.ts';
 import type { Operation } from './sdk.ts';
 import { TypeScriptGenerator } from './typescript-snippet.ts';
 

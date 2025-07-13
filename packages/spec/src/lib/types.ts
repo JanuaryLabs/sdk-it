@@ -21,7 +21,7 @@ export interface OurOpenAPIObject extends OpenAPIObject {
   'x-tagGroups': TagGroups[];
   components: Omit<ComponentsObject, 'schemas'> & {
     schemas: Record<string, SchemaObject | ReferenceObject>;
-    securitySchemes: Record<string, SecuritySchemeObject | ReferenceObject>;
+    securitySchemes: Record<string, SecuritySchemeObject>;
   };
   paths: PathsObject;
 }

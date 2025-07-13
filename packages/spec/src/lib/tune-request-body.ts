@@ -19,8 +19,11 @@ export function patchParameters(
   parameters: ParameterObject[],
   security: SecurityRequirementObject[],
 ) {
-  const securitySchemes = spec.components?.securitySchemes ?? {};
-  const securityOptions = securityToOptions(spec, security, securitySchemes);
+  const securityOptions = securityToOptions(
+    spec,
+    security,
+    spec.components.securitySchemes,
+  );
 
   let required = Array.isArray(schema.required) ? schema.required : [];
   schema['x-properties'] ??= {};
