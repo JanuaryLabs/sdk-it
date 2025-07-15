@@ -77,8 +77,8 @@ export class PropEmitter {
     // assemble final lines (skip the type and any default in details)
     const detailLines = docs
       .slice(1)
-      .filter((l) => !l.startsWith('**Default:**'))
-      .map((l) => `  ${l}`);
+      .filter((it) => !it.startsWith('**Default:**'))
+      .map((it) => `  ${it}`);
 
     return [summary, ...detailLines];
   }
@@ -265,7 +265,6 @@ export class PropEmitter {
 
     const schema = schemaOrRef;
 
-    // Handle composition keywords first
     if (schema.allOf && Array.isArray(schema.allOf)) {
       return this.#allOf(schema.allOf);
     }
@@ -276,12 +275,10 @@ export class PropEmitter {
       return this.#oneOf(schema.oneOf);
     }
 
-    // Handle enums
     if (schema.enum && Array.isArray(schema.enum)) {
       return this.#enum(schema);
     }
 
-    // Determine type(s) and nullability
     let types = coerceTypes(schema);
     let nullable = false; // Default to false
 
@@ -290,17 +287,14 @@ export class PropEmitter {
       types = types.filter((t) => t !== 'null');
     }
 
-    // Infer type if not explicitly set
     if (types.length === 0) {
       if (schema.properties || schema.additionalProperties) {
         types = ['object'];
       } else if (schema.items) {
         types = ['array'];
       }
-      // Add other inferences if needed (e.g., based on format)
     }
 
-    // If still no type, treat as unknown or any
     if (types.length === 0) {
       const lines = ['**Type:** `unknown`'];
       if (schema.description) lines.push(schema.description);
@@ -327,45 +321,36 @@ export class PropEmitter {
   /**
    * Process a request body and return markdown documentation
    */
-  requestBody(requestBody?: RequestBodyObject): string[] {
-    if (!requestBody) return [];
-
+  requestBody(requestBody: RequestBodyObject): string[] {
     const lines: string[] = [];
-    lines.push(`##### Request Body`);
+    lines.push(`#### Input`);
+    lines.push(requestBody.description || '');
 
-    if (requestBody.description) {
-      lines.push(requestBody.description);
-    }
-
-    if (requestBody.content) {
-      const contentEntries = Object.entries(requestBody.content);
-
-      // If only one content type, show it directly without toggles
-      if (contentEntries.length === 1) {
-        const [contentType, mediaType] = contentEntries[0];
-        lines.push(`**Content Type:** \`${contentType}\``);
+    const contentEntries = Object.entries(requestBody.content);
+    const multipleContentTypes = contentEntries.length > 1;
+    if (multipleContentTypes) {
+      // Use collapsible toggles
+      for (const [contentType, mediaType] of contentEntries) {
+        lines.push(`<details>`);
+        lines.push(`<summary>Content Type: \`${contentType}\`</summary>`);
+        lines.push('');
 
         if (mediaType.schema) {
           const schemaDocs = this.handle(mediaType.schema);
-          lines.push(...schemaDocs);
+          lines.push(...schemaDocs.map((l) => l));
         }
-      } else {
-        // Multiple content types - use collapsible toggles
-        for (const [contentType, mediaType] of contentEntries) {
-          lines.push(`<details>`);
-          lines.push(
-            `<summary><b>Content Type:</b> \`${contentType}\`</summary>`,
-          );
-          lines.push('');
 
-          if (mediaType.schema) {
-            const schemaDocs = this.handle(mediaType.schema);
-            lines.push(...schemaDocs.map((l) => l));
-          }
+        lines.push('');
+        lines.push(`</details>`);
+      }
+    } else {
+      // Single content type - show inline
+      const [contentType, mediaType] = contentEntries[0];
+      lines.push(`Content Type: \`${contentType}\``);
 
-          lines.push('');
-          lines.push(`</details>`);
-        }
+      if (mediaType.schema) {
+        const schemaDocs = this.handle(mediaType.schema);
+        lines.push(...schemaDocs);
       }
     }
 
