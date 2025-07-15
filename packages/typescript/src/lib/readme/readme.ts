@@ -48,42 +48,57 @@ export function toReadme(spec: OurOpenAPIObject, generator: Generator) {
   forEachOperation(spec, (entry, operation) => {
     const { method, path } = entry;
     markdown.push(
-      `#### ${operation['x-fn-name']} | ${`_${method.toUpperCase()} ${path}_`}`,
+      `### ${operation['x-fn-name']} | ${`_${method.toUpperCase()} ${path}_`}`,
     );
     markdown.push(operation.summary || '');
 
     const snippet = generator.snippet(entry, operation);
-    markdown.push(`##### Example usage`);
+    markdown.push(`#### Example usage`);
     markdown.push(snippet);
 
-    // Process request body using the refactored emitter
     const requestBodyContent = propEmitter.requestBody(operation.requestBody);
     if (requestBodyContent.length > 1) {
       // Check if more than just the header was added
       markdown.push(requestBodyContent.join('\n\n'));
     }
 
-    markdown.push(`##### Responses`);
+    markdown.push(`#### Output`);
     for (const status in operation.responses) {
       const response = operation.responses[status];
-      // Wrap each response in its own toggle
-      markdown.push(`<details>`);
-      markdown.push(
-        `<summary><b>${status}</b>  <i>${response.description}</i></summary>`,
-      );
+
       if (!isEmpty(response.content)) {
-        for (const [contentType, mediaType] of Object.entries(
-          response.content,
-        )) {
+        const contentEntries = Object.entries(response.content);
+
+        if (contentEntries.length === 1) {
+          const [contentType, mediaType] = contentEntries[0];
+          markdown.push(`**${status}** - ${response.description}`);
           markdown.push(`\n**Content Type:** \`${contentType}\``);
+
           if (mediaType.schema) {
             const schemaDocs = propEmitter.handle(mediaType.schema);
-            // hide emitter output under the toggle
-            markdown.push(...schemaDocs.map((l) => `\n${l}`));
+            markdown.push(...schemaDocs);
           }
+        } else {
+          // Multiple content types - use collapsible toggle for the entire response
+          markdown.push(`<details>`);
+          markdown.push(
+            `<summary><b>${status}</b>  <i>${response.description}</i></summary>`,
+          );
+
+          for (const [contentType, mediaType] of contentEntries) {
+            markdown.push(`\n**Content Type:** \`${contentType}\``);
+            if (mediaType.schema) {
+              const schemaDocs = propEmitter.handle(mediaType.schema);
+              markdown.push(...schemaDocs.map((l) => `\n${l}`));
+            }
+          }
+
+          markdown.push(`</details>`);
         }
+      } else {
+        // No content - just show status and description
+        markdown.push(`**${status}** - ${response.description}`);
       }
-      markdown.push(`</details>`);
     }
   }); // Add schemas section at the bottom
   if (spec.components?.schemas) {
