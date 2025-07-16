@@ -20,7 +20,7 @@ export async function vectorise(
     return;
   }
   console.log('Vectorising spec:', spec.info.title);
-  const content = toReadme(spec, generator);
+  const content = toReadme(spec);
 
   const file = await openai.files.create({
     purpose: 'assistants',
