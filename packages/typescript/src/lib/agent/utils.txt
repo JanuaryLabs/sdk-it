@@ -1,0 +1,33 @@
+function coerceContext(context?: any) {
+  if (!context) {
+    throw new Error('Context is required');
+  }
+  return context as {
+    client: any
+  };
+}
+/**
+ * Takes a Zod object schema and makes all optional properties nullable as well.
+ * This is useful for APIs where optional fields can be explicitly set to null.
+ *
+ * @param schema - The Zod object schema to transform
+ * @returns A new Zod schema with optional properties made nullable
+ */
+function makeOptionalPropsNullable<T extends z.ZodRawShape>(
+  schema: z.ZodObject<T>,
+) {
+  const shape = schema.shape;
+  const newShape = {} as Record<string, z.ZodTypeAny>;
+
+  for (const [key, value] of Object.entries(shape)) {
+    if (value instanceof z.ZodOptional) {
+      // Make optional properties also nullable
+      newShape[key] = value._def.innerType.nullable().optional();
+    } else {
+      // Keep non-optional properties as they are
+      newShape[key] = value;
+    }
+  }
+
+  return z.object(newShape);
+}

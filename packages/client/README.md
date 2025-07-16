@@ -279,11 +279,11 @@ await sdkIt.request('GET /api/data', {
 
 
 
-#### postPublish | _POST /publish_
+### postPublish | _POST /publish_
 
 
 
-##### Example usage
+#### Example usage
 
 ```typescript
 import { SdkIt } from '@sdkit/sdk';
@@ -300,43 +300,35 @@ const result = await sdkIt.request('POST /publish', {
 console.log(result.data)
 ```
 
-##### Request Body
+#### Input
 
-**Content Type:** `application/json`
+
+
+Content Type: `application/json`
 
 **Type:** [`PostPublishInput`](#postpublishinput)
 
-##### Responses
+#### Output
 
-<details>
-
-<summary><b>200</b>  <i>Response for 200</i></summary>
+**200** - Response for 200
 
 
 **Content Type:** `application/json`
-
 
 **Type:** [`PostPublish`](#postpublish)
 
-</details>
-
-<details>
-
-<summary><b>400</b>  <i>Bad Request</i></summary>
+**400** - Bad Request
 
 
 **Content Type:** `application/json`
 
-
 **Type:** [`PostPublish400`](#postpublish400)
 
-</details>
-
-#### postAugment | _POST /augment_
+### postAugment | _POST /augment_
 
 
 
-##### Example usage
+#### Example usage
 
 ```typescript
 import { SdkIt } from '@sdkit/sdk';
@@ -353,43 +345,35 @@ const result = await sdkIt.request('POST /augment', {
 console.log(result.data)
 ```
 
-##### Request Body
+#### Input
 
-**Content Type:** `application/json`
+
+
+Content Type: `application/json`
 
 **Type:** [`PostAugmentInput`](#postaugmentinput)
 
-##### Responses
+#### Output
 
-<details>
-
-<summary><b>200</b>  <i>OK</i></summary>
+**200** - OK
 
 
 **Content Type:** `application/json`
-
 
 **Type:** [`PostAugment`](#postaugment)
 
-</details>
-
-<details>
-
-<summary><b>400</b>  <i>Bad Request</i></summary>
+**400** - Bad Request
 
 
 **Content Type:** `application/json`
 
-
 **Type:** [`PostAugment400`](#postaugment400)
 
-</details>
-
-#### getFetch | _GET /fetch_
+### getFetch | _GET /fetch_
 
 
 
-##### Example usage
+#### Example usage
 
 ```typescript
 import { SdkIt } from '@sdkit/sdk';
@@ -404,43 +388,35 @@ const result = await sdkIt.request('GET /fetch', {});;
 console.log(result.data)
 ```
 
-##### Request Body
+#### Input
 
-**Content Type:** `application/empty`
+
+
+Content Type: `application/empty`
 
 **Type:** [`GetFetchInput`](#getfetchinput)
 
-##### Responses
+#### Output
 
-<details>
-
-<summary><b>200</b>  <i>Response for 200</i></summary>
+**200** - Response for 200
 
 
 **Content Type:** `application/json`
-
 
 **Type:** [`GetFetch`](#getfetch)
 
-</details>
-
-<details>
-
-<summary><b>400</b>  <i>Bad Request</i></summary>
+**400** - Bad Request
 
 
 **Content Type:** `application/json`
 
-
 **Type:** [`GetFetch400`](#getfetch400)
 
-</details>
-
-#### postGenerate | _POST /generate_
+### postGenerate | _POST /generate_
 
 
 
-##### Example usage
+#### Example usage
 
 ```typescript
 import { SdkIt } from '@sdkit/sdk';
@@ -459,43 +435,35 @@ for await (const chunk of stream) {
 }
 ```
 
-##### Request Body
+#### Input
 
-**Content Type:** `multipart/form-data`
+
+
+Content Type: `multipart/form-data`
 
 **Type:** [`PostGenerateInput`](#postgenerateinput)
 
-##### Responses
+#### Output
 
-<details>
-
-<summary><b>200</b>  <i>Response for 200</i></summary>
+**200** - Response for 200
 
 
 **Content Type:** `text/plain`
 
-
 **Type:** [`PostGenerate`](#postgenerate)
 
-</details>
-
-<details>
-
-<summary><b>400</b>  <i>Bad Request</i></summary>
+**400** - Bad Request
 
 
 **Content Type:** `application/json`
 
-
 **Type:** [`PostGenerate400`](#postgenerate400)
 
-</details>
-
-#### postPlayground | _POST /playground_
+### postPlayground | _POST /playground_
 
 
 
-##### Example usage
+#### Example usage
 
 ```typescript
 import { SdkIt } from '@sdkit/sdk';
@@ -512,43 +480,35 @@ const result = await sdkIt.request('POST /playground', {
 console.log(result.data)
 ```
 
-##### Request Body
+#### Input
 
-**Content Type:** `multipart/form-data`
+
+
+Content Type: `multipart/form-data`
 
 **Type:** [`PostPlaygroundInput`](#postplaygroundinput)
 
-##### Responses
+#### Output
 
-<details>
-
-<summary><b>200</b>  <i>Response for 200</i></summary>
+**200** - Response for 200
 
 
 **Content Type:** `application/json`
-
 
 **Type:** [`PostPlayground`](#postplayground)
 
-</details>
-
-<details>
-
-<summary><b>400</b>  <i>Bad Request</i></summary>
+**400** - Bad Request
 
 
 **Content Type:** `application/json`
 
-
 **Type:** [`PostPlayground400`](#postplayground400)
 
-</details>
-
-#### getOperations | _GET /operations_
+### getOperations | _GET /operations_
 
 
 
-##### Example usage
+#### Example usage
 
 ```typescript
 import { SdkIt } from '@sdkit/sdk';
@@ -565,37 +525,29 @@ for await (const page of result) {
 }
 ```
 
-##### Request Body
+#### Input
 
-**Content Type:** `application/empty`
+
+
+Content Type: `application/empty`
 
 **Type:** [`GetOperationsInput`](#getoperationsinput)
 
-##### Responses
+#### Output
 
-<details>
-
-<summary><b>200</b>  <i>Response for 200</i></summary>
+**200** - Response for 200
 
 
 **Content Type:** `application/json`
-
 
 **Type:** [`GetOperations`](#getoperations)
 
-</details>
-
-<details>
-
-<summary><b>400</b>  <i>Bad Request</i></summary>
+**400** - Bad Request
 
 
 **Content Type:** `application/json`
 
-
 **Type:** [`GetOperations400`](#getoperations400)
-
-</details>
 
 ## Schemas
 
