@@ -15,7 +15,6 @@ import {
 interface Options {
   spec: string;
   output: string;
-  language: string;
   mode?: 'full' | 'minimal';
   name?: string;
   useTsExtension: boolean;
@@ -33,7 +32,6 @@ export default new Command('dart')
   .description('Generate Dart SDK')
   .addOption(specOption.makeOptionMandatory(true))
   .addOption(outputOption.makeOptionMandatory(true))
-  .option('-l, --language <language>', 'Programming language for the SDK')
   // .option(
   //   '-m, --mode <mode>',
   //   'full: generate a full project including package.json and tsconfig.json. useful for monorepo/workspaces minimal: generate only the client sdk',

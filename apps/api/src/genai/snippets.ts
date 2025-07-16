@@ -162,17 +162,22 @@ Note: operationId is the operation's ID prefixed with "operation_". For example,
   tools: [generateSnippet, getSchemaDefinition],
   model: 'gpt-4.1-nano',
 });
+
 const operationId = 'operation_listDoctors';
+
 const spec = augmentSpec({
   spec: await loadSpec(
     '/Users/ezzabuzaid/Desktop/mo/virtual-care/openapi.json',
   ),
 });
+
 const operations = toOperations(spec);
 const operationDetails = findOperationById(operations, operationId);
+
 if (typeof operationDetails === 'string') {
   throw new Error(operationDetails);
 }
+
 const sharedContext = {
   context: {
     spec,

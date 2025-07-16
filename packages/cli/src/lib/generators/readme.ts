@@ -1,5 +1,7 @@
 import { Command } from 'commander';
-import { execa } from 'execa';
+
+import { toReadme } from '@sdk-it/readme';
+import { type OurOpenAPIObject, augmentSpec, loadSpec } from '@sdk-it/spec';
 
 import { outputOption, specOption } from '../options.ts';
 
@@ -11,13 +13,7 @@ export default new Command('readme')
     await runReadme(options.spec, options.output);
   });
 
-export function runReadme(spec: string, output: string) {
-  return execa('nx', ['run', 'readme:build'], {
-    stdio: 'inherit',
-    extendEnv: true,
-    env: {
-      VITE_SPEC: spec,
-      VITE_SDK_IT_OUTPUT: output,
-    },
-  });
+export async function runReadme(specFile: string, output: string) {
+  const spec = augmentSpec({ spec: await loadSpec(specFile) });
+  return toReadme(spec);
 }

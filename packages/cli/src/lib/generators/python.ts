@@ -9,7 +9,6 @@ import { outputOption, shellEnv, specOption } from '../options.ts';
 interface Options {
   spec: string;
   output: string;
-  language: string;
   mode?: 'full' | 'minimal';
   name?: string;
   /**
@@ -25,7 +24,6 @@ export default new Command('python')
   .description('Generate Python SDK')
   .addOption(specOption.makeOptionMandatory(true))
   .addOption(outputOption.makeOptionMandatory(true))
-  .option('-l, --language <language>', 'Programming language for the SDK')
   .option('-n, --name <n>', 'Name of the generated client', 'Client')
   .option('-v, --verbose', 'Verbose output', false)
   .option('--formatter <formatter>', 'Formatter to use for the generated code')

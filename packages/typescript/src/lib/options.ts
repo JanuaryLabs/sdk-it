@@ -6,6 +6,7 @@ import type { PaginationConfig } from '@sdk-it/spec';
 import type { Style } from './style.ts';
 
 export interface TypeScriptGeneratorOptions {
+  agentTools?: boolean;
   readme?: boolean;
   style?: Style;
   output: string;

@@ -1,7 +1,6 @@
 import { Command } from 'commander';
 import { execa } from 'execa';
 import { dirname, join } from 'node:path';
-import { cwd } from 'node:process';
 
 import { outputOption, specOption } from '../options.ts';
 
@@ -15,7 +14,6 @@ export default new Command('apiref')
 
 export function runApiRef(spec: string, output: string) {
   const packageDir = join(dirname(import.meta.url), '..', '..', 'apiref');
-  console.log();
   return execa('nx', ['run', 'apiref:build', '--verbose'], {
     stdio: 'inherit',
     extendEnv: true,

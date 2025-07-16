@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 import { Command, program } from 'commander';
 import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
 
-import apiref, { runApiRef } from './generators/apiref.ts';
+import apiref from './generators/apiref.ts';
 import dart, { runDart } from './generators/dart.ts';
 import python, { runPython } from './generators/python.ts';
-import readme from './generators/readme.ts';
+import readme, { runReadme } from './generators/readme.ts';
 import typescript, { runTypescript } from './generators/typescript.ts';
 
 interface SdkConfig {
@@ -62,13 +61,11 @@ const generate = new Command('generate')
           output: config.generators.typescript.output,
           mode: config.generators.typescript.mode,
           name: config.generators.typescript.name,
-          language: 'typescript',
           useTsExtension: true,
           install: true,
           verbose: false,
           defaultFormatter: true,
           outputType: 'default',
-          errorAsValue: false,
           readme: true,
           pagination: config.generators.typescript.pagination?.toString(),
         }),
@@ -82,7 +79,6 @@ const generate = new Command('generate')
           output: config.generators.python.output,
           mode: config.generators.python.mode,
           name: config.generators.python.name,
-          language: 'python',
           verbose: false,
         }),
       );
@@ -95,7 +91,6 @@ const generate = new Command('generate')
           output: config.generators.dart.output,
           mode: config.generators.dart.mode,
           name: config.generators.dart.name,
-          language: 'dart',
           useTsExtension: false,
           verbose: false,
           pagination: config.generators.dart.pagination?.toString(),
@@ -107,9 +102,9 @@ const generate = new Command('generate')
     //   promises.push(runApiRef(config.apiref.spec, config.apiref.output));
     // }
 
-    // if (config.readme) {
-    //   promises.push(runReadme(config.readme.spec, config.readme.output));
-    // }
+    if (config.readme) {
+      promises.push(runReadme(config.readme.spec, config.readme.output));
+    }
 
     await Promise.all(promises);
     console.log('All configured generators completed successfully!');
