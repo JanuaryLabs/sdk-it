@@ -1,6 +1,6 @@
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
-import { resolveRef } from '@sdk-it/core';
+import { distillRef } from '@sdk-it/core';
 
 import { forEachOperation } from '../for-each-operation.js';
 import { isErrorStatusCode } from '../is.js';
@@ -15,18 +15,11 @@ interface ErrorSchema {
   operations: string[]; // Track which operations use this error
 }
 
-function resolveSchema(
-  spec: OurOpenAPIObject,
-  schema: SchemaObject | ReferenceObject,
-): SchemaObject {
-  return resolveRef<SchemaObject>(spec, schema);
-}
-
 function formatSchemaForDisplay(
   spec: OurOpenAPIObject,
   schema: SchemaObject | ReferenceObject,
 ): string {
-  const resolvedSchema = resolveSchema(spec, schema);
+  const resolvedSchema = distillRef(spec, schema);
 
   return `\`\`\`json
 ${JSON.stringify(resolvedSchema, null, 2)}
@@ -121,10 +114,7 @@ export function generateErrorsOverview(spec: OurOpenAPIObject): NavItem {
   markdown.push(
     `This API uses conventional HTTP response codes to indicate the success or failure of an API request.`,
   );
-  markdown.push(`## Official API Clients`);
-  markdown.push(
-    `Vellum maintains official API clients for Python, Node/Typescript, and Go. We recommend using these clients to interact with all stable endpoints. You can find them here:`,
-  );
+
   markdown.push(`## HTTP Status Codes`);
 
   // First, collect all error schemas from operations
@@ -137,24 +127,22 @@ export function generateErrorsOverview(spec: OurOpenAPIObject): NavItem {
           const content = response.content;
           if (content?.['application/json']?.schema) {
             const key = `${statusCode}`;
-            const operationId = `${entry.method.toUpperCase()} ${entry.path}`;
-
-            if (!errorSchemas.has(key)) {
+            if (errorSchemas.has(key)) {
+              const existing = errorSchemas.get(key);
+              if (
+                existing &&
+                !existing.operations.includes(operation.operationId)
+              ) {
+                existing.operations.push(operation.operationId);
+              }
+            } else {
               errorSchemas.set(key, {
                 statusCode,
                 title: response.description || `${statusCode} Error`,
                 description: response.description,
-                schema: content['application/json'].schema as
-                  | SchemaObject
-                  | ReferenceObject,
-                operations: [operationId],
+                schema: content['application/json'].schema,
+                operations: [operation.operationId],
               });
-            } else {
-              // Add this operation to the existing error schema
-              const existing = errorSchemas.get(key);
-              if (existing && !existing.operations.includes(operationId)) {
-                existing.operations.push(operationId);
-              }
             }
           }
         }
@@ -162,7 +150,6 @@ export function generateErrorsOverview(spec: OurOpenAPIObject): NavItem {
     }
   });
 
-  // Then sort and generate documentation
   const errors = Array.from(errorSchemas.values()).sort(
     (a, b) => parseInt(a.statusCode) - parseInt(b.statusCode),
   );
@@ -175,19 +162,8 @@ export function generateErrorsOverview(spec: OurOpenAPIObject): NavItem {
     for (const error of errors) {
       markdown.push(`### ${error.statusCode} - ${error.title}`);
       const description =
-        error.description || getStatusDescription(error.statusCode);
-      if (description) {
-        markdown.push(description);
-      }
-
-      // Show which operations return this error
-      if (error.operations.length > 0) {
-        const operationsList = [`**Used by operations:**`];
-        for (const operation of error.operations) {
-          operationsList.push(`- \`${operation}\``);
-        }
-        markdown.push(operationsList.join('\n'));
-      }
+        error.description || getStatusDescription(error.statusCode) || '';
+      markdown.push(description);
 
       if (error.schema) {
         markdown.push(`**Response Schema:**`);

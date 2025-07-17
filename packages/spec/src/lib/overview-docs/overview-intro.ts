@@ -1,21 +1,17 @@
-import { forEachOperation } from '../for-each-operation.js';
 import type { NavItem } from '../sidebar.js';
 import type { OurOpenAPIObject } from '../types.js';
+import {
+  getClientIntroText,
+  getTextByCount,
+  presetDocs,
+} from './doc-text-utils.js';
 
 export function generateIntroOverview(
   spec: OurOpenAPIObject,
-  availablesdks = ['typescript'],
+  availablesdks: string[],
 ): NavItem {
   const info = spec.info;
   const markdown: string[] = [];
-
-  const tags = new Set<string>();
-  const methods = new Set<string>();
-
-  forEachOperation(spec, (entry) => {
-    tags.add(entry.tag);
-    methods.add(entry.method.toUpperCase());
-  });
 
   if (spec.info.title) {
     markdown.push(`# ${spec.info.title || 'API Reference'}\n`);
@@ -29,9 +25,21 @@ export function generateIntroOverview(
     markdown.push(`**Version:** ${spec.info.version}\n`);
   }
 
+  if (info.license) {
+    let licenseString = `**License:** ${info.license.name}`;
+    if (info.license.url) {
+      licenseString += ` ([${info.license.url}](${info.license.url}))`;
+    }
+    markdown.push(`${licenseString}\n`);
+  }
+
   if (spec.servers && spec.servers.length > 0) {
-    markdown.push(`## API Servers`);
-    markdown.push(`The following servers are available for this API:`);
+    const serverCount = spec.servers.length;
+
+    markdown.push(
+      `## ${getTextByCount(serverCount, presetDocs.server.section)}`,
+    );
+    markdown.push(getTextByCount(serverCount, presetDocs.server.description));
     markdown.push('');
 
     for (const server of spec.servers) {
@@ -44,38 +52,45 @@ export function generateIntroOverview(
     markdown.push('');
   }
 
-  if (info.contact) {
-    markdown.push(`## Contact`);
-    if (info.contact.name) {
-      markdown.push(`**Name:** ${info.contact.name}`);
-    }
-    if (info.contact.email) {
-      markdown.push(`**Email:** ${info.contact.email}`);
-    }
-    if (info.contact.url) {
-      markdown.push(`**URL:** ${info.contact.url}`);
-    }
-  }
-
-  if (info.license) {
-    markdown.push(`## License`);
-    if (info.license.name) {
-      let licenseString = `**License:** ${info.license.name}`;
-      if (info.license.url) {
-        licenseString += ` ([${info.license.url}](${info.license.url}))`;
-      }
-      markdown.push(licenseString);
-    }
-  }
-
-  markdown.push(`## Official API Clients`);
-  markdown.push(
-    `${info.title || 'This API'} provides official client SDKs for multiple programming languages. We recommend using these clients to interact with all stable endpoints. You can find them here:`,
-  );
+  const sdkCount = availablesdks.length;
+  markdown.push(`## ${getTextByCount(sdkCount, presetDocs.client.section)}`);
+  markdown.push(getClientIntroText(info.title || 'This API', sdkCount));
 
   for (const link of availablesdks) {
     const sdkName = link.replace('/', '').replace('-sdk', '').toUpperCase();
     markdown.push(`- [${sdkName} SDK](${link})`);
+  }
+
+  // Add "Need Help?" section if support information is available
+  const hasSupportInfo =
+    info.contact?.email ||
+    info.contact?.url ||
+    (spec.externalDocs?.url &&
+      spec.externalDocs?.description?.toLowerCase().includes('support'));
+
+  if (hasSupportInfo) {
+    markdown.push(`## Need Help?`);
+
+    if (info.contact?.email) {
+      markdown.push(
+        `For support, reach out to us at [${info.contact.email}](mailto:${info.contact.email}).`,
+      );
+    }
+
+    if (info.contact?.url) {
+      markdown.push(
+        `Visit our support page: [${info.contact.url}](${info.contact.url})`,
+      );
+    }
+
+    if (
+      spec.externalDocs?.url &&
+      spec.externalDocs?.description?.toLowerCase().includes('support')
+    ) {
+      markdown.push(
+        `For additional support, visit our [${spec.externalDocs.description}](${spec.externalDocs.url}).`,
+      );
+    }
   }
 
   return {

@@ -73,11 +73,11 @@ export class SnippetEmitter {
     switch (schema.format) {
       case 'date-time':
       case 'datetime':
-        return new Date().toISOString();
+        return `2025-07-17T09:08:00.097Z`
       case 'date':
-        return new Date().toISOString().split('T')[0];
+        return `2025-07-17`
       case 'time':
-        return new Date().toISOString().split('T')[1];
+        return `09:08:00.097Z`
       case 'email':
         return 'user@example.com';
       case 'uuid':

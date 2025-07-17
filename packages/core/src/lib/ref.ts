@@ -100,8 +100,8 @@ export function distillRef<
     | ParameterObject
     | ReferenceObject
     | RequestBodyObject = SchemaObject,
->(spec: OpenAPIObject, ref: string): T {
-  const def = followRef<T>(spec, ref);
+>(spec: OpenAPIObject, maybeRef: ReferenceObject | SchemaObject): T {
+  const def = resolveRef<T>(spec, maybeRef);
   if (!def) {
     return def;
   }
@@ -111,19 +111,19 @@ export function distillRef<
     for (const key in def.properties) {
       const prop = def.properties[key];
       if (isRef(prop)) {
-        def.properties[key] = distillRef(spec, prop.$ref);
+        def.properties[key] = distillRef(spec, prop);
       }
     }
   }
   if ('items' in def) {
     if (isRef(def.items)) {
-      def.items = distillRef<SchemaObject>(spec, def.items.$ref);
+      def.items = distillRef<SchemaObject>(spec, def.items);
     }
   }
   if ('allOf' in def && !isEmpty(def.allOf)) {
     def.allOf = def.allOf.map((item) => {
       if (isRef(item)) {
-        return distillRef<SchemaObject>(spec, item.$ref);
+        return distillRef<SchemaObject>(spec, item);
       }
       return item;
     });
@@ -131,7 +131,7 @@ export function distillRef<
   if ('oneOf' in def && !isEmpty(def.oneOf)) {
     def.oneOf = def.oneOf.map((item) => {
       if (isRef(item)) {
-        return distillRef<SchemaObject>(spec, item.$ref);
+        return distillRef<SchemaObject>(spec, item);
       }
       return item;
     });
@@ -139,7 +139,7 @@ export function distillRef<
   if ('anyOf' in def && !isEmpty(def.anyOf)) {
     def.anyOf = def.anyOf.map((item) => {
       if (isRef(item)) {
-        return distillRef<SchemaObject>(spec, item.$ref);
+        return distillRef<SchemaObject>(spec, item);
       }
       return item;
     });

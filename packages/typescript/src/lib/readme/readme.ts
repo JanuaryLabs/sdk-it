@@ -12,11 +12,11 @@ export function toReadme(spec: OurOpenAPIObject, generator: Generator) {
   markdown.push(`# ${spec.info.title} TypeScript SDK`);
   markdown.push('');
   markdown.push(
-    'A fully-typed TypeScript SDK with comprehensive IntelliSense support, automatic request/response validation, and modern async/await patterns. Built for seamless integration with TypeScript and JavaScript projects.',
+    'A fully-typed TypeScript SDK with comprehensive IntelliSense support, automatic request/response validation, and modern async/await patterns. Built for seamless integration with TypeScript and JavaScript projects. Each endpoint includes a brief description, example usage, and details about request and response formats.',
   );
+
   markdown.push('');
 
-  // Use TypeScript generator for documentation methods
   markdown.push(generator.clientSetupDocs());
   markdown.push('');
 
