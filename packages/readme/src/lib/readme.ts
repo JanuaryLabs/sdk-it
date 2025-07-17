@@ -12,9 +12,10 @@ function toTOC(spec: OurOpenAPIObject) {
     }
 
     for (const item of category.items) {
-      if (item.id === 'generated-introduction') continue;
+      if (item.id !== 'generated-introduction') {
+        contents.push(item.content || '');
+      }
 
-      contents.push(item.content || '');
       if (item.items && item.items.length > 0) {
         // This is a tag/group with operations
         tocLines.push(`- **${item.title}**`);
@@ -56,14 +57,10 @@ export function toReadme(spec: OurOpenAPIObject) {
     markdown.push(generatedIntro.content);
   }
 
-  markdown.push('---');
-  markdown.push('## Table of Contents');
-  markdown.push(...toc.tocLines);
-  markdown.push('---');
-
-  markdown.push(
-    'This document provides an overview of the API endpoints available in this service. Each endpoint includes a brief description, example usage, and details about request and response formats.',
-  );
+  // markdown.push('---');
+  // markdown.push('## Table of Contents');
+  // markdown.push(...toc.tocLines);
+  // markdown.push('---');
 
   markdown.push(toc.contents.join('\n\n'));
 

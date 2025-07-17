@@ -4,6 +4,11 @@ import { resolveRef } from '@sdk-it/core';
 
 import type { NavItem } from '../sidebar.js';
 import type { OurOpenAPIObject } from '../types.js';
+import {
+  getAuthIntroText,
+  getTextByCount,
+  presetDocs,
+} from './doc-text-utils.js';
 
 function getSecuritySchemeDescription(scheme: SecuritySchemeObject): string {
   switch (scheme.type) {
@@ -89,74 +94,46 @@ function getFlowDisplayName(flowType: string): string {
   return flowNames[flowType] || flowType;
 }
 
-function formatSecurityRequirements(
-  requirements: Array<Record<string, string[]>>,
-): string {
-  if (!requirements || requirements.length === 0) return '';
-
-  let result = '';
-  requirements.forEach((req, index) => {
-    const schemes = Object.entries(req);
-    if (schemes.length === 0) {
-      result += `${index + 1}. No authentication required\n`;
-    } else {
-      result += `${index + 1}. Requires: `;
-      const schemeDescriptions = schemes.map(([scheme, scopes]) => {
-        const scopeArray = scopes as string[];
-        if (scopeArray && scopeArray.length > 0) {
-          return `\`${scheme}\` with scopes: ${scopeArray.map((s) => `\`${s}\``).join(', ')}`;
-        }
-        return `\`${scheme}\``;
-      });
-      result += schemeDescriptions.join(' AND ') + '\n';
-    }
-  });
-  return result;
-}
-
 export function generateAuthOverview(spec: OurOpenAPIObject): NavItem {
-  let markdown = `# Authorization\n\n`;
+  let markdown = `# Authentication\n\n`;
 
-  const securitySchemes = spec.components?.securitySchemes || {};
+  const securitySchemes = spec.components.securitySchemes;
   const globalSecurity = spec.security || [];
 
-  if (
-    Object.keys(securitySchemes).length === 0 &&
-    globalSecurity.length === 0
-  ) {
+  const authMethodCount = Object.keys(securitySchemes).length;
+  if (!authMethodCount && !globalSecurity.length) {
     markdown += `This API does not require authentication.\n\n`;
   } else {
-    markdown += `This API provides secure access through various authentication methods. Below you'll find details about each available authentication scheme and how to use them.\n\n`;
+    if (authMethodCount > 1) {
+      markdown += `${getAuthIntroText(authMethodCount)}\n\n`;
+      markdown += `## ${getTextByCount(authMethodCount, presetDocs.auth.section)}\n\n`;
+    }
 
-    if (Object.keys(securitySchemes).length > 0) {
-      markdown += `## Available Authentication Methods\n\n`;
-
-      for (const [name, scheme] of Object.entries(securitySchemes)) {
-        const schemeObj = resolveRef<SecuritySchemeObject>(spec, scheme);
+    for (const [name, scheme] of Object.entries(securitySchemes)) {
+      const schemeObj = resolveRef<SecuritySchemeObject>(spec, scheme);
+      if (authMethodCount > 1) {
         markdown += `### ${name}\n\n`;
+      }
 
-        const description =
-          schemeObj.description || getSecuritySchemeDescription(schemeObj);
-        markdown += `${description}\n\n`;
+      const description =
+        schemeObj.description || getSecuritySchemeDescription(schemeObj);
+      markdown += `${description}\n\n`;
 
-        if (schemeObj.type === 'apiKey') {
-          markdown += `**Details:**\n`;
-          markdown += `- Parameter Name: \`${schemeObj.name}\`\n`;
-          markdown += `- Location: ${schemeObj.in === 'header' ? 'HTTP Header' : schemeObj.in === 'query' ? 'Query Parameter' : 'Cookie'}\n\n`;
-        } else if (schemeObj.type === 'http') {
-          markdown += `**Details:**\n`;
-          markdown += `- Scheme: \`${schemeObj.scheme}\`\n`;
-          if (schemeObj.bearerFormat) {
-            markdown += `- Token Format: \`${schemeObj.bearerFormat}\`\n`;
-          }
-          markdown += '\n';
-        } else if (schemeObj.type === 'oauth2' && schemeObj.flows) {
-          markdown += `**OAuth 2.0 Flows:**\n\n`;
-          markdown += formatOAuth2Flows(schemeObj.flows);
-        } else if (schemeObj.type === 'openIdConnect') {
-          markdown += `**Details:**\n`;
-          markdown += `- Discovery URL: \`${schemeObj.openIdConnectUrl}\`\n\n`;
+      if (schemeObj.type === 'apiKey') {
+        markdown += `**Details:**\n`;
+        markdown += `- Parameter Name: \`${schemeObj.name}\`\n`;
+        markdown += `- Location: ${schemeObj.in === 'header' ? 'HTTP Header' : schemeObj.in === 'query' ? 'Query Parameter' : 'Cookie'}\n\n`;
+      } else if (schemeObj.type === 'http') {
+        if (schemeObj.bearerFormat) {
+          markdown += `- Token Format: \`${schemeObj.bearerFormat}\`\n`;
         }
+        markdown += '\n';
+      } else if (schemeObj.type === 'oauth2' && schemeObj.flows) {
+        markdown += `**OAuth 2.0 Flows:**\n\n`;
+        markdown += formatOAuth2Flows(schemeObj.flows);
+      } else if (schemeObj.type === 'openIdConnect') {
+        markdown += `**Details:**\n`;
+        markdown += `- Discovery URL: \`${schemeObj.openIdConnectUrl}\`\n\n`;
       }
     }
   }

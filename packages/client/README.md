@@ -1,10 +1,6 @@
 # SDK-IT API TypeScript SDK
 
-
-
 A fully-typed TypeScript SDK with comprehensive IntelliSense support, automatic request/response validation, and modern async/await patterns. Built for seamless integration with TypeScript and JavaScript projects.
-
-
 
 ## Installation
 
@@ -18,18 +14,18 @@ npm install @sdkit/sdk
 import { SdkIt } from '@sdkit/sdk';
 
 const sdkIt = new SdkIt({
-		baseUrl: "/",
-		token: "\"<token>\""
-	});
+  baseUrl: '/',
+  token: '"<token>"',
+});
 ```
 
 ### Configuration Options
 
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `fetch` | `fetch compatible` | No | Fetch implementation to use for HTTP requests |
-| `baseUrl` | `string` | No | API base URL (default: `/`) |
-| `token` | `string` | No | Bearer token for authentication |
+| Option    | Type               | Required | Description                                   |
+| --------- | ------------------ | -------- | --------------------------------------------- |
+| `fetch`   | `fetch compatible` | No       | Fetch implementation to use for HTTP requests |
+| `baseUrl` | `string`           | No       | API base URL (default: `/`)                   |
+| `token`   | `string`           | No       | Bearer token for authentication               |
 
 ### Updating Configuration
 
@@ -38,20 +34,18 @@ You can update client configuration after initialization using the `setOptions` 
 ```typescript
 // Initial client setup
 const sdkIt = new SdkIt({
-		baseUrl: "https://api.production-service.com",
-		token: "prod_sk_1234567890abcdef"
-	});
+  baseUrl: 'https://api.production-service.com',
+  token: 'prod_sk_1234567890abcdef',
+});
 
 // Later, update specific options
 client.setOptions({
   baseUrl: 'https://api.staging-service.com',
-  token: 'staging_sk_abcdef1234567890'
+  token: 'staging_sk_abcdef1234567890',
 });
 ```
 
 The `setOptions` method validates the provided options and only updates the specified fields, leaving other configuration unchanged.
-
-
 
 ## Authentication
 
@@ -63,12 +57,9 @@ Pass your bearer token directly - the "Bearer" prefix is automatically added:
 
 ```typescript
 const sdkIt = new SdkIt({
-		token: "REDACTED_STRIPE_KEY"
-	});
+  token: 'REDACTED_STRIPE_KEY',
+});
 ```
-
-
-
 
 ## Pagination
 
@@ -81,7 +72,7 @@ When you call a paginated endpoint, the SDK returns a pagination object that all
 ```typescript
 // The SDK automatically handles pagination
 const result = await sdkIt.request('GET /products', {
-	limit: 20
+  limit: 20,
 });
 
 // Access the current page data
@@ -95,7 +86,7 @@ if (result.hasMore) {
 
 // Or iterate through all pages automatically
 for await (const page of result) {
-		console.log(page);
+  console.log(page);
 }
 ```
 
@@ -104,11 +95,11 @@ for await (const page of result) {
 ```typescript
 // Using async iteration to process all pages
 const result = await sdkIt.request('GET /products', {
-	limit: 100
+  limit: 100,
 });
 
 for await (const page of result) {
-		console.log(page);
+  console.log(page);
 }
 ```
 
@@ -122,18 +113,15 @@ Uses page number and page size:
 
 ```typescript
 const result = await sdkIt.request('GET /products', {
-	page: 1,
-	pageSize: 20
+  page: 1,
+  pageSize: 20,
 });
 
 // Iterate through all pages using page numbers
 for await (const page of result) {
-		console.log(page);
+  console.log(page);
 }
 ```
-
-
-
 
 ## Error Handling
 
@@ -144,34 +132,39 @@ The SDK provides structured error handling with typed HTTP error responses.
 All API errors extend from `APIError` and include the HTTP status code and response data:
 
 ```typescript
-import { BadRequest, Unauthorized, NotFound, TooManyRequests, InternalServerError, ParseError } from "@sdkit/sdk";
-try {
-const usersList = 
-await sdkIt.request('GET /users', {
+import {
+  BadRequest,
+  InternalServerError,
+  NotFound,
+  ParseError,
+  TooManyRequests,
+  Unauthorized,
+} from '@sdkit/sdk';
 
-});
+try {
+  const usersList = await sdkIt.request('GET /users', {});
   // Handle successful response
 } catch (error) {
   // Handle different error types
   if (error instanceof BadRequest) {
-    console.error("Bad request:", error.data);
-    console.log("Status:", error.status); // 400
+    console.error('Bad request:', error.data);
+    console.log('Status:', error.status); // 400
   } else if (error instanceof Unauthorized) {
-    console.error("Authentication failed:", error.data);
-    console.log("Status:", error.status); // 401
+    console.error('Authentication failed:', error.data);
+    console.log('Status:', error.status); // 401
   } else if (error instanceof NotFound) {
-    console.error("Resource not found:", error.data);
-    console.log("Status:", error.status); // 404
+    console.error('Resource not found:', error.data);
+    console.log('Status:', error.status); // 404
   } else if (error instanceof TooManyRequests) {
-    console.error("Rate limited:", error.data);
+    console.error('Rate limited:', error.data);
     if (error.data.retryAfter) {
-      console.log("Retry after:", error.data.retryAfter);
+      console.log('Retry after:', error.data.retryAfter);
     }
   } else if (error instanceof InternalServerError) {
-    console.error("Server error:", error.data);
-    console.log("Status:", error.status); // 500
+    console.error('Server error:', error.data);
+    console.log('Status:', error.status); // 500
   } else if (error instanceof ParseError) {
-    console.error("Input validation failed:", error.data);
+    console.error('Input validation failed:', error.data);
   }
 }
 ```
@@ -179,9 +172,11 @@ await sdkIt.request('GET /users', {
 ### Available Error Classes
 
 #### Input Validation Errors
+
 - `ParseError` - Request input validation failed against API schema
 
 #### Client Errors (4xx)
+
 - `BadRequest` (400) - Invalid request data
 - `Unauthorized` (401) - Authentication required
 - `PaymentRequired` (402) - Payment required
@@ -198,6 +193,7 @@ await sdkIt.request('GET /users', {
 - `TooManyRequests` (429) - Rate limit exceeded
 
 #### Server Errors (5xx)
+
 - `InternalServerError` (500) - Server error
 - `NotImplemented` (501) - Not implemented
 - `BadGateway` (502) - Bad gateway
@@ -207,35 +203,41 @@ await sdkIt.request('GET /users', {
 ### Validation Errors
 
 Validation errors (422) include detailed field-level error information:
+
 ### Input Validation Errors
 
 When request input fails validation against the API schema, a `ParseError` is thrown:
 
 ```typescript
-import { ParseError } from "@sdkit/sdk";
+import { ParseError } from '@sdkit/sdk';
 
 try {
   // Invalid input that doesn't match the expected schema
-  const newUser = 
-await sdkIt.request('POST /users', {
-	email: 123,
-	firstName: "",
-	age: -5
-});
+  const newUser = await sdkIt.request('POST /users', {
+    email: 123,
+    firstName: '',
+    age: -5,
+  });
 } catch (error) {
   if (error instanceof ParseError) {
-    console.log("Input validation failed:");
-    
+    console.log('Input validation failed:');
+
     // Field-level errors
     if (error.data.fieldErrors) {
-      Object.entries(error.data.fieldErrors).forEach(([fieldName, validationIssues]) => {
-        console.log(`  ${fieldName}: ${validationIssues.map(issue => issue.message).join(", ")}`);
-      });
+      Object.entries(error.data.fieldErrors).forEach(
+        ([fieldName, validationIssues]) => {
+          console.log(
+            `  ${fieldName}: ${validationIssues.map((issue) => issue.message).join(', ')}`,
+          );
+        },
+      );
     }
-    
+
     // Form-level errors
     if (error.data.formErrors.length > 0) {
-      console.log(`  Form errors: ${error.data.formErrors.map(issue => issue.message).join(", ")}`);
+      console.log(
+        `  Form errors: ${error.data.formErrors.map((issue) => issue.message).join(', ')}`,
+      );
     }
   }
 }
@@ -248,13 +250,10 @@ await sdkIt.request('POST /users', {
 Rate limit responses may include a `retryAfter` field indicating when to retry:
 
 ```typescript
-import { TooManyRequests } from "@sdkit/sdk";
+import { TooManyRequests } from '@sdkit/sdk';
 
 try {
-  const apiResponse = 
-await sdkIt.request('GET /api/data', {
-
-});
+  const apiResponse = await sdkIt.request('GET /api/data', {});
 } catch (error) {
   if (error instanceof TooManyRequests) {
     const retryAfterSeconds = error.data.retryAfter;
@@ -269,19 +268,9 @@ await sdkIt.request('GET /api/data', {
 }
 ```
 
-
-
-
-
-
-
 ## API Reference
 
-
-
 ### postPublish | _POST /publish_
-
-
 
 #### Example usage
 
@@ -289,20 +278,18 @@ await sdkIt.request('GET /api/data', {
 import { SdkIt } from '@sdkit/sdk';
 
 const sdkIt = new SdkIt({
-		baseUrl: "/",
-		token: "\"<token>\""
-	});
+  baseUrl: '/',
+  token: '"<token>"',
+});
 
 const result = await sdkIt.request('POST /publish', {
-  "specUrl": "https://example.com"
-});;
+  specUrl: 'https://example.com',
+});
 
-console.log(result.data)
+console.log(result.data);
 ```
 
 #### Input
-
-
 
 Content Type: `application/json`
 
@@ -312,13 +299,11 @@ Content Type: `application/json`
 
 **200** - Response for 200
 
-
 **Content Type:** `application/json`
 
 **Type:** [`PostPublish`](#postpublish)
 
 **400** - Bad Request
-
 
 **Content Type:** `application/json`
 
@@ -326,28 +311,24 @@ Content Type: `application/json`
 
 ### postAugment | _POST /augment_
 
-
-
 #### Example usage
 
 ```typescript
 import { SdkIt } from '@sdkit/sdk';
 
 const sdkIt = new SdkIt({
-		baseUrl: "/",
-		token: "\"<token>\""
-	});
+  baseUrl: '/',
+  token: '"<token>"',
+});
 
 const result = await sdkIt.request('POST /augment', {
-  "specUrl": "https://example.com"
-});;
+  specUrl: 'https://example.com',
+});
 
-console.log(result.data)
+console.log(result.data);
 ```
 
 #### Input
-
-
 
 Content Type: `application/json`
 
@@ -357,13 +338,11 @@ Content Type: `application/json`
 
 **200** - OK
 
-
 **Content Type:** `application/json`
 
 **Type:** [`PostAugment`](#postaugment)
 
 **400** - Bad Request
-
 
 **Content Type:** `application/json`
 
@@ -371,26 +350,22 @@ Content Type: `application/json`
 
 ### getFetch | _GET /fetch_
 
-
-
 #### Example usage
 
 ```typescript
 import { SdkIt } from '@sdkit/sdk';
 
 const sdkIt = new SdkIt({
-		baseUrl: "/",
-		token: "\"<token>\""
-	});
+  baseUrl: '/',
+  token: '"<token>"',
+});
 
-const result = await sdkIt.request('GET /fetch', {});;
+const result = await sdkIt.request('GET /fetch', {});
 
-console.log(result.data)
+console.log(result.data);
 ```
 
 #### Input
-
-
 
 Content Type: `application/empty`
 
@@ -400,13 +375,11 @@ Content Type: `application/empty`
 
 **200** - Response for 200
 
-
 **Content Type:** `application/json`
 
 **Type:** [`GetFetch`](#getfetch)
 
 **400** - Bad Request
-
 
 **Content Type:** `application/json`
 
@@ -414,30 +387,26 @@ Content Type: `application/empty`
 
 ### postGenerate | _POST /generate_
 
-
-
 #### Example usage
 
 ```typescript
 import { SdkIt } from '@sdkit/sdk';
 
 const sdkIt = new SdkIt({
-		baseUrl: "/",
-		token: "\"<token>\""
-	});
+  baseUrl: '/',
+  token: '"<token>"',
+});
 
 const stream = await sdkIt.request('POST /generate', {
-  "specFile": new Blob(['example'], { type: 'text/plain' })
+  specFile: new Blob(['example'], { type: 'text/plain' }),
 });
 
 for await (const chunk of stream) {
-		console.log(chunk);
+  console.log(chunk);
 }
 ```
 
 #### Input
-
-
 
 Content Type: `multipart/form-data`
 
@@ -447,13 +416,11 @@ Content Type: `multipart/form-data`
 
 **200** - Response for 200
 
-
 **Content Type:** `text/plain`
 
 **Type:** [`PostGenerate`](#postgenerate)
 
 **400** - Bad Request
-
 
 **Content Type:** `application/json`
 
@@ -461,28 +428,24 @@ Content Type: `multipart/form-data`
 
 ### postPlayground | _POST /playground_
 
-
-
 #### Example usage
 
 ```typescript
 import { SdkIt } from '@sdkit/sdk';
 
 const sdkIt = new SdkIt({
-		baseUrl: "/",
-		token: "\"<token>\""
-	});
+  baseUrl: '/',
+  token: '"<token>"',
+});
 
 const result = await sdkIt.request('POST /playground', {
-  "specFile": new Blob(['example'], { type: 'text/plain' })
-});;
+  specFile: new Blob(['example'], { type: 'text/plain' }),
+});
 
-console.log(result.data)
+console.log(result.data);
 ```
 
 #### Input
-
-
 
 Content Type: `multipart/form-data`
 
@@ -492,13 +455,11 @@ Content Type: `multipart/form-data`
 
 **200** - Response for 200
 
-
 **Content Type:** `application/json`
 
 **Type:** [`PostPlayground`](#postplayground)
 
 **400** - Bad Request
-
 
 **Content Type:** `application/json`
 
@@ -506,28 +467,24 @@ Content Type: `multipart/form-data`
 
 ### getOperations | _GET /operations_
 
-
-
 #### Example usage
 
 ```typescript
 import { SdkIt } from '@sdkit/sdk';
 
 const sdkIt = new SdkIt({
-		baseUrl: "/",
-		token: "\"<token>\""
-	});
+  baseUrl: '/',
+  token: '"<token>"',
+});
 
 const result = await sdkIt.request('GET /operations', {});
 
 for await (const page of result) {
-		console.log(page);
+  console.log(page);
 }
 ```
 
 #### Input
-
-
 
 Content Type: `application/empty`
 
@@ -537,13 +494,11 @@ Content Type: `application/empty`
 
 **200** - Response for 200
 
-
 **Content Type:** `application/json`
 
 **Type:** [`GetOperations`](#getoperations)
 
 **400** - Bad Request
-
 
 **Content Type:** `application/json`
 
@@ -551,13 +506,9 @@ Content Type: `application/empty`
 
 ## Schemas
 
-
-
 <details>
 
 <summary><h3 id="postpublish">PostPublish</h3></summary>
-
-
 
 **Type:** `object`
 
@@ -567,81 +518,51 @@ Content Type: `application/empty`
 
 - `specUrl` `string` required:
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="postpublish400">PostPublish400</h3></summary>
 
-
-
 **Type:** [`ValidationError`](#validationerror)
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="postpublishinput">PostPublishInput</h3></summary>
 
-
-
 **Type:** `object`
 
 **Properties:**
 
 - `specUrl` `string` (format: uri) required:
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="postaugment">PostAugment</h3></summary>
 
-
-
 **Type:** `object`
 
 **Additional Properties:**
 
 - Allowed: true
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="postaugment400">PostAugment400</h3></summary>
 
-
-
 **Type:** [`ValidationError`](#validationerror)
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="postaugmentinput">PostAugmentInput</h3></summary>
-
-
 
 **Type:** `object`
 
@@ -649,17 +570,11 @@ Content Type: `application/empty`
 
 - `specUrl` `string` (format: uri) required:
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="getfetch">GetFetch</h3></summary>
-
-
 
 **Type:** `object`
 
@@ -667,73 +582,43 @@ Content Type: `application/empty`
 
 - Allowed: true
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="getfetch400">GetFetch400</h3></summary>
 
-
-
 **Type:** [`ValidationError`](#validationerror)
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="getfetchinput">GetFetchInput</h3></summary>
 
-
-
 **Type:** `unknown`
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="postgenerate">PostGenerate</h3></summary>
 
-
-
 **Type:** `string`
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="postgenerate400">PostGenerate400</h3></summary>
 
-
-
 **Type:** [`ValidationError`](#validationerror)
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="postgenerateinput">PostGenerateInput</h3></summary>
-
-
 
 **Type:** `object`
 
@@ -741,17 +626,11 @@ Content Type: `application/empty`
 
 - `specFile` `string` (format: binary) required:
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="postplayground">PostPlayground</h3></summary>
-
-
 
 **Type:** `object`
 
@@ -765,31 +644,19 @@ Content Type: `application/empty`
 
 - `clientName` `string` required:
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="postplayground400">PostPlayground400</h3></summary>
 
-
-
 **Type:** [`ValidationError`](#validationerror)
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="postplaygroundinput">PostPlaygroundInput</h3></summary>
-
-
 
 **Type:** `object`
 
@@ -797,17 +664,11 @@ Content Type: `application/empty`
 
 - `specFile` `string` (format: binary) required:
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="getoperations">GetOperations</h3></summary>
-
-
 
 **Type:** `object`
 
@@ -835,35 +696,20 @@ Content Type: `application/empty`
 
 - `hasPreviousPage` `boolean` required:
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="getoperations400">GetOperations400</h3></summary>
 
-
-
 **Type:** [`ValidationError`](#validationerror)
 
-
-
 </details>
-
-
 
 <details>
 
 <summary><h3 id="getoperationsinput">GetOperationsInput</h3></summary>
 
-
-
 **Type:** `unknown`
 
-
-
 </details>
-
