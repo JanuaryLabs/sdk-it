@@ -16,7 +16,7 @@ import {
 import { SnippetEmitter } from './emitters/snippet.ts';
 import type { TypeScriptGeneratorOptions } from './options.ts';
 
-export class TypeScriptGenerator implements Generator {
+export class TypeScriptSnippet implements Generator {
   #spec: OurOpenAPIObject;
   #settings: TypeScriptGeneratorOptions;
   #snippetEmitter: SnippetEmitter;

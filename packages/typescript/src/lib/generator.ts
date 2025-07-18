@@ -9,19 +9,54 @@ import type {
 import { camelcase, spinalcase } from 'stringcase';
 
 import { followRef, isEmpty, isRef, resolveRef } from '@sdk-it/core';
-import { type OurOpenAPIObject, forEachOperation } from '@sdk-it/spec';
+import {
+  type OurOpenAPIObject,
+  type TunedOperationObject,
+  forEachOperation,
+} from '@sdk-it/spec';
 
 import { ZodEmitter } from './emitters/zod.ts';
-import { importsToString, mergeImports } from './import-utilities.ts';
-import {
-  type Operation,
-  type OperationInput,
-  type Spec,
-  toEndpoint,
-} from './sdk.ts';
+import { type OperationInput, type Spec, toEndpoint } from './sdk.ts';
 import type { Style } from './style.ts';
 import endpointsTxt from './styles/github/endpoints.txt';
 
+function coearceRequestInput(
+  spec: OurOpenAPIObject,
+  operation: TunedOperationObject,
+  type: string,
+) {
+  let objectSchema = resolveRef(
+    spec,
+    operation.requestBody.content[type].schema,
+  );
+  const xProperties: Record<string, SchemaObject> =
+    objectSchema['x-properties'] ?? {};
+  const xRequired: string[] = objectSchema['x-required'] ?? [];
+
+  if (type === 'application/empty') {
+    // if empty body and not params then we need to set it to object with additional properties
+    // to avoid unknown input ts errors.
+    objectSchema = {
+      type: 'object',
+      additionalProperties: isEmpty(xProperties),
+    };
+  } else {
+    if (objectSchema.type !== 'object') {
+      objectSchema = {
+        type: 'object',
+        required: [operation.requestBody.required ? '$body' : ''],
+        properties: {
+          $body: objectSchema,
+        },
+      };
+    }
+  }
+  return {
+    objectSchema,
+    xProperties,
+    xRequired,
+  };
+}
 export interface NamedImport {
   name: string;
   alias?: string;
@@ -64,7 +99,6 @@ export function generateCode(config: {
     console.log(`Processing ${entry.method} ${entry.path}`);
     groups[entry.tag] ??= [];
     endpoints[entry.tag] ??= [];
-    const inputs: Operation['inputs'] = {};
     const schemas: Record<string, string> = {};
     const shortContenTypeMap: Record<string, string> = {
       'application/json': 'json',
@@ -75,35 +109,13 @@ export function generateCode(config: {
       'application/xml': 'xml',
       'text/plain': 'text',
     };
-    let outgoingContentType = 'empty';
 
     for (const type in operation.requestBody.content) {
-      let objectSchema = resolveRef(
+      const { objectSchema, xProperties, xRequired } = coearceRequestInput(
         config.spec,
-        operation.requestBody.content[type].schema,
+        operation,
+        type,
       );
-      const xProperties: Record<string, SchemaObject> =
-        objectSchema['x-properties'] ?? {};
-      const xRequired: string[] = objectSchema['x-required'] ?? [];
-
-      if (type === 'application/empty') {
-        // if empty body and not params then we need to set it to object with additional properties
-        // to avoid unknown input ts errors.
-        objectSchema = {
-          type: 'object',
-          additionalProperties: isEmpty(xProperties),
-        };
-      } else {
-        if (objectSchema.type !== 'object') {
-          objectSchema = {
-            type: 'object',
-            required: [operation.requestBody.required ? '$body' : ''],
-            properties: {
-              $body: objectSchema,
-            },
-          };
-        }
-      }
       const additionalProperties: Record<string, ParameterObject> = {};
       for (const [name, prop] of Object.entries(xProperties)) {
         additionalProperties[name] = {
@@ -112,11 +124,8 @@ export function generateCode(config: {
           schema: prop,
           in: prop['x-in'],
         };
-        inputs[name] = {
-          in: prop['x-in'],
-          schema: '',
-        };
       }
+
       const schema = merge({}, objectSchema, {
         required: Object.values(additionalProperties)
           .filter((p) => p.required)
@@ -127,44 +136,33 @@ export function generateCode(config: {
         ),
       });
 
-      Object.assign(inputs, bodyInputs(config.spec, objectSchema));
       schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
     }
-
-    if (operation.requestBody.content['application/json']) {
-      outgoingContentType = 'json';
-    } else if (
-      operation.requestBody.content['application/x-www-form-urlencoded']
-    ) {
-      outgoingContentType = 'urlencoded';
-    } else if (operation.requestBody.content['multipart/form-data']) {
-      outgoingContentType = 'formdata';
-    }
-
+    const details = buildInput(config.spec, operation);
     const endpoint = toEndpoint(
       entry.tag,
       config.spec,
       operation,
       {
-        outgoingContentType,
-        name: operation.operationId,
         method: entry.method,
         path: entry.path,
+        operationId: operation.operationId,
         schemas,
-        inputs: inputs,
+        outgoingContentType: details.outgoingContentType,
+        inputs: details.inputs,
       },
-      { makeImport: config.makeImport, style: config.style },
+      config,
     );
 
     endpoints[entry.tag].push(endpoint);
 
     groups[entry.tag].push({
-      name: operation.operationId,
-      inputs: inputs,
-      outgoingContentType,
-      schemas,
       method: entry.method,
       path: entry.path,
+      operationId: operation.operationId,
+      schemas,
+      outgoingContentType: details.outgoingContentType,
+      inputs: details.inputs,
     });
   });
   const allSchemas = Object.keys(endpoints).map((it) => ({
@@ -197,20 +195,10 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
       ...Object.fromEntries(
         Object.entries(endpoints)
           .map(([name, endpoint]) => {
-            const imps = importsToString(
-              ...mergeImports(
-                ...endpoint.flatMap((it) =>
-                  it.responses.flatMap((it) =>
-                    Object.values(it.endpointImports),
-                  ),
-                ),
-              ),
-            );
             return [
               [
                 join('api', `${spinalcase(name)}.ts`),
                 `${[
-                  ...imps,
                   `import z from 'zod';`,
                   `import * as http from '${config.makeImport('../http/response')}';`,
                   `import * as outputs from '${config.makeImport('../outputs/index')}';`,
@@ -287,4 +275,47 @@ function bodyInputs(
     }),
     {},
   );
+}
+
+const contentTypeMap = {
+  'application/json': 'json',
+  'application/x-www-form-urlencoded': 'urlencoded',
+  'multipart/form-data': 'formdata',
+  'application/xml': 'xml',
+  'text/plain': 'text',
+  'application/empty': 'empty',
+} as const;
+
+export function buildInput(
+  spec: OurOpenAPIObject,
+  operation: TunedOperationObject,
+) {
+  const inputs: Record<string, OperationInput> = {};
+
+  let outgoingContentType: (typeof contentTypeMap)[keyof typeof contentTypeMap] =
+    'empty';
+
+  for (const [ct, value] of Object.entries(contentTypeMap)) {
+    if (operation.requestBody.content[ct]) {
+      outgoingContentType = value;
+      const { objectSchema, xProperties } = coearceRequestInput(
+        spec,
+        operation,
+        ct,
+      );
+      for (const [name, prop] of Object.entries(xProperties)) {
+        inputs[name] = {
+          in: prop['x-in'],
+          schema: '',
+        };
+      }
+
+      Object.assign(inputs, bodyInputs(spec, objectSchema));
+      break;
+    }
+  }
+  return {
+    inputs,
+    outgoingContentType,
+  };
 }
