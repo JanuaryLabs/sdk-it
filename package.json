@@ -4,6 +4,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "prepare": "husky",
     "test": "bun ./e2e/index.ts",
     "dart": "bun ./e2e/dart.ts",
     "client": "bun apps/api/sdk.ts"
@@ -11,6 +12,7 @@
   "repository": "https://github.com/JanuaryLabs/sdk-it",
   "private": true,
   "devDependencies": {
+    "husky": "^9.1.7",
     "@eslint/js": "^9.29.0",
     "@nx/esbuild": "21.2.1",
     "@nx/eslint": "21.2.1",
