@@ -3,12 +3,9 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "apps/api/src",
   "projectType": "application",
+  "implicitDependencies": ["client"],
   "targets": {
-    "client": {
-      "command": "npm run client"
-    },
     "build": {
-      "dependsOn": ["client"],
       "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",

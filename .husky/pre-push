@@ -1,1 +1,1 @@
-NX_DAEMON=false npx nx run-many -t build --prod --exclude client && nx run client:build --prod 
+NX_DAEMON=false npx nx run-many -t build --prod --exclude @sdk-it/client && nx run client:build --prod
