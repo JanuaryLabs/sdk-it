@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { execFile, execSync } from 'node:child_process';
 
 import { generate } from '@sdk-it/python';
-import { augmentSpec, loadSpec } from '@sdk-it/spec';
+import { loadSpec, toIR } from '@sdk-it/spec';
 
 import { outputOption, shellEnv, specOption } from '../options.ts';
 
@@ -32,7 +32,7 @@ export default new Command('python')
   });
 
 export async function runPython(options: Options) {
-  const spec = augmentSpec({ spec: await loadSpec(options.spec) }, true);
+  const spec = toIR({ spec: await loadSpec(options.spec) }, true);
   await generate(spec, {
     output: options.output,
     mode: options.mode || 'full',

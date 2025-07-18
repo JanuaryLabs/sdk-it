@@ -11,10 +11,10 @@ import { isEmpty } from '@sdk-it/core/utils.js';
 
 import { findUniqueSchemaName } from './find-unique-schema-name.js';
 import { securityToOptions } from './security.js';
-import type { OurOpenAPIObject, OurRequestBodyObject } from './types.js';
+import type { IR, OurRequestBodyObject } from './types.js';
 
 export function patchParameters(
-  spec: OurOpenAPIObject,
+  spec: IR,
   schema: SchemaObject,
   parameters: ParameterObject[],
   security: SecurityRequirementObject[],
@@ -51,7 +51,7 @@ export function patchParameters(
 }
 
 export function tuneRequestBody(
-  spec: OurOpenAPIObject,
+  spec: IR,
   operationId: string,
   operation: OperationObject,
   parameters: ParameterObject[],

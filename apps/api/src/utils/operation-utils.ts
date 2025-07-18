@@ -1,6 +1,6 @@
-import { type OurOpenAPIObject, forEachOperation } from '@sdk-it/spec';
+import { type IR, forEachOperation } from '@sdk-it/spec';
 
-export function toOperations(spec: OurOpenAPIObject) {
+export function toOperations(spec: IR) {
   return forEachOperation(
     spec,
     (entry, operation) => [entry, operation] as const,

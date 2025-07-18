@@ -6,13 +6,10 @@ import type {
 
 import { followRef, isRef } from '@sdk-it/core/ref.js';
 
-import type { OurOpenAPIObject, TunedOperationObject } from '../types.js';
+import type { IR, TunedOperationObject } from '../types.js';
 import { guessPagination } from './guess-pagination.js';
 
-export function toPagination(
-  spec: OurOpenAPIObject,
-  tunedOperation: TunedOperationObject,
-) {
+export function toPagination(spec: IR, tunedOperation: TunedOperationObject) {
   if (tunedOperation['x-pagination']) {
     return tunedOperation['x-pagination'];
   }
@@ -39,7 +36,7 @@ export function toPagination(
 }
 
 function getResponseContentSchema(
-  spec: OurOpenAPIObject,
+  spec: IR,
   response: ResponseObject,
   type: string,
 ) {
@@ -61,7 +58,7 @@ function getResponseContentSchema(
 }
 
 function getRequestContentSchema(
-  spec: OurOpenAPIObject,
+  spec: IR,
   requestBody: RequestBodyObject,
   type: string,
 ) {

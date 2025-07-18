@@ -1,5 +1,5 @@
 import type { NavItem } from '../sidebar.js';
-import type { OurOpenAPIObject } from '../types.js';
+import type { IR } from '../types.js';
 import {
   getClientIntroText,
   getTextByCount,
@@ -7,7 +7,7 @@ import {
 } from './doc-text-utils.js';
 
 export function generateIntroOverview(
-  spec: OurOpenAPIObject,
+  spec: IR,
   availablesdks: string[],
 ): NavItem {
   const info = spec.info;

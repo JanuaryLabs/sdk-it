@@ -15,10 +15,10 @@ import {
   parseJsonContentType,
 } from './is.js';
 import { type ResponsesConfig } from './options.js';
-import type { OurOpenAPIObject } from './types.js';
+import type { IR } from './types.js';
 
 export function resolveResponses(
-  spec: OurOpenAPIObject,
+  spec: IR,
   operationId: string,
   operation: OperationObject,
   responsesConfig?: ResponsesConfig,

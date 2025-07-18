@@ -40,6 +40,11 @@ function runCommand(title: string, command: string, memory?: number) {
 
 const specs = [
   {
+    spec: 'https://machines-api-spec.fly.dev/spec/openapi3.json',
+    name: 'FlyMachines',
+    flags: [],
+  },
+  {
     spec: 'https://raw.githubusercontent.com/MaximilianKoestler/hcloud-openapi/refs/heads/main/openapi/hcloud.json',
     name: 'hetzner',
     flags: ['--output-type=default', '--error-as-value=true'],

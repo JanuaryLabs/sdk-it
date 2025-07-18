@@ -3,7 +3,7 @@ import type { OAuthFlowsObject, SecuritySchemeObject } from 'openapi3-ts/oas31';
 import { resolveRef } from '@sdk-it/core';
 
 import type { NavItem } from '../sidebar.js';
-import type { OurOpenAPIObject } from '../types.js';
+import type { IR } from '../types.js';
 import {
   getAuthIntroText,
   getTextByCount,
@@ -94,7 +94,7 @@ function getFlowDisplayName(flowType: string): string {
   return flowNames[flowType] || flowType;
 }
 
-export function generateAuthOverview(spec: OurOpenAPIObject): NavItem {
+export function generateAuthOverview(spec: IR): NavItem {
   let markdown = `# Authentication\n\n`;
 
   const securitySchemes = spec.components.securitySchemes;

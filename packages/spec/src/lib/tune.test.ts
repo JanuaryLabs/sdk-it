@@ -2,11 +2,11 @@ import { merge } from 'lodash-es';
 import { describe, it } from 'node:test';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 
-import { augmentSpec } from './ir.ts';
-import type { OurOpenAPIObject } from './types.ts';
+import { toIR } from './ir.ts';
+import type { IR } from './types.ts';
 
-function createSpec(openapi?: Partial<OpenAPIObject>): OurOpenAPIObject {
-  return augmentSpec(
+function createSpec(openapi?: Partial<OpenAPIObject>): IR {
+  return toIR(
     {
       spec: merge(
         {

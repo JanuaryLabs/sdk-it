@@ -1,6 +1,6 @@
-import { type OurOpenAPIObject, toSidebar } from '@sdk-it/spec';
+import { type IR, toSidebar } from '@sdk-it/spec';
 
-function toTOC(spec: OurOpenAPIObject) {
+function toTOC(spec: IR) {
   const tocLines: string[] = [];
   const sidebar = toSidebar(spec);
   const contents: string[] = [];
@@ -45,7 +45,7 @@ function toTOC(spec: OurOpenAPIObject) {
   return { tocLines, contents };
 }
 
-export function toReadme(spec: OurOpenAPIObject) {
+export function toReadme(spec: IR) {
   const toc = toTOC(spec);
   const markdown: string[] = [];
 

@@ -13,12 +13,12 @@ import {
   writeFiles,
 } from '@sdk-it/core/file-system.js';
 import {
-  type OurOpenAPIObject,
-  augmentSpec,
+  type IR,
   cleanFiles,
   readWriteMetadata,
   sanitizeTag,
   securityToOptions,
+  toIR,
 } from '@sdk-it/spec';
 
 import { generateAISDKTools } from './agent/ai-sdk.ts';
@@ -41,7 +41,7 @@ import { toReadme } from './readme/readme.ts';
 import type { Operation } from './sdk.ts';
 import { TypeScriptSnippet } from './typescript-snippet.ts';
 
-function security(spec: OurOpenAPIObject) {
+function security(spec: IR) {
   const security = spec.security || [];
   const components = spec.components || {};
   const securitySchemes = components.securitySchemes || {};
@@ -76,7 +76,7 @@ export async function generate(
   openapi: OpenAPIObject,
   settings: TypeScriptGeneratorOptions,
 ) {
-  const spec = augmentSpec(
+  const spec = toIR(
     {
       spec: openapi,
       responses: { flattenErrorResponses: true },
@@ -323,7 +323,7 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
   });
 }
 
-function serializeModels(spec: OurOpenAPIObject) {
+function serializeModels(spec: IR) {
   const filesMap: Record<string, string[]> = {};
   const files: Record<string, string> = {};
   for (const [name, schema] of Object.entries(spec.components.schemas)) {

@@ -8,7 +8,7 @@ import { camelcase } from 'stringcase';
 import { resolveRef } from '@sdk-it/core';
 
 import { determineGenericTag, sanitizeTag } from './tag.js';
-import type { OurOpenAPIObject } from './types.js';
+import type { IR } from './types.js';
 
 export interface GenerateSdkConfig {
   spec: OpenAPIObject;
@@ -86,7 +86,7 @@ export function coeraceConfig(config: GenerateSdkConfig) {
         },
       ],
       servers: config.spec.servers ?? [],
-    } satisfies OurOpenAPIObject,
+    } satisfies IR,
     operationId: config.operationId ?? defaults.operationId,
     tag: config.tag ?? defaults.tag,
   };

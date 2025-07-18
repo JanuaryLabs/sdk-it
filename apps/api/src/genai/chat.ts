@@ -4,7 +4,7 @@ import { type CoreMessage, smoothStream, streamText, tool } from 'ai';
 import chalk from 'chalk';
 import { z } from 'zod';
 
-import type { OurOpenAPIObject } from '@sdk-it/spec';
+import type { IR } from '@sdk-it/spec';
 
 import { database } from '../utils/db.js';
 import { markdownJoinerTransform } from '../utils/markdown-joiner-transformer.js';
@@ -14,7 +14,7 @@ import { getOperationsTool } from './tools/get-operations-tool.js';
 import { getSchemaDefinition } from './tools/get-schema-difintion.js';
 
 export function talk(
-  spec: OurOpenAPIObject,
+  spec: IR,
   conversationId: string,
   messages: CoreMessage[],
 ) {

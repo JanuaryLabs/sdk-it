@@ -11,13 +11,13 @@ import {
   writeFiles,
 } from '@sdk-it/core/file-system.js';
 import {
-  type OurOpenAPIObject,
-  augmentSpec,
+  type IR,
   cleanFiles,
   forEachOperation,
   isSuccessStatusCode,
   parseJsonContentType,
   readWriteMetadata,
+  toIR,
 } from '@sdk-it/spec';
 
 import dispatcherTxt from './http/dispatcher.txt';
@@ -41,7 +41,7 @@ export async function generate(
     formatCode?: (options: { output: string }) => void | Promise<void>;
   },
 ) {
-  const spec = augmentSpec({ spec: openapi }, true);
+  const spec = toIR({ spec: openapi }, true);
 
   const clientName = settings.name || 'Client';
   const output = settings.output;
@@ -356,7 +356,7 @@ async function generateModuleInit(
 }
 
 function toInputs(
-  spec: OurOpenAPIObject,
+  spec: IR,
   { entry, operation }: { entry: any; operation: OperationObject },
 ) {
   const inputName = (entry as any).inputName || 'Input';
@@ -383,7 +383,7 @@ function toInputs(
   };
 }
 
-function toOutput(spec: OurOpenAPIObject, operation: OperationObject) {
+function toOutput(spec: IR, operation: OperationObject) {
   if (!operation.responses) {
     return null;
   }
@@ -439,7 +439,7 @@ function toOutput(spec: OurOpenAPIObject, operation: OperationObject) {
 }
 
 async function serializeModels(
-  spec: OurOpenAPIObject,
+  spec: IR,
   emitter: PythonEmitter,
 ): Promise<Record<string, string>> {
   const models: Record<string, string> = {};

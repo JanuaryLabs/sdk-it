@@ -75,9 +75,11 @@ export default function App() {
 
 export async function loader({ request }: { request: Request }) {
   const { generateSnippet } = await import('@sdk-it/typescript');
-  const { augmentSpec, createOperation, forEachOperation } = await import(
-    '@sdk-it/spec'
-  );
+  const {
+    toIR: augmentSpec,
+    createOperation,
+    forEachOperation,
+  } = await import('@sdk-it/spec');
   const processor = unified()
     .use(remarkParse)
     .use(remarkRehype)

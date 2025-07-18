@@ -19,12 +19,7 @@ import { z } from 'zod';
 
 import { pascalcase } from '@sdk-it/core';
 import * as tsDart from '@sdk-it/dart';
-import {
-  augmentSpec,
-  forEachOperation,
-  loadRemote,
-  loadSpec,
-} from '@sdk-it/spec';
+import { forEachOperation, loadRemote, loadSpec, toIR } from '@sdk-it/spec';
 import * as tsSdk from '@sdk-it/typescript';
 
 import { talk } from './genai/chat.js';
@@ -41,7 +36,7 @@ app.post('/', async (c) => {
   const { messages, id } = await c.req.json();
   const { specUrl } = c.req.query();
   const spec = await loadSpec(specUrl);
-  return talk(augmentSpec({ spec }), id, messages).toDataStreamResponse();
+  return talk(toIR({ spec }), id, messages).toDataStreamResponse();
 });
 
 const octokit = new Octokit({
@@ -331,7 +326,7 @@ app.get(
   async (c) => {
     const { page, pageSize } = c.var.input;
 
-    const spec = augmentSpec({
+    const spec = toIR({
       spec: await loadSpec(
         // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
         join(cwd(), '.specs', 'hetzner.json'),

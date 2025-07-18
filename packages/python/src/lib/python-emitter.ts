@@ -2,7 +2,7 @@ import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 import { snakecase } from 'stringcase';
 
 import { isRef, notRef, parseRef, pascalcase } from '@sdk-it/core';
-import { type OurOpenAPIObject, isPrimitiveSchema } from '@sdk-it/spec';
+import { type IR, isPrimitiveSchema } from '@sdk-it/spec';
 
 export function coerceObject(schema: SchemaObject): SchemaObject {
   schema = structuredClone(schema);
@@ -42,7 +42,7 @@ type Emit = (name: string, content: string, schema: SchemaObject) => void;
  * Convert an OpenAPI (JSON Schema style) object into Python classes with Pydantic
  */
 export class PythonEmitter {
-  #spec: OurOpenAPIObject;
+  #spec: IR;
   #emitHandler?: Emit;
   #emitHistory = new Set<string>();
   #typeCache = new Map<string, Serialized>(); // Cache for resolved types
@@ -55,7 +55,7 @@ export class PythonEmitter {
     this.#emitHandler?.(name, content, schema);
   }
 
-  constructor(spec: OurOpenAPIObject) {
+  constructor(spec: IR) {
     this.#spec = spec;
   }
 

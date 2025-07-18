@@ -90,9 +90,12 @@ export async function loader({
 }) {
   const { TypeScriptSnippet } = await import('@sdk-it/typescript');
   const { followRef, isRef, resolveRef } = await import('@sdk-it/core');
-  const { augmentSpec, toSidebar, forEachOperation, loadSpec } = await import(
-    '@sdk-it/spec'
-  );
+  const {
+    toIR: augmentSpec,
+    toSidebar,
+    forEachOperation,
+    loadSpec,
+  } = await import('@sdk-it/spec');
   // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
   // 'https://api.openstatus.dev/v1/openapi',
 

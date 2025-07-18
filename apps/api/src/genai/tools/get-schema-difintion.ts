@@ -2,9 +2,9 @@ import { tool } from 'ai';
 import { z } from 'zod';
 
 import { distillRef } from '@sdk-it/core';
-import type { OurOpenAPIObject } from '@sdk-it/spec';
+import type { IR } from '@sdk-it/spec';
 
-export function getSchemaDefinition(spec: OurOpenAPIObject) {
+export function getSchemaDefinition(spec: IR) {
   return tool({
     description: 'Get the schema definition for a given reference path.',
     parameters: z.object({

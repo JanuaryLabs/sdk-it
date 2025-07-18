@@ -10,7 +10,7 @@ import type {
 import { methods } from '@sdk-it/core/paths.js';
 import { resolveRef } from '@sdk-it/core/ref.js';
 
-import type { OurOpenAPIObject } from './types.js';
+import type { IR } from './types.js';
 
 type OIn = ParameterLocation | 'input';
 
@@ -21,7 +21,7 @@ export type OurParameter = Omit<ParameterObject, 'in' | 'schema'> & {
 };
 
 export function securityToOptions(
-  spec: OurOpenAPIObject,
+  spec: IR,
   security: SecurityRequirementObject[],
   securitySchemes: Record<string, SecuritySchemeObject | ReferenceObject>,
   staticIn?: OIn,
@@ -72,7 +72,7 @@ export function securityToOptions(
   return parameters;
 }
 
-export function security(spec: OurOpenAPIObject) {
+export function security(spec: IR) {
   const security = spec.security || [];
   const paths = Object.values(spec.paths ?? {});
 

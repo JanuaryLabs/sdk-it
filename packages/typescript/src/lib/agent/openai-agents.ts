@@ -1,13 +1,13 @@
 import { camelcase, spinalcase } from 'stringcase';
 
 import {
+  type IR,
   type OperationEntry,
-  type OurOpenAPIObject,
   type TunedOperationObject,
   forEachOperation,
 } from '@sdk-it/spec';
 
-export function generateOpenAIAgentTools(spec: OurOpenAPIObject) {
+export function generateOpenAIAgentTools(spec: IR) {
   const groups: Record<string, string[]> = {};
   forEachOperation(spec, (entry, operation) => {
     groups[entry.tag] ??= [];

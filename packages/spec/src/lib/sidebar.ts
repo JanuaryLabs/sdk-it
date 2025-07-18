@@ -3,7 +3,7 @@ import { camelcase } from 'stringcase';
 import { notNullOrUndefined } from '@sdk-it/core/file-system.js';
 
 import { forEachOperation } from './for-each-operation.js';
-import type { OurOpenAPIObject } from './types.js';
+import type { IR } from './types.js';
 
 export type ChildNavItem = {
   id: string;
@@ -34,7 +34,7 @@ export interface TagGroups {
   tags: string[];
 }
 
-export function toSidebar(spec: OurOpenAPIObject) {
+export function toSidebar(spec: IR) {
   const sidebar: SidebarData = spec['x-docs'];
   for (const tagGroup of spec['x-tagGroups']) {
     sidebar.push({
