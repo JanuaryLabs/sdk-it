@@ -8,11 +8,11 @@ import {
   findPolymorphicVarients,
   findVarients,
 } from './find-polymorphic-varients.ts';
-import { augmentSpec } from './ir.ts';
-import type { OurOpenAPIObject } from './types.ts';
+import { toIR } from './ir.ts';
+import type { IR } from './types.ts';
 
-function createSpec(openapi?: Partial<OpenAPIObject>): OurOpenAPIObject {
-  return augmentSpec(
+function createSpec(openapi?: Partial<OpenAPIObject>): IR {
+  return toIR(
     {
       spec: merge(
         {

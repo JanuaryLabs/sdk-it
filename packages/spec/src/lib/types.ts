@@ -16,7 +16,7 @@ import type {
 import type { PaginationGuess } from './pagination/guess-pagination.js';
 import type { SidebarData, TagGroups } from './sidebar.js';
 
-export interface OurOpenAPIObject extends OpenAPIObject {
+export interface IR extends OpenAPIObject {
   servers: ServerObject[];
   'x-sdk-augmented'?: boolean;
   'x-docs': SidebarData;

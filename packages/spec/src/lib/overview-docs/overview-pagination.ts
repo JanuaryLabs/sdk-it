@@ -1,17 +1,25 @@
 import type { NavItem } from '../sidebar.js';
-import type { OurOpenAPIObject } from '../types.js';
+import type { IR } from '../types.js';
 
-export function generatePaginationOverview(spec: OurOpenAPIObject): NavItem {
+export function generatePaginationOverview(spec: IR): NavItem {
   const markdown: string[] = [];
 
   markdown.push(`# Pagination`);
-  markdown.push(`This API uses cursor-based pagination to efficiently navigate through large datasets.`);
-  
+  markdown.push(
+    `This API uses cursor-based pagination to efficiently navigate through large datasets.`,
+  );
+
   markdown.push(`## How Pagination Works`);
-  markdown.push(`When making requests to endpoints that return multiple items, you can control the number of results and navigate through pages using the following parameters:`);
+  markdown.push(
+    `When making requests to endpoints that return multiple items, you can control the number of results and navigate through pages using the following parameters:`,
+  );
   markdown.push('');
-  markdown.push(`- **limit** - The maximum number of items to return per page (default: 20, max: 100)`);
-  markdown.push(`- **cursor** - A token representing the position in the dataset to start from`);
+  markdown.push(
+    `- **limit** - The maximum number of items to return per page (default: 20, max: 100)`,
+  );
+  markdown.push(
+    `- **cursor** - A token representing the position in the dataset to start from`,
+  );
   markdown.push('');
 
   markdown.push(`## Example Usage`);
@@ -39,7 +47,9 @@ export function generatePaginationOverview(spec: OurOpenAPIObject): NavItem {
   markdown.push('```json');
   markdown.push('{');
   markdown.push('  "data": [...], // Array of items');
-  markdown.push('  "nextCursor": "eyJpZCI6MTAwfQ==", // Token for next page (null if last page)');
+  markdown.push(
+    '  "nextCursor": "eyJpZCI6MTAwfQ==", // Token for next page (null if last page)',
+  );
   markdown.push('  "hasMore": true, // Whether more pages exist');
   markdown.push('  "totalCount": 150 // Total number of items (if available)');
   markdown.push('}');
@@ -71,10 +81,18 @@ export function generatePaginationOverview(spec: OurOpenAPIObject): NavItem {
 
   markdown.push(`## Best Practices`);
   markdown.push('');
-  markdown.push(`1. **Use appropriate page sizes** - Balance between number of requests and response size`);
-  markdown.push(`2. **Handle cursors securely** - Don't modify cursor values; treat them as opaque tokens`);
-  markdown.push(`3. **Implement retry logic** - Handle temporary failures when iterating through pages`);
-  markdown.push(`4. **Consider rate limits** - Be mindful of API rate limits when fetching multiple pages`);
+  markdown.push(
+    `1. **Use appropriate page sizes** - Balance between number of requests and response size`,
+  );
+  markdown.push(
+    `2. **Handle cursors securely** - Don't modify cursor values; treat them as opaque tokens`,
+  );
+  markdown.push(
+    `3. **Implement retry logic** - Handle temporary failures when iterating through pages`,
+  );
+  markdown.push(
+    `4. **Consider rate limits** - Be mindful of API rate limits when fetching multiple pages`,
+  );
 
   return {
     id: 'generated-pagination',

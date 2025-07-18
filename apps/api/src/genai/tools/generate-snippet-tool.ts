@@ -1,7 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 
-import type { OurOpenAPIObject } from '@sdk-it/spec';
+import type { IR } from '@sdk-it/spec';
 import { TypeScriptSnippet } from '@sdk-it/typescript';
 
 import {
@@ -9,7 +9,7 @@ import {
   toOperations,
 } from '../../utils/operation-utils.js';
 
-export function generateSnippetTool(spec: OurOpenAPIObject) {
+export function generateSnippetTool(spec: IR) {
   return tool({
     description:
       'Generate a code snippet in TypeScript for the specified operation ID. ',

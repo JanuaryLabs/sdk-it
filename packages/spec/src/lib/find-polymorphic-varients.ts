@@ -8,7 +8,7 @@ import type {
 import { camelcase, isEmpty, isRef, resolveRef } from '@sdk-it/core';
 
 import { coerceTypes } from './tune.js';
-import type { OurOpenAPIObject } from './types.js';
+import type { IR } from './types.js';
 
 export type Varient = {
   name: string;
@@ -22,7 +22,7 @@ export type Varient = {
 };
 
 const groupSchemasByType = (
-  spec: OurOpenAPIObject,
+  spec: IR,
   schemas: (SchemaObject | ReferenceObject)[],
 ) => {
   const groups = schemas.reduce<
@@ -96,7 +96,7 @@ const groupSchemasByType = (
 };
 
 export function findVarients(
-  spec: OurOpenAPIObject,
+  spec: IR,
   schemas: (SchemaObject | ReferenceObject)[],
 ): Varient[] {
   let varients: Varient[] = [];
@@ -372,7 +372,7 @@ export function findVarients(
 }
 
 export function findPolymorphicVarients(
-  spec: OurOpenAPIObject,
+  spec: IR,
   schemas: (SchemaObject | ReferenceObject)[],
 ): Varient[] {
   const varients = findVarients(spec, schemas);

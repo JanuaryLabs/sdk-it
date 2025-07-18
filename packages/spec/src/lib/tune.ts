@@ -20,10 +20,10 @@ import { type Varient, findVarients } from './find-polymorphic-varients.js';
 import { findUniqueSchemaName } from './find-unique-schema-name.js';
 import { formatName } from './format-name.js';
 import { isPrimitiveSchema } from './is-primitive-schema.js';
-import type { OurOpenAPIObject } from './types.js';
+import type { IR } from './types.js';
 
 export function fixSpec(
-  spec: OurOpenAPIObject,
+  spec: IR,
   schemas: (SchemaObject | ReferenceObject)[],
   visited = new Set<string>(),
 ) {
@@ -196,7 +196,7 @@ export function fixSpec(
 type Refs = { name: string; value: SchemaObject }[];
 
 export function expandSpec(
-  spec: OurOpenAPIObject,
+  spec: IR,
   schemas: Record<string, SchemaObject | ReferenceObject>,
   refs: Refs,
 ) {
@@ -349,7 +349,7 @@ export function expandSpec(
 }
 
 function expandOneOf(
-  spec: OurOpenAPIObject,
+  spec: IR,
   name: string,
   schema: SchemaObject,
   refs: Refs,

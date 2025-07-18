@@ -18,7 +18,7 @@ import {
   resolveRef,
 } from '@sdk-it/core';
 import {
-  type OurOpenAPIObject,
+  type IR,
   type Varient,
   coerceTypes,
   formatName,
@@ -64,7 +64,7 @@ type Emit = (name: string, content: string, schema: SchemaObject) => void;
  * Convert an OpenAPI (JSON Schema style) object into Dart classes
  */
 export class DartSerializer {
-  #spec: OurOpenAPIObject;
+  #spec: IR;
   #emitHandler?: Emit;
   #emitHistory = new Set<string>();
 
@@ -76,7 +76,7 @@ export class DartSerializer {
     this.#emitHandler?.(name, content, schema);
   }
 
-  constructor(spec: OurOpenAPIObject) {
+  constructor(spec: IR) {
     this.#spec = spec;
   }
 

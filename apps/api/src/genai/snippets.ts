@@ -4,7 +4,7 @@ import { writeFile } from 'node:fs/promises';
 import { z } from 'zod';
 
 import { distillRef } from '@sdk-it/core';
-import { type OurOpenAPIObject, augmentSpec, loadSpec } from '@sdk-it/spec';
+import { type IR, loadSpec, toIR } from '@sdk-it/spec';
 import { TypeScriptSnippet } from '@sdk-it/typescript';
 
 import { findOperationById, toOperations } from '../utils/operation-utils.ts';
@@ -14,7 +14,7 @@ function coerceContext(context?: any) {
     throw new Error('Context is required');
   }
   return context as {
-    spec: OurOpenAPIObject;
+    spec: IR;
     operations: ReturnType<typeof toOperations>;
   };
 }
@@ -49,7 +49,7 @@ export const generateSnippet = tool({
   ) => {
     console.log(`[Tool Call] generateSnippet for ${operationId}`);
     const context = coerceContext(maybeContext?.context);
-    const spec = context.spec as OurOpenAPIObject;
+    const spec = context.spec as IR;
     const generator = new TypeScriptSnippet(spec, { output: '' });
     const operation = findOperationById(context.operations, operationId);
     if (typeof operation === 'string') {
@@ -114,7 +114,7 @@ export const getSchemaDefinition = tool({
   execute: async (input, maybeContext) => {
     const context = coerceContext(maybeContext?.context);
     console.log(`[Tool Call] getSchemaDefinition for ${input.ref}`);
-    const spec = context.spec as OurOpenAPIObject;
+    const spec = context.spec as IR;
     const definition = distillRef(spec, input.ref);
     if (!definition) {
       return `Schema not found for ref: ${input.ref}`;
@@ -165,7 +165,7 @@ Note: operationId is the operation's ID prefixed with "operation_". For example,
 
 const operationId = 'operation_listDoctors';
 
-const spec = augmentSpec({
+const spec = toIR({
   spec: await loadSpec(
     '/Users/ezzabuzaid/Desktop/mo/virtual-care/openapi.json',
   ),

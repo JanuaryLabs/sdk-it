@@ -5,7 +5,7 @@ import { distillRef } from '@sdk-it/core';
 import { forEachOperation } from '../for-each-operation.js';
 import { isErrorStatusCode } from '../is.js';
 import type { NavItem } from '../sidebar.js';
-import type { OurOpenAPIObject } from '../types.js';
+import type { IR } from '../types.js';
 
 interface ErrorSchema {
   statusCode: string;
@@ -16,7 +16,7 @@ interface ErrorSchema {
 }
 
 function formatSchemaForDisplay(
-  spec: OurOpenAPIObject,
+  spec: IR,
   schema: SchemaObject | ReferenceObject,
 ): string {
   const resolvedSchema = distillRef(spec, schema);
@@ -107,7 +107,7 @@ function getStatusDescription(statusCode: string): string {
   );
 }
 
-export function generateErrorsOverview(spec: OurOpenAPIObject): NavItem {
+export function generateErrorsOverview(spec: IR): NavItem {
   const errorSchemas: Map<string, ErrorSchema> = new Map();
   const markdown: string[] = [];
   markdown.push(`# Error Handling`);

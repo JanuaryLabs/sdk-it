@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { z } from 'zod';
 
-import { augmentSpec, forEachOperation, loadSpec } from '@sdk-it/spec';
+import { forEachOperation, loadSpec, toIR } from '@sdk-it/spec';
 import { buildInput, inputToPath, toHttpOutput } from '@sdk-it/typescript';
 
 import { Dispatcher, fetchType } from './http/dispatcher.ts';
@@ -91,7 +91,7 @@ export class Client {
 
 export async function rpc(openapi: string, options?: Partial<ClientOptions>) {
   const spec = await loadSpec(openapi);
-  const ir = augmentSpec({ spec, responses: { flattenErrorResponses: true } });
+  const ir = toIR({ spec, responses: { flattenErrorResponses: true } });
   const schemas: Record<string, any> = {};
 
   forEachOperation(ir, (entry, operation) => {

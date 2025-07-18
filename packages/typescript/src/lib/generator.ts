@@ -10,7 +10,7 @@ import { camelcase, spinalcase } from 'stringcase';
 
 import { followRef, isEmpty, isRef, resolveRef } from '@sdk-it/core';
 import {
-  type OurOpenAPIObject,
+  type IR,
   type TunedOperationObject,
   forEachOperation,
 } from '@sdk-it/spec';
@@ -21,7 +21,7 @@ import type { Style } from './style.ts';
 import endpointsTxt from './styles/github/endpoints.txt';
 
 function coearceRequestInput(
-  spec: OurOpenAPIObject,
+  spec: IR,
   operation: TunedOperationObject,
   type: string,
 ) {
@@ -75,7 +75,7 @@ export function generateCode(config: {
    * No support for jsdoc in vscode
    * @issue https://github.com/microsoft/TypeScript/issues/38106
    */
-  spec: OurOpenAPIObject;
+  spec: IR;
   style: Style;
   makeImport: (module: string) => string;
 }) {
@@ -259,10 +259,7 @@ function toProps(
   return void 0;
 }
 
-function bodyInputs(
-  spec: OurOpenAPIObject,
-  ctSchema: SchemaObject | ReferenceObject,
-) {
+function bodyInputs(spec: IR, ctSchema: SchemaObject | ReferenceObject) {
   const props: string[] = [];
   toProps(spec, ctSchema, props);
   return props.reduce<Record<string, OperationInput>>(
@@ -286,10 +283,7 @@ const contentTypeMap = {
   'application/empty': 'empty',
 } as const;
 
-export function buildInput(
-  spec: OurOpenAPIObject,
-  operation: TunedOperationObject,
-) {
+export function buildInput(spec: IR, operation: TunedOperationObject) {
   const inputs: Record<string, OperationInput> = {};
 
   let outgoingContentType: (typeof contentTypeMap)[keyof typeof contentTypeMap] =

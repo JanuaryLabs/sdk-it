@@ -2,10 +2,10 @@ import type { OperationObject } from 'openapi3-ts/oas31';
 
 import { type Method, methods } from '@sdk-it/core/paths.js';
 
-import type { OperationEntry, OurOpenAPIObject, TunedOperationObject } from './types.js';
+import type { IR, OperationEntry, TunedOperationObject } from './types.js';
 
 export function forEachOperation<T>(
-  spec: OurOpenAPIObject,
+  spec: IR,
   callback: (entry: OperationEntry, operation: TunedOperationObject) => T,
 ) {
   const result: T[] = [];

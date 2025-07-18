@@ -1,18 +1,18 @@
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
 import { followRef, isRef, resolveRef } from '@sdk-it/core';
-import type { OurOpenAPIObject } from '@sdk-it/spec';
+import type { IR } from '@sdk-it/spec';
 
 /**
  * Generate example values for OpenAPI schemas
  * This emitter creates sample input payloads for API documentation and code snippets
  */
 export class SnippetEmitter {
-  private spec: OurOpenAPIObject;
+  private spec: IR;
   public generatedRefs = new Set<string>();
   private cache = new Map<string, unknown>();
 
-  constructor(spec: OurOpenAPIObject) {
+  constructor(spec: IR) {
     this.spec = spec;
   }
 
@@ -73,11 +73,11 @@ export class SnippetEmitter {
     switch (schema.format) {
       case 'date-time':
       case 'datetime':
-        return `2025-07-17T09:08:00.097Z`
+        return `2025-07-17T09:08:00.097Z`;
       case 'date':
-        return `2025-07-17`
+        return `2025-07-17`;
       case 'time':
-        return `09:08:00.097Z`
+        return `09:08:00.097Z`;
       case 'email':
         return 'user@example.com';
       case 'uuid':

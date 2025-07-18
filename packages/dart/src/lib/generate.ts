@@ -25,10 +25,9 @@ import {
   writeFiles,
 } from '@sdk-it/core/file-system.js';
 import {
+  type IR,
   type Operation,
-  type OurOpenAPIObject,
   type PaginationConfig,
-  augmentSpec,
   cleanFiles,
   forEachOperation,
   isSseContentType,
@@ -36,6 +35,7 @@ import {
   isSuccessStatusCode,
   parseJsonContentType,
   readWriteMetadata,
+  toIR,
 } from '@sdk-it/spec';
 
 import { DartSerializer, isObjectSchema } from './dart-emitter.ts';
@@ -60,7 +60,7 @@ export async function generate(
     formatCode?: (options: { output: string }) => void | Promise<void>;
   },
 ) {
-  const spec = augmentSpec(
+  const spec = toIR(
     {
       spec: openapi,
       pagination: settings.pagination ?? false,
@@ -278,7 +278,7 @@ class Options {
   });
 }
 
-function toInputs(spec: OurOpenAPIObject, { entry, operation }: Operation) {
+function toInputs(spec: IR, { entry, operation }: Operation) {
   let inputName: string | undefined;
   let contentType = 'empty';
   let encode = '';
@@ -325,7 +325,7 @@ function toInputs(spec: OurOpenAPIObject, { entry, operation }: Operation) {
   return { inputName, contentType, encode, haveInput };
 }
 
-function toOutput(spec: OurOpenAPIObject, operation: OperationObject) {
+function toOutput(spec: IR, operation: OperationObject) {
   operation.responses ??= {};
   for (const status in operation.responses) {
     if (!isSuccessStatusCode(status)) continue;
@@ -390,7 +390,7 @@ function streamedOutput() {
   };
 }
 
-function serializeModels(spec: OurOpenAPIObject) {
+function serializeModels(spec: IR) {
   const serializer = new DartSerializer(spec);
   return Object.entries(spec.components.schemas).reduce<Record<string, string>>(
     (acc, [name, schema]) => {

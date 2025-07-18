@@ -1,10 +1,10 @@
 import { isEmpty } from '@sdk-it/core';
 import type { Generator } from '@sdk-it/readme';
-import { type OurOpenAPIObject, forEachOperation } from '@sdk-it/spec';
+import { type IR, forEachOperation } from '@sdk-it/spec';
 
 import { PropEmitter } from './prop.emitter.ts';
 
-export function toReadme(spec: OurOpenAPIObject, generator: Generator) {
+export function toReadme(spec: IR, generator: Generator) {
   const propEmitter = new PropEmitter(spec);
   const markdown: string[] = [];
 

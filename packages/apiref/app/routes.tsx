@@ -4,9 +4,9 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
-import { augmentSpec, loadSpec } from '@sdk-it/spec';
+import { loadSpec, toIR } from '@sdk-it/spec';
 
-const spec = augmentSpec({
+const spec = toIR({
   spec: await loadSpec(
     process.env.VITE_SPEC || 'https://api.openstatus.dev/v1/openapi',
   ),

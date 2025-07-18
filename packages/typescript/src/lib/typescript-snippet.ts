@@ -4,9 +4,9 @@ import { camelcase, spinalcase } from 'stringcase';
 import { isEmpty, pascalcase, resolveRef } from '@sdk-it/core';
 import { type Generator } from '@sdk-it/readme';
 import {
+  type IR,
   type OperationEntry,
   type OperationPagination,
-  type OurOpenAPIObject,
   type TunedOperationObject,
   forEachOperation,
   patchParameters,
@@ -17,12 +17,12 @@ import { SnippetEmitter } from './emitters/snippet.ts';
 import type { TypeScriptGeneratorOptions } from './options.ts';
 
 export class TypeScriptSnippet implements Generator {
-  #spec: OurOpenAPIObject;
+  #spec: IR;
   #settings: TypeScriptGeneratorOptions;
   #snippetEmitter: SnippetEmitter;
   #clientName: string;
   #packageName: string;
-  constructor(spec: OurOpenAPIObject, settings: TypeScriptGeneratorOptions) {
+  constructor(spec: IR, settings: TypeScriptGeneratorOptions) {
     this.#spec = spec;
     this.#settings = settings;
     this.#snippetEmitter = new SnippetEmitter(spec);
@@ -867,7 +867,7 @@ function createObjectLiteral(
   );
 }
 
-function availablePaginationTypes(spec: OurOpenAPIObject) {
+function availablePaginationTypes(spec: IR) {
   let offset = false;
   let page = false;
   let cursor = false;

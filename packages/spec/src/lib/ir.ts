@@ -16,7 +16,7 @@ import { toPagination } from './pagination/pagination.js';
 import { tuneRequestBody } from './tune-request-body.js';
 import { resolveResponses } from './tune-response.js';
 import { expandSpec, fixSpec } from './tune.js';
-import type { OurOpenAPIObject, TunedOperationObject } from './types.js';
+import type { IR, TunedOperationObject } from './types.js';
 
 function findUniqueOperationId(
   usedOperationIds: Set<string>,
@@ -49,13 +49,10 @@ function findUniqueOperationId(
   return uniqueOperationId;
 }
 
-export function augmentSpec(
-  config: GenerateSdkConfig,
-  verbose = false,
-): OurOpenAPIObject {
+export function toIR(config: GenerateSdkConfig, verbose = false): IR {
   const coearcedConfig = coeraceConfig(config);
   if ('x-sdk-augmented' in config.spec) {
-    return config.spec as OurOpenAPIObject; // Already augmented
+    return config.spec as IR; // Already augmented
   }
 
   const paths: PathsObject = {};

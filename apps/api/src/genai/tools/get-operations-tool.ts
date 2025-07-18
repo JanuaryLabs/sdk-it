@@ -1,14 +1,14 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 
-import type { OurOpenAPIObject } from '@sdk-it/spec';
+import type { IR } from '@sdk-it/spec';
 
 import {
   findOperationById,
   toOperations,
 } from '../../utils/operation-utils.ts';
 
-export function getOperationsTool(spec: OurOpenAPIObject) {
+export function getOperationsTool(spec: IR) {
   const operations = toOperations(spec);
   return tool({
     description: 'Find list of operation in the OpenAPI spec.',

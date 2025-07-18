@@ -2,10 +2,10 @@ import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
 import { isEmpty, isRef, parseRef, pascalcase } from '@sdk-it/core';
 
-import type { OurOpenAPIObject } from './types.js';
+import type { IR } from './types.js';
 
 export function getRefUsage(
-  spec: OurOpenAPIObject,
+  spec: IR,
   schemaName: string,
   list: string[] = [],
 ): string[] {
