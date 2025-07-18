@@ -22,6 +22,7 @@
   ],
   "dependencies": {
     "@sdk-it/core": "0.28.0",
-    "@sdk-it/spec": "0.28.0"
+    "@sdk-it/spec": "0.28.0",
+    "openapi3-ts": "4.4.0"
   }
 }
