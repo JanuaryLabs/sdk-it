@@ -16,7 +16,7 @@ export function getSchemaDefinition(spec: OurOpenAPIObject) {
     }),
     execute: async (args) => {
       console.log('Fetching schema definition for:', args.ref);
-      const def = distillRef(spec, args.ref);
+      const def = distillRef(spec, args);
       if (!def) {
         return `Schema definition not found for: ${args.ref}`;
       }

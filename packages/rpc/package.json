@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/rpc",
-  "version": "0.28.0",
+  "version": "0.29.0",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -21,9 +21,9 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "@sdk-it/spec": "0.28.0",
+    "@sdk-it/spec": "0.29.0",
     "zod": "3.24.3",
     "fast-content-type-parse": "^3.0.0",
-    "@sdk-it/typescript": "0.28.0"
+    "@sdk-it/typescript": "0.29.0"
   }
 }

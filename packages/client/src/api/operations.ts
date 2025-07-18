@@ -11,7 +11,6 @@ import {
   createHeadersInterceptor,
 } from '../http/interceptors.ts';
 import { buffered, chunked } from '../http/parse-response.ts';
-import { ParseError } from '../http/parser.ts';
 import {
   type HeadersInit,
   createUrl,
@@ -21,7 +20,6 @@ import {
   toRequest,
   urlencoded,
 } from '../http/request.ts';
-import { BadRequest } from '../http/response.ts';
 import * as http from '../http/response.ts';
 import * as operations from '../inputs/operations.ts';
 import * as outputs from '../outputs/index.ts';

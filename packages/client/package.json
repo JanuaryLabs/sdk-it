@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/client",
-  "version": "0.28.0",
+  "version": "0.29.0",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
