@@ -2,7 +2,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 
 import type { OurOpenAPIObject } from '@sdk-it/spec';
-import { TypeScriptGenerator } from '@sdk-it/typescript';
+import { TypeScriptSnippet } from '@sdk-it/typescript';
 
 import {
   findOperationById,
@@ -63,7 +63,7 @@ export function generateSnippetTool(spec: OurOpenAPIObject) {
         'pathParameters',
         args.pathParameters,
       );
-      const generator = new TypeScriptGenerator(spec, { output: '' });
+      const generator = new TypeScriptSnippet(spec, { output: '' });
       const operations = toOperations(spec);
       const operation = findOperationById(operations, args.operationId);
       if (typeof operation === 'string') {

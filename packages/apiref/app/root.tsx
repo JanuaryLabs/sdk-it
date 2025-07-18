@@ -88,7 +88,7 @@ export async function loader({
   request: Request;
   params: { '*'?: string };
 }) {
-  const { TypeScriptGenerator } = await import('@sdk-it/typescript');
+  const { TypeScriptSnippet } = await import('@sdk-it/typescript');
   const { followRef, isRef, resolveRef } = await import('@sdk-it/core');
   const { augmentSpec, toSidebar, forEachOperation, loadSpec } = await import(
     '@sdk-it/spec'
@@ -115,7 +115,7 @@ export async function loader({
       operation: import('@sdk-it/spec').TunedOperationObject;
     }
   > = {};
-  const generator = new TypeScriptGenerator(spec, {
+  const generator = new TypeScriptSnippet(spec, {
     output: '',
   });
 
