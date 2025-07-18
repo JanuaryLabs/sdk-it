@@ -1,0 +1,29 @@
+{
+  "name": "@sdk-it/rpc",
+  "version": "0.28.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!**/*.tsbuildinfo"
+  ],
+  "dependencies": {
+    "@sdk-it/spec": "0.28.0",
+    "zod": "3.24.3",
+    "fast-content-type-parse": "^3.0.0",
+    "@sdk-it/typescript": "0.28.0"
+  }
+}
