@@ -22,7 +22,6 @@ import {
 } from '@sdk-it/spec';
 
 import { generateAISDKTools } from './agent/ai-sdk.ts';
-import { generateOpenAIAgentTools } from './agent/openai-agents.ts';
 import utilsTxt from './agent/utils.txt';
 import backend from './client.ts';
 import { TypeScriptEmitter } from './emitters/interface.ts';
@@ -40,7 +39,7 @@ import offsetPaginationTxt from './paginations/offset-pagination.txt';
 import paginationTxt from './paginations/page-pagination.txt';
 import { toReadme } from './readme/readme.ts';
 import type { Operation } from './sdk.ts';
-import { TypeScriptGenerator } from './typescript-snippet.ts';
+import { TypeScriptSnippet } from './typescript-snippet.ts';
 
 function security(spec: OurOpenAPIObject) {
   const security = spec.security || [];
@@ -86,7 +85,6 @@ export async function generate(
     false,
   );
 
-  const generator = new TypeScriptGenerator(spec, settings);
   const style = Object.assign(
     {},
     {
@@ -315,7 +313,7 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
 
   if (settings.readme) {
     await settings.writer(settings.mode === 'full' ? settings.output : output, {
-      'README.md': toReadme(spec, generator),
+      'README.md': toReadme(spec, new TypeScriptSnippet(spec, settings)),
     });
   }
 
@@ -382,7 +380,7 @@ export function toInputs(
     const imports = new Set(['import { z } from "zod";']);
 
     for (const operation of operations) {
-      const schemaName = camelcase(`${operation.name} schema`);
+      const schemaName = camelcase(`${operation.operationId} schema`);
 
       const schema = `export const ${schemaName} = ${
         Object.keys(operation.schemas).length === 1
