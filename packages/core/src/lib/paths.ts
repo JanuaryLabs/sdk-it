@@ -22,6 +22,7 @@ export type Method =
   | 'delete'
   | 'trace'
   | 'head';
+
 export const methods = [
   'get',
   'post',

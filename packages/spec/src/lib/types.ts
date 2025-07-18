@@ -10,12 +10,14 @@ import type {
   ResponseObject,
   SchemaObject,
   SecuritySchemeObject,
+  ServerObject,
 } from 'openapi3-ts/oas31';
 
 import type { PaginationGuess } from './pagination/guess-pagination.js';
 import type { SidebarData, TagGroups } from './sidebar.js';
 
 export interface OurOpenAPIObject extends OpenAPIObject {
+  servers: ServerObject[];
   'x-sdk-augmented'?: boolean;
   'x-docs': SidebarData;
   'x-tagGroups': TagGroups[];

@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 import { distillRef } from '@sdk-it/core';
 import { type OurOpenAPIObject, augmentSpec, loadSpec } from '@sdk-it/spec';
-import { TypeScriptGenerator } from '@sdk-it/typescript';
+import { TypeScriptSnippet } from '@sdk-it/typescript';
 
 import { findOperationById, toOperations } from '../utils/operation-utils.ts';
 
@@ -50,7 +50,7 @@ export const generateSnippet = tool({
     console.log(`[Tool Call] generateSnippet for ${operationId}`);
     const context = coerceContext(maybeContext?.context);
     const spec = context.spec as OurOpenAPIObject;
-    const generator = new TypeScriptGenerator(spec, { output: '' });
+    const generator = new TypeScriptSnippet(spec, { output: '' });
     const operation = findOperationById(context.operations, operationId);
     if (typeof operation === 'string') {
       return operation;

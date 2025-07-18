@@ -85,6 +85,7 @@ export function coeraceConfig(config: GenerateSdkConfig) {
           tags: config.spec.tags?.map((tag) => tag.name) ?? [],
         },
       ],
+      servers: config.spec.servers ?? [],
     } satisfies OurOpenAPIObject,
     operationId: config.operationId ?? defaults.operationId,
     tag: config.tag ?? defaults.tag,
