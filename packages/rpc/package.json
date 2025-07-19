@@ -18,7 +18,8 @@
   },
   "files": [
     "dist",
-    "!**/*.tsbuildinfo"
+    "!**/*.tsbuildinfo",
+    "!**/*.test.*"
   ],
   "dependencies": {
     "@sdk-it/spec": "0.31.0",

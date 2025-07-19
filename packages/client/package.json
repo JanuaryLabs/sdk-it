@@ -15,7 +15,8 @@
   },
   "files": [
     "dist",
-    "!**/*.tsbuildinfo"
+    "!**/*.tsbuildinfo",
+    "!**/*.test.*"
   ],
   "dependencies": {
     "zod": "^3.25.76 || ^4.0.0",

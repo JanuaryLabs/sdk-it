@@ -18,7 +18,8 @@
   },
   "files": [
     "dist",
-    "!**/*.tsbuildinfo"
+    "!**/*.tsbuildinfo",
+    "!**/*.test.*"
   ],
   "dependencies": {
     "openapi3-ts": "4.5.0",

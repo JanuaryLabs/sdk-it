@@ -16,7 +16,8 @@
   },
   "files": [
     "dist",
-    "!**/*.tsbuildinfo"
+    "!**/*.tsbuildinfo",
+    "!**/*.test.*"
   ],
   "dependencies": {
     "@sdk-it/typescript": "0.31.0",
