@@ -89,13 +89,10 @@ export async function loader({
   params: { '*'?: string };
 }) {
   const { TypeScriptSnippet } = await import('@sdk-it/typescript');
-  const { followRef, isRef, resolveRef } = await import('@sdk-it/core');
-  const {
-    toIR: augmentSpec,
-    toSidebar,
-    forEachOperation,
-    loadSpec,
-  } = await import('@sdk-it/spec');
+  const { resolveRef } = await import('@sdk-it/core');
+  const { toIR, toSidebar, forEachOperation, loadSpec } = await import(
+    '@sdk-it/spec'
+  );
   // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
   // 'https://api.openstatus.dev/v1/openapi',
 
@@ -109,7 +106,7 @@ export async function loader({
         'https://api.openstatus.dev/v1/openapi'
       : // ?'https://raw.githubusercontent.com/readmeio/oas-examples/main/3.1/json/petstore.json'
         '');
-  const spec = augmentSpec({ spec: await loadSpec(specUrl) });
+  const spec = toIR({ spec: await loadSpec(specUrl) });
 
   const operationsMap: Record<
     string,

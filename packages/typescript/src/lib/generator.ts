@@ -111,32 +111,10 @@ export function generateCode(config: {
     };
 
     for (const type in operation.requestBody.content) {
-      const { objectSchema, xProperties, xRequired } = coearceRequestInput(
-        config.spec,
-        operation,
-        type,
+      schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(
+        operationSchema(config.spec, operation, type),
+        true,
       );
-      const additionalProperties: Record<string, ParameterObject> = {};
-      for (const [name, prop] of Object.entries(xProperties)) {
-        additionalProperties[name] = {
-          name: name,
-          required: xRequired?.includes(name),
-          schema: prop,
-          in: prop['x-in'],
-        };
-      }
-
-      const schema = merge({}, objectSchema, {
-        required: Object.values(additionalProperties)
-          .filter((p) => p.required)
-          .map((p) => p.name),
-        properties: Object.entries(additionalProperties).reduce(
-          (acc, [, p]) => ({ ...acc, [p.name]: p.schema }),
-          {},
-        ),
-      });
-
-      schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(schema, true);
     }
     const details = buildInput(config.spec, operation);
     const endpoint = toEndpoint(
@@ -274,7 +252,7 @@ function bodyInputs(spec: IR, ctSchema: SchemaObject | ReferenceObject) {
   );
 }
 
-const contentTypeMap = {
+const contentTypeSerializerMap = {
   'application/json': 'json',
   'application/x-www-form-urlencoded': 'urlencoded',
   'multipart/form-data': 'formdata',
@@ -282,14 +260,20 @@ const contentTypeMap = {
   'text/plain': 'text',
   'application/empty': 'empty',
 } as const;
+const serializerContentTypeMap = Object.fromEntries(
+  Object.entries(contentTypeSerializerMap).map(([k, v]) => [v, k]),
+) as Record<
+  (typeof contentTypeSerializerMap)[keyof typeof contentTypeSerializerMap],
+  string
+>;
 
 export function buildInput(spec: IR, operation: TunedOperationObject) {
   const inputs: Record<string, OperationInput> = {};
 
-  let outgoingContentType: (typeof contentTypeMap)[keyof typeof contentTypeMap] =
+  let outgoingContentType: (typeof contentTypeSerializerMap)[keyof typeof contentTypeSerializerMap] =
     'empty';
 
-  for (const [ct, value] of Object.entries(contentTypeMap)) {
+  for (const [ct, value] of Object.entries(contentTypeSerializerMap)) {
     if (operation.requestBody.content[ct]) {
       outgoingContentType = value;
       const { objectSchema, xProperties } = coearceRequestInput(
@@ -311,5 +295,37 @@ export function buildInput(spec: IR, operation: TunedOperationObject) {
   return {
     inputs,
     outgoingContentType,
+    ct: serializerContentTypeMap[outgoingContentType],
   };
+}
+
+export function operationSchema(
+  ir: IR,
+  operation: TunedOperationObject,
+  type: string,
+) {
+  const { objectSchema, xProperties, xRequired } = coearceRequestInput(
+    ir,
+    operation,
+    type,
+  );
+  const additionalProperties: Record<string, ParameterObject> = {};
+  for (const [name, prop] of Object.entries(xProperties)) {
+    additionalProperties[name] = {
+      name: name,
+      required: xRequired?.includes(name),
+      schema: prop,
+      in: prop['x-in'],
+    };
+  }
+
+  return merge({}, objectSchema, {
+    required: Object.values(additionalProperties)
+      .filter((p) => p.required)
+      .map((p) => p.name),
+    properties: Object.entries(additionalProperties).reduce(
+      (acc, [, p]) => ({ ...acc, [p.name]: p.schema }),
+      {},
+    ),
+  });
 }

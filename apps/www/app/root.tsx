@@ -74,12 +74,10 @@ export default function App() {
 }
 
 export async function loader({ request }: { request: Request }) {
-  const { generateSnippet } = await import('@sdk-it/typescript');
-  const {
-    toIR: augmentSpec,
-    createOperation,
-    forEachOperation,
-  } = await import('@sdk-it/spec');
+  const { TypeScriptSnippet } = await import('@sdk-it/typescript');
+  const { toIR, createOperation, forEachOperation } = await import(
+    '@sdk-it/spec'
+  );
   const processor = unified()
     .use(remarkParse)
     .use(remarkRehype)
@@ -113,7 +111,7 @@ export async function loader({ request }: { request: Request }) {
     operation: import('@sdk-it/spec').TunedOperationObject,
     partialSpec?: Partial<OpenAPIObject>,
   ) {
-    const spec = augmentSpec({
+    const spec = toIR({
       spec: {
         info: { title: 'SDK It Example', version: '1.0.0' },
         openapi: '3.0.0',
@@ -148,8 +146,9 @@ export async function loader({ request }: { request: Request }) {
       spec,
       (entry, operation) => [entry, operation] as const,
     );
+
     return processor.process(
-      generateSnippet(spec, { output: '' }, entry[0], entry[1]),
+      new TypeScriptSnippet(spec, { output: '' }).snippet(entry[0], entry[1]),
     );
   }
 
