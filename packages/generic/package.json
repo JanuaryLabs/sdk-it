@@ -18,7 +18,8 @@
   },
   "files": [
     "dist",
-    "!**/*.tsbuildinfo"
+    "!**/*.tsbuildinfo",
+    "!**/*.test.*"
   ],
   "dependencies": {
     "@sdk-it/core": "0.31.0",
