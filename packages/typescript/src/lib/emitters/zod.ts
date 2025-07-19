@@ -11,7 +11,6 @@ type OnRefCallback = (ref: string, content: string) => void;
 
 /**
  * Convert an OpenAPI (JSON Schema style) object into a Zod schema string,
- * adapted for OpenAPI 3.1 (fully aligned with JSON Schema 2020-12).
  */
 export class ZodEmitter {
   #generatedRefs = new Set<string>();

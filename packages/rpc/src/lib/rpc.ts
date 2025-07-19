@@ -1,8 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { tool } from 'ai';
 import { z } from 'zod';
 
 import { forEachOperation, loadSpec, toIR } from '@sdk-it/spec';
-import { buildInput, inputToPath, toHttpOutput } from '@sdk-it/typescript';
+import {
+  buildInput,
+  inputToPath,
+  operationSchema,
+  toHttpOutput,
+} from '@sdk-it/typescript';
 
 import { Dispatcher, fetchType } from './http/dispatcher.ts';
 import {
@@ -21,6 +27,7 @@ import {
   urlencoded,
 } from './http/request.ts';
 import * as http from './http/response.ts';
+import { schemaToZod } from './zod.ts';
 
 const optionsSchema = z.object({
   token: z
@@ -89,10 +96,13 @@ export class Client {
   }
 }
 
-export async function rpc(openapi: string, options?: Partial<ClientOptions>) {
+export async function rpc(
+  openapi: string,
+  options?: Partial<ClientOptions>,
+): Promise<Client> {
   const spec = await loadSpec(openapi);
   const ir = toIR({ spec, responses: { flattenErrorResponses: true } });
-  const schemas: Record<string, any> = {};
+  const schemas: Record<Endpoint, any> = {};
 
   forEachOperation(ir, (entry, operation) => {
     const endpoint: Endpoint = `${entry.method.toUpperCase() as Method} ${entry.path}`;
@@ -103,7 +113,6 @@ export async function rpc(openapi: string, options?: Partial<ClientOptions>) {
       formdata: formdata,
       empty: empty,
     } as const;
-    console.log(operation.responses);
     const outputs = Object.keys(operation.responses).flatMap((status) =>
       toHttpOutput(
         spec,
@@ -115,16 +124,7 @@ export async function rpc(openapi: string, options?: Partial<ClientOptions>) {
     );
     schemas[endpoint] = {
       output: outputs.map((it) => http[it.replace('http.', '') as never]),
-      toRequest(input: any) {
-        const serializer =
-          contentTypeMap[
-            details.outgoingContentType as keyof typeof contentTypeMap
-          ] || defaultSerializer(details.outgoingContentType);
-        return toRequest(
-          endpoint,
-          serializer(input, inputToPath(operation, details.inputs)),
-        );
-      },
+      schemas: schemaToZod(operationSchema(ir, operation, details.ct)),
       async dispatch(
         input: any,
         options: {
@@ -134,16 +134,18 @@ export async function rpc(openapi: string, options?: Partial<ClientOptions>) {
         },
       ) {
         const dispatcher = new Dispatcher(options.interceptors, options.fetch);
-        const result = await dispatcher.send(
-          this.toRequest(input),
-          this.output,
+        const serializer =
+          contentTypeMap[
+            details.outgoingContentType as keyof typeof contentTypeMap
+          ] || defaultSerializer(details.outgoingContentType);
+        const request = toRequest(
+          endpoint,
+          serializer(input, inputToPath(operation, details.inputs)),
         );
-        return result;
+        return dispatcher.send(request, this.output);
       },
     };
   });
-
-  console.log(schemas);
 
   return new Client(
     {
@@ -152,6 +154,24 @@ export async function rpc(openapi: string, options?: Partial<ClientOptions>) {
     },
     schemas,
   );
+}
+
+export async function toTools(rpc: Client) {
+  const tools: Record<string, any> = {};
+  for (const [endpoint, route] of Object.entries(rpc.schemas)) {
+    const operation = route.schemas;
+    tools[route.schemas.operationId] = tool({
+      description: operation.description,
+      type: 'function',
+      inputSchema: route.schemas,
+      execute: async (input) => {
+        console.log('Executing tool with input:', input);
+        const response = await rpc.request(endpoint, input);
+        return JSON.stringify(response);
+      },
+    });
+  }
+  return tools;
 }
 
 function defaultSerializer(ct: string) {
