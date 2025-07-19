@@ -3,7 +3,7 @@ import { marked } from 'marked';
 import { lazy, memo, useMemo } from 'react';
 import remarkGfm from 'remark-gfm';
 
-import { cn } from '../shadcn';
+import { cn } from '@sdk-it/shadcn';
 
 const ReactMarkdown = lazy(() =>
   import('react-markdown').then((mod) => ({ default: mod.MarkdownHooks })),

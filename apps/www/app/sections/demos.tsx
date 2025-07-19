@@ -1,8 +1,9 @@
 import { BookText, CodeSquare, Sparkles, WandSparkles } from 'lucide-react';
 import { useState } from 'react';
 
+import { cn } from '@sdk-it/shadcn';
+
 import { useTheme } from '../components/toggle-theme';
-import { cn } from '../shadcn';
 import { AskAi } from './ai';
 import { StaticPlayground } from './static-playground';
 

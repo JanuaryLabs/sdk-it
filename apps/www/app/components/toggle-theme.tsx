@@ -1,9 +1,10 @@
 import { Moon, Sun } from 'lucide-react';
 import { useLocalStorage } from 'usehooks-ts';
 
-import { cn } from '../shadcn';
-import useCookie from '../shadcn/lib/hooks/use-cookie';
-import { useRootData } from '../use-root-data';
+import { cn } from '@sdk-it/shadcn';
+
+import useCookie from '../hooks/use-cookie';
+import { useRootData } from '../hooks/use-root-data';
 
 interface ThemeToggleProps {
   className?: string;

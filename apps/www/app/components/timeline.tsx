@@ -3,7 +3,7 @@ import { cva } from 'class-variance-authority';
 import { Check, Circle, X } from 'lucide-react';
 import * as React from 'react';
 
-import { cn } from '../shadcn';
+import { cn } from '@sdk-it/shadcn';
 
 const timelineVariants = cva('grid', {
   variants: {
@@ -200,9 +200,9 @@ TimelineLine.displayName = 'TimelineLine';
 
 export {
   Timeline,
-  TimelineDot,
-  TimelineItem,
   TimelineContent,
+  TimelineDot,
   TimelineHeading,
+  TimelineItem,
   TimelineLine,
 };

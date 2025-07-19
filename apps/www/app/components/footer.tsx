@@ -1,4 +1,5 @@
-import { cn } from '../shadcn';
+import { cn } from '@sdk-it/shadcn';
+
 import { Logo } from './logo';
 
 interface FooterProps {

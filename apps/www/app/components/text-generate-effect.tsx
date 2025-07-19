@@ -1,7 +1,7 @@
 import { motion, stagger, useAnimate } from 'framer-motion';
 import { useEffect } from 'react';
 
-import { cn } from '../shadcn';
+import { cn } from '@sdk-it/shadcn';
 
 export const TextGenerateEffect = ({
   words,

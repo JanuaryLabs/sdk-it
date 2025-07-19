@@ -1,6 +1,4 @@
 import { motion } from 'motion/react';
-
-import { Button } from '../shadcn/index.ts';
 import type { PropsWithChildren } from 'react';
 
 function FloatingPaths({ position }: { position: number }) {
@@ -50,9 +48,9 @@ function FloatingPaths({ position }: { position: number }) {
   );
 }
 
-export function BackgroundPaths(props:PropsWithChildren) {
+export function BackgroundPaths(props: PropsWithChildren) {
   return (
-    <div className="relative flex h-96 w-full items-center justify-center overflow-hidden bg-background">
+    <div className="bg-background relative flex h-96 w-full items-center justify-center overflow-hidden">
       <div className="absolute inset-0">
         <FloatingPaths position={-3} />
         <FloatingPaths position={-2} />

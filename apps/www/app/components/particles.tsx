@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-import { cn } from '../shadcn';
+import { cn } from '@sdk-it/shadcn';
 
 interface MousePosition {
   x: number;

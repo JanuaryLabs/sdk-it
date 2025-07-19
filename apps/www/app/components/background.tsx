@@ -1,6 +1,6 @@
 import { type PropsWithChildren } from 'react';
 
-import { cn } from '../shadcn';
+import { cn } from '@sdk-it/shadcn';
 
 export default function Background(
   props: React.PropsWithChildren<{ className?: string }>,

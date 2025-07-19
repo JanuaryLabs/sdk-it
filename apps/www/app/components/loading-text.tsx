@@ -1,6 +1,4 @@
-import React from 'react';
-
-import { cn } from '../shadcn';
+import { cn } from '@sdk-it/shadcn';
 
 export interface LoaderProps {
   variant?:

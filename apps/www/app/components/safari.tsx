@@ -1,6 +1,6 @@
 import { Minus, Square, X } from 'lucide-react';
 
-import { cn } from '../shadcn';
+import { cn } from '@sdk-it/shadcn';
 
 export interface SafariProps {
   className?: string;

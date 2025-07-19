@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import React, { type JSX, useMemo } from 'react';
 
-import { cn } from '../shadcn';
+import { cn } from '@sdk-it/shadcn';
 
 interface TextShimmerProps {
   children: string;

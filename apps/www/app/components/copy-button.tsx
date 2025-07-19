@@ -1,6 +1,8 @@
 import { Check, Copy } from 'lucide-react';
-import { Button, cn } from '../shadcn';
-import { useCopyToClipboard } from '../shadcn/lib/hooks/use-copy-to-clipboard';
+
+import { Button, cn } from '@sdk-it/shadcn';
+
+import { useCopyToClipboard } from '../hooks/use-copy-to-clipboard';
 
 type CopyButtonProps = {
   content: string;

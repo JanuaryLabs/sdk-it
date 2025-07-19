@@ -1,0 +1,21 @@
+{
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "../../packages/spec"
+    },
+    {
+      "path": "../../packages/shadcn"
+    },
+    {
+      "path": "./tsconfig.app.json"
+    }
+  ],
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler",
+    "types": ["@react-router/node"]
+  }
+}

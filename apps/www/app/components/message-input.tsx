@@ -2,8 +2,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowUp, Square, X } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
+import { Button, cn } from '@sdk-it/shadcn';
+
 import { useAutosizeTextArea } from '../hooks/use-autosize-textarea';
-import { Button, cn } from '../shadcn';
 
 interface MessageInputBaseProps
   extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
