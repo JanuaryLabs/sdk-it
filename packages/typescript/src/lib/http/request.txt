@@ -1,7 +1,19 @@
-type Init = Omit<RequestInit, 'headers'> & { headers: Headers; };
+type Init = Omit<RequestInit, 'headers'> & { headers: Headers };
 export type RequestConfig = { init: Init; url: URL };
-export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
-export type ContentType = 'xml' | 'json' | 'urlencoded' | 'multipart' | 'formdata';
+export type Method =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'PATCH'
+  | 'DELETE'
+  | 'HEAD'
+  | 'OPTIONS';
+export type ContentType =
+  | 'xml'
+  | 'json'
+  | 'urlencoded'
+  | 'multipart'
+  | 'formdata';
 export type HeadersInit = [string, string][] | Record<string, string>;
 export type Endpoint =
   | `${ContentType} ${Method} ${string}`
@@ -52,10 +64,7 @@ abstract class Serializer {
   protected input: Input;
   protected props: Props;
 
-  constructor(
-    input: Input,
-    props: Props,
-  ) {
+  constructor(input: Input, props: Props) {
     this.input = input;
     this.props = props;
   }
@@ -72,7 +81,13 @@ abstract class Serializer {
     for (const key of this.props.inputQuery) {
       const value = this.input[key];
       if (value !== undefined) {
-        query.set(key, String(value));
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            query.append(key, String(item));
+          }
+        } else {
+          query.set(key, String(value));
+        }
       }
     }
 
@@ -190,5 +205,5 @@ export function toRequest<T extends Endpoint>(
       headers: new Headers(input.headers),
       body: method === 'GET' ? undefined : input.body,
     },
-  }
+  };
 }
