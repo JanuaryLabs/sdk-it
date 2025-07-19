@@ -24,7 +24,7 @@ import {
   formdata,
   json,
   toRequest,
-  urlencoded, 
+  urlencoded,
 } from './http/request.ts';
 import * as http from './http/response.ts';
 import { schemaToZod } from './zod.ts';
@@ -42,9 +42,15 @@ type ClientOptions = z.infer<typeof optionsSchema>;
 export class Client {
   public options: ClientOptions;
   public schemas: Record<string, any>;
-  constructor(options: ClientOptions, schemas: Record<string, any>) {
+  public operations: Record<string, any>;
+  constructor(
+    options: ClientOptions,
+    schemas: Record<string, any>,
+    operations: Record<string, any>,
+  ) {
     this.options = optionsSchema.parse(options);
     this.schemas = schemas;
+    this.operations = operations;
   }
 
   async request(
@@ -103,7 +109,7 @@ export async function rpc(
   const spec = await loadSpec(openapi);
   const ir = toIR({ spec, responses: { flattenErrorResponses: true } });
   const schemas: Record<Endpoint, any> = {};
-
+  const operations: Record<string, any> = {};
   forEachOperation(ir, (entry, operation) => {
     const endpoint: Endpoint = `${entry.method.toUpperCase() as Method} ${entry.path}`;
     const details = buildInput(ir, operation);
@@ -122,9 +128,11 @@ export async function rpc(
         false,
       ),
     );
+    const inputSchema = schemaToZod(operationSchema(ir, operation, details.ct));
     schemas[endpoint] = {
+      operationId: operation.operationId,
       output: outputs.map((it) => http[it.replace('http.', '') as never]),
-      schemas: schemaToZod(operationSchema(ir, operation, details.ct)),
+      schemas: inputSchema,
       async dispatch(
         input: any,
         options: {
@@ -145,6 +153,10 @@ export async function rpc(
         return dispatcher.send(request, this.output);
       },
     };
+    operations[operation.operationId] = {
+      description: operation.description,
+      input: inputSchema,
+    };
   });
 
   return new Client(
@@ -153,17 +165,18 @@ export async function rpc(
       baseUrl: options?.baseUrl ?? ir.servers[0].url,
     },
     schemas,
+    operations,
   );
 }
 
 export async function toTools(rpc: Client) {
   const tools: Record<string, any> = {};
   for (const [endpoint, route] of Object.entries(rpc.schemas)) {
-    const operation = route.schemas;
-    tools[route.schemas.operationId] = tool({
-      description: operation.description,
+    const operation = rpc.operations[route.operationId];
+    tools[route.operationId] = tool({
       type: 'function',
-      inputSchema: route.schemas,
+      description: operation.description,
+      inputSchema: operation.input,
       execute: async (input) => {
         console.log('Executing tool with input:', input);
         const response = await rpc.request(endpoint, input);

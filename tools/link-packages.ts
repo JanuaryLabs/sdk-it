@@ -11,6 +11,7 @@ const projects = [
   'readme',
   'spec',
   'typescript',
+  'rpc'
 ];
 for (const project of [...projects]) {
   const dir = join(process.cwd(), 'packages', project);
