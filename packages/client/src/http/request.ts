@@ -81,7 +81,13 @@ abstract class Serializer {
     for (const key of this.props.inputQuery) {
       const value = this.input[key];
       if (value !== undefined) {
-        query.set(key, String(value));
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            query.append(key, String(item));
+          }
+        } else {
+          query.set(key, String(value));
+        }
       }
     }
 
