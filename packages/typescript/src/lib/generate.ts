@@ -278,7 +278,7 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
             },
             dependencies: {
               'fast-content-type-parse': '^3.0.0',
-              zod: '^3.24.2',
+              zod: '^3.25.76',
             },
           },
           null,
