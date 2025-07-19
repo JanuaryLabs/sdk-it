@@ -18,13 +18,11 @@ import type { TypeScriptGeneratorOptions } from './options.ts';
 
 export class TypeScriptSnippet implements Generator {
   #spec: IR;
-  #settings: TypeScriptGeneratorOptions;
   #snippetEmitter: SnippetEmitter;
   #clientName: string;
   #packageName: string;
   constructor(spec: IR, settings: TypeScriptGeneratorOptions) {
     this.#spec = spec;
-    this.#settings = settings;
     this.#snippetEmitter = new SnippetEmitter(spec);
     this.#clientName = settings.name?.trim()
       ? pascalcase(settings.name)
