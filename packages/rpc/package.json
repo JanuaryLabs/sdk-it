@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/rpc",
-  "version": "0.30.0",
+  "version": "0.31.0",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -21,10 +21,10 @@
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
-    "@sdk-it/spec": "0.30.0",
+    "@sdk-it/spec": "0.31.0",
     "zod": "^3.25.76 || ^4.0.0",
     "fast-content-type-parse": "^3.0.0",
-    "@sdk-it/typescript": "0.30.0",
+    "@sdk-it/typescript": "0.31.0",
     "ai": "^5.0.0-beta.24",
     "openapi3-ts": "4.5.0"
   }
