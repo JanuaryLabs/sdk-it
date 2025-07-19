@@ -1,3 +1,4 @@
+import { isRef } from '@sdk-it/core';
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 import { type ZodSchema, type ZodTypeAny, z } from 'zod';
 
@@ -355,7 +356,7 @@ export class RuntimeZodConverter {
 
   handle(schema: SchemaObject | ReferenceObject, required = false): ZodSchema {
     // Handle reference
-    if ('$ref' in schema) {
+    if (isRef(schema)) {
       let result = this.#ref(schema.$ref);
       if (!required) {
         result = result.optional();
