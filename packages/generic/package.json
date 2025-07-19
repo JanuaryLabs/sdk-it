@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/generic",
-  "version": "0.31.0",
+  "version": "0.31.1",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -22,7 +22,7 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.31.0",
+    "@sdk-it/core": "0.31.1",
     "stringcase": "^4.3.1",
     "debug": "^4.4.0",
     "openapi3-ts": "^4.4.0"
