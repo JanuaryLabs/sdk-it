@@ -4,7 +4,7 @@ import { writeFile } from 'node:fs/promises';
 import { z } from 'zod';
 
 import { distillRef } from '@sdk-it/core';
-import { type IR, loadSpec, toIR } from '@sdk-it/spec';
+import { type IR, toIR, loadSpec } from '@sdk-it/spec';
 import { TypeScriptSnippet } from '@sdk-it/typescript';
 
 import { findOperationById, toOperations } from '../utils/operation-utils.ts';
@@ -115,7 +115,7 @@ export const getSchemaDefinition = tool({
     const context = coerceContext(maybeContext?.context);
     console.log(`[Tool Call] getSchemaDefinition for ${input.ref}`);
     const spec = context.spec as IR;
-    const definition = distillRef(spec, input.ref);
+    const definition = distillRef(spec, input);
     if (!definition) {
       return `Schema not found for ref: ${input.ref}`;
     }
