@@ -45,6 +45,9 @@
     },
     {
       "path": "../../packages/client/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/shadcn/tsconfig.lib.json"
     }
   ]
 }

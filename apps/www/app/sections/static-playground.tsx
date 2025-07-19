@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { titlecase } from 'stringcase';
 
-import { Example } from '../code-snippets';
+import { cn } from '@sdk-it/shadcn';
+
+import { Example } from '../components/code-snippets';
 import { Safari } from '../components/safari';
 import { TreeView } from '../components/tree';
-import { cn } from '../shadcn';
-import { useRootData } from '../use-root-data';
+import { useRootData } from '../hooks/use-root-data';
 
 export function StaticPlayground(props: {
   frame?: boolean;
@@ -49,7 +50,7 @@ export function StaticPlayground(props: {
   return (
     <div className={cn('w-full', props.className)}>
       {props.frame ? <Safari className="h-auto w-full" /> : null}
-      <div className="relative grid w-full grid-cols-1 gap-x-4 xl:gap-0 lg:grid-cols-7 lg:gap-12 xl:grid-cols-4">
+      <div className="relative grid w-full grid-cols-1 gap-x-4 lg:grid-cols-7 lg:gap-12 xl:grid-cols-4 xl:gap-0">
         <div className="col-span-full px-2 py-2 lg:col-span-2 xl:col-span-1">
           <TreeView
             onLeafSelect={(item) => {

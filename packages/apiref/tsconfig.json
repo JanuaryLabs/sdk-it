@@ -3,10 +3,13 @@
   "include": [],
   "references": [
     {
+      "path": "../typescript"
+    },
+    {
       "path": "../core"
     },
     {
-      "path": "../typescript"
+      "path": "../shadcn"
     },
     {
       "path": "../spec"

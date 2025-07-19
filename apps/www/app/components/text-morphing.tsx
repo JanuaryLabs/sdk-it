@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { cn } from '../shadcn';
+import { cn } from '@sdk-it/shadcn';
 
 const morphTime = 0.25;
 const cooldownTime = 3;
@@ -137,7 +137,7 @@ export const MorphingText: React.FC<MorphingTextProps> = ({
 }) => (
   <div
     className={cn(
-      'relative mx-auto h-12 w-full inline [filter:url(#threshold)_blur(0.2px)] ',
+      'relative mx-auto inline h-12 w-full [filter:url(#threshold)_blur(0.2px)]',
       className,
     )}
   >

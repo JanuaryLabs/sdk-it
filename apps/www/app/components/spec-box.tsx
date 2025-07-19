@@ -6,8 +6,8 @@ import { useLocalStorage } from 'usehooks-ts';
 import { z } from 'zod';
 
 import { type PostPlayground, SdkIt } from '@sdk-it/client';
+import { Button, cn } from '@sdk-it/shadcn';
 
-import { Button, cn } from '../shadcn';
 import { Loader } from './loading-text';
 
 const client = new SdkIt({

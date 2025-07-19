@@ -2,9 +2,9 @@ import { ArrowUpIcon } from 'lucide-react';
 import type React from 'react';
 import { createContext, useContext } from 'react';
 
-import { Button, cn } from '../shadcn';
-import { useTextareaResize } from '../shadcn/lib/hooks/use-auto-resize-textarea';
-import { Textarea } from '../shadcn/lib/ui/text-area';
+import { Button, Textarea, cn } from '@sdk-it/shadcn';
+
+import { useTextareaResize } from '../hooks/use-auto-resize-textarea';
 
 interface ChatInputContextValue {
   value?: string;
@@ -51,8 +51,8 @@ function ChatInput({
       <div
         className={cn(
           variant === 'default' &&
-            'flex flex-col items-end w-full p-2 rounded-2xl border border-input bg-transparent focus-within:ring-1 focus-within:ring-ring focus-within:outline-none',
-          variant === 'unstyled' && 'flex items-start gap-2 w-full',
+            'border-input focus-within:ring-ring flex w-full flex-col items-end rounded-2xl border bg-transparent p-2 focus-within:ring-1 focus-within:outline-none',
+          variant === 'unstyled' && 'flex w-full items-start gap-2',
           className,
         )}
       >
@@ -113,7 +113,7 @@ function ChatInputTextArea({
       className={cn(
         'max-h-[400px] min-h-0 resize-none overflow-x-hidden',
         variant === 'unstyled' &&
-          'border-none focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none',
+          'border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0',
         className,
       )}
       rows={rows}
@@ -146,7 +146,7 @@ function ChatInputSubmit({
       <Button
         onClick={onStop}
         className={cn(
-          'shrink-0 rounded-full p-1.5 h-fit border dark:border-zinc-600',
+          'h-fit shrink-0 rounded-full border p-1.5 dark:border-zinc-600',
           className,
         )}
         {...props}
@@ -176,7 +176,7 @@ function ChatInputSubmit({
   return (
     <Button
       className={cn(
-        'shrink-0 rounded-full p-1.5 h-fit border dark:border-zinc-600',
+        'h-fit shrink-0 rounded-full border p-1.5 dark:border-zinc-600',
         className,
       )}
       disabled={isDisabled}
@@ -195,4 +195,4 @@ function ChatInputSubmit({
 
 ChatInputSubmit.displayName = 'ChatInputSubmit';
 
-export { ChatInput, ChatInputTextArea, ChatInputSubmit };
+export { ChatInput, ChatInputSubmit, ChatInputTextArea };

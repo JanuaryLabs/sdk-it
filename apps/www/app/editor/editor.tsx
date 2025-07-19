@@ -3,7 +3,8 @@ import type monaco from 'monaco-editor';
 import { useEffect, useRef } from 'react';
 import { useReadLocalStorage } from 'usehooks-ts';
 
-import { cn } from '../shadcn';
+import { cn } from '@sdk-it/shadcn';
+
 import { EditorContext, EditorLayout } from './editor-layout';
 import { useEditorTheme } from './use-editor-theme';
 

@@ -1,15 +1,16 @@
 import { Code2Icon, DollarSignIcon, UsersIcon } from 'lucide-react';
 
+import { Button, cn } from '@sdk-it/shadcn';
+
 import Background from './components/background';
 import { DottedBackground } from './components/dotted-vignette-background.tsx';
+import { EyeCatchingButton } from './components/eye-catching-button.tsx';
 import { Footer } from './components/footer';
-import { Lightning } from './components/lightining.tsx';
+import { SpecBoxDemo } from './components/spec-box-demo.tsx';
 import { TextGenerateEffect } from './components/text-generate-effect';
 import { useTheme } from './components/toggle-theme.tsx';
 import { Clients } from './sections/clients.tsx';
 import { Demos } from './sections/demos';
-import { Button, EyeCatchingButton, cn } from './shadcn';
-import { SpecBoxDemo } from './spec-box-demo';
 
 export function Hero(props: { className?: string }) {
   return (

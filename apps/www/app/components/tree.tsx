@@ -9,13 +9,13 @@ import {
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 
-import { cn } from '../shadcn';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '../shadcn/lib/ui/collapsible';
-import { Input } from '../shadcn/lib/ui/input';
+  Input,
+  cn,
+} from '@sdk-it/shadcn';
 
 export interface TreeItem {
   id: string;

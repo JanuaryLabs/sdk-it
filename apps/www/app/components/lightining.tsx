@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-import { cn } from '../shadcn/lib/utils';
+import { cn } from '@sdk-it/shadcn';
 
 interface LightningProps {
   hue?: number;

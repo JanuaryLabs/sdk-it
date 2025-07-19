@@ -11,6 +11,8 @@ import React, {
 import { AiOutlineArrowDown } from 'react-icons/ai';
 import { useLocalStorage } from 'usehooks-ts';
 
+import { Button } from '@sdk-it/shadcn';
+
 import { StillMarkdown } from '../api-doc/still-markdown';
 import {
   Credenza,
@@ -21,10 +23,9 @@ import {
   CredenzaTitle,
   CredenzaTrigger,
 } from '../components/credenza';
-import { MessageInput } from '../hooks/message-input';
 import { useScrollToBottom } from '../hooks/use-scroll-to-bottom';
-import { Button } from '../shadcn';
 import { cn } from '../shadcn/cn';
+import { MessageInput } from './message-input';
 import { TextShimmer } from './text-shimmer';
 import useElementHeight from './use-element-height';
 

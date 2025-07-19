@@ -14,7 +14,7 @@ import {
   useState,
 } from 'react';
 
-import { cn } from '../shadcn';
+import { cn } from '@sdk-it/shadcn';
 
 interface TextRotateProps {
   texts: string[];
@@ -205,7 +205,7 @@ const TextRotate = forwardRef<TextRotateRef, TextRotateProps>(
             key={currentTextIndex}
             className={cn(
               'flex flex-wrap',
-              splitBy === 'lines' && 'flex-col w-full',
+              splitBy === 'lines' && 'w-full flex-col',
             )}
             layout
             aria-hidden="true"

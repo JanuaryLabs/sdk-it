@@ -302,8 +302,10 @@ async function evalZod(schema: string, imports: InjectImport[] = []) {
   ];
 
   const base64 = Buffer.from(lines.join('\n')).toString('base64');
-  /* @vite-ignore */
-  return import(`data:text/javascript;base64,${base64}`)
+  return import(
+    /* @vite-ignore */
+    `data:text/javascript;base64,${base64}`
+  )
     .then((mod) => mod.default)
     .then(({ $schema, ...result }) => result);
 }

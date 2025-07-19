@@ -16,10 +16,11 @@ import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
 import { unified } from 'unified';
 
+import { Toaster, cn } from '@sdk-it/shadcn';
+
 import '../styles.css';
-import { AppNav } from './app-nav';
-import { Toaster, cn } from './shadcn';
-import { useRootData } from './use-root-data';
+import { useRootData } from './hooks/use-root-data';
+import { AppNav } from './navigation/app-nav';
 
 export const meta: MetaFunction = () => [
   {
