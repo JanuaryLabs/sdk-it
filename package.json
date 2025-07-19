@@ -12,7 +12,6 @@
   "repository": "https://github.com/JanuaryLabs/sdk-it",
   "private": true,
   "devDependencies": {
-    "husky": "^9.1.7",
     "@eslint/js": "^9.29.0",
     "@nx/esbuild": "21.2.1",
     "@nx/eslint": "21.2.1",
@@ -50,6 +49,7 @@
     "eslint-plugin-jsx-a11y": "6.10.2",
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "5.2.0",
+    "husky": "^9.1.7",
     "jsonc-eslint-parser": "^2.4.0",
     "nx": "21.2.1",
     "prettier": "^3.6.1",
@@ -94,6 +94,7 @@
     "@tailwindcss/typography": "^0.5.16",
     "@types/marked-terminal": "^6.1.1",
     "@types/pluralize": "^0.0.33",
+    "ai": "^5.0.0-beta.24",
     "character-entities": "^2.0.2",
     "cmdk": "^1.1.1",
     "comlink": "^4.4.2",
