@@ -128,7 +128,10 @@ export async function rpc(
         false,
       ),
     );
-    const inputSchema = schemaToZod(operationSchema(ir, operation, details.ct));
+    const inputSchema = schemaToZod(
+      operationSchema(ir, operation, details.ct),
+      spec,
+    );
     schemas[endpoint] = {
       operationId: operation.operationId,
       output: outputs.map((it) => http[it.replace('http.', '') as never]),
