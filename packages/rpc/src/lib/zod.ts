@@ -1,14 +1,17 @@
-import { isRef } from '@sdk-it/core';
-import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
+import type {
+  OpenAPIObject,
+  ReferenceObject,
+  SchemaObject,
+} from 'openapi3-ts/oas31';
 import { type ZodSchema, type ZodTypeAny, z } from 'zod';
+
+import { followRef, isRef } from '@sdk-it/core';
 
 /**
  * Convert an OpenAPI (JSON Schema style) object into a runtime Zod schema,
  */
 export class RuntimeZodConverter {
-  #resolvedRefs = new Map<string, ZodSchema>();
-
-  constructor(private resolveRef?: (ref: string) => SchemaObject) {}
+  constructor(private spec: OpenAPIObject) {}
 
   #object(schema: SchemaObject): ZodSchema {
     const properties = schema.properties || {};
@@ -69,21 +72,8 @@ export class RuntimeZodConverter {
   }
 
   #ref($ref: string): ZodSchema {
-    const cached = this.#resolvedRefs.get($ref);
-    if (cached) {
-      return cached;
-    }
-
-    if (!this.resolveRef) {
-      throw new Error(
-        `Cannot resolve reference ${$ref} - no resolver provided`,
-      );
-    }
-
-    const resolvedSchema = this.resolveRef($ref);
+    const resolvedSchema = followRef(this.spec, $ref);
     const zodSchema = this.handle(resolvedSchema, true);
-    this.#resolvedRefs.set($ref, zodSchema);
-
     return zodSchema;
   }
 
@@ -488,11 +478,11 @@ export class RuntimeZodConverter {
  */
 export function schemaToZod(
   schema: SchemaObject,
+  spec: OpenAPIObject,
   options?: {
     required?: boolean;
-    resolveRef?: (ref: string) => SchemaObject;
   },
 ): ZodSchema {
-  const converter = new RuntimeZodConverter(options?.resolveRef);
+  const converter = new RuntimeZodConverter(spec);
   return converter.handle(schema, options?.required ?? false);
 }
