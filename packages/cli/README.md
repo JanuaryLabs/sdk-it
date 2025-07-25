@@ -6,10 +6,10 @@
 
 ```bash
 # Install globally
-npm install -g sdk-it
+npm install -g @sdk-it/cli
 
 # Or use with npx without installing
-npx sdk-it
+npx @sdk-it/cli
 ```
 
 ## Usage
@@ -19,7 +19,7 @@ The CLI provides a simple way to generate SDKs from OpenAPI specifications
 ### Basic Command Structure
 
 ```bash
-npx sdk-it --spec <path-to-spec> --output <output-directory> [options]
+npx @sdk-it/cli <language> --spec <path-to-spec> --output <output-directory> [options]
 ```
 
 ### Options

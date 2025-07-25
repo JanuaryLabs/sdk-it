@@ -5,20 +5,7 @@ import { generate } from '@sdk-it/python';
 import { loadSpec, toIR } from '@sdk-it/spec';
 
 import { outputOption, shellEnv, specOption } from '../options.ts';
-
-interface Options {
-  spec: string;
-  output: string;
-  mode?: 'full' | 'minimal';
-  name?: string;
-  /**
-   * Command to run the formatter.
-   * @example 'black $SDK_IT_OUTPUT'
-   * @example 'ruff format $SDK_IT_OUTPUT'
-   */
-  formatter?: string;
-  verbose: boolean;
-}
+import type { PythonOptions } from '../types.ts';
 
 export default new Command('python')
   .description('Generate Python SDK')
@@ -27,11 +14,11 @@ export default new Command('python')
   .option('-n, --name <n>', 'Name of the generated client', 'Client')
   .option('-v, --verbose', 'Verbose output', false)
   .option('--formatter <formatter>', 'Formatter to use for the generated code')
-  .action(async (options: Options) => {
+  .action(async (options: PythonOptions) => {
     await runPython(options);
   });
 
-export async function runPython(options: Options) {
+export async function runPython(options: PythonOptions) {
   const spec = toIR({ spec: await loadSpec(options.spec) }, true);
   await generate(spec, {
     output: options.output,

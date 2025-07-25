@@ -1,45 +1,15 @@
 #!/usr/bin/env node
 import { Command, program } from 'commander';
-import { readFile } from 'node:fs/promises';
 
+import { readJson } from '@sdk-it/core/file-system.js';
+
+import init from './commands/init.ts';
 import apiref from './generators/apiref.ts';
 import dart, { runDart } from './generators/dart.ts';
 import python, { runPython } from './generators/python.ts';
 import readme, { runReadme } from './generators/readme.ts';
 import typescript, { runTypescript } from './generators/typescript.ts';
-
-interface SdkConfig {
-  readme?: {
-    spec: string;
-    output: string;
-  };
-  apiref?: {
-    spec: string;
-    output: string;
-  };
-  generators: {
-    typescript?: {
-      spec: string;
-      output: string;
-      mode?: 'full' | 'minimal';
-      name?: string;
-      pagination?: boolean;
-    };
-    python?: {
-      spec: string;
-      output: string;
-      mode?: 'full' | 'minimal';
-      name?: string;
-    };
-    dart?: {
-      spec: string;
-      output: string;
-      mode?: 'full' | 'minimal';
-      name?: string;
-      pagination?: boolean;
-    };
-  };
-}
+import type { SdkConfig } from './types.ts';
 
 interface Options {
   config?: string;
@@ -48,9 +18,7 @@ interface Options {
 const generate = new Command('generate')
   .action(async (options: Options) => {
     options.config ??= 'sdk-it.json';
-    const config = await readFile(options.config, 'utf-8').then(
-      (data) => JSON.parse(data) as SdkConfig,
-    );
+    const config = await readJson<SdkConfig>(options.config);
 
     const promises: Promise<unknown>[] = [];
 
@@ -61,13 +29,14 @@ const generate = new Command('generate')
           output: config.generators.typescript.output,
           mode: config.generators.typescript.mode,
           name: config.generators.typescript.name,
-          useTsExtension: true,
-          install: true,
+          useTsExtension: config.generators.typescript.useTsExtension ?? true,
+          install: config.generators.typescript.install ?? false,
           verbose: false,
-          defaultFormatter: true,
+          defaultFormatter:
+            config.generators.typescript.defaultFormatter ?? true,
           outputType: 'default',
-          readme: true,
-          pagination: config.generators.typescript.pagination?.toString(),
+          readme: config.generators.typescript.readme ?? true,
+          pagination: config.generators.typescript.pagination,
         }),
       );
     }
@@ -91,9 +60,8 @@ const generate = new Command('generate')
           output: config.generators.dart.output,
           mode: config.generators.dart.mode,
           name: config.generators.dart.name,
-          useTsExtension: false,
           verbose: false,
-          pagination: config.generators.dart.pagination?.toString(),
+          pagination: config.generators.dart.pagination,
         }),
       );
     }
@@ -118,6 +86,7 @@ const generate = new Command('generate')
 const cli = program
   .description(`CLI tool to interact with SDK-IT.`)
   .addCommand(generate, { isDefault: true })
+  .addCommand(init)
   .addCommand(
     new Command('_internal').action(() => {
       // do nothing
