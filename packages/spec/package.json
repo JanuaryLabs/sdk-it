@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/spec",
-  "version": "0.33.0",
+  "version": "0.33.1",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -27,7 +27,7 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.33.0",
+    "@sdk-it/core": "0.33.1",
     "openapi3-ts": "4.5.0",
     "pluralize": "^8.0.0",
     "stringcase": "^4.3.1",
