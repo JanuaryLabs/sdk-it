@@ -168,9 +168,9 @@ export async function getFolderExportsV2(
       let name = options.includeExtension
         ? file.fileName
         : file.fileName.replace(extname(file.fileName), '');
-      if (name.startsWith('$')) {
-        name = `\\${name}`;
-      }
+
+      // replace $ with \ to avoid issues with import/export syntax
+      name = name.replace(/\$/g, '\\$');
       exports.push(`${options.exportSyntax} './${name}';`);
     }
   }
