@@ -3,31 +3,39 @@ import { camelcase } from 'stringcase';
 
 import { reservedKeywords, reservedSdkKeywords } from './reserved-keywords.js';
 
-/**
- * Sanitizes a potential tag name (assumed to be already camelCased)
- * to avoid conflicts with reserved keywords or invalid starting characters (numbers).
- * Appends an underscore if the tag matches a reserved keyword.
- * Prepends an underscore if the tag starts with a number.
- * @param tag The potential tag name, already camelCased.
- * @returns The sanitized tag name.
- */
 export function sanitizeTag(tag: string): string {
   // Prepend underscore if starts with a number
   if (/^\d/.test(tag)) {
     return `_${tag}`;
   }
 
-  // Remove any non-alphanumeric characters except underscores
-  tag = tag.replace(/[^A-Za-z0-9_]/g, '');
+  tag = tag
+    // Remove any non-alphanumeric characters except underscores
+    .replace(/[^A-Za-z0-9_-]/g, '')
+    // Normalize multiple dashes to a single dash
+    .replace(/-+/g, '-');
 
   // Append underscore if it's a reserved keyword
-  if (reservedKeywords.has(tag)) {
+  if (reservedKeywords.has(tag) || reservedSdkKeywords.has(tag)) {
     return `$${tag}`;
   }
-  // Append dollar sign if it's a reserved SDK keyword
-  if (reservedSdkKeywords.has(tag)) {
+  return tag;
+}
+export function sanitizeImportName(tag: string): string {
+  // Prepend underscore if starts with a number
+  if (/^\d/.test(tag)) {
+    return `_${tag}`;
+  }
+
+  tag = tag
+    // Remove any non-alphanumeric characters except underscores
+    .replace(/[^A-Za-z0-9_-]/g, '');
+
+  // Append underscore if it's a reserved keyword
+  if (reservedKeywords.has(tag) || reservedSdkKeywords.has(tag)) {
     return `$${tag}`;
   }
+  
   return tag;
 }
 
