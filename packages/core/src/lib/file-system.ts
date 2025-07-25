@@ -169,7 +169,7 @@ export async function getFolderExportsV2(
         ? file.fileName
         : file.fileName.replace(extname(file.fileName), '');
       if (name.startsWith('$')) {
-        name = `\\${name}`
+        name = `\\${name}`;
       }
       exports.push(`${options.exportSyntax} './${name}';`);
     }
@@ -233,4 +233,9 @@ export function createWriterProxy(
       }
     },
   };
+}
+
+export async function readJson<T>(path: string) {
+  const data = await readFile(path, 'utf-8');
+  return JSON.parse(data) as T;
 }

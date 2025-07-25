@@ -81,6 +81,7 @@
     "@ai-sdk/anthropic": "^1.2.12",
     "@expressive-code/plugin-line-numbers": "^0.41.2",
     "@hono/node-server": "^1.14.4",
+    "@inquirer/prompts": "^7.7.1",
     "@monaco-editor/react": "^4.7.0",
     "@novu/api": "^1.4.0",
     "@octokit/core": "^7.0.2",

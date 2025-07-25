@@ -29,7 +29,8 @@
     "openapi3-ts": "4.5.0",
     "registry-auth-token": "^5.1.0",
     "@sdk-it/python": "0.32.0",
-    "execa": "^9.6.0"
+    "execa": "^9.6.0",
+    "@sdk-it/readme": "0.32.0"
   },
   "publishConfig": {
     "access": "public"

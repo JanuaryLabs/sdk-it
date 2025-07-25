@@ -17,29 +17,12 @@ import {
   parsePagination,
   specOption,
 } from '../options.ts';
+import type { TypeScriptOptions } from '../types.ts';
 
-interface Options {
-  spec: string;
-  output?: string;
-  mode?: 'full' | 'minimal';
-  name?: string;
-  useTsExtension: boolean;
-  /**
-   * Command to run the formatter.
-   * @example 'biome check $SDK_IT_OUTPUT --write'
-   * @example 'prettier $SDK_IT_OUTPUT --write'
-   */
-  formatter?: string;
-  framework?: string;
-  install: boolean;
-  verbose: boolean;
-  defaultFormatter: boolean;
-  outputType?: 'default' | 'status';
-  errorAsValue?: false;
-  readme?: boolean;
-  publish?: string;
-  pagination?: string;
-}
+type Options = Omit<TypeScriptOptions, 'pagination'> & {
+  output: string;
+  pagination?: TypeScriptOptions['pagination'] | string;
+};
 
 export default new Command('typescript')
   .alias('ts')
@@ -107,7 +90,10 @@ export async function runTypescript(options: Options) {
   const spec = await loadSpec(options.spec);
 
   if (options.output) {
-    await emitLocal(spec, { ...options, output: options.output });
+    await emitLocal(spec, {
+      ...options,
+      output: options.output,
+    });
   }
   if (options.publish) {
     await emitRemote(spec, {
@@ -117,16 +103,16 @@ export async function runTypescript(options: Options) {
   }
 }
 
-async function emitLocal(
-  spec: OpenAPIObject,
-  options: Options & { output: string },
-) {
+async function emitLocal(spec: OpenAPIObject, options: Options) {
   await generate(spec, {
     writer: writeFiles,
     output: options.output,
     mode: options.mode || 'minimal',
     name: options.name,
-    pagination: parsePagination(parseDotConfig(options.pagination ?? 'true')),
+    pagination:
+      typeof options.pagination === 'string'
+        ? parsePagination(parseDotConfig(options.pagination ?? 'true'))
+        : options.pagination,
     style: {
       name: 'github',
       outputType: options.outputType,
