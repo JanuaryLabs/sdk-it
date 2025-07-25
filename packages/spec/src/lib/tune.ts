@@ -152,7 +152,6 @@ export function fixSpec(
         let enumSchemaIndex = -1;
         const enumValues: string[] = [];
         for (let idx = 0; idx < schema[kind].length; idx++) {
-          // for (const idx in schema[kind]) {
           const item = schema[kind][idx];
           // just handle non ref for now
           if (notRef(item) && item.type === 'string') {

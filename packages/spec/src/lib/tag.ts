@@ -16,6 +16,10 @@ export function sanitizeTag(tag: string): string {
   if (/^\d/.test(tag)) {
     return `_${tag}`;
   }
+
+  // Remove any non-alphanumeric characters except underscores
+  tag = tag.replace(/[^A-Za-z0-9_]/g, '');
+
   // Append underscore if it's a reserved keyword
   if (reservedKeywords.has(tag)) {
     return `$${tag}`;
@@ -24,12 +28,7 @@ export function sanitizeTag(tag: string): string {
   if (reservedSdkKeywords.has(tag)) {
     return `$${tag}`;
   }
-  return tag
-    .replace(/[()]/g, '')
-    .replace(/--/g, '')
-    .split(/\s+/) // split on one-or-more whitespace chars
-    .filter(Boolean) // drop any empty segments
-    .join(' ');
+  return tag;
 }
 
 /**

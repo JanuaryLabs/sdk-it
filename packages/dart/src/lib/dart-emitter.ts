@@ -592,7 +592,7 @@ ${toJsonProperties.join(',\n')}
         case 'object': {
           const { typeStr, returnValue, fromJson } = this.#oneOfObject(
             name,
-            formatName(varientName),
+            varientName,
             schemas[varient.position],
             context,
           );
@@ -867,6 +867,14 @@ return false;
     if (isRef(schema)) {
       return this.#ref(className, schema.$ref, required, context);
     }
+
+    if (schema.const !== undefined) {
+      return this.#const(className, schema, context);
+    }
+
+    if (schema.enum && Array.isArray(schema.enum)) {
+      return this.#enum(className, schema, context);
+    }
     // some schemas have decalres allof, oneof, anyOf at once or combinations of them
     // so we need to process them in order
     if (schema.allOf && Array.isArray(schema.allOf)) {
@@ -878,12 +886,7 @@ return false;
     if (schema.anyOf && Array.isArray(schema.anyOf)) {
       return this.#oneOf(className, schema, context);
     }
-    if (schema.const !== undefined) {
-      return this.#const(className, schema, context);
-    }
-    if (schema.enum && Array.isArray(schema.enum)) {
-      return this.#enum(className, schema, context);
-    }
+
     // Handle types
     const types = coerceTypes(schema, false);
 

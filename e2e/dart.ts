@@ -51,11 +51,6 @@ function runCommand(
 
 const specs = [
   {
-    spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
-    name: 'discord',
-    flags: [],
-  },
-  {
     name: 'AppStoreConnect',
     spec: 'https://raw.githubusercontent.com/EvanBacon/App-Store-Connect-OpenAPI-Spec/refs/heads/main/specs/latest.json',
     flags: [],
@@ -117,6 +112,11 @@ const specs = [
   {
     name: 'Turso',
     spec: 'https://raw.githubusercontent.com/tursodatabase/turso-docs/refs/heads/main/api-reference/openapi.json',
+    flags: [],
+  },
+  {
+    spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
+    name: 'discord',
     flags: [],
   },
 ];
