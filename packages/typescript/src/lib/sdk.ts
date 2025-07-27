@@ -316,9 +316,6 @@ export function inputToPath(
       inputBody.push(`"${name}"`);
     } else if (prop.in === 'path') {
       inputParams.push(`"${name}"`);
-    } else if (prop.in === 'internal') {
-      // ignore internal sources
-      continue;
     } else {
       throw new Error(
         `Unknown source ${prop.in} in ${name} ${JSON.stringify(

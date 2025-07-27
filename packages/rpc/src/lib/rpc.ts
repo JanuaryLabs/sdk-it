@@ -2,10 +2,15 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 
-import { forEachOperation, loadSpec, toIR } from '@sdk-it/spec';
 import {
+  type TunedOperationObject,
+  forEachOperation,
+  loadSpec,
+  toIR,
+} from '@sdk-it/spec';
+import {
+  type OperationInput,
   buildInput,
-  inputToPath,
   operationSchema,
   toHttpOutput,
 } from '@sdk-it/typescript';
@@ -39,6 +44,40 @@ const optionsSchema = z.object({
 });
 type ClientOptions = z.infer<typeof optionsSchema>;
 
+export function inputToPath(
+  operation: TunedOperationObject,
+  inputs: Record<string, OperationInput>,
+) {
+  const inputHeaders: string[] = [];
+  const inputQuery: string[] = [];
+  const inputBody: string[] = [];
+  const inputParams: string[] = [];
+  for (const [name, prop] of Object.entries(inputs)) {
+    if (prop.in === 'headers' || prop.in === 'header') {
+      inputHeaders.push(name);
+    } else if (prop.in === 'query') {
+      inputQuery.push(name);
+    } else if (prop.in === 'body') {
+      inputBody.push(name);
+    } else if (prop.in === 'path') {
+      inputParams.push(name);
+    } else {
+      throw new Error(
+        `Unknown source ${prop.in} in ${name} ${JSON.stringify(
+          prop,
+        )} in ${operation.operationId}`,
+      );
+    }
+  }
+
+  return {
+    inputHeaders,
+    inputQuery,
+    inputBody,
+    inputParams,
+  };
+}
+
 export class Client {
   public options: ClientOptions;
   public schemas: Record<string, any>;
@@ -59,7 +98,6 @@ export class Client {
     options?: { signal?: AbortSignal; headers?: HeadersInit },
   ) {
     const route = this.schemas[endpoint];
-    console.log(route);
     const withDefaultInputs = Object.assign({}, this.#defaultInputs, input);
     // const [parsedInput, parseError] = parseInput(
     //   route.schema,
