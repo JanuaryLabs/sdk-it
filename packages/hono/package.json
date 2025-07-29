@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/hono",
-  "version": "0.33.2",
+  "version": "0.33.3",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -27,7 +27,7 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.33.2",
+    "@sdk-it/core": "0.33.3",
     "hono": "^4.7.4",
     "zod": "^3.25.76 || ^4.0.0",
     "fast-content-type-parse": "^3.0.0"

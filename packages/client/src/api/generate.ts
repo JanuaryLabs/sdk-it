@@ -13,7 +13,6 @@ import {
 import { buffered, chunked } from '../http/parse-response.ts';
 import {
   type HeadersInit,
-  createUrl,
   empty,
   formdata,
   json,

@@ -27,12 +27,6 @@ export type BodyInit =
   | null
   | string;
 
-export function createUrl(path: string, query: URLSearchParams) {
-  const url = new URL(path, `local://`);
-  url.search = query.toString();
-  return url;
-}
-
 function template(
   templateString: string,
   templateVariables: Record<string, any>,
@@ -71,26 +65,7 @@ abstract class Serializer {
 
   abstract getBody(): BodyInit | null;
   abstract getHeaders(): Record<string, string>;
-  serialize(): Serialized {
-    const headers = new Headers({});
-    for (const header of this.props.inputHeaders) {
-      headers.set(header, this.input[header]);
-    }
-
-    const query = new URLSearchParams();
-    for (const key of this.props.inputQuery) {
-      const value = this.input[key];
-      if (value !== undefined) {
-        if (Array.isArray(value)) {
-          for (const item of value) {
-            query.append(key, String(item));
-          }
-        } else {
-          query.set(key, String(value));
-        }
-      }
-    }
-
+  serialize(path: string): Serialized {
     const params = this.props.inputParams.reduce<Record<string, any>>(
       (acc, key) => {
         acc[key] = this.input[key];
@@ -98,11 +73,29 @@ abstract class Serializer {
       },
       {},
     );
+    const url = new URL(template(path, params), `local://`);
+
+    const headers = new Headers({});
+    for (const header of this.props.inputHeaders) {
+      headers.set(header, this.input[header]);
+    }
+
+    for (const key of this.props.inputQuery) {
+      const value = this.input[key];
+      if (value !== undefined) {
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            url.searchParams.append(key, String(item));
+          }
+        } else {
+          url.searchParams.set(key, String(value));
+        }
+      }
+    }
 
     return {
       body: this.getBody(),
-      query,
-      params,
+      url,
       headers: this.getHeaders(),
     };
   }
@@ -110,9 +103,8 @@ abstract class Serializer {
 
 interface Serialized {
   body: BodyInit | null;
-  query: URLSearchParams;
-  params: Record<string, any>;
   headers: Record<string, string>;
+  url: URL;
 }
 
 class JsonSerializer extends Serializer {
@@ -179,27 +171,26 @@ class FormDataSerializer extends Serializer {
 }
 
 export function json(input: Input, props: Props) {
-  return new JsonSerializer(input, props).serialize();
+  return new JsonSerializer(input, props);
 }
 export function urlencoded(input: Input, props: Props) {
-  return new UrlencodedSerializer(input, props).serialize();
+  return new UrlencodedSerializer(input, props);
 }
 export function empty(input: Input, props: Props) {
-  return new EmptySerializer(input, props).serialize();
+  return new EmptySerializer(input, props);
 }
 export function formdata(input: Input, props: Props) {
-  return new FormDataSerializer(input, props).serialize();
+  return new FormDataSerializer(input, props);
 }
 
 export function toRequest<T extends Endpoint>(
   endpoint: T,
-  input: Serialized,
+  serializer: Serializer,
 ): RequestConfig {
   const [method, path] = endpoint.split(' ');
-  const pathVariable = template(path, input.params);
-
+  const input = serializer.serialize(path);
   return {
-    url: createUrl(pathVariable, input.query),
+    url: input.url,
     init: {
       method: method,
       headers: new Headers(input.headers),
