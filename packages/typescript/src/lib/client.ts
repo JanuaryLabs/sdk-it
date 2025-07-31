@@ -48,7 +48,7 @@ import {
   createHeadersInterceptor,
 } from './http/${spec.makeImport('interceptors')}';
 
-import { parseInput } from './http/${spec.makeImport('parser')}';
+import { type ParseError, parseInput } from './http/${spec.makeImport('parser')}';
 
 ${spec.servers.length ? `export const servers = ${JSON.stringify(spec.servers, null, 2)} as const` : ''}
 const optionsSchema = z.object(${toLitObject(specOptions, (x) => x.schema)});
