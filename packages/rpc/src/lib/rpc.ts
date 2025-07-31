@@ -41,6 +41,7 @@ const optionsSchema = z.object({
     .transform((val) => (val ? `Bearer ${val}` : undefined)),
   fetch: fetchType,
   baseUrl: z.string(),
+  headers: z.record(z.string()).optional(),
 });
 type ClientOptions = z.infer<typeof optionsSchema>;
 
@@ -122,7 +123,10 @@ export class Client {
   }
 
   get defaultHeaders() {
-    return { authorization: this.options['token'] };
+    return {
+      authorization: this.options['token'],
+      ...this.options.headers,
+    };
   }
 
   get #defaultInputs() {
