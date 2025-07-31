@@ -34,6 +34,9 @@ export default (spec: Omit<Spec, 'operations'>, style: Style) => {
         ? `z.enum(servers).default(servers[0])`
         : 'z.string()',
     },
+    headers: {
+      schema: 'z.record(z.string()).optional()',
+    },
   };
 
   return `import z from 'zod';
@@ -45,7 +48,7 @@ import {
   createHeadersInterceptor,
 } from './http/${spec.makeImport('interceptors')}';
 
-import { parseInput, type ParseError } from './http/${spec.makeImport('parser')}';
+import { parseInput } from './http/${spec.makeImport('parser')}';
 
 ${spec.servers.length ? `export const servers = ${JSON.stringify(spec.servers, null, 2)} as const` : ''}
 const optionsSchema = z.object(${toLitObject(specOptions, (x) => x.schema)});
@@ -124,7 +127,7 @@ export class ${spec.name} {
   }
 
   get defaultHeaders() {
-    return ${defaultHeaders}
+    return { ...${defaultHeaders}, ...this.options.headers}
   }
 
   get #defaultInputs() {
