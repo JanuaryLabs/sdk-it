@@ -17,6 +17,7 @@ const optionsSchema = z.object({
     .transform((val) => (val ? `Bearer ${val}` : undefined)),
   fetch: fetchType,
   baseUrl: z.enum(servers).default(servers[0]),
+  headers: z.record(z.string()).optional(),
 });
 export type Servers = (typeof servers)[number];
 
@@ -93,7 +94,10 @@ export class SdkIt {
   }
 
   get defaultHeaders() {
-    return { authorization: this.options['token'] };
+    return {
+      ...{ authorization: this.options['token'] },
+      ...this.options.headers,
+    };
   }
 
   get #defaultInputs() {
