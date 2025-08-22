@@ -22,7 +22,6 @@ import {
 } from '@sdk-it/spec';
 
 import { generateAISDKTools } from './agent/ai-sdk.ts';
-import { generateOpenAIAgentTools } from './agent/openai-agents.ts';
 import utilsTxt from './agent/utils.txt';
 import backend from './client.ts';
 import { TypeScriptEmitter } from './emitters/interface.ts';
@@ -41,6 +40,7 @@ import paginationTxt from './paginations/page-pagination.txt';
 import { toReadme } from './readme/readme.ts';
 import type { Operation } from './sdk.ts';
 import { TypeScriptSnippet } from './typescript-snippet.ts';
+import { generateOpenAIAgentTools } from './agent/openai-agents.ts';
 
 function security(spec: IR) {
   const security = spec.security || [];
