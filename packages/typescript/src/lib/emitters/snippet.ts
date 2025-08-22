@@ -30,8 +30,7 @@ export class SnippetEmitter {
       if (
         isRequired ||
         resolvedProp.example !== undefined ||
-        resolvedProp.default !== undefined ||
-        Math.random() > 0.5
+        resolvedProp.default !== undefined
       ) {
         result[propName] = this.handle(propSchema);
       }
