@@ -22,6 +22,7 @@ import {
 } from '@sdk-it/spec';
 
 import { generateAISDKTools } from './agent/ai-sdk.ts';
+import { generateOpenAIAgentTools } from './agent/openai-agents.ts';
 import utilsTxt from './agent/utils.txt';
 import backend from './client.ts';
 import { TypeScriptEmitter } from './emitters/interface.ts';
@@ -236,11 +237,18 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
     'models/index.ts': modelsIndex,
     // ...(modelsImports.length ? { 'models/index.ts': modelsIndex } : {}),
   });
-  if (settings.agentTools) {
-    await settings.writer(output, {
-      'agents.ts': `${generateAISDKTools(spec)}\n${utilsTxt}`,
-      // 'agents.ts': `${generateOpenAIAgentTools(spec)}\n${utilsTxt}`,
-    });
+
+  switch (settings.agentTools) {
+    case 'openai-agents':
+      await settings.writer(output, {
+        'agents.ts': `${generateOpenAIAgentTools(spec)}\n${utilsTxt}`,
+      });
+      break;
+    case 'ai-sdk':
+      await settings.writer(output, {
+        'agents.ts': `${generateAISDKTools(spec)}\n${utilsTxt}`,
+      });
+      break;
   }
   await settings.writer(output, {
     'index.ts': await getFolderExports(
