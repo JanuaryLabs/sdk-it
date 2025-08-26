@@ -12,19 +12,18 @@ export function forEachOperation<T>(
   for (const [path, pathItem] of Object.entries(spec.paths)) {
     for (const [method, operation] of Object.entries(pathItem) as [
       Method,
-      OperationObject,
+      TunedOperationObject,
     ][]) {
       if (!methods.includes(method)) {
         continue;
       }
-      const operationTag = operation.tags?.[0] as string;
 
       result.push(
         callback(
           {
             method,
             path: path,
-            tag: operationTag,
+            tag: operation.tags?.[0],
           },
           operation as TunedOperationObject,
         ),

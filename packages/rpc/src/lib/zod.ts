@@ -1,17 +1,17 @@
 import type {
-  OpenAPIObject,
   ReferenceObject,
-  SchemaObject,
+  SchemaObject
 } from 'openapi3-ts/oas31';
 import { type ZodSchema, type ZodTypeAny, z } from 'zod';
 
 import { followRef, isRef } from '@sdk-it/core';
+import type { IR } from '@sdk-it/spec';
 
 /**
  * Convert an OpenAPI (JSON Schema style) object into a runtime Zod schema,
  */
 export class RuntimeZodConverter {
-  constructor(private spec: OpenAPIObject) {}
+  constructor(private spec: IR) {}
 
   #object(schema: SchemaObject): ZodSchema {
     const properties = schema.properties || {};
@@ -478,7 +478,7 @@ export class RuntimeZodConverter {
  */
 export function schemaToZod(
   schema: SchemaObject,
-  spec: OpenAPIObject,
+  spec: IR,
   options?: {
     required?: boolean;
   },
