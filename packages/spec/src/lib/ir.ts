@@ -7,7 +7,7 @@ import type {
 
 import { type Method, methods } from '@sdk-it/core/paths.js';
 import { resolveRef } from '@sdk-it/core/ref.js';
-import { snakecase } from '@sdk-it/core/utils.js';
+import { camelcase, snakecase } from '@sdk-it/core/utils.js';
 
 import { toResource } from './guess/guess-resource.js';
 import { type GenerateSdkConfig, coeraceConfig } from './options.js';
@@ -93,7 +93,7 @@ export function toIR(config: GenerateSdkConfig, verbose = false): IR {
         parameters,
         'x-fn-name': name,
         'x-fn-group': operationTag,
-        tags: [snakecase(operationTag)],
+        tags: [snakecase(operationTag)], // todo: do not transfer casing unless tag cannot be valid identifier
         operationId: operationId,
         responses: resolveResponses(
           coearcedConfig.spec,

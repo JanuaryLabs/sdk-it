@@ -86,6 +86,7 @@ export function coeraceConfig(config: GenerateSdkConfig) {
         },
       ],
       servers: config.spec.servers ?? [],
+      tags: config.spec.tags ?? [],
     } satisfies IR,
     operationId: config.operationId ?? defaults.operationId,
     tag: config.tag ?? defaults.tag,

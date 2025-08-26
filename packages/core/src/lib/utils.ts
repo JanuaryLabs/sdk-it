@@ -53,7 +53,9 @@ export function isEmpty(value: unknown): value is null | undefined | '' {
 }
 
 export function pascalcase(value: string) {
-  return _pascalcase(value.split('/').join(' '));
+  // remove any “special” chars immediately preceding a digit
+  const cleaned = value.replace(/[^A-Za-z0-9]+(?=\d)/g, '');
+  return _pascalcase(cleaned.split('/').join(' '));
 }
 export function spinalcase(value: string) {
   return _spinalcase(value.split('/').join(' '));

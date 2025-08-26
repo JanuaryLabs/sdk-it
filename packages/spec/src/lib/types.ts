@@ -11,6 +11,7 @@ import type {
   SchemaObject,
   SecuritySchemeObject,
   ServerObject,
+  TagObject,
 } from 'openapi3-ts/oas31';
 
 import type { PaginationGuess } from './pagination/guess-pagination.js';
@@ -26,6 +27,7 @@ export interface IR extends OpenAPIObject {
     securitySchemes: Record<string, SecuritySchemeObject>;
   };
   paths: PathsObject;
+  tags: TagObject[];
 }
 
 export interface OurRequestBodyObject extends RequestBodyObject {
@@ -37,7 +39,7 @@ export interface OurRequestBodyObject extends RequestBodyObject {
 
 export type TunedOperationObject = Omit<
   OperationObject,
-  'operationId' | 'tags' | 'parameters' | 'responses' | 'requestBody'
+  'operationId' | 'tags' | 'parameters' | 'responses' | 'requestBody' | 'tags'
 > & {
   tags: string[];
   operationId: string;

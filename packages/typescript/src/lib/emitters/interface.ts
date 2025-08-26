@@ -1,16 +1,15 @@
 import type {
-  OpenAPIObject,
   ReferenceObject,
-  SchemaObject,
+  SchemaObject
 } from 'openapi3-ts/oas31';
 
 import { followRef, isRef, parseRef, pascalcase } from '@sdk-it/core';
-import { isPrimitiveSchema, sanitizeTag } from '@sdk-it/spec';
+import { type IR, isPrimitiveSchema, sanitizeTag } from '@sdk-it/spec';
 
 export class TypeScriptEmitter {
-  #spec: OpenAPIObject;
+  #spec: IR;
 
-  constructor(spec: OpenAPIObject) {
+  constructor(spec: IR) {
     this.#spec = spec;
   }
   #stringifyKey = (value: string): string => {

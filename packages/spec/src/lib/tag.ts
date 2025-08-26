@@ -1,5 +1,6 @@
 import type { OperationObject } from 'openapi3-ts/oas31';
-import { camelcase } from 'stringcase';
+
+import { camelcase } from '@sdk-it/core';
 
 import { reservedKeywords, reservedSdkKeywords } from './reserved-keywords.js';
 
@@ -10,7 +11,7 @@ export function sanitizeTag(tag: string): string {
   }
 
   tag = tag
-    // Remove any non-alphanumeric characters except underscores
+    // Remove any non-alphanumeric characters except underscores and dashes
     .replace(/[^A-Za-z0-9_-]/g, '')
     // Normalize multiple dashes to a single dash
     .replace(/-+/g, '-');
@@ -35,7 +36,6 @@ export function sanitizeImportName(tag: string): string {
   if (reservedKeywords.has(tag) || reservedSdkKeywords.has(tag)) {
     return `$${tag}`;
   }
-  
   return tag;
 }
 

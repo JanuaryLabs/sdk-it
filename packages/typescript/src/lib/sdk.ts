@@ -3,6 +3,7 @@ import { camelcase } from 'stringcase';
 
 import { isEmpty, pascalcase } from '@sdk-it/core';
 import {
+  type IR,
   type OperationPagination,
   type OurParameter,
   type TunedOperationObject,
@@ -54,7 +55,7 @@ export interface Operation {
 
 export function toEndpoint(
   groupName: string,
-  spec: OpenAPIObject,
+  spec: IR,
   specOperation: TunedOperationObject,
   operation: Operation,
   utils: {
@@ -217,7 +218,7 @@ function paginationOperation(operation: TunedOperationObject, style?: Style) {
 }
 
 export function toHttpOutput(
-  spec: OpenAPIObject,
+  spec: IR,
   operationName: string,
   status: string,
   response: ResponseObject,
