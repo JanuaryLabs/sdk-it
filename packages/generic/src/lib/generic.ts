@@ -51,12 +51,13 @@ export const returnToken = (node: ts.ArrowFunction) => {
 
 const logger = debug('@sdk-it/generic');
 
-const jsDocsTags = ['openapi', 'tags', 'description'];
+const jsDocsTags = ['openapi', 'tags', 'description', 'access'];
 
 function parseJSDocComment(node: ts.Node) {
   let tags: string[] = [];
   let name = '';
   let description = '';
+  let access = '';
   for (const tag of ts.getAllJSDocTags(node, (tag): tag is ts.JSDocTag =>
     jsDocsTags.includes(tag.tagName.text),
   )) {
@@ -73,12 +74,16 @@ function parseJSDocComment(node: ts.Node) {
       case 'description':
         description = tag.comment;
         break;
+      case 'access':
+        access = tag.comment.trim().toLowerCase();
+        break;
     }
   }
   return {
     name,
     tags,
     description,
+    access,
   };
 }
 
@@ -120,6 +125,10 @@ function visit(
   }
 
   const metadata = parseJSDocComment(node.parent);
+  // Skip endpoints marked as private access
+  if (metadata.access === 'private') {
+    return moveOn();
+  }
   const operationName =
     metadata.name ||
     camelcase(`${method} ${path.replace(/[^a-zA-Z0-9]/g, '')}`);
