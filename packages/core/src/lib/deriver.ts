@@ -525,6 +525,10 @@ export class TypeDeriver {
       const type = this.checker.getTypeAtLocation(node);
       return this.serializeType(type);
     }
+    if (ts.isStringLiteral(node) || ts.isNumericLiteral(node)) {
+      const type = this.checker.getTypeAtLocation(node);
+      return this.serializeType(type);
+    }
     // Handle template literals in expression position
     if (
       ts.isTemplateExpression(node) ||
