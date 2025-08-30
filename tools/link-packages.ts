@@ -1,7 +1,6 @@
 import { execSync } from 'child_process';
 import { join } from 'node:path';
 
-
 const projects = [
   'cli',
   'core',
@@ -11,7 +10,8 @@ const projects = [
   'readme',
   'spec',
   'typescript',
-  'rpc'
+  'rpc',
+  'vite',
 ];
 for (const project of [...projects]) {
   const dir = join(process.cwd(), 'packages', project);
