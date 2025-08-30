@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { tool } from 'ai';
+import { type Tool, tool } from 'ai';
 import { z } from 'zod';
 
 import {
+  type IR,
   type TunedOperationObject,
   forEachOperation,
   loadSpec,
@@ -82,15 +83,9 @@ export function inputToPath(
 export class Client {
   public options: ClientOptions;
   public schemas: Record<string, any>;
-  public operations: Record<string, any>;
-  constructor(
-    options: ClientOptions,
-    schemas: Record<string, any>,
-    operations: Record<string, any>,
-  ) {
+  constructor(options: ClientOptions, schemas: Record<string, any>) {
     this.options = optionsSchema.parse(options);
     this.schemas = schemas;
-    this.operations = operations;
   }
 
   async request(
@@ -144,14 +139,8 @@ export class Client {
   }
 }
 
-export async function rpc(
-  openapi: string,
-  options?: Partial<ClientOptions>,
-): Promise<Client> {
-  const spec = await loadSpec(openapi);
-  const ir = toIR({ spec, responses: { flattenErrorResponses: true } });
+function createRpc(ir: IR, options: Partial<ClientOptions> = {}) {
   const schemas: Record<Endpoint, any> = {};
-  const operations: Record<string, any> = {};
   forEachOperation(ir, (entry, operation) => {
     const endpoint: Endpoint = `${entry.method.toUpperCase() as Method} ${entry.path}`;
     const details = buildInput(ir, operation);
@@ -163,7 +152,7 @@ export async function rpc(
     } as const;
     const outputs = Object.keys(operation.responses).flatMap((status) =>
       toHttpOutput(
-        spec,
+        ir,
         operation.operationId,
         status,
         operation.responses[status],
@@ -172,12 +161,12 @@ export async function rpc(
     );
     const inputSchema = schemaToZod(
       operationSchema(ir, operation, details.ct),
-      spec,
+      ir,
     );
     schemas[endpoint] = {
       operationId: operation.operationId,
       output: outputs.map((it) => http[it.replace('http.', '') as never]),
-      schemas: inputSchema,
+      schema: inputSchema,
       async dispatch(
         input: any,
         options: {
@@ -198,10 +187,6 @@ export async function rpc(
         return dispatcher.send(request, this.output);
       },
     };
-    operations[operation.operationId] = {
-      description: operation.description,
-      input: inputSchema,
-    };
   });
 
   return new Client(
@@ -210,26 +195,95 @@ export async function rpc(
       baseUrl: options?.baseUrl ?? ir.servers[0].url,
     },
     schemas,
-    operations,
   );
 }
 
-export async function toTools(rpc: Client) {
-  const tools: Record<string, any> = {};
-  for (const [endpoint, route] of Object.entries(rpc.schemas)) {
-    const operation = rpc.operations[route.operationId];
-    tools[route.operationId] = tool({
+export async function rpc(
+  openapi: string,
+  options?: Partial<ClientOptions>,
+): Promise<Client> {
+  const spec = await loadSpec(openapi);
+  const ir = toIR({ spec, responses: { flattenErrorResponses: true } });
+  return createRpc(ir, options);
+}
+
+export async function toAgents(openapi: string, options: ClientOptions) {
+  const spec = await loadSpec(openapi);
+  const ir = toIR({ spec, responses: { flattenErrorResponses: true } });
+  const client = createRpc(ir, options);
+  const groups: Record<
+    string,
+    {
+      tools: Record<string, Tool>;
+      instructions: string;
+      handoffDescription: string;
+      displayName: string;
+      name: string;
+    }
+  > = {};
+
+  forEachOperation(ir, (entry, operation) => {
+    const tagDef = ir.tags.find((tag) => tag.name === entry.tag);
+    if (!tagDef) {
+      console.warn(`No tag details found for tag: ${entry.tag}`);
+      return;
+    }
+
+    groups[entry.tag] ??= {
+      tools: {},
+      instructions: '',
+      displayName: '',
+      name: '',
+      handoffDescription: '',
+    };
+    const endpoint = `${entry.method.toUpperCase()} ${entry.path}`;
+    groups[entry.tag].tools[operation['x-fn-name']] = tool({
       type: 'function',
       description: operation.description,
-      inputSchema: operation.input,
+      inputSchema: client.schemas[endpoint].schema,
       execute: async (input) => {
         console.log('Executing tool with input:', input);
-        const response = await rpc.request(endpoint, input);
+        const response = await client.request(endpoint, input);
         return JSON.stringify(response);
       },
     });
+    groups[entry.tag].handoffDescription = tagDef['x-handoff-description'];
+    groups[entry.tag].instructions = tagDef['x-instructions'];
+    groups[entry.tag].name = tagDef.name;
+    groups[entry.tag].displayName = tagDef['x-name'];
+  });
+  const agents: Record<string, any> = {};
+  for (const [
+    agentName,
+    { tools, instructions, displayName },
+  ] of Object.entries(groups)) {
+    agents[agentName] = {
+      name: displayName,
+      instructions,
+      tools,
+    };
   }
-  return tools;
+  agents['triage'] = {
+    name: 'Triage Agent',
+    instructions:
+      'You are a helpful triaging agent. You can use your tools to delegate questions to other appropriate agents.',
+    tools: Object.fromEntries(
+      Object.entries(groups).map(([, { name, handoffDescription }]) => {
+        return [
+          `transfer_to_${name}`,
+          tool({
+            description: [
+              `Handoff to the ${name} agent to handle the request.`,
+              handoffDescription,
+            ].join(' '),
+            inputSchema: z.object({}),
+            execute: async () => ({ agent: name }),
+          }),
+        ];
+      }),
+    ),
+  };
+  return agents;
 }
 
 function defaultSerializer(ct: string) {
