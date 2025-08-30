@@ -40,6 +40,11 @@ function runCommand(title: string, command: string, memory?: number) {
 
 const specs = [
   {
+    name: 'AppStoreConnect',
+    spec: 'https://raw.githubusercontent.com/EvanBacon/App-Store-Connect-OpenAPI-Spec/refs/heads/main/specs/latest.json',
+    flags: [],
+  },
+  {
     spec: 'https://machines-api-spec.fly.dev/spec/openapi3.json',
     name: 'FlyMachines',
     flags: [],
@@ -68,11 +73,6 @@ const specs = [
     spec: 'https://app.stainless.com/api/spec/documented/openai/openapi.documented.yml',
     name: 'openai',
     flags: ['--output-type=status', '--error-as-value=true'],
-  },
-  {
-    name: 'AppStoreConnect',
-    spec: 'https://raw.githubusercontent.com/EvanBacon/App-Store-Connect-OpenAPI-Spec/refs/heads/main/specs/latest.json',
-    flags: [],
   },
   {
     name: 'Box',
