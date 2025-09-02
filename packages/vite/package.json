@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/vite",
-  "version": "0.35.0",
+  "version": "0.35.1",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -29,7 +29,7 @@
   "peerDependencies": {
     "chalk": "^5.6.0",
     "vite": "^6.0.0 || ^7.0.0",
-    "@sdk-it/spec": "0.35.0",
-    "@sdk-it/typescript": "0.35.0"
+    "@sdk-it/spec": "0.35.1",
+    "@sdk-it/typescript": "0.35.1"
   }
 }
