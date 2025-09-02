@@ -44,13 +44,14 @@ export default function sdkIt(
       await generateOnce(sourceRef);
     },
     async configResolved(config) {
-      sourceRef = openapi;
       if (startsWithProtocol(openapi)) {
         if (openapi.startsWith('file:')) {
           watchPath = fileURLToPath(openapi);
+          sourceRef = openapi;
         }
       } else {
         watchPath = join(config.root, openapi);
+        sourceRef = join(config.root, openapi);
       }
     },
   };
