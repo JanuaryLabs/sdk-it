@@ -53,9 +53,9 @@ export function isEmpty(value: unknown): value is null | undefined | '' {
 }
 
 export function pascalcase(value: string) {
-  // remove any “special” chars immediately preceding a digit
-  const cleaned = value.replace(/[^A-Za-z0-9]+(?=\d)/g, '');
-  return _pascalcase(cleaned.split('/').join(' '));
+  return _pascalcase(
+    removeSpecialCharsBeforeDigits(value).split('/').join(' '),
+  );
 }
 export function spinalcase(value: string) {
   return _spinalcase(value.split('/').join(' '));
@@ -64,15 +64,19 @@ export function snakecase(value: string) {
   return _snakecase(value.split('/').join(' '));
 }
 export function camelcase(value: string): string {
-  // remove any “special” chars immediately preceding a digit
-  const cleaned = value.replace(/[^A-Za-z0-9]+(?=\d)/g, '');
-  return _camelcase(cleaned);
+  return _camelcase(removeSpecialCharsBeforeDigits(value));
+}
+function removeSpecialCharsBeforeDigits(value: string): string {
+  return value.replace(/[^A-Za-z0-9]+(?=\d)/g, '');
 }
 
 /**
  * Joins an array of strings so that elements containing only digits
  * are concatenated without a separator, while all other elements
  * are prefixed by the separator (unless they're the very first element).
+ *
+ * @example
+ * joinSkipDigits(['foo', '123', 'bar'], '-') // 'foo-123bar'
  */
 export function joinSkipDigits(arr: string[], separator: string): string {
   if (arr.length === 0) return '';

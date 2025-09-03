@@ -1,9 +1,11 @@
-import type { OperationObject } from 'openapi3-ts/oas31';
 
 import { type Method, methods } from '@sdk-it/core/paths.js';
 
 import type { IR, OperationEntry, TunedOperationObject } from './types.js';
 
+/**
+ * FIXME: remove this and create iterateOperations function that would return an iterator
+ */
 export function forEachOperation<T>(
   spec: IR,
   callback: (entry: OperationEntry, operation: TunedOperationObject) => T,
