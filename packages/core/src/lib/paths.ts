@@ -47,7 +47,6 @@ const semanticSourceToOpenAPI = {
 } as const;
 export interface Selector {
   name: string;
-  select: string;
   against: string;
   source: SemanticSource;
   nullable: boolean;
