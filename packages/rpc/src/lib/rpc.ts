@@ -207,7 +207,12 @@ export async function rpc(
   return createRpc(ir, options);
 }
 
-export async function toAgents(openapi: string, options: ClientOptions) {
+export async function toAgents(
+  openapi: string,
+  options: ClientOptions & {
+    useTools?: 'defined';
+  },
+) {
   const spec = await loadSpec(openapi);
   const ir = toIR({ spec, responses: { flattenErrorResponses: true } });
   const client = createRpc(ir, options);
@@ -237,16 +242,24 @@ export async function toAgents(openapi: string, options: ClientOptions) {
       handoffDescription: '',
     };
     const endpoint = `${entry.method.toUpperCase()} ${entry.path}`;
-    groups[entry.tag].tools[operation['x-fn-name']] = tool({
-      type: 'function',
-      description: operation.description,
-      inputSchema: client.schemas[endpoint].schema,
-      execute: async (input) => {
-        console.log('Executing tool with input:', input);
-        const response = await client.request(endpoint, input);
-        return JSON.stringify(response);
-      },
-    });
+    const toolInfo = operation['x-tool'];
+
+    let includeTool = true;
+    if (options.useTools === 'defined') {
+      includeTool = toolInfo.defined === true;
+    }
+    if (includeTool) {
+      groups[entry.tag].tools[toolInfo.name] = tool({
+        type: 'function',
+        description: toolInfo.description,
+        inputSchema: client.schemas[endpoint].schema,
+        execute: async (input) => {
+          console.log('Executing tool with input:', input);
+          const response = await client.request(endpoint, input);
+          return JSON.stringify(response);
+        },
+      });
+    }
     groups[entry.tag].handoffDescription = tagDef['x-handoff-description'];
     groups[entry.tag].instructions = tagDef['x-instructions'];
     groups[entry.tag].name = tagDef.name;

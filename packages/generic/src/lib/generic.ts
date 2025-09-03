@@ -51,20 +51,33 @@ export const returnToken = (node: ts.ArrowFunction) => {
 
 const logger = debug('@sdk-it/generic');
 
-const jsDocsTags = ['openapi', 'tags', 'description', 'access'];
+const jsDocsTags = [
+  'openapi',
+  'tags',
+  'description',
+  'summary',
+  'access',
+  'tool',
+  'toolDescription',
+] as const;
+type JSDocsTags = (typeof jsDocsTags)[number];
 
 function parseJSDocComment(node: ts.Node) {
   let tags: string[] = [];
   let name = '';
   let description = '';
+  let summary = '';
   let access = '';
+  let tool = '';
+  let toolDescription = '';
+
   for (const tag of ts.getAllJSDocTags(node, (tag): tag is ts.JSDocTag =>
-    jsDocsTags.includes(tag.tagName.text),
+    jsDocsTags.includes(tag.tagName.text as JSDocsTags),
   )) {
     if (typeof tag.comment !== 'string') {
       continue;
     }
-    switch (tag.tagName.text) {
+    switch (tag.tagName.text as JSDocsTags) {
       case 'openapi':
         name = tag.comment;
         break;
@@ -74,8 +87,17 @@ function parseJSDocComment(node: ts.Node) {
       case 'description':
         description = tag.comment;
         break;
+      case 'summary':
+        summary = tag.comment;
+        break;
       case 'access':
         access = tag.comment.trim().toLowerCase();
+        break;
+      case 'tool':
+        tool = tag.comment.trim();
+        break;
+      case 'toolDescription':
+        toolDescription = tag.comment.trim();
         break;
     }
   }
@@ -84,6 +106,9 @@ function parseJSDocComment(node: ts.Node) {
     tags,
     description,
     access,
+    tool,
+    toolDescription,
+    summary,
   };
 }
 
@@ -177,8 +202,7 @@ function visit(
     toSelectors(props),
     responses,
     sourceFile.fileName,
-    metadata.tags,
-    metadata.description,
+    metadata,
   );
 
   function moveOn() {

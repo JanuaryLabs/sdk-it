@@ -3,9 +3,8 @@ import type {
   OperationObject,
   SecuritySchemeObject,
 } from 'openapi3-ts/oas31';
-import { camelcase } from 'stringcase';
 
-import { resolveRef } from '@sdk-it/core';
+import { camelcase, resolveRef } from '@sdk-it/core';
 
 import { determineGenericTag, sanitizeTag } from './tag.js';
 import type { IR } from './types.js';
@@ -28,14 +27,11 @@ export interface ResponsesConfig {
 export type PaginationConfig = {
   guess?: boolean;
 };
-
+function removeHyphensBeforeDigits(text: string): string {
+  return text.replace(/-(?=\d)/g, '');
+}
 export function cleanOperationId(operationId: string) {
-  return camelcase(
-    operationId
-      .split('#')
-      .pop()!
-      .replace(/-(?=\d)/g, ''),
-  );
+  return camelcase(operationId.split('#').pop()!);
 }
 
 export const defaults: Partial<GenerateSdkConfig> &

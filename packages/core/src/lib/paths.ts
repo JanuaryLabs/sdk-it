@@ -14,6 +14,13 @@ export type InjectImport = {
   import: string;
   from: string;
 };
+export type OperationInfo = {
+  tool?: string;
+  toolDescription?: string;
+  summary?: string;
+  description?: string;
+  tags?: string[];
+};
 export type Method =
   | 'get'
   | 'post'
@@ -77,8 +84,7 @@ export class Paths {
     selectors: Selector[];
     responses: ResponsesObject;
     contentType?: string;
-    tags?: string[];
-    description?: string;
+    info: OperationInfo;
   }> = [];
 
   constructor(config: { imports: InjectImport[]; onOperation?: OnOperation }) {
@@ -94,8 +100,7 @@ export class Paths {
     selectors: Selector[],
     responses: ResponseItem[],
     sourceFile: string,
-    tags?: string[],
-    description?: string,
+    info: OperationInfo,
   ) {
     const responsesObject = this.#responseItemToResponses(responses);
 
@@ -107,8 +112,7 @@ export class Paths {
       method,
       selectors,
       responses: responsesObject,
-      tags,
-      description,
+      info,
     });
     return this;
   }
@@ -206,8 +210,8 @@ export class Paths {
     const tags = new Set<string>();
 
     for (const operation of this.#operations) {
-      if (operation.tags) {
-        for (const tag of operation.tags) {
+      if (operation.info.tags) {
+        for (const tag of operation.info.tags) {
           tags.add(tag);
         }
       }
@@ -235,8 +239,17 @@ export class Paths {
       const operationObject: OperationObject = {
         operationId: operation.name,
         parameters,
-        tags: operation.tags,
-        description: operation.description,
+        tags: operation.info.tags,
+        description: operation.info.description,
+        summary: operation.info.summary,
+        'x-tool': {
+          defined: !!operation.info.tool,
+          name: operation.info.tool || operation.name,
+          description:
+            operation.info.toolDescription ||
+            operation.info.description ||
+            operation.info.summary,
+        },
         requestBody: Object.keys(bodySchema).length
           ? {
               required: required.length ? true : false,
