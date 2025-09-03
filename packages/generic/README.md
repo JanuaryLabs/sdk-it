@@ -159,3 +159,21 @@ await writeFile('openapi.json', JSON.stringify(spec, null, 2));
 ```
 
 This configuration ensures that any property with the `Decimal` type is represented as a `string` in the generated OpenAPI specification.
+
+### Control endpoint/operation visibility
+
+You can control the visibility of endpoints and operations in the generated OpenAPI specification by using the `@access` tag in your JSDoc comments. for now only `private` is supported.
+
+```typescript
+/**
+ * @openapi getAuthor
+ * @tags authors
+ * @access private
+ */
+app.get('/authors/:id', async (req, res) => {
+  const author = [{ name: 'John Doe' }];
+  return res.json(author);
+});
+```
+
+In this example, the `getAuthor` operation will be hidden from the generated OpenAPI specification.
