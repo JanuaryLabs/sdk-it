@@ -33,8 +33,8 @@ export default function sdkIt(
       );
       server.watcher.add(watchPath);
       server.watcher.on('change', async (file) => {
-        console.log(`${chalk.blue('SDKIT')}: File changed`, file);
         if (file === watchPath) {
+          console.log(`${chalk.blue('SDKIT')}: OpenAPI spec changed`, file);
           await generateOnce(sourceRef!);
         }
       });
