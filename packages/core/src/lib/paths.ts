@@ -240,16 +240,15 @@ export class Paths {
         operationId: operation.name,
         parameters,
         tags: operation.info.tags,
-        description: operation.info.description,
-        summary: operation.info.summary,
-        'x-tool': {
-          defined: !!operation.info.tool,
-          name: operation.info.tool || operation.name,
-          description:
-            operation.info.toolDescription ||
-            operation.info.description ||
-            operation.info.summary,
-        },
+        // || undefined would omit the value from final openapi spec
+        description: operation.info.description || undefined,
+        summary: operation.info.summary || undefined,
+        'x-tool': operation.info.tool
+          ? {
+              name: operation.info.tool || undefined,
+              description: operation.info.toolDescription || undefined,
+            }
+          : undefined,
         requestBody: Object.keys(bodySchema).length
           ? {
               required: required.length ? true : false,

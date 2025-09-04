@@ -246,12 +246,13 @@ export async function toAgents(
 
     let includeTool = true;
     if (options.useTools === 'defined') {
-      includeTool = toolInfo.defined === true;
+      includeTool = !!toolInfo;
     }
     if (includeTool) {
-      groups[entry.tag].tools[toolInfo.name] = tool({
+      groups[entry.tag].tools[toolInfo?.name || operation['x-fn-name']] = tool({
         type: 'function',
-        description: toolInfo.description,
+        description:
+          toolInfo?.description || operation.description || operation.summary,
         inputSchema: client.schemas[endpoint].schema,
         execute: async (input) => {
           console.log('Executing tool with input:', input);
@@ -276,26 +277,7 @@ export async function toAgents(
       tools,
     };
   }
-  agents['triage'] = {
-    name: 'Triage Agent',
-    instructions:
-      'You are a helpful triaging agent. You can use your tools to delegate questions to other appropriate agents.',
-    tools: Object.fromEntries(
-      Object.entries(groups).map(([, { name, handoffDescription }]) => {
-        return [
-          `transfer_to_${name}`,
-          tool({
-            description: [
-              `Handoff to the ${name} agent to handle the request.`,
-              handoffDescription,
-            ].join(' '),
-            inputSchema: z.object({}),
-            execute: async () => ({ agent: name }),
-          }),
-        ];
-      }),
-    ),
-  };
+
   return agents;
 }
 

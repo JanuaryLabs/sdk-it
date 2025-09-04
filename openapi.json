@@ -33,7 +33,6 @@
         "operationId": "postPublish",
         "parameters": [],
         "tags": [],
-        "description": "",
         "requestBody": {
           "required": true,
           "content": {
@@ -146,7 +145,6 @@
           }
         ],
         "tags": [],
-        "description": "",
         "responses": {
           "200": {
             "description": "Response for 200",
@@ -178,7 +176,6 @@
         "operationId": "postGenerate",
         "parameters": [],
         "tags": [],
-        "description": "",
         "requestBody": {
           "required": true,
           "content": {
@@ -237,7 +234,6 @@
         "operationId": "postPlayground",
         "parameters": [],
         "tags": ["playground"],
-        "description": "",
         "requestBody": {
           "required": true,
           "content": {
@@ -329,7 +325,6 @@
           }
         ],
         "tags": ["operations"],
-        "description": "",
         "responses": {
           "200": {
             "description": "Response for 200",
