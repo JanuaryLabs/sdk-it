@@ -49,13 +49,8 @@ export function generateAISDKTools(ir: IR) {
     }`;
     },
   );
-  const handoffs = `export const triage = {
-  name: 'Triage Agent',
-  tools:{${Object.entries(groups).map(([, { name }]) => {
-    return createTransferTool(name);
-  })}}}`;
 
-  return [...imports, ...agent, handoffs].join('\n\n');
+  return [...imports, ...agent].join('\n\n');
 }
 
 function createTool(entry: OperationEntry, operation: TunedOperationObject) {
@@ -73,14 +68,5 @@ function createTool(entry: OperationEntry, operation: TunedOperationObject) {
         );
         return JSON.stringify(response);
       },
-    })`;
-}
-
-function createTransferTool(agentName: string) {
-  return `transfer_to_${agentName}: tool({
-      type: 'function',
-      description: 'Transfer the conversation to the ${agentName}.',
-      inputSchema: z.object({}),
-      execute: async () => ({ agent: '${agentName}' }),
     })`;
 }

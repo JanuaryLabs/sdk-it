@@ -7,7 +7,7 @@
     "prepare": "husky",
     "test": "bun ./e2e/index.ts",
     "dart": "bun ./e2e/dart.ts",
-    "client": "bun apps/api/sdk.ts"
+    "client": "node apps/api/sdk.ts"
   },
   "repository": "https://github.com/JanuaryLabs/sdk-it",
   "private": true,
