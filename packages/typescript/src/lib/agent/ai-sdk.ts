@@ -56,8 +56,8 @@ export function generateAISDKTools(ir: IR) {
 function createTool(entry: OperationEntry, operation: TunedOperationObject) {
   const schemaName = camelcase(`${operation.operationId} schema`);
   const toolInfo = operation['x-tool'];
-  return `'${toolInfo.name}': tool({
-      description: \`${toolInfo.description}\`,
+  return `'${toolInfo?.name || operation['x-fn-name']}': tool({
+      description: \`${toolInfo?.description || operation.description || operation.summary}\`,
       inputSchema: schemas.${schemaName},
 			execute: async (input, options) => {
 				console.log('Executing ${operation.operationId} tool with input:', input);
