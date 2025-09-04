@@ -7,7 +7,7 @@ import type { Style } from './style.ts';
 
 export interface TypeScriptGeneratorOptions {
   agentTools?: 'ai-sdk' | 'openai-agents';
-  readme?: boolean;
+  readme?: boolean | string;
   style?: Style;
   output: string;
   useTsExtension?: boolean;

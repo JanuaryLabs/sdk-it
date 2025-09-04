@@ -320,8 +320,10 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
   }
 
   if (settings.readme) {
-    await settings.writer(settings.mode === 'full' ? settings.output : output, {
-      'README.md': toReadme(spec, new TypeScriptSnippet(spec, settings)),
+    const path =
+      typeof settings.readme === 'string' ? settings.readme : 'README.md';
+    await settings.writer(settings.output, {
+      [path]: toReadme(spec, new TypeScriptSnippet(spec, settings)),
     });
   }
 
