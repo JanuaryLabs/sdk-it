@@ -64,7 +64,7 @@ export class ${spec.name} {
 
   async request<const E extends keyof typeof schemas>(
     endpoint: E,
-    input: z.infer<(typeof schemas)[E]['schema']>,
+    input: z.input<(typeof schemas)[E]['schema']>,
     options?: { signal?: AbortSignal, headers?: HeadersInit },
   ) ${style.errorAsValue ? `: Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>| [never, ParseError<(typeof schemas)[E]['schema']>]>` : `: Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>>`} {
     const route = schemas[endpoint];
@@ -86,7 +86,7 @@ export class ${spec.name} {
 
   async prepare<const E extends keyof typeof schemas>(
     endpoint: E,
-    input: z.infer<(typeof schemas)[E]['schema']>,
+    input: z.input<(typeof schemas)[E]['schema']>,
     options?: { headers?: HeadersInit },
   ): ${
     style.errorAsValue
