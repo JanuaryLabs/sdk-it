@@ -304,7 +304,7 @@ await generate(spec, {
 
 ```bash
 # using recent versions of node
-node --experimental-strip-types ./openapi.ts
+node ./openapi.ts
 
 # using node < 22
 npx tsx ./openapi.ts
@@ -317,7 +317,7 @@ bun ./openapi.ts
 <summary> Run in watch mode </summary>
 
 ```bash
-node --experimental-strip-types --watch-path ./apps/backend/src --watch ./openapi.ts
+node --watch-path ./apps/backend/src --watch ./openapi.ts
 ```
 
 </details>

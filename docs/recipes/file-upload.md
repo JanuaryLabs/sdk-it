@@ -120,8 +120,8 @@ console.log('SDK generated successfully!');
 # Using tsx
 npx tsx ./generate-sdk.ts
 
-# Using Node.js >= 22 (experimental)
-# node --experimental-strip-types ./generate-sdk.ts
+# Using Node.js >= 22
+# node ./generate-sdk.ts
 
 # Using Bun
 # bun ./generate-sdk.ts

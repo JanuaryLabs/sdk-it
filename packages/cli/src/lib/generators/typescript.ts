@@ -131,7 +131,6 @@ async function emitLocal(spec: OpenAPIObject, options: Options) {
           env: {
             ...env,
             SDK_IT_OUTPUT: output,
-            NODE_OPTIONS: '--experimental-strip-types',
           },
           stdio: options.verbose ? 'inherit' : 'pipe',
         });
