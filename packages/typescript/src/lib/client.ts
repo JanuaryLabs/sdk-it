@@ -9,23 +9,44 @@ export default (spec: Omit<Spec, 'operations'>, style: Style) => {
     .filter((value) => value.in === 'header')
     .map(
       (value) =>
-        `'${value.name}': this.options['${value['x-optionName'] ?? value.name}']`,
+        `'${value.name}': options['${value['x-optionName'] ?? value.name}']`,
     )
     .join(',\n')}}`;
   const defaultInputs = `{${spec.options
     .filter((value) => value.in === 'input')
     .map(
       (value) =>
-        `'${value.name}': this.options['${value['x-optionName'] ?? value.name}']`,
+        `'${value.name}': options['${value['x-optionName'] ?? value.name}']`,
     )
     .join(',\n')}}`;
+
+  /**
+   * Map of option name to zod schema (as string)
+   * Usually stuff like token, apiKey and so on.
+   */
+  const globalOptions = Object.fromEntries(
+    spec.options.map((value) => [
+      `'${value['x-optionName'] ?? value.name}'`,
+      { schema: toZod(value.schema, value.required) },
+    ]),
+  );
+
   const specOptions: Record<string, { schema: string }> = {
-    ...Object.fromEntries(
-      spec.options.map((value) => [
-        `'${value['x-optionName'] ?? value.name}'`,
-        { schema: toZod(value.schema, value.required) },
-      ]),
-    ),
+    ...globalOptions,
+    ...(globalOptions["'token'"]
+      ? {
+          "'token'": {
+            schema: `z.union([z.string(),z.function().returns(z.union([z.string(), z.promise(z.string())])),]).optional()
+    .transform(async (token) => {
+      if (!token) return undefined;
+      if (typeof token === 'function') {
+        token = await Promise.resolve(token());
+      }
+      return \`Bearer \${token}\`;
+    })`,
+          },
+        }
+      : {}),
     fetch: {
       schema: 'fetchType',
     },
@@ -54,12 +75,12 @@ ${spec.servers.length ? `export const servers = ${JSON.stringify(spec.servers, n
 const optionsSchema = z.object(${toLitObject(specOptions, (x) => x.schema)});
 ${spec.servers.length ? `export type Servers = typeof servers[number];` : ''}
 
-type ${spec.name}Options = z.infer<typeof optionsSchema>;
+type ${spec.name}Options = z.input<typeof optionsSchema>;
 
 export class ${spec.name} {
-  public options: ${spec.name}Options
+  public options: ${spec.name}Options;
   constructor(options: ${spec.name}Options) {
-    this.options = optionsSchema.parse(options);
+    this.options = options;
   }
 
   async request<const E extends keyof typeof schemas>(
@@ -73,11 +94,15 @@ export class ${spec.name} {
     if (parseError) {
       ${style.errorAsValue ? 'return [null as never, parseError as never] as const;' : 'throw parseError;'}
     }
+    const clientOptions = await optionsSchema.parseAsync(this.options);
     const result = await route.dispatch(parsedInput as never, {
-      fetch: this.options.fetch,
+      fetch: clientOptions.fetch,
       interceptors: [
-        createHeadersInterceptor(() => this.defaultHeaders, options?.headers ?? {}),
-        createBaseUrlInterceptor(() => this.options.baseUrl),
+        createHeadersInterceptor(
+          await this.#defaultHeaders(),
+          options?.headers ?? {},
+        ),
+        createBaseUrlInterceptor(clientOptions.baseUrl),
       ],
       signal: options?.signal,
     });
@@ -102,14 +127,14 @@ export class ${spec.name} {
         parse: (response: Response) => ReturnType<typeof parse>;
       }>`
   } {
+    const clientOptions = await optionsSchema.parseAsync(this.options);
     const route = schemas[endpoint];
-
     const interceptors = [
       createHeadersInterceptor(
-        () => this.defaultHeaders,
+        await this.#defaultHeaders(),
         options?.headers ?? {},
       ),
-      createBaseUrlInterceptor(() => this.options.baseUrl),
+      createBaseUrlInterceptor(clientOptions.baseUrl),
     ];
     const [parsedInput, parseError] = parseInput(route.schema, input);
     if (parseError) {
@@ -126,8 +151,12 @@ export class ${spec.name} {
     return ${style.errorAsValue ? '[prepared, null as never] as const;' : 'prepared as any'}
   }
 
-  get defaultHeaders() {
-    return { ...${defaultHeaders}, ...this.options.headers}
+  async #defaultHeaders() {
+    const options = await optionsSchema.parseAsync(this.options);
+    return {
+      ...${defaultHeaders},
+      ...options.headers,
+    };
   }
 
   get #defaultInputs() {
@@ -135,13 +164,11 @@ export class ${spec.name} {
   }
 
   setOptions(options: Partial<${spec.name}Options>) {
-    const validated = optionsSchema.partial().parse(options);
-
-    for (const key of Object.keys(validated) as (keyof ${spec.name}Options)[]) {
-      if (validated[key] !== undefined) {
-        (this.options[key] as typeof validated[typeof key]) = validated[key]!;
-      }
-    }
+    this.options = {
+      ...this.options,
+      ...options,
+    };
   }
+
 }`;
 };

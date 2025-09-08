@@ -37,14 +37,24 @@ import { schemaToZod } from './zod.ts';
 
 const optionsSchema = z.object({
   token: z
-    .string()
+    .union([
+      z.string(),
+      z.function().returns(z.union([z.string(), z.promise(z.string())])),
+    ])
     .optional()
-    .transform((val) => (val ? `Bearer ${val}` : undefined)),
+    .transform(async (token) => {
+      if (!token) return undefined;
+      if (typeof token === 'function') {
+        token = await Promise.resolve(token());
+      }
+      return `Bearer ${token}`;
+    }),
   fetch: fetchType,
   baseUrl: z.string(),
   headers: z.record(z.string()).optional(),
 });
-type ClientOptions = z.infer<typeof optionsSchema>;
+
+type ClientOptions = z.input<typeof optionsSchema>;
 
 export function inputToPath(
   operation: TunedOperationObject,
@@ -84,7 +94,7 @@ export class Client {
   public options: ClientOptions;
   public schemas: Record<string, any>;
   constructor(options: ClientOptions, schemas: Record<string, any>) {
-    this.options = optionsSchema.parse(options);
+    this.options = options;
     this.schemas = schemas;
   }
 
@@ -103,24 +113,26 @@ export class Client {
     //   throw parseError;
     // }
     const parsedInput = input;
+    const clientOptions = await optionsSchema.parseAsync(this.options);
     const result = await route.dispatch(parsedInput as never, {
-      fetch: this.options.fetch,
+      fetch: clientOptions.fetch,
       interceptors: [
         createHeadersInterceptor(
-          () => this.defaultHeaders,
+          await this.#defaultHeaders(),
           options?.headers ?? {},
         ),
-        createBaseUrlInterceptor(() => this.options.baseUrl),
+        createBaseUrlInterceptor(clientOptions.baseUrl),
       ],
       signal: options?.signal,
     });
     return result;
   }
 
-  get defaultHeaders() {
+  async #defaultHeaders() {
+    const clientOptions = await optionsSchema.parseAsync(this.options);
     return {
-      authorization: this.options['token'],
-      ...this.options.headers,
+      authorization: clientOptions['token'],
+      ...clientOptions.headers,
     };
   }
 
@@ -129,13 +141,10 @@ export class Client {
   }
 
   setOptions(options: Partial<ClientOptions>) {
-    const validated = optionsSchema.partial().parse(options);
-
-    for (const key of Object.keys(validated) as (keyof ClientOptions)[]) {
-      if (validated[key] !== undefined) {
-        (this.options[key] as (typeof validated)[typeof key]) = validated[key]!;
-      }
-    }
+    this.options = {
+      ...this.options,
+      ...options,
+    };
   }
 }
 

@@ -12,11 +12,20 @@ import type { HeadersInit, RequestConfig } from './http/request.ts';
 export const servers = ['/', 'http://localhost:3000'] as const;
 const optionsSchema = z.object({
   token: z
-    .string()
+    .union([
+      z.string(),
+      z.function().returns(z.union([z.string(), z.promise(z.string())])),
+    ])
     .optional()
-    .transform((val) => (val ? `Bearer ${val}` : undefined)),
+    .transform(async (token) => {
+      if (!token) return undefined;
+      if (typeof token === 'function') {
+        token = await Promise.resolve(token());
+      }
+      return `Bearer ${token}`;
+    }),
   fetch: fetchType,
-  baseUrl: z.enum(servers).default(servers[0]),
+  baseUrl: z.string(),
   headers: z.record(z.string()).optional(),
 });
 export type Servers = (typeof servers)[number];
