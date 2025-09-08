@@ -25,26 +25,30 @@ const optionsSchema = z.object({
       return `Bearer ${token}`;
     }),
   fetch: fetchType,
-  baseUrl: z.string(),
+  baseUrl: z.enum(servers).default(servers[0]),
   headers: z.record(z.string()).optional(),
 });
 export type Servers = (typeof servers)[number];
 
-type SdkItOptions = z.infer<typeof optionsSchema>;
+type SdkItOptions = z.input<typeof optionsSchema>;
 
 export class SdkIt {
   public options: SdkItOptions;
   constructor(options: SdkItOptions) {
-    this.options = optionsSchema.parse(options);
+    this.options = options;
   }
 
   async request<const E extends keyof typeof schemas>(
     endpoint: E,
-    input: z.infer<(typeof schemas)[E]['schema']>,
+    input: z.input<(typeof schemas)[E]['schema']>,
     options?: { signal?: AbortSignal; headers?: HeadersInit },
   ): Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>> {
     const route = schemas[endpoint];
-    const withDefaultInputs = Object.assign({}, this.#defaultInputs, input);
+    const withDefaultInputs = Object.assign(
+      {},
+      await this.#defaultInputs(),
+      input,
+    );
     const [parsedInput, parseError] = parseInput(
       route.schema,
       withDefaultInputs,
@@ -52,14 +56,15 @@ export class SdkIt {
     if (parseError) {
       throw parseError;
     }
+    const clientOptions = await optionsSchema.parseAsync(this.options);
     const result = await route.dispatch(parsedInput as never, {
-      fetch: this.options.fetch,
+      fetch: clientOptions.fetch,
       interceptors: [
         createHeadersInterceptor(
-          () => this.defaultHeaders,
+          await this.#defaultHeaders(),
           options?.headers ?? {},
         ),
-        createBaseUrlInterceptor(() => this.options.baseUrl),
+        createBaseUrlInterceptor(clientOptions.baseUrl),
       ],
       signal: options?.signal,
     });
@@ -68,21 +73,21 @@ export class SdkIt {
 
   async prepare<const E extends keyof typeof schemas>(
     endpoint: E,
-    input: z.infer<(typeof schemas)[E]['schema']>,
+    input: z.input<(typeof schemas)[E]['schema']>,
     options?: { headers?: HeadersInit },
   ): Promise<
     RequestConfig & {
       parse: (response: Response) => ReturnType<typeof parse>;
     }
   > {
+    const clientOptions = await optionsSchema.parseAsync(this.options);
     const route = schemas[endpoint];
-
     const interceptors = [
       createHeadersInterceptor(
-        () => this.defaultHeaders,
+        await this.#defaultHeaders(),
         options?.headers ?? {},
       ),
-      createBaseUrlInterceptor(() => this.options.baseUrl),
+      createBaseUrlInterceptor(clientOptions.baseUrl),
     ];
     const [parsedInput, parseError] = parseInput(route.schema, input);
     if (parseError) {
@@ -102,24 +107,23 @@ export class SdkIt {
     return prepared as any;
   }
 
-  get defaultHeaders() {
+  async #defaultHeaders() {
+    const options = await optionsSchema.parseAsync(this.options);
     return {
-      ...{ authorization: this.options['token'] },
-      ...this.options.headers,
+      ...{ authorization: options['token'] },
+      ...options.headers,
     };
   }
 
-  get #defaultInputs() {
+  async #defaultInputs() {
+    const options = await optionsSchema.parseAsync(this.options);
     return {};
   }
 
   setOptions(options: Partial<SdkItOptions>) {
-    const validated = optionsSchema.partial().parse(options);
-
-    for (const key of Object.keys(validated) as (keyof SdkItOptions)[]) {
-      if (validated[key] !== undefined) {
-        (this.options[key] as (typeof validated)[typeof key]) = validated[key]!;
-      }
-    }
+    this.options = {
+      ...this.options,
+      ...options,
+    };
   }
 }

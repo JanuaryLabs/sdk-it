@@ -89,7 +89,7 @@ export class ${spec.name} {
     options?: { signal?: AbortSignal, headers?: HeadersInit },
   ) ${style.errorAsValue ? `: Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>| [never, ParseError<(typeof schemas)[E]['schema']>]>` : `: Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>>`} {
     const route = schemas[endpoint];
-    const withDefaultInputs = Object.assign({}, this.#defaultInputs, input);
+    const withDefaultInputs = Object.assign({}, await this.#defaultInputs(), input);
     const [parsedInput, parseError] = parseInput(route.schema, withDefaultInputs);
     if (parseError) {
       ${style.errorAsValue ? 'return [null as never, parseError as never] as const;' : 'throw parseError;'}
@@ -159,7 +159,8 @@ export class ${spec.name} {
     };
   }
 
-  get #defaultInputs() {
+  async #defaultInputs() {
+    const options = await optionsSchema.parseAsync(this.options);
     return ${defaultInputs}
   }
 
