@@ -39,6 +39,16 @@ function runCommand(title: string, command: string, memory?: number) {
 
 const specs = [
   {
+    spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
+    name: 'discord',
+    flags: ['--error-as-value=true', '--output-type=status'],
+  },
+  {
+    spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
+    name: 'discord',
+    flags: ['--error-as-value=false', '--output-type=status'],
+  },
+  {
     name: 'AppStoreConnect',
     spec: 'https://raw.githubusercontent.com/EvanBacon/App-Store-Connect-OpenAPI-Spec/refs/heads/main/specs/latest.json',
     flags: [],
@@ -57,16 +67,6 @@ const specs = [
     spec: 'https://raw.githubusercontent.com/MaximilianKoestler/hcloud-openapi/refs/heads/main/openapi/hcloud.json',
     name: 'hetzner',
     flags: ['--output-type=status', '--error-as-value=true'],
-  },
-  {
-    spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
-    name: 'discord',
-    flags: ['--error-as-value=true', '--output-type=status'],
-  },
-  {
-    spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
-    name: 'discord',
-    flags: ['--error-as-value=false', '--output-type=status'],
   },
   {
     spec: 'https://app.stainless.com/api/spec/documented/openai/openapi.documented.yml',

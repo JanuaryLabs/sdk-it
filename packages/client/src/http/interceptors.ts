@@ -6,7 +6,7 @@ export interface Interceptor {
 }
 
 export const createHeadersInterceptor = (
-  defaultHeaders: () => Record<string, string | undefined>,
+  headers: Record<string, string | undefined>,
   requestHeaders: HeadersInit,
 ): Interceptor => {
   return {
@@ -15,7 +15,6 @@ export const createHeadersInterceptor = (
       // 1. Headers Input
       // 2. Request Headers
       // 3. Default Headers
-      const headers = defaultHeaders();
 
       for (const [key, value] of new Headers(requestHeaders)) {
         // Only set the header if it doesn't already exist and has a value
@@ -38,12 +37,9 @@ export const createHeadersInterceptor = (
   };
 };
 
-export const createBaseUrlInterceptor = (
-  getBaseUrl: () => string,
-): Interceptor => {
+export const createBaseUrlInterceptor = (baseUrl: string): Interceptor => {
   return {
     before({ init, url }) {
-      const baseUrl = getBaseUrl();
       if (url.protocol === 'local:') {
         return {
           init,
