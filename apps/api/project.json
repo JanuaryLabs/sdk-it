@@ -42,7 +42,6 @@
       "defaultConfiguration": "development",
       "dependsOn": ["client", "build"],
       "options": {
-        "runtimeArgs": ["--experimental-strip-types"],
         "buildTarget": "api:build",
         "runBuildTargetDependencies": false
       },
@@ -60,7 +59,6 @@
       "defaultConfiguration": "development",
       "dependsOn": ["client", "build"],
       "options": {
-        "runtimeArgs": ["--experimental-strip-types"],
         "buildTarget": "api:build",
         "runBuildTargetDependencies": false
       },

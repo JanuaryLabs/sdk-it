@@ -72,7 +72,7 @@ await generate(spec, {
 
 ```bash
 # using recent versions of node
-node --experimental-strip-types ./openapi.ts
+node ./openapi.ts
 
 # using node < 22
 npx tsx ./openapi.ts

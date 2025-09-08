@@ -25,7 +25,6 @@ function runCommand(
   if (memory) {
     flags.push(`--max-old-space-size=${memory}`);
   }
-  flags.push('--experimental-strip-types');
 
   console.log(
     chalk.dim(`$ ${command}`),
