@@ -13,9 +13,12 @@ type PaginationResult<T, M extends Metadata> = {
   meta: M;
 };
 
-type FetchFn<T, M extends Metadata, PP> = (
-  input: PP,
-) => Promise<PaginationResult<T, M>>;
+type FetchFn<
+  T,
+  M extends Metadata,
+  P extends number | bigint,
+  S extends number | bigint,
+> = (input: Partial<PaginationParams<P, S>>) => Promise<PaginationResult<T, M>>;
 
 /**
  * @experimental
@@ -25,14 +28,16 @@ export class Pagination<
   M extends Metadata,
   P extends number | bigint,
   S extends number | bigint,
-  PP extends PaginationParams<P, S> = PaginationParams<P, S>,
 > {
   #meta: PaginationResult<T, M>['meta'] | null = null;
-  #params: PP;
+  #params: PaginationParams<P, S>;
   #currentPage: Page<T> | null = null;
-  readonly #fetchFn: FetchFn<T, M, PP>;
+  readonly #fetchFn: FetchFn<T, M, P, S>;
 
-  constructor(initialParams: PP, fetchFn: FetchFn<T, M, PP>) {
+  constructor(
+    initialParams: Partial<PaginationParams<P, S>>,
+    fetchFn: FetchFn<T, M, P, S>,
+  ) {
     this.#fetchFn = fetchFn;
     this.#params = { ...initialParams, page: initialParams.page };
   }

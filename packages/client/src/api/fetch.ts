@@ -32,7 +32,7 @@ export default {
   'GET /fetch': {
     schema: fetch.getFetchSchema,
     output: [http.Ok<outputs.GetFetch>, http.BadRequest<outputs.GetFetch400>],
-    toRequest(input: z.infer<typeof fetch.getFetchSchema>) {
+    toRequest(input: z.input<typeof fetch.getFetchSchema>) {
       return toRequest(
         'GET /fetch',
         empty(input, {
@@ -44,7 +44,7 @@ export default {
       );
     },
     async dispatch(
-      input: z.infer<typeof fetch.getFetchSchema>,
+      input: z.input<typeof fetch.getFetchSchema>,
       options: {
         signal?: AbortSignal;
         interceptors: Interceptor[];

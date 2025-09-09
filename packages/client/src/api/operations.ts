@@ -35,7 +35,7 @@ export default {
       http.Ok<outputs.GetOperations>,
       http.BadRequest<outputs.GetOperations400>,
     ],
-    toRequest(input: z.infer<typeof operations.getOperationsSchema>) {
+    toRequest(input: z.input<typeof operations.getOperationsSchema>) {
       return toRequest(
         'GET /operations',
         empty(input, {
@@ -47,7 +47,7 @@ export default {
       );
     },
     async dispatch(
-      input: z.infer<typeof operations.getOperationsSchema>,
+      input: z.input<typeof operations.getOperationsSchema>,
       options: {
         signal?: AbortSignal;
         interceptors: Interceptor[];

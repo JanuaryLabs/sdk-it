@@ -35,7 +35,7 @@ export default {
       http.Ok<outputs.PostPublish>,
       http.BadRequest<outputs.PostPublish400>,
     ],
-    toRequest(input: z.infer<typeof publish.postPublishSchema>) {
+    toRequest(input: z.input<typeof publish.postPublishSchema>) {
       return toRequest(
         'POST /publish',
         json(input, {
@@ -47,7 +47,7 @@ export default {
       );
     },
     async dispatch(
-      input: z.infer<typeof publish.postPublishSchema>,
+      input: z.input<typeof publish.postPublishSchema>,
       options: {
         signal?: AbortSignal;
         interceptors: Interceptor[];

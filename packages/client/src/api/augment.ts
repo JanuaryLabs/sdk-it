@@ -35,7 +35,7 @@ export default {
       http.Ok<outputs.PostAugment>,
       http.BadRequest<outputs.PostAugment400>,
     ],
-    toRequest(input: z.infer<typeof augment.postAugmentSchema>) {
+    toRequest(input: z.input<typeof augment.postAugmentSchema>) {
       return toRequest(
         'POST /augment',
         json(input, {
@@ -47,7 +47,7 @@ export default {
       );
     },
     async dispatch(
-      input: z.infer<typeof augment.postAugmentSchema>,
+      input: z.input<typeof augment.postAugmentSchema>,
       options: {
         signal?: AbortSignal;
         interceptors: Interceptor[];

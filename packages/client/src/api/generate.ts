@@ -35,7 +35,7 @@ export default {
       { type: http.Ok<outputs.PostGenerate>, parser: chunked },
       http.BadRequest<outputs.PostGenerate400>,
     ],
-    toRequest(input: z.infer<typeof generate.postGenerateSchema>) {
+    toRequest(input: z.input<typeof generate.postGenerateSchema>) {
       return toRequest(
         'POST /generate',
         formdata(input, {
@@ -47,7 +47,7 @@ export default {
       );
     },
     async dispatch(
-      input: z.infer<typeof generate.postGenerateSchema>,
+      input: z.input<typeof generate.postGenerateSchema>,
       options: {
         signal?: AbortSignal;
         interceptors: Interceptor[];
