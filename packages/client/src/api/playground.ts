@@ -35,7 +35,7 @@ export default {
       http.Ok<outputs.PostPlayground>,
       http.BadRequest<outputs.PostPlayground400>,
     ],
-    toRequest(input: z.infer<typeof playground.postPlaygroundSchema>) {
+    toRequest(input: z.input<typeof playground.postPlaygroundSchema>) {
       return toRequest(
         'POST /playground',
         formdata(input, {
@@ -47,7 +47,7 @@ export default {
       );
     },
     async dispatch(
-      input: z.infer<typeof playground.postPlaygroundSchema>,
+      input: z.input<typeof playground.postPlaygroundSchema>,
       options: {
         signal?: AbortSignal;
         interceptors: Interceptor[];
