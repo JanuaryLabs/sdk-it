@@ -9,11 +9,8 @@ import type {
 } from 'openapi3-ts/oas31';
 
 import { $types } from './deriver.js';
+import { type InjectImport, evalZod } from './zod-jsonschema.js';
 
-export type InjectImport = {
-  import: string;
-  from: string;
-};
 export type OperationInfo = {
   tool?: string;
   toolDescription?: string;
@@ -56,8 +53,6 @@ export interface Selector {
   name: string;
   against: string;
   source: SemanticSource;
-  nullable: boolean;
-  required: boolean;
 }
 
 export interface ResponseItem {
@@ -187,19 +182,22 @@ export class Paths {
       { required: boolean; schema: SchemaObject }
     > = {};
     for (const selector of selectors) {
+      const { optional, schema } = await evalZod(
+        selector.against,
+        this.#imports,
+      );
       if (selector.source === 'body') {
         bodySchemaProps[selector.name] = {
-          required: selector.required,
-          schema: await evalZod(selector.against, this.#imports),
+          required: !optional,
+          schema,
         };
         continue;
       }
-
       const parameter: ParameterObject = {
         in: semanticSourceToOpenAPI[selector.source],
         name: selector.name,
-        required: selector.required,
-        schema: await evalZod(selector.against, this.#imports),
+        required: !optional,
+        schema,
       };
       parameters.push(parameter);
     }
@@ -291,34 +289,6 @@ export class Paths {
   #tunePath(path: string): string {
     return path.replace(/:([^/]+)/g, '{$1}');
   }
-}
-
-async function evalZod(schema: string, imports: InjectImport[] = []) {
-  // https://github.com/nodejs/node/issues/51956
-  const lines = [
-    `import { createRequire } from "node:module";`,
-    `const filename = "${import.meta.url}";`,
-    `const require = createRequire(filename);`,
-    `const z = require("zod");`,
-    ...imports.map((imp) => `const ${imp.import} = require('${imp.from}');`),
-    `const {zodToJsonSchema} = require('zod-to-json-schema');`,
-    `const schema = ${schema.replace('.optional()', '').replaceAll('instanceof(File)', 'string().base64()')};`,
-    `const jsonSchema = zodToJsonSchema(schema, {
-      $refStrategy: 'root',
-      basePath: ['#', 'components', 'schemas'],
-      target: 'jsonSchema7',
-      base64Strategy: 'format:binary',
-  });`,
-    `export default jsonSchema;`,
-  ];
-
-  const base64 = Buffer.from(lines.join('\n')).toString('base64');
-  return import(
-    /* @vite-ignore */
-    `data:text/javascript;base64,${base64}`
-  )
-    .then((mod) => mod.default)
-    .then(({ $schema, ...result }) => result);
 }
 
 interface DateType {
