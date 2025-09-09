@@ -89,14 +89,14 @@ export function toEndpoint(
       `"${endpoint}": {
           schema: ${schemaRef}${addTypeParser ? `.${type}` : ''},
           output:[${outputs.join(',')}],
-          toRequest(input: z.infer<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>) {
+          toRequest(input: z.input<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>) {
            return toRequest('${endpoint}', ${operation.outgoingContentType || 'empty'}(input, {
               inputHeaders: [${paths.inputHeaders}],
               inputQuery: [${paths.inputQuery}],
               inputBody: [${paths.inputBody}],
               inputParams: [${paths.inputParams}],
             }));},
-         async dispatch(input: z.infer<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>,options: {
+         async dispatch(input: z.input<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>,options: {
             signal?: AbortSignal;
             interceptors: Interceptor[];
             fetch: z.infer<typeof fetchType>;
