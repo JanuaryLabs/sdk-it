@@ -234,8 +234,6 @@ function toSelectors(props: ts.PropertyAssignment[]) {
     const [, source, selectText] = select.initializer.getText().split('.');
     selectors.push({
       name: selectText,
-      nullable: against.initializer.getText().includes('nullable'),
-      required: !against.initializer.getText().includes('optional'),
       against: against.initializer.getText(),
       source: source as SemanticSource,
     });
