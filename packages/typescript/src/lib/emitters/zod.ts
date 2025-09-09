@@ -75,7 +75,7 @@ export class ZodEmitter {
   }
 
   #suffixes = (defaultValue: unknown, required: boolean, nullable: boolean) => {
-    return `${nullable ? '.nullable()' : ''}${appendDefault(defaultValue)}${appendOptional(required)}`;
+    return `${nullable ? '.nullable()' : ''}${appendOptional(required)}${appendDefault(defaultValue)}`;
   };
 
   /**
