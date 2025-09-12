@@ -390,46 +390,43 @@ describe('guessPagination()', () => {
         qParam('custom_offset_param'),
         qParam('limit'),
       ]);
-      // Expectation with real implementation:
-      // assert.deepStrictEqual(guessPagination(op), { type: 'none' });
-      // With current simple mock, this might pass if 'limit' alone is not enough.
-      assert.ok(
-        true,
-        'Test needs real implementation for accurate regex boundary check',
-      );
+      assert.deepStrictEqual(guessPagination(op), { type: 'none' });
     });
 
     test('should match "offset_custom" for "offset" keyword (with real implementation)', () => {
       const op = createOperation([qParam('offset_custom'), qParam('limit')]);
-      // Expectation with real implementation:
-      // const result = guessPagination(op);
-      // assert.strictEqual(result.type, 'offset');
-      // assert.strictEqual(result.offsetParamName, 'offset_custom');
-      // assert.strictEqual(result.offsetKeyword, 'offset');
-      assert.ok(
-        true,
-        'Test needs real implementation for accurate keyword extraction',
+      const result = guessPagination(op);
+      assert.strictEqual(result.type, 'offset');
+      assert.strictEqual(result.offsetParamName, 'offset_custom');
+      assert.strictEqual(
+        result.offsetKeyword,
+        getExpectedKeyword('offset_custom', OFFSET_PARAM_REGEXES),
+      );
+      assert.strictEqual(result.limitParamName, 'limit');
+      assert.strictEqual(
+        result.limitKeyword,
+        getExpectedKeyword('limit', GENERIC_LIMIT_PARAM_REGEXES),
       );
     });
 
     test('should match "page" exactly for page number, not "my_page_details" (with real implementation)', () => {
       const op = createOperation([qParam('my_page_details'), qParam('size')]);
-      // assert.deepStrictEqual(guessPagination(op), { type: 'none' });
-      assert.ok(
-        true,
-        'Test needs real implementation for exact regex matching',
-      );
+      assert.deepStrictEqual(guessPagination(op), { type: 'none' });
     });
 
     test('should match "p" exactly for page number (with real implementation)', () => {
       const op = createOperation([qParam('p'), qParam('size')]);
-      // const result = guessPagination(op);
-      // assert.strictEqual(result.type, 'page');
-      // assert.strictEqual(result.pageNumberParamName, 'p');
-      // assert.strictEqual(result.pageNumberKeyword, 'p');
-      assert.ok(
-        true,
-        'Test needs real implementation for exact regex matching',
+      const result = guessPagination(op);
+      assert.strictEqual(result.type, 'page');
+      assert.strictEqual(result.pageNumberParamName, 'p');
+      assert.strictEqual(
+        result.pageNumberKeyword,
+        getExpectedKeyword('p', PAGE_NUMBER_REGEXES),
+      );
+      assert.strictEqual(result.pageSizeParamName, 'size');
+      assert.strictEqual(
+        result.pageSizeKeyword,
+        getExpectedKeyword('size', PAGE_SIZE_REGEXES),
       );
     });
   });
