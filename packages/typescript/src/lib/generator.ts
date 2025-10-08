@@ -240,15 +240,21 @@ function toProps(
 function bodyInputs(spec: IR, ctSchema: SchemaObject | ReferenceObject) {
   const props: string[] = [];
   toProps(spec, ctSchema, props);
-  return props.reduce<Record<string, OperationInput>>(
-    (acc, prop) => ({
-      ...acc,
-      [prop]: {
-        in: 'body',
-        schema: '',
-      },
-    }),
-    {},
+
+  return (
+    props
+      // TODO: should we preproccess the sort at spec level instead of generator's?
+      .toSorted((a, b) => a.localeCompare(b))
+      .reduce<Record<string, OperationInput>>(
+        (acc, prop) => ({
+          ...acc,
+          [prop]: {
+            in: 'body',
+            schema: '',
+          },
+        }),
+        {},
+      )
   );
 }
 
