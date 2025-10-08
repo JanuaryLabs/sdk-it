@@ -116,7 +116,7 @@ export class TypeDeriver {
     if (type.flags & TypeFlags.Null) {
       return {
         [deriveSymbol]: true,
-        optional: true,
+        optional: false,
         [$types]: ['null'],
       };
     }
@@ -462,7 +462,7 @@ export class TypeDeriver {
     if (node.kind === ts.SyntaxKind.NullKeyword) {
       return {
         [deriveSymbol]: true,
-        optional: true,
+        optional: false,
         [$types]: ['null'],
       };
     }
