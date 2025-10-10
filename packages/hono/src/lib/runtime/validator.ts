@@ -174,17 +174,17 @@ export function validate<T extends ValidatorConfig>(
       {} as Record<string, unknown>,
     );
 
-    const parsed = parse(schema, input);
+    const parsed = await parse(schema, input);
     c.set('input', parsed as ExtractInput<T>);
     await next();
   });
 }
 
-export function parse<T extends z.ZodRawShape>(
+export async function parse<T extends z.ZodRawShape>(
   schema: z.ZodObject<T>,
   input: unknown,
 ) {
-  const result = schema.safeParse(input);
+  const result = await schema.safeParseAsync(input);
   if (!result.success) {
     const error = new HTTPException(400, {
       message: 'Validation failed',
@@ -194,7 +194,7 @@ export function parse<T extends z.ZodRawShape>(
         errors: result.error.flatten((issue) => ({
           message: issue.message,
           code: issue.code,
-          fatel: issue.fatal,
+          fatal: issue.fatal,
           path: issue.path.join('.'),
         })).fieldErrors,
       },

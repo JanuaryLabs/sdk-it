@@ -100,7 +100,7 @@ const client = new Client({
 });
 
 // Call API methods with type safety
-const [servers, error] = await client.request('GET /servers', {});
+const servers = await client.request('GET /servers', {});
 
 if (error) {
   console.error('Error fetching servers:', error);

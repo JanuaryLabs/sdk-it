@@ -160,6 +160,123 @@ await writeFile('openapi.json', JSON.stringify(spec, null, 2));
 
 This configuration ensures that any property with the `Decimal` type is represented as a `string` in the generated OpenAPI specification.
 
+### Referencing external schemas
+
+By default, the analyzer doesn't see beyond the validation schema defined in the validate middleware route handler and expects the schemas to be defined inline.
+
+For instance the following route handler is perfectly valid and will be analyzed correctly.
+
+```typescript
+/**
+ * @openapi getAuthor
+ * @tags authors
+ */
+app.get(
+  '/authors/:id',
+  validate((payload) => ({
+    id: {
+      select: payload.param.id,
+      against: z.string(),
+    },
+  })),
+  async (req, res) => {
+    const { id } = req.input;
+    return res.json({ id, name: 'John Doe' });
+  },
+);
+```
+
+However, if you want to reference external schemas as shown below, you need to provide a way for the analyzer to resolve the schema.
+
+```ts
+// filename: schemas.ts
+import { z } from 'zod';
+
+export const authorSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(2).max(100),
+});
+```
+
+```ts
+import crypto from 'node:crypto';
+import { z } from 'zod';
+
+import { validate } from '@sdk-it/express/runtime';
+
+import { authorSchema } from './schemas';
+
+/**
+ * @openapi createBook
+ * @tags books
+ */
+app.post(
+  '/books',
+  validate((payload) => ({
+    title: {
+      select: payload.body.title,
+      against: z.string().min(2).max(100),
+    },
+    author: {
+      select: payload.body.author,
+      against: authorSchema, // <-- Referencing external schema
+    },
+  })),
+  async (req, res) => {
+    const { title, author } = req.input;
+    return res.json({ id: crypto.randomUUID(), title, author });
+  },
+);
+```
+
+In this case the analyzer needs to be able to resolve the `authorSchema` reference to generate the correct OpenAPI schema otherwise it will fail.
+
+Luckily, the analyzer provides an `imports` option that allows you to specify additional files to be included in the analysis.
+
+```ts
+import { join } from 'node:path';
+
+import { analyze } from '@sdk-it/generic';
+
+const { paths, components } = await analyze('path/to/tsconfig.json', {
+  responseAnalyzer,
+  imports: [
+    {
+      import: 'schemas',
+      from: join(process.cwd(), 'path/to/schemas.ts'), // <-- Path to the file containing the external schema
+    },
+  ],
+});
+```
+
+Now you need to update the import to namespace imports in the route handler where the `schemas` variable is used.
+
+```ts
+import * as schemas from './schemas';
+
+/**
+ * @openapi createBook
+ * @tags books
+ */
+app.post(
+  '/books',
+  validate((payload) => ({
+    title: {
+      select: payload.body.title,
+      against: z.string().min(2).max(100),
+    },
+    author: {
+      select: payload.body.author,
+      against: schemas.authorSchema,
+    },
+  })),
+  async (req, res) => {
+    const { title, author } = req.input;
+    return res.json({ id: crypto.randomUUID(), title, author });
+  },
+);
+```
+
 ### Control endpoint/operation visibility
 
 You can control the visibility of endpoints and operations in the generated OpenAPI specification by using the `@access` tag in your JSDoc comments. for now only `private` is supported.
