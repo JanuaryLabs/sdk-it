@@ -202,7 +202,7 @@ export class PaymentFormComponent {
     this.isSubmitting.set(true);
 
     try {
-      const [result, error] = await this.createPayment.mutate(this.form);
+      const result = await this.createPayment.mutate(this.form);
 
       if (error) {
         // Handle error

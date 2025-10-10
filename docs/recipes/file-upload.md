@@ -145,12 +145,9 @@ Use the generated SDK in a React component via the `useAction` hook (from the `a
 // src/components/FileUpload.tsx
 import React from 'react';
 
-import { useAction } from '../api';
-
-// Path to your api.tsx recipe
+import { useAction } from '../use-client.tsx';
 
 function FileUpload() {
-  // Hook for the 'POST /upload' endpoint
   const uploadMutation = useAction('POST /upload', {
     onSuccess: (data) => {
       console.log('Upload successful:', data);

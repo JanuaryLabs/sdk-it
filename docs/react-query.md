@@ -12,23 +12,24 @@ Copy the following code into your project.
 <summary>View the API code</summary>
 
 ```ts
+import { Client, type Endpoints } from '@datahub/client';
 import {
   type MutationFunction,
+  type MutationFunctionContext,
   type UseMutationOptions,
   type UseMutationResult,
+  type UseQueryOptions,
   type UseQueryResult,
   useMutation,
+  useMutationState,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 
-import { Client, type Endpoints } from '@impact/client';
+import { BASE_URL } from './lib/api.ts';
 
 export const client = new Client({
-  baseUrl:
-    import.meta.env.VITE_API_URL === '/'
-      ? window.location.origin
-      : import.meta.env.VITE_API_URL,
+  baseUrl: BASE_URL,
 });
 
 type DataEndpoints = {
@@ -58,11 +59,18 @@ type MutationEndpoints = {
 export function useData<E extends DataEndpoints>(
   endpoint: E,
   input?: Endpoints[E]['input'],
-  options?: { staleTime?: number; queryKey?: string[] },
+  options?: Omit<
+    UseQueryOptions<
+      Endpoints[E]['output'],
+      Endpoints[E]['error'],
+      Endpoints[E]['output']
+    >,
+    'queryFn' | 'meta' | 'queryKey'
+  >,
 ): UseQueryResult<Endpoints[E]['output'], Endpoints[E]['error']> {
   return useQuery({
-    queryKey: options?.queryKey ?? [endpoint, JSON.stringify(input)],
-    staleTime: options?.staleTime,
+    queryKey: [endpoint, JSON.stringify(input)],
+    ...options,
     meta: { endpoint, input },
     queryFn: () => client.request(endpoint, input ?? ({} as never)),
   });
@@ -75,7 +83,10 @@ type WithMutationFn<E extends keyof Endpoints> = Omit<
   invalidate?: DataEndpoints[];
   mutationFn: MutationFunction<
     Endpoints[E]['output'] | undefined,
-    (input: Endpoints[E]['input']) => Promise<Endpoints[E]['output']>
+    (
+      input: Endpoints[E]['input'],
+      context: MutationFunctionContext,
+    ) => Promise<Endpoints[E]['output']>
   >;
 };
 type WithoutMutationFn<E extends keyof Endpoints> = Omit<
@@ -90,24 +101,58 @@ type WithoutMutationFn<E extends keyof Endpoints> = Omit<
 };
 
 /**
- * A hook to perform an action on the API
- * @param endpoint - The API endpoint to perform the action on (e.g. 'POST /payments')
- * @param input - The input data for the request
- * @returns The mutation result containing data and status
+ * A hook to perform an action on the API with a custom mutation function.
+ * The `mutate` function from the result will not take any arguments.
+ * The `mutationFn` receives a `dispatch` function that you can call to trigger the API request.
+ *
+ * @param endpoint - The API endpoint to perform the action on (e.g. 'POST /payments').
+ * @param options - Options for the mutation, including a custom `mutationFn`.
+ * @returns The mutation result.
  *
  * @example
- * // Create a new payment
- * const { mutate, isLoading } = useAction('POST /payments', {
- *  amount: 1000,
- * date: '2023-01-01',
+ * // Create a new payment with a custom function
+ * const { mutate, isPending } = useAction('POST /payments', {
+ *   mutationFn: (dispatch) => dispatch({ amount: 1000, date: '2023-01-01' }),
+ *   onSuccess: () => console.log('Payment created!'),
  * });
+ *
+ * @example
+ * // Perform logic before and after the mutation
+ * const { mutate, isPending } = useAction('POST /payments', {
+ *  mutationFn: async (dispatch) => {
+ *   // Perform some logic before the mutation
+ *   await dispatch({ amount: 1000, date: '2023-01-01' });
+ *   // Perform some logic after the mutation
+ *   console.log('Payment created!');
+ *  },
+ * });
+ *
+ * // later in the code
+ * mutate();
  */
-
 export function useAction<E extends MutationEndpoints>(
   endpoint: E,
   options: WithMutationFn<E>,
 ): UseMutationResult<Endpoints[E]['output'], Endpoints[E]['error'], void>;
 
+/**
+ * @overload
+ * A hook to perform an action on the API.
+ * The `mutate` function from the result expects the input for the endpoint.
+ *
+ * @param endpoint - The API endpoint to perform the action on (e.g. 'POST /payments').
+ * @param options - Options for the mutation.
+ * @returns The mutation result.
+ *
+ * @example
+ * // Create a new payment
+ * const { mutate, isPending } = useAction('POST /payments', {
+ *   onSuccess: () => console.log('Payment created!'),
+ * });
+ *
+ * // later in the code
+ * mutate({ amount: 1000, date: '2023-01-01' });
+ */
 export function useAction<E extends MutationEndpoints>(
   endpoint: E,
   options?: WithoutMutationFn<E>,
@@ -128,19 +173,21 @@ export function useAction<E extends MutationEndpoints>(
   return useMutation<
     Endpoints[E]['output'],
     Endpoints[E]['error'],
-    Endpoints[E]['input']
+    Endpoints[E]['input'],
+    unknown
   >({
     ...options,
     mutationKey: [endpoint],
-    mutationFn: async (input) => {
+    mutationFn: async (input, context) => {
       if (options && 'mutationFn' in options && options.mutationFn) {
-        return options.mutationFn(async (input: Endpoints[E]['input']) => {
-          return client.request(endpoint, input);
-        });
+        return options.mutationFn(
+          (input) => client.request(endpoint, input),
+          context,
+        ) as Promise<Endpoints[E]['output']>;
       }
-      return await client.request(endpoint, input);
+      return (await client.request(endpoint, input)) as Endpoints[E]['output'];
     },
-    onSuccess: async (result, variables, context) => {
+    onSuccess: async (data, variables, onMutateResult, context) => {
       for (const endpoint of options?.invalidate ?? []) {
         await queryClient.invalidateQueries({
           predicate(query) {
@@ -148,7 +195,17 @@ export function useAction<E extends MutationEndpoints>(
           },
         });
       }
-      return options?.onSuccess?.(result, variables, context);
+      return options?.onSuccess?.(data, variables, data, context);
+    },
+  });
+}
+
+export function useActionState<E extends MutationEndpoints>(endpoint: E) {
+  return useMutationState({
+    filters: {
+      predicate(mutation) {
+        return mutation.meta?.endpoint === endpoint;
+      },
     },
   });
 }
@@ -161,7 +218,7 @@ export function useAction<E extends MutationEndpoints>(
 - Fetch data from the API using the `useData` hook.
 
 ```tsx
-import { useData } from './api';
+import { useData } from './use-client.tsx';
 
 function Payments() {
   const { data: payments, isLoading } = useData('GET /payments', {
@@ -186,7 +243,7 @@ function Payments() {
 - Performing Mutations with Invalidation
 
 ```tsx
-import { useAction, useData } from './api';
+import { useAction, useData } from './use-client.ts';
 
 function CreatePaymentForm() {
   const [amount, setAmount] = useState(0);
@@ -196,7 +253,12 @@ function CreatePaymentForm() {
   const { mutate, isLoading, error } = useAction('POST /payments', {
     invalidate: ['GET /payments'], // This will invalidate the payments query
     mutationFn: async (dispatch) => {
-      return dispatch({ amount, date });
+      // Perform some logic before the mutation
+      console.log('Creating payment...');
+      const result = await dispatch({ amount, date });
+      // Perform some logic after the mutation
+      console.log('Payment created!', result);
+      return result;
     },
     onSuccess: (result) => {
       // Handle success
@@ -207,10 +269,47 @@ function CreatePaymentForm() {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        mutate({ amount, date });
+        mutate(); // No arguments needed when using custom mutationFn
       }}
     >
       {/* Form fields */}
+      <button type="submit" disabled={isLoading}>
+        {isLoading ? 'Creating...' : 'Create Payment'}
+      </button>
+      {error && <p>Error: {error.message}</p>}
+    </form>
+  );
+}
+```
+
+- Simple Mutation without Custom Function
+
+```tsx
+import { useAction } from './use-client.ts';
+
+function CreatePaymentForm() {
+  // Without a custom mutationFn, the mutate function accepts the input directly
+  const { mutate, isLoading, error } = useAction('POST /payments', {
+    invalidate: ['GET /payments'],
+    onSuccess: (result) => {
+      console.log('Payment created!', result);
+    },
+  });
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        // Pass the input directly to mutate
+        mutate({
+          amount: Number(formData.get('amount')),
+          date: formData.get('date') as string,
+        });
+      }}
+    >
+      <input type="number" name="amount" placeholder="Amount" required />
+      <input type="date" name="date" required />
       <button type="submit" disabled={isLoading}>
         {isLoading ? 'Creating...' : 'Create Payment'}
       </button>

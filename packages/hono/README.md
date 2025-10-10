@@ -21,6 +21,9 @@ The validator middleware offers type-safe request validation using [Zod](https:/
 > [!IMPORTANT]
 > For openapi generation to work correctly, you must use the `validate` middleware for each route.
 
+> [!TIP]
+> You can copy paste the middleware to your project if you want customize it further.
+
 **Basic Usage:**
 
 ```typescript
@@ -94,7 +97,6 @@ import { z } from 'zod';
 
 import { validate } from '@sdk-it/hono/runtime';
 
-// Specifying content type enforcement
 app.post(
   '/users',
   validate('application/json', (payload) => ({
@@ -328,20 +330,22 @@ node --watch-path ./apps/backend/src --watch ./openapi.ts
 - Use the client
 
 ```typescript
-import { Client } from './client';
+import { Client, UnauthorizedError } from './client';
 
 const client = new Client({
   baseUrl: 'http://localhost:3000',
 });
 
-const [books, error] = await client.request('GET /books', {
-  author: 'John Doe',
-});
-
-// Check for errors
-if (error) {
-  console.error('Error fetching books:', error);
-} else {
+try {
+  const books = await client.request('GET /books', {
+    author: 'John Doe',
+  });
   console.log('Books retrieved:', books);
+} catch (error) {
+  if (error instanceof UnauthorizedError) {
+    console.error('Unauthorized access - perhaps you need to log in?');
+  } else {
+    console.error('Error fetching books:', error);
+  }
 }
 ```
