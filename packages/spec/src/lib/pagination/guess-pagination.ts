@@ -7,6 +7,7 @@ import type {
 import { isRef } from '@sdk-it/core/ref.js';
 import { isEmpty } from '@sdk-it/core/utils.js';
 
+import { coerceTypes } from '../tune.js';
 import type { TunedOperationObject } from '../types.js';
 import { getHasMoreName, getItemsName } from './pagination-result.js';
 
@@ -140,7 +141,7 @@ function findParamAndKeyword(
   return null;
 }
 
-function coearceParameters(
+function coerceParameters(
   parameters: { name: string; schema?: SchemaObject | ReferenceObject }[],
 ) {
   const cleanedParameters: {
@@ -156,6 +157,26 @@ function coearceParameters(
     if (isRef(param.schema)) {
       continue;
     }
+    if (param.schema.anyOf || param.schema.oneOf || param.schema.allOf) {
+      const schemas = (
+        param.schema.anyOf ||
+        param.schema.oneOf ||
+        param.schema.allOf ||
+        []
+      ).filter((it): it is SchemaObject => !isRef(it));
+      schemas.forEach((schema) => {
+        if (schema.type) {
+          cleanedParameters.push({
+            ...param,
+            schema: {
+              ...schema,
+              type: coerceTypes(schema),
+            },
+          });
+        }
+      });
+      continue;
+    }
     if (!param.schema.type) {
       continue;
     }
@@ -164,9 +185,7 @@ function coearceParameters(
         ...param,
         schema: {
           ...param.schema,
-          type: Array.isArray(param.schema.type)
-            ? param.schema.type
-            : [param.schema.type],
+          type: coerceTypes(param.schema),
         },
       });
     }
@@ -178,10 +197,11 @@ function isOffsetPagination(
   operation: TunedOperationObject,
   parameters: { name: string; schema?: SchemaObject | ReferenceObject }[],
 ): OffsetPaginationResult | null {
-  const params = coearceParameters(parameters).filter(
+  const params = coerceParameters(parameters).filter(
     (it) =>
       it.schema.type.includes('integer') || it.schema.type.includes('number'),
   );
+
   const offsetMatch = findParamAndKeyword(params, OFFSET_PARAM_REGEXES);
 
   if (!offsetMatch) return null;
@@ -206,7 +226,7 @@ function isPagePagination(
   operation: TunedOperationObject,
   parameters: { name: string; schema?: SchemaObject | ReferenceObject }[],
 ): PagePaginationResult | null {
-  const params = coearceParameters(parameters).filter(
+  const params = coerceParameters(parameters).filter(
     (it) =>
       it.schema.type.includes('integer') || it.schema.type.includes('number'),
   );

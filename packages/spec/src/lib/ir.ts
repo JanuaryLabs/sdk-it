@@ -7,10 +7,13 @@ import type {
 
 import { type Method, methods } from '@sdk-it/core/paths.js';
 import { resolveRef } from '@sdk-it/core/ref.js';
-import { camelcase, snakecase } from '@sdk-it/core/utils.js';
+import { snakecase } from '@sdk-it/core/utils.js';
 
 import { toResource } from './guess/guess-resource.js';
-import { type GenerateSdkConfig, coeraceConfig } from './options.js';
+import {
+  type GenerateSdkConfig,
+  coeraceConfig as coerceConfig,
+} from './options.js';
 import { extractOverviewDocs } from './overview-docs/overview-docs.js';
 import { toPagination } from './pagination/pagination.js';
 import { tuneRequestBody } from './tune-request-body.js';
@@ -50,7 +53,7 @@ function findUniqueOperationId(
 }
 
 export function toIR(config: GenerateSdkConfig, verbose = false): IR {
-  const coearcedConfig = coeraceConfig(config);
+  const coercedConfig = coerceConfig(config);
   if ('x-sdk-augmented' in config.spec) {
     return config.spec as IR; // Already augmented
   }
@@ -58,7 +61,7 @@ export function toIR(config: GenerateSdkConfig, verbose = false): IR {
   const paths: PathsObject = {};
   const usedOperationIds = new Set<string>();
 
-  for (const [path, pathItem] of Object.entries(coearcedConfig.spec.paths)) {
+  for (const [path, pathItem] of Object.entries(coercedConfig.spec.paths)) {
     // Convert Express-style routes (:param) to OpenAPI-style routes ({param})
     const fixedPath = path.replace(/:([^/]+)/g, '{$1}');
     for (const [method, operation] of Object.entries(pathItem) as [
@@ -69,13 +72,13 @@ export function toIR(config: GenerateSdkConfig, verbose = false): IR {
         continue;
       }
       const { name } = toResource(operation, fixedPath, method);
-      const operationTag = coearcedConfig.tag(operation, fixedPath);
+      const operationTag = coercedConfig.tag(operation, fixedPath);
       const operationId = findUniqueOperationId(
         usedOperationIds,
-        coearcedConfig.operationId(operation, fixedPath, method),
+        coercedConfig.operationId(operation, fixedPath, method),
         [operationTag, method, fixedPath.split('/').filter(Boolean).join('')],
         (id) =>
-          coearcedConfig.operationId(
+          coercedConfig.operationId(
             { ...operation, operationId: id },
             fixedPath,
             method,
@@ -86,7 +89,7 @@ export function toIR(config: GenerateSdkConfig, verbose = false): IR {
       const parameters = [
         ...(pathItem.parameters ?? []),
         ...(operation.parameters ?? []),
-      ].map((it) => resolveRef<ParameterObject>(coearcedConfig.spec, it));
+      ].map((it) => resolveRef<ParameterObject>(coercedConfig.spec, it));
 
       const tunedOperation: TunedOperationObject = {
         ...operation,
@@ -96,13 +99,13 @@ export function toIR(config: GenerateSdkConfig, verbose = false): IR {
         tags: [snakecase(operationTag)], // todo: do not transfer casing unless tag cannot be valid identifier
         operationId: operationId,
         responses: resolveResponses(
-          coearcedConfig.spec,
+          coercedConfig.spec,
           operationId,
           operation,
-          coearcedConfig.responses,
+          coercedConfig.responses,
         ),
         requestBody: tuneRequestBody(
-          coearcedConfig.spec,
+          coercedConfig.spec,
           operationId,
           // camelcase(`${name} ${operationTag}`),
           operation,
@@ -111,10 +114,10 @@ export function toIR(config: GenerateSdkConfig, verbose = false): IR {
         ),
       };
 
-      if (coearcedConfig.pagination.enabled) {
-        if (coearcedConfig.pagination.guess) {
+      if (coercedConfig.pagination.enabled) {
+        if (coercedConfig.pagination.guess) {
           tunedOperation['x-pagination'] = toPagination(
-            coearcedConfig.spec,
+            coercedConfig.spec,
             tunedOperation,
           );
         }
@@ -132,23 +135,23 @@ export function toIR(config: GenerateSdkConfig, verbose = false): IR {
   }
 
   fixSpec(
-    coearcedConfig.spec,
-    Object.values(coearcedConfig.spec.components.schemas),
+    coercedConfig.spec,
+    Object.values(coercedConfig.spec.components.schemas),
   );
 
   if (verbose) {
     const newRefs: { name: string; value: SchemaObject }[] = [];
     expandSpec(
-      coearcedConfig.spec,
-      coearcedConfig.spec.components.schemas,
+      coercedConfig.spec,
+      coercedConfig.spec.components.schemas,
       newRefs,
     );
   }
 
   return {
-    ...coearcedConfig.spec,
+    ...coercedConfig.spec,
     paths,
-    'x-docs': extractOverviewDocs(coearcedConfig.spec),
+    'x-docs': extractOverviewDocs(coercedConfig.spec),
     'x-sdk-augmented': true,
   };
 }

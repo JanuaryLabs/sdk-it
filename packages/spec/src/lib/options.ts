@@ -57,7 +57,7 @@ export const defaults: Partial<GenerateSdkConfig> &
 
 export function coeraceConfig(config: GenerateSdkConfig) {
   return {
-    pagination: coearcePaginationConfig(config.pagination),
+    pagination: coercePaginationConfig(config.pagination),
     responses: config.responses ?? {},
     spec: {
       ...config.spec,
@@ -89,7 +89,7 @@ export function coeraceConfig(config: GenerateSdkConfig) {
   };
 }
 
-export function coearcePaginationConfig(
+export function coercePaginationConfig(
   options: PaginationConfig | undefined | false,
 ) {
   if (options === undefined) {
