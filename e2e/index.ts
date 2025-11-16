@@ -64,11 +64,6 @@ const specs = [
     flags: [],
   },
   {
-    spec: 'https://app.stainless.com/api/spec/documented/openai/openapi.documented.yml',
-    name: 'openai',
-    flags: [],
-  },
-  {
     name: 'Box',
     spec: 'https://raw.githubusercontent.com/box/box-openapi/refs/heads/main/openapi.json',
     flags: [],

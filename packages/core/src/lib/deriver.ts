@@ -542,6 +542,30 @@ export class TypeDeriver {
       return this.serializeType(type);
     }
 
+    // Handle binary expressions (||, &&, +, -, etc.)
+    if (ts.isBinaryExpression(node)) {
+      const type = this.checker.getTypeAtLocation(node);
+      return this.serializeType(type);
+    }
+
+    // Handle conditional/ternary expressions (x ? y : z)
+    if (ts.isConditionalExpression(node)) {
+      const type = this.checker.getTypeAtLocation(node);
+      return this.serializeType(type);
+    }
+
+    // Handle parenthesized expressions ((value))
+    if (ts.isParenthesizedExpression(node)) {
+      const type = this.checker.getTypeAtLocation(node);
+      return this.serializeType(type);
+    }
+
+    // Handle non-null assertions (value!)
+    if (ts.isNonNullExpression(node)) {
+      const type = this.checker.getTypeAtLocation(node);
+      return this.serializeType(type);
+    }
+
     console.warn(
       'Unhandled node details:',
       `Node kind: ${ts.SyntaxKind[node.kind]}`,

@@ -109,3 +109,5 @@ export const responseAnalyzer: NaunceResponseAnalyzer = {
   },
   default: defaultResponseAnalyzer,
 };
+
+export default responseAnalyzer;

@@ -152,3 +152,5 @@ export const responseAnalyzer = {
   stream,
   'throw.new.HTTPException': httpException,
 };
+
+export default responseAnalyzer;
