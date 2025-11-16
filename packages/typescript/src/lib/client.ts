@@ -64,6 +64,7 @@ import { APIResponse } from '${spec.makeImport('./http/response')}';
 import type { HeadersInit, RequestConfig } from './http/${spec.makeImport('request')}';
 import { fetchType, parse } from './http/${spec.makeImport('dispatcher')}';
 import schemas from './api/${spec.makeImport('schemas')}';
+import type { InferData } from '${spec.makeImport('./api/endpoints')}';
 import {
   createBaseUrlInterceptor,
   createHeadersInterceptor,
@@ -76,11 +77,6 @@ const optionsSchema = z.object(${toLitObject(specOptions, (x) => x.schema)});
 ${spec.servers.length ? `export type Servers = typeof servers[number];` : ''}
 
 type ${spec.name}Options = z.input<typeof optionsSchema>;
-type DispatchReturn<E extends keyof typeof schemas> = Awaited<
-  ReturnType<(typeof schemas)[E]['dispatch']>
->;
-type UnwrappedReturn<E extends keyof typeof schemas> =
-  DispatchReturn<E> extends APIResponse<infer D> ? D : DispatchReturn<E>;
 
 export class ${spec.name} {
   public options: ${spec.name}Options;
@@ -95,9 +91,9 @@ export class ${spec.name} {
   ) {
     return request(this, endpoint, input, options).then(function unwrap(it) {
       if (it instanceof APIResponse) {
-        return it.data as UnwrappedReturn<E>;
+        return it.data as InferData<E>;
       }
-      return it as UnwrappedReturn<E>;
+      return it as InferData<E>;
     });
   }
 
@@ -117,10 +113,7 @@ export class ${spec.name} {
       ),
       createBaseUrlInterceptor(clientOptions.baseUrl),
     ];
-    const [parsedInput, parseError] = parseInput(route.schema, input);
-    if (parseError) {
-      throw parseError;
-    }
+    const parsedInput = parseInput(route.schema, input);
 
     let config = route.toRequest(parsedInput as never);
     for (const interceptor of interceptors) {
@@ -166,10 +159,7 @@ export async function request<const E extends keyof typeof schemas>(
     await client.defaultInputs(),
     input,
   );
-  const [parsedInput, parseError] = parseInput(route.schema, withDefaultInputs);
-  if (parseError) {
-    throw parseError;
-  }
+  const parsedInput = parseInput(route.schema, withDefaultInputs);
   const clientOptions = await optionsSchema.parseAsync(client.options);
   const result = await route.dispatch(parsedInput as never, {
     fetch: clientOptions.fetch,

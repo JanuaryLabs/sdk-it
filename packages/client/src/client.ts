@@ -1,5 +1,6 @@
 import z from 'zod';
 
+import type { InferData } from './api/endpoints.ts';
 import schemas from './api/schemas.ts';
 import { fetchType, parse } from './http/dispatcher.ts';
 import {
@@ -8,6 +9,7 @@ import {
 } from './http/interceptors.ts';
 import { type ParseError, parseInput } from './http/parser.ts';
 import type { HeadersInit, RequestConfig } from './http/request.ts';
+import { APIResponse } from './http/response.ts';
 
 export const servers = ['/', 'http://localhost:3000'] as const;
 const optionsSchema = z.object({
@@ -42,33 +44,13 @@ export class SdkIt {
     endpoint: E,
     input: z.input<(typeof schemas)[E]['schema']>,
     options?: { signal?: AbortSignal; headers?: HeadersInit },
-  ): Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>> {
-    const route = schemas[endpoint];
-    const withDefaultInputs = Object.assign(
-      {},
-      await this.#defaultInputs(),
-      input,
-    );
-    const [parsedInput, parseError] = parseInput(
-      route.schema,
-      withDefaultInputs,
-    );
-    if (parseError) {
-      throw parseError;
-    }
-    const clientOptions = await optionsSchema.parseAsync(this.options);
-    const result = await route.dispatch(parsedInput as never, {
-      fetch: clientOptions.fetch,
-      interceptors: [
-        createHeadersInterceptor(
-          await this.#defaultHeaders(),
-          options?.headers ?? {},
-        ),
-        createBaseUrlInterceptor(clientOptions.baseUrl),
-      ],
-      signal: options?.signal,
+  ) {
+    return request(this, endpoint, input, options).then(function unwrap(it) {
+      if (it instanceof APIResponse) {
+        return it.data as InferData<E>;
+      }
+      return it as InferData<E>;
     });
-    return result as Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>;
   }
 
   async prepare<const E extends keyof typeof schemas>(
@@ -84,15 +66,12 @@ export class SdkIt {
     const route = schemas[endpoint];
     const interceptors = [
       createHeadersInterceptor(
-        await this.#defaultHeaders(),
+        await this.defaultHeaders(),
         options?.headers ?? {},
       ),
       createBaseUrlInterceptor(clientOptions.baseUrl),
     ];
-    const [parsedInput, parseError] = parseInput(route.schema, input);
-    if (parseError) {
-      throw parseError;
-    }
+    const parsedInput = parseInput(route.schema, input);
 
     let config = route.toRequest(parsedInput as never);
     for (const interceptor of interceptors) {
@@ -102,12 +81,13 @@ export class SdkIt {
     }
     const prepared = {
       ...config,
-      parse: (response: Response) => parse(route.output, response) as never,
+      parse: (response: Response) =>
+        parse(route.output, response, (d) => d) as never,
     };
     return prepared as any;
   }
 
-  async #defaultHeaders() {
+  async defaultHeaders() {
     const options = await optionsSchema.parseAsync(this.options);
     return {
       ...{ authorization: options['token'] },
@@ -115,7 +95,7 @@ export class SdkIt {
     };
   }
 
-  async #defaultInputs() {
+  async defaultInputs() {
     const options = await optionsSchema.parseAsync(this.options);
     return {};
   }
@@ -126,4 +106,32 @@ export class SdkIt {
       ...options,
     };
   }
+}
+
+export async function request<const E extends keyof typeof schemas>(
+  client: SdkIt,
+  endpoint: E,
+  input: z.input<(typeof schemas)[E]['schema']>,
+  options?: { signal?: AbortSignal; headers?: HeadersInit },
+): Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>> {
+  const route = schemas[endpoint];
+  const withDefaultInputs = Object.assign(
+    {},
+    await client.defaultInputs(),
+    input,
+  );
+  const parsedInput = parseInput(route.schema, withDefaultInputs);
+  const clientOptions = await optionsSchema.parseAsync(client.options);
+  const result = await route.dispatch(parsedInput as never, {
+    fetch: clientOptions.fetch,
+    interceptors: [
+      createHeadersInterceptor(
+        await client.defaultHeaders(),
+        options?.headers ?? {},
+      ),
+      createBaseUrlInterceptor(clientOptions.baseUrl),
+    ],
+    signal: options?.signal,
+  });
+  return result as Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>;
 }

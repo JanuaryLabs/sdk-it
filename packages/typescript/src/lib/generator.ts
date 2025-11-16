@@ -147,11 +147,9 @@ export function generateCode(config: {
     commonZod,
     endpoints: {
       [join('api', 'endpoints.ts')]: `
-
-
 import type z from 'zod';
 import type { ParseError } from '${config.makeImport('../http/parser')}';
-import type { ProblematicResponse, SuccessfulResponse } from '${config.makeImport(
+import type { ProblematicResponse, SuccessfulResponse, APIResponse } from '${config.makeImport(
         '../http/response',
       )}';
 

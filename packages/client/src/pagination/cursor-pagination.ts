@@ -2,7 +2,7 @@ type CursorPaginationParams = {
   cursor?: string;
 };
 
-export interface CursorMetadata extends Metadata {
+interface CursorMetadata extends Metadata {
   nextCursor?: string;
 }
 

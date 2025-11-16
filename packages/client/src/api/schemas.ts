@@ -1,4 +1,3 @@
-import { KIND } from '../http/index.ts';
 import augment from './augment.ts';
 import fetch from './fetch.ts';
 import generate from './generate.ts';

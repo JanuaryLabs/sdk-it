@@ -6,7 +6,7 @@ import { buffered } from './parse-response.ts';
 import {
   APIError,
   APIResponse,
-  type ProblematicResponse,
+  type RebindSuccessPayload,
   type SuccessfulResponse,
 } from './response.ts';
 
@@ -25,6 +25,15 @@ export type InstanceType<T> =
         ? Unionize<T>
         : never;
 
+type ResponseData<T extends OutputType[]> =
+  Extract<InstanceType<T>, SuccessfulResponse> extends SuccessfulResponse<
+    infer P
+  >
+    ? P
+    : unknown;
+
+type ResponseMapper<T extends OutputType[], R> = (data: ResponseData<T>) => R;
+
 export interface Type<T> {
   new (...args: any[]): T;
 }
@@ -41,9 +50,10 @@ export const fetchType = z
   .returns(z.promise(z.instanceof(Response)))
   .optional();
 
-export async function parse<T extends OutputType[]>(
+export async function parse<T extends OutputType[], R = ResponseData<T>>(
   outputs: T,
   response: Response,
+  mapper: ResponseMapper<T, R>,
 ) {
   let output: typeof APIResponse | null = null;
   let parser: Parser = buffered;
@@ -68,10 +78,13 @@ export async function parse<T extends OutputType[]>(
     const apiresponse = (output || APIResponse).create(
       response.status,
       response.headers,
-      await parser(response),
+      mapper((await parser(response)) as ResponseData<T>),
     );
 
-    return apiresponse as Extract<InstanceType<T>, SuccessfulResponse>;
+    return apiresponse as RebindSuccessPayload<
+      Extract<InstanceType<T>, SuccessfulResponse<unknown>>,
+      R
+    >;
   }
 
   throw (output || APIError).create(
@@ -103,10 +116,11 @@ export class Dispatcher {
     this.#fetch = fetch;
   }
 
-  async send<T extends OutputType[]>(
+  async send<T extends OutputType[], R = ResponseData<T>>(
     config: RequestConfig,
     outputs: T,
     signal?: AbortSignal,
+    mapper?: ResponseMapper<T, R>,
   ) {
     for (const interceptor of this.#interceptors) {
       if (interceptor.before) {
@@ -129,6 +143,10 @@ export class Dispatcher {
       }
     }
 
-    return await parse(outputs, response);
+    return await parse(
+      outputs,
+      response,
+      mapper ?? ((data: ResponseData<T>) => data as unknown as R),
+    );
   }
 }

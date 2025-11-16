@@ -55,8 +55,11 @@ export default {
       },
     ) {
       const dispatcher = new Dispatcher(options.interceptors, options.fetch);
-      const result = await dispatcher.send(this.toRequest(input), this.output);
-      return result.data;
+      return dispatcher.send(
+        this.toRequest(input),
+        this.output,
+        options?.signal,
+      );
     },
   },
 };

@@ -3,10 +3,18 @@ import type z from 'zod';
 import type { Unionize } from '../http/dispatcher.ts';
 import type { ParseError } from '../http/parser.ts';
 import type {
+  APIResponse,
   ProblematicResponse,
   SuccessfulResponse,
 } from '../http/response.ts';
 import schemas from './schemas.ts';
+
+type DispatchReturn<E extends keyof typeof schemas> = Awaited<
+  ReturnType<(typeof schemas)[E]['dispatch']>
+>;
+
+export type InferData<E extends keyof typeof schemas> =
+  DispatchReturn<E> extends APIResponse<infer D> ? D : DispatchReturn<E>;
 
 type EndpointOutput<K extends keyof typeof schemas> = Extract<
   Unionize<(typeof schemas)[K]['output']>,
@@ -19,9 +27,9 @@ type EndpointError<K extends keyof typeof schemas> = Extract<
 >;
 
 export type Endpoints = {
-  [K in keyof typeof schemas]: {
-    input: z.input<(typeof schemas)[K]['schema']>;
-    output: EndpointOutput<K>['data'];
-    error: EndpointError<K> | ParseError<(typeof schemas)[K]['schema']>;
+  [E in keyof typeof schemas]: {
+    input: z.input<(typeof schemas)[E]['schema']>;
+    output: InferData<E>;
+    error: EndpointError<E> | ParseError<(typeof schemas)[E]['schema']>;
   };
 };

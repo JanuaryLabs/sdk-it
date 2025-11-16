@@ -105,13 +105,6 @@ export class Client {
   ) {
     const route = this.schemas[endpoint];
     const withDefaultInputs = Object.assign({}, this.#defaultInputs, input);
-    // const [parsedInput, parseError] = parseInput(
-    //   route.schema,
-    //   withDefaultInputs,
-    // );
-    // if (parseError) {
-    //   throw parseError;
-    // }
     const parsedInput = input;
     const clientOptions = await optionsSchema.parseAsync(this.options);
     const result = await route.dispatch(parsedInput as never, {

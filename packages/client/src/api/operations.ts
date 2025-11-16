@@ -59,8 +59,8 @@ export default {
         const result = await dispatcher.send(
           this.toRequest({ ...input, ...nextPageParams }),
           this.output,
+          options.signal,
         );
-
         return {
           data: result.data.operations,
           meta: {
@@ -68,7 +68,6 @@ export default {
           },
         };
       });
-      await pagination.getNextPage();
       return pagination;
     },
   },
