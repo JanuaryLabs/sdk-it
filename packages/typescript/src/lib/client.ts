@@ -2,9 +2,8 @@ import { toLitObject } from '@sdk-it/core';
 
 import { toZod } from './emitters/zod.ts';
 import type { Spec } from './sdk.ts';
-import type { Style } from './style.ts';
 
-export default (spec: Omit<Spec, 'operations'>, style: Style) => {
+export default (spec: Omit<Spec, 'operations'>) => {
   const defaultHeaders = `{${spec.options
     .filter((value) => value.in === 'header')
     .map(
@@ -61,6 +60,7 @@ export default (spec: Omit<Spec, 'operations'>, style: Style) => {
   };
 
   return `import z from 'zod';
+import { APIResponse } from '${spec.makeImport('./http/response')}';
 import type { HeadersInit, RequestConfig } from './http/${spec.makeImport('request')}';
 import { fetchType, parse } from './http/${spec.makeImport('dispatcher')}';
 import schemas from './api/${spec.makeImport('schemas')}';
@@ -76,6 +76,11 @@ const optionsSchema = z.object(${toLitObject(specOptions, (x) => x.schema)});
 ${spec.servers.length ? `export type Servers = typeof servers[number];` : ''}
 
 type ${spec.name}Options = z.input<typeof optionsSchema>;
+type DispatchReturn<E extends keyof typeof schemas> = Awaited<
+  ReturnType<(typeof schemas)[E]['dispatch']>
+>;
+type UnwrappedReturn<E extends keyof typeof schemas> =
+  DispatchReturn<E> extends APIResponse<infer D> ? D : DispatchReturn<E>;
 
 export class ${spec.name} {
   public options: ${spec.name}Options;
@@ -86,59 +91,35 @@ export class ${spec.name} {
   async request<const E extends keyof typeof schemas>(
     endpoint: E,
     input: z.input<(typeof schemas)[E]['schema']>,
-    options?: { signal?: AbortSignal, headers?: HeadersInit },
-  ) ${style.errorAsValue ? `: Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>| [never, ParseError<(typeof schemas)[E]['schema']>]>` : `: Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>>`} {
-    const route = schemas[endpoint];
-    const withDefaultInputs = Object.assign({}, await this.#defaultInputs(), input);
-    const [parsedInput, parseError] = parseInput(route.schema, withDefaultInputs);
-    if (parseError) {
-      ${style.errorAsValue ? 'return [null as never, parseError as never] as const;' : 'throw parseError;'}
-    }
-    const clientOptions = await optionsSchema.parseAsync(this.options);
-    const result = await route.dispatch(parsedInput as never, {
-      fetch: clientOptions.fetch,
-      interceptors: [
-        createHeadersInterceptor(
-          await this.#defaultHeaders(),
-          options?.headers ?? {},
-        ),
-        createBaseUrlInterceptor(clientOptions.baseUrl),
-      ],
-      signal: options?.signal,
+    options?: { signal?: AbortSignal; headers?: HeadersInit },
+  ) {
+    return request(this, endpoint, input, options).then(function unwrap(it) {
+      if (it instanceof APIResponse) {
+        return it.data as UnwrappedReturn<E>;
+      }
+      return it as UnwrappedReturn<E>;
     });
-    return result as Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>;
   }
 
   async prepare<const E extends keyof typeof schemas>(
     endpoint: E,
     input: z.input<(typeof schemas)[E]['schema']>,
     options?: { headers?: HeadersInit },
-  ): ${
-    style.errorAsValue
-      ? `Promise<
-    readonly [
-      RequestConfig & {
-        parse: (response: Response) => ReturnType<typeof parse>;
-      },
-      ParseError<(typeof schemas)[E]['schema']> | null,
-    ]
-  >`
-      : `Promise<RequestConfig & {
-        parse: (response: Response) => ReturnType<typeof parse>;
-      }>`
-  } {
+  ): Promise<RequestConfig & {
+    parse: (response: Response) => ReturnType<typeof parse>;
+  }> {
     const clientOptions = await optionsSchema.parseAsync(this.options);
     const route = schemas[endpoint];
     const interceptors = [
       createHeadersInterceptor(
-        await this.#defaultHeaders(),
+        await this.defaultHeaders(),
         options?.headers ?? {},
       ),
       createBaseUrlInterceptor(clientOptions.baseUrl),
     ];
     const [parsedInput, parseError] = parseInput(route.schema, input);
     if (parseError) {
-      ${style.errorAsValue ? 'return [null as never, parseError as never] as const;' : 'throw parseError;'}
+      throw parseError;
     }
 
     let config = route.toRequest(parsedInput as never);
@@ -147,11 +128,11 @@ export class ${spec.name} {
         config = await interceptor.before(config);
       }
     }
-    const prepared = { ...config, parse: (response: Response) => parse(route.output, response) as never };
-    return ${style.errorAsValue ? '[prepared, null as never] as const;' : 'prepared as any'}
+    const prepared = { ...config, parse: (response: Response) => parse(route.output, response, (d) => d) as never };
+    return prepared as any;
   }
 
-  async #defaultHeaders() {
+  async defaultHeaders() {
     const options = await optionsSchema.parseAsync(this.options);
     return {
       ...${defaultHeaders},
@@ -159,7 +140,7 @@ export class ${spec.name} {
     };
   }
 
-  async #defaultInputs() {
+  async defaultInputs() {
     const options = await optionsSchema.parseAsync(this.options);
     return ${defaultInputs}
   }
@@ -171,5 +152,39 @@ export class ${spec.name} {
     };
   }
 
-}`;
+}
+
+export async function request<const E extends keyof typeof schemas>(
+  client: ${spec.name},
+  endpoint: E,
+  input: z.input<(typeof schemas)[E]['schema']>,
+  options?: { signal?: AbortSignal; headers?: HeadersInit },
+): Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>> {
+  const route = schemas[endpoint];
+  const withDefaultInputs = Object.assign(
+    {},
+    await client.defaultInputs(),
+    input,
+  );
+  const [parsedInput, parseError] = parseInput(route.schema, withDefaultInputs);
+  if (parseError) {
+    throw parseError;
+  }
+  const clientOptions = await optionsSchema.parseAsync(client.options);
+  const result = await route.dispatch(parsedInput as never, {
+    fetch: clientOptions.fetch,
+    interceptors: [
+      createHeadersInterceptor(
+        await client.defaultHeaders(),
+        options?.headers ?? {},
+      ),
+      createBaseUrlInterceptor(clientOptions.baseUrl),
+    ],
+    signal: options?.signal,
+  });
+  return result as Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>;
+}
+
+
+`;
 };

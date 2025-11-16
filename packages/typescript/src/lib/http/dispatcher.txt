@@ -13,6 +13,15 @@ export type InstanceType<T> =
         ? Unionize<T>
         : never;
 
+type ResponseData<T extends OutputType[]> =
+  Extract<InstanceType<T>, SuccessfulResponse> extends SuccessfulResponse<
+    infer P
+  >
+    ? P
+    : unknown;
+
+type ResponseMapper<T extends OutputType[], R> = (data: ResponseData<T>) => R;
+
 export interface Type<T> {
   new (...args: any[]): T;
 }
@@ -29,21 +38,11 @@ export const fetchType = z
   .returns(z.promise(z.instanceof(Response)))
   .optional();
 
-export async function parse<T extends OutputType[]>(
+export async function parse<T extends OutputType[], R = ResponseData<T>>(
   outputs: T,
   response: Response,
-) <% if(!throwError) { %>
-: Promise<
-  [
-    Extract<InstanceType<T>, SuccessfulResponse>['data'],
-    Extract<InstanceType<T>, ProblematicResponse>['data'],
-  ]
->
-  <% } %>
-
-
-
- {
+  mapper: ResponseMapper<T, R>,
+) {
   let output: typeof APIResponse | null = null;
   let parser: Parser = buffered;
   for (const outputType of outputs) {
@@ -63,30 +62,21 @@ export async function parse<T extends OutputType[]>(
     }
   }
 
-
   if (response.ok) {
     const apiresponse = (output || APIResponse).create(
       response.status,
-      await parser(response),
+      response.headers,
+      mapper((await parser(response)) as ResponseData<T>),
     );
-    <% if(throwError) { %>
-      return <% if (outputType === 'default') { %>apiresponse as Extract<InstanceType<T>, SuccessfulResponse><% } else { %>apiresponse as Extract<InstanceType<T>, SuccessfulResponse>;<% } %>;
-    <% } else { %>
-      return [<% if (outputType === 'default') { %>apiresponse.data as Extract<InstanceType<T>, SuccessfulResponse>['data']<% } else { %>apiresponse as Extract<InstanceType<T>, SuccessfulResponse><% } %>, null] as const;
-    <% } %>
+
+    return apiresponse as RebindSuccessPayload<Extract<InstanceType<T>, SuccessfulResponse<unknown>>, R>;
   }
-<% if(throwError) { %>
+
   throw (output || APIError).create(
     response.status,
+    response.headers,
     await parser(response),
   );
-<% } else { %>
-  const data = (output || APIError).create(
-    response.status,
-    await parser(response),
-  );
-  return [null, data] as const;
-<% } %>
 }
 
 export function isTypeOf<T extends Type<APIResponse>>(
@@ -111,10 +101,11 @@ export class Dispatcher {
     this.#fetch = fetch;
   }
 
-  async send<T extends OutputType[]>(
+  async send<T extends OutputType[], R = ResponseData<T>>(
     config: RequestConfig,
     outputs: T,
     signal?: AbortSignal,
+    mapper?: ResponseMapper<T, R>,
   ) {
     for (const interceptor of this.#interceptors) {
       if (interceptor.before) {
@@ -137,6 +128,10 @@ export class Dispatcher {
       }
     }
 
-    return await parse(outputs, response);
+    return await parse(
+      outputs,
+      response,
+      mapper ?? ((data: ResponseData<T>) => data as unknown as R),
+    );
   }
 }

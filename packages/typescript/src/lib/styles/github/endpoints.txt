@@ -11,7 +11,7 @@ type EndpointError<K extends keyof typeof schemas> = Extract<
 export type Endpoints = {
   [K in keyof typeof schemas]: {
     input: z.input<(typeof schemas)[K]['schema']>;
-    output: <% if (outputType === 'default') { %>EndpointOutput<K>['data']<% } else { %>EndpointOutput<K><% } %>;
+    output: EndpointOutput<K>;
     error: EndpointError<K> | ParseError<(typeof schemas)[K]['schema']>;
   };
 };
