@@ -16,7 +16,6 @@ import {
 import { TypeScriptEmitter } from './emitters/interface.ts';
 import { type MakeImportFn } from './import-utilities.ts';
 import statusMap from './status-map.ts';
-import type { Style } from './style.ts';
 
 export type Parser = 'chunked' | 'buffered';
 
@@ -58,10 +57,6 @@ export function toEndpoint(
   spec: IR,
   specOperation: TunedOperationObject,
   operation: Operation,
-  utils: {
-    makeImport: MakeImportFn;
-    style?: Style;
-  },
 ) {
   const schemaName = camelcase(`${specOperation.operationId} schema`);
   const schemaRef = `${camelcase(groupName)}.${schemaName}`;
@@ -100,25 +95,24 @@ export function toEndpoint(
             signal?: AbortSignal;
             interceptors: Interceptor[];
             fetch: z.infer<typeof fetchType>;
-          })${specOperation['x-pagination'] ? paginationOperation(specOperation, utils.style) : normalOperation(utils.style)}`,
+          })${specOperation['x-pagination'] ? paginationOperation(specOperation) : normalOperation()}`,
     );
   }
   return { schemas };
 }
 
-function normalOperation(style?: Style) {
+function normalOperation() {
   return `{
             const dispatcher = new Dispatcher(options.interceptors, options.fetch);
-            const result = await dispatcher.send(this.toRequest(input), this.output);
-            return ${style?.outputType === 'status' ? 'result' : style?.errorAsValue ? `result` : 'result.data;'}
+            return dispatcher.send(this.toRequest(input), this.output, options?.signal);
             },
           }`;
 }
 
-function paginationOperation(operation: TunedOperationObject, style?: Style) {
+function paginationOperation(operation: TunedOperationObject) {
   const pagination = operation['x-pagination'] as OperationPagination;
-  const data = `${style?.errorAsValue ? `result[0]${style.outputType === 'status' ? '' : ''}` : `${style?.outputType === 'default' ? 'result.data' : 'result.data'}`}`;
-  const returnValue = `${style?.errorAsValue ? `[${style?.outputType === 'status' ? 'new http.Ok(pagination)' : 'pagination'}, null]` : `${style?.outputType === 'status' ? 'new http.Ok(pagination);' : 'pagination'}`}`;
+  const data = `result.data`;
+  const returnValue = `pagination`;
   if (pagination.type === 'offset') {
     const sameInputNames =
       pagination.limitParamName === 'limit' &&
@@ -135,6 +129,7 @@ function paginationOperation(operation: TunedOperationObject, style?: Style) {
         const result = await dispatcher.send(
           this.toRequest({...input, ${nextPageParams}}),
           this.output,
+          options.signal,
         );
         return {
           data: ${data}.${pagination.items},
@@ -146,9 +141,7 @@ function paginationOperation(operation: TunedOperationObject, style?: Style) {
       await pagination.getNextPage();
       return ${returnValue}
       `;
-    return style?.errorAsValue
-      ? `{try {${logic}} catch (error) {return [null as never, error] as const;}}}`
-      : `{${logic}}}`;
+    return `{${logic}}}`;
   }
   if (pagination.type === 'cursor') {
     const sameInputNames = pagination.cursorParamName === 'cursor';
@@ -165,8 +158,8 @@ function paginationOperation(operation: TunedOperationObject, style?: Style) {
         const result = await dispatcher.send(
           this.toRequest({...input, ${nextPageParams}}),
           this.output,
+          options.signal,
         );
-        ${style?.errorAsValue ? `if (result[1]) {throw result[1];}` : ''}
         return {
           data: ${data}.${pagination.items},
           meta: {
@@ -177,9 +170,7 @@ function paginationOperation(operation: TunedOperationObject, style?: Style) {
       await pagination.getNextPage();
       return ${returnValue}
       `;
-    return style?.errorAsValue
-      ? `{try {${logic}} catch (error) {return [null as never, error] as const;}}}`
-      : `{${logic}}}`;
+    return `{${logic}}}`;
   }
   if (pagination.type === 'page') {
     const sameInputNames =
@@ -198,8 +189,8 @@ function paginationOperation(operation: TunedOperationObject, style?: Style) {
         const result = await dispatcher.send(
           this.toRequest({...input, ${nextPageParams}}),
           this.output,
+          options.signal,
         );
-        ${style?.errorAsValue ? `if (result[1]) {throw result[1];}` : ''}
         return {
           data: ${data}.${pagination.items},
           meta: {
@@ -207,14 +198,11 @@ function paginationOperation(operation: TunedOperationObject, style?: Style) {
           },
         };
       });
-      await pagination.getNextPage();
       return ${returnValue}
       `;
-    return style?.errorAsValue
-      ? `{try {${logic}} catch (error) {return [null as never, error] as const;}}}`
-      : `{${logic}}}`;
+    return `{${logic}}}`;
   }
-  return normalOperation(style);
+  return normalOperation();
 }
 
 export function toHttpOutput(

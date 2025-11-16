@@ -56,13 +56,6 @@ export default new Command('typescript')
     (value) => (value === 'false' ? false : true),
     true,
   )
-  .option('--output-type <outputType>', 'Endpoint output type', 'default')
-  .option(
-    '--error-as-value <errorAsValue>',
-    'Treat errors as values instead of throwing them',
-    (value) => (value === 'false' ? false : true),
-    false,
-  )
   .option('--no-default-formatter', 'Do not use the default formatter')
   .option('--no-install', 'Do not install dependencies')
   .option('-v, --verbose', 'Verbose output', false)
@@ -115,8 +108,6 @@ async function emitLocal(spec: OpenAPIObject, options: Options) {
         : options.pagination,
     style: {
       name: 'github',
-      outputType: options.outputType,
-      errorAsValue: options.errorAsValue,
     },
     readme: options.readme,
     useTsExtension: options.useTsExtension,

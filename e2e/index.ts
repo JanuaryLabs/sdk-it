@@ -38,25 +38,20 @@ function runCommand(title: string, command: string, memory?: number) {
 }
 
 const specs = [
+  // {
+  //   spec: 'https://api.infobip.com/platform/1/openapi/whatsapp',
+  //   name: 'infobip',
+  //   flags: [],
+  // },
   {
     spec: 'https://raw.githubusercontent.com/MaximilianKoestler/hcloud-openapi/refs/heads/main/openapi/hcloud.json',
     name: 'hetzner',
-    flags: ['--output-type=default', '--error-as-value=true'],
-  },
-  {
-    spec: 'https://raw.githubusercontent.com/MaximilianKoestler/hcloud-openapi/refs/heads/main/openapi/hcloud.json',
-    name: 'hetzner',
-    flags: ['--output-type=status', '--error-as-value=true'],
+    flags: [],
   },
   {
     spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
     name: 'discord',
-    flags: ['--error-as-value=true', '--output-type=status'],
-  },
-  {
-    spec: 'https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json',
-    name: 'discord',
-    flags: ['--error-as-value=false', '--output-type=status'],
+    flags: [],
   },
   {
     name: 'AppStoreConnect',
@@ -71,27 +66,12 @@ const specs = [
   {
     spec: 'https://app.stainless.com/api/spec/documented/openai/openapi.documented.yml',
     name: 'openai',
-    flags: ['--output-type=status', '--error-as-value=true'],
+    flags: [],
   },
   {
     name: 'Box',
     spec: 'https://raw.githubusercontent.com/box/box-openapi/refs/heads/main/openapi.json',
     flags: [],
-  },
-  {
-    spec: 'https://app.stainless.com/api/spec/documented/openai/openapi.documented.yml',
-    name: 'openai',
-    flags: ['--output-type=status', '--error-as-value=false'],
-  },
-  {
-    spec: 'https://app.stainless.com/api/spec/documented/openai/openapi.documented.yml',
-    name: 'openai',
-    flags: ['--output-type=default', '--error-as-value=true'],
-  },
-  {
-    spec: 'https://app.stainless.com/api/spec/documented/openai/openapi.documented.yml',
-    name: 'openai',
-    flags: ['--output-type=default', '--error-as-value=false'],
   },
   {
     name: 'Turso',
@@ -101,12 +81,12 @@ const specs = [
   {
     name: 'oto',
     spec: join(process.cwd(), '.specs', 'oto.json'),
-    flags: ['--readme=false', '--error-as-value=true'],
+    flags: [],
   },
   {
     name: 'openstatus',
     spec: 'https://api.openstatus.dev/v1/openapi',
-    flags: ['--readme=false', '--error-as-value=true'],
+    flags: [],
   },
   {
     name: 'Serverize',
@@ -116,15 +96,17 @@ const specs = [
   {
     name: 'Nowa',
     spec: 'https://nowa-server-dev-412327058882.europe-west1.run.app/swagger/v1/swagger.json',
-    flags: ['--output-type=default'],
+    flags: [],
   },
   {
     name: 'UploadThings',
     spec: 'https://api.uploadthing.com/openapi-spec.json',
+    flags: [],
   },
   {
     name: 'OpenAPIWithRecursiveSchemas',
     spec: join(process.cwd(), '.specs', 'problem.json'),
+    flags: [],
   },
   {
     name: 'spotify',
@@ -134,7 +116,7 @@ const specs = [
   {
     spec: 'https://raw.githubusercontent.com/figma/rest-api-spec/refs/heads/main/openapi/openapi.yaml',
     name: 'figma',
-    flags: ['--output-type=status'],
+    flags: [],
   },
 ];
 

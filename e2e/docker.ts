@@ -143,7 +143,7 @@ const specs: TestSpec[] = [
   {
     name: 'openstatus',
     spec: 'https://api.openstatus.dev/v1/openapi',
-    flags: ['--readme=false', '--error-as-value=true'],
+    flags: [],
   },
   {
     name: 'Turso',
@@ -163,7 +163,7 @@ const specs: TestSpec[] = [
   {
     name: 'openai',
     spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-    flags: ['--output-type=status', '--error-as-value=true'],
+    flags: [],
   },
 ];
 

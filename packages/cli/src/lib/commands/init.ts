@@ -85,15 +85,6 @@ const generatorConfigs = {
       }
       return pagination;
     },
-    outputType: () =>
-      select({
-        message: 'Endpoint output type:',
-        choices: [
-          { name: 'Default', value: 'default' },
-          { name: 'Status', value: 'status' },
-        ],
-        default: 'default',
-      }),
     readme: () =>
       confirm({
         message: 'Generate README file?',
@@ -248,7 +239,6 @@ const init = new Command('init')
           output: await tsConfig.output(),
           name: await tsConfig.name(isMultipleGenerators),
           defaultFormatter: await tsConfig.defaultFormatter(),
-          outputType: (await tsConfig.outputType()) as 'default' | 'status',
           readme: await tsConfig.readme(),
           pagination: await tsConfig.pagination(),
           ...(await tsConfig.mode()),

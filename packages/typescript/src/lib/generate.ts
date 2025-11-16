@@ -86,15 +86,7 @@ export async function generate(
     false,
   );
 
-  const style = Object.assign(
-    {},
-    {
-      errorAsValue: false,
-      name: 'github',
-      outputType: 'default',
-    },
-    settings.style ?? {},
-  );
+  const style = Object.assign({}, { name: 'github' }, settings.style ?? {});
   const output =
     settings.mode === 'full' ? join(settings.output, 'src') : settings.output;
 
@@ -146,9 +138,9 @@ export async function generate(
 import { type Interceptor } from '${makeImport('../http/interceptors')}';
 import { type RequestConfig } from '${makeImport('../http/request')}';
 import { buffered } from '${makeImport('./parse-response')}';
-import { APIError, APIResponse, type SuccessfulResponse, type ProblematicResponse } from '${makeImport('./response')}';
+import { APIError, APIResponse, type SuccessfulResponse, type RebindSuccessPayload } from '${makeImport('./response')}';
 
-${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: style.outputType })}`,
+${template(dispatcherTxt, {})()}`,
 
     'interceptors.ts': `
     import type { RequestConfig, HeadersInit } from './${makeImport('request')}';
@@ -156,15 +148,12 @@ ${template(dispatcherTxt, {})({ throwError: !style.errorAsValue, outputType: sty
   });
 
   await settings.writer(output, {
-    'client.ts': backend(
-      {
-        name: clientName,
-        servers: (spec.servers ?? []).map((server) => server.url) || [],
-        options: security(spec),
-        makeImport,
-      },
-      style,
-    ),
+    'client.ts': backend({
+      name: clientName,
+      servers: (spec.servers ?? []).map((server) => server.url) || [],
+      options: security(spec),
+      makeImport,
+    }),
     ...inputs,
     ...endpoints,
   });

@@ -20,8 +20,6 @@ export interface TypeScriptOptions extends BaseGeneratorOptions {
   framework?: string;
   install?: boolean;
   defaultFormatter?: boolean;
-  outputType?: 'default' | 'status';
-  errorAsValue?: false;
   readme?: boolean;
   publish?: string;
   pagination?: PaginationConfig | false;

@@ -117,20 +117,14 @@ export function generateCode(config: {
       );
     }
     const details = buildInput(config.spec, operation);
-    const endpoint = toEndpoint(
-      entry.tag,
-      config.spec,
-      operation,
-      {
-        method: entry.method,
-        path: entry.path,
-        operationId: operation.operationId,
-        schemas,
-        outgoingContentType: details.outgoingContentType,
-        inputs: details.inputs,
-      },
-      config,
-    );
+    const endpoint = toEndpoint(entry.tag, config.spec, operation, {
+      method: entry.method,
+      path: entry.path,
+      operationId: operation.operationId,
+      schemas,
+      outgoingContentType: details.outgoingContentType,
+      inputs: details.inputs,
+    });
 
     endpoints[entry.tag].push(endpoint);
 
@@ -163,10 +157,10 @@ import type { ProblematicResponse, SuccessfulResponse } from '${config.makeImpor
 
 import schemas from '${config.makeImport('./schemas')}';
 import type { Unionize } from '${config.makeImport('../http/dispatcher')}';
-      ${template(endpointsTxt)({ outputType: config.style?.outputType })}`,
+      ${template(endpointsTxt)({})}`,
       [`${join('api', 'schemas.ts')}`]:
         `${allSchemas.map((it) => it.import).join('\n')}
-import { KIND } from "${config.makeImport('../http/index')}";
+
 export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
 
 `.trim(),

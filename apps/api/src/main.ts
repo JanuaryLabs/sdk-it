@@ -62,9 +62,6 @@ app.post(
       mode: 'full',
       name: 'SdkIt',
       output: join(process.cwd(), 'packages/client'),
-      style: {
-        errorAsValue: false,
-      },
     });
     return c.json({
       message: 'SDK published successfully',

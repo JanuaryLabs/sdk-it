@@ -67,13 +67,18 @@ export async function parse<T extends OutputType[]>(
   if (response.ok) {
     const apiresponse = (output || APIResponse).create(
       response.status,
+      response.headers,
       await parser(response),
     );
 
     return apiresponse as Extract<InstanceType<T>, SuccessfulResponse>;
   }
 
-  throw (output || APIError).create(response.status, await parser(response));
+  throw (output || APIError).create(
+    response.status,
+    response.headers,
+    await parser(response),
+  );
 }
 
 export function isTypeOf<T extends Type<APIResponse>>(

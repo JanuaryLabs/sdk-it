@@ -84,11 +84,6 @@ await generate(
     mode: 'full',
     name: 'SdkIt',
     output: join(process.cwd(), 'packages/client'),
-    // output: join(process.cwd(), 'node_modules/@local/client'),
-    style: {
-      outputType: 'default',
-      errorAsValue: false,
-    },
     formatCode: ({ output, env }) => {
       execFile('prettier', ['openapi.json', output, '--write'], { env: env });
     },

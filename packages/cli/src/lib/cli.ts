@@ -34,7 +34,6 @@ const generate = new Command('generate')
           verbose: false,
           defaultFormatter:
             config.generators.typescript.defaultFormatter ?? true,
-          outputType: 'default',
           readme: config.generators.typescript.readme ?? true,
           pagination: config.generators.typescript.pagination,
         }),
