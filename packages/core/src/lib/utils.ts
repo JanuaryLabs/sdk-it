@@ -28,14 +28,14 @@ export function toLitObject<T extends Record<string, any>>(
 }
 
 export type NaunceResponseAnalyzerFn = (
-  handler: ts.ArrowFunction,
+  handler: ts.ArrowFunction | ts.FunctionExpression,
   deriver: TypeDeriver,
   node: ts.Node,
 ) => ResponseItem[];
 export type NaunceResponseAnalyzer = Record<string, NaunceResponseAnalyzerFn>;
 
 export type ResponseAnalyzerFn = (
-  handler: ts.ArrowFunction,
+  handler: ts.ArrowFunction | ts.FunctionExpression,
   deriver: TypeDeriver,
 ) => ResponseItem[];
 
@@ -98,4 +98,30 @@ export function joinSkipDigits(arr: string[], separator: string): string {
 
 export function exclude<T>(list: T[], exclude: T[]): T[] {
   return list.filter((it) => !exclude.includes(it));
+}
+
+/**
+ * Sorts an object's keys alphabetically to ensure deterministic output.
+ * Creates a new object with keys in alphabetical order.
+ *
+ * @example
+ * sortObjectKeys({ z: 1, a: 2, m: 3 }) // { a: 2, m: 3, z: 1 }
+ */
+export function sortObjectKeys<T extends Record<string, unknown>>(obj: T): T {
+  const sorted: Record<string, unknown> = {};
+  const keys = Object.keys(obj).sort();
+  for (const key of keys) {
+    sorted[key] = obj[key];
+  }
+  return sorted as T;
+}
+
+/**
+ * Sorts a string array alphabetically to ensure deterministic output.
+ *
+ * @example
+ * sortArray(['z', 'a', 'm']) // ['a', 'm', 'z']
+ */
+export function sortArray(arr: string[]): string[] {
+  return [...arr].sort();
 }

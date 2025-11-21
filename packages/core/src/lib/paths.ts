@@ -9,6 +9,7 @@ import type {
 } from 'openapi3-ts/oas31';
 
 import { $types } from './deriver.js';
+import { sortArray } from './utils.js';
 import { type InjectImport, evalZod } from './zod-jsonschema.js';
 
 export type OperationInfo = {
@@ -133,7 +134,10 @@ export class Paths {
             ? item.headers.reduce<HeadersObject>((acc, current) => {
                 const headers =
                   typeof current === 'string' ? { [current]: [] } : current;
-                return Object.entries(headers).reduce<HeadersObject>(
+                const sortedHeaders = Object.entries(headers).sort(([a], [b]) =>
+                  a.localeCompare(b),
+                );
+                return sortedHeaders.reduce<HeadersObject>(
                   (subAcc, [key, value]) => {
                     const header: HeadersObject = {
                       [key]: {
@@ -227,7 +231,10 @@ export class Paths {
         await this.#selectosToParameters(selectors);
       const bodySchema: Record<string, SchemaObject> = {};
       const required: string[] = [];
-      for (const [key, value] of Object.entries(bodySchemaProps)) {
+      const sortedBodySchemaProps = Object.entries(bodySchemaProps).sort(
+        ([a], [b]) => a.localeCompare(b),
+      );
+      for (const [key, value] of sortedBodySchemaProps) {
         if (value.required) {
           required.push(key);
         }
@@ -253,7 +260,7 @@ export class Paths {
               content: {
                 [operation.contentType || 'application/json']: {
                   schema: {
-                    required: required.length ? required : undefined,
+                    required: required.length ? sortArray(required) : undefined,
                     type: 'object',
                     properties: bodySchema,
                   },
@@ -326,7 +333,10 @@ export function toSchema(data: DateType | string | null | undefined): any {
   } else {
     const props: Record<string, unknown> = {};
     const required: string[] = [];
-    for (const [key, value] of Object.entries(data)) {
+    const sortedEntries = Object.entries(data).sort(([a], [b]) =>
+      a.localeCompare(b),
+    );
+    for (const [key, value] of sortedEntries) {
       props[key] = toSchema(value as any);
       if (!(value as any).optional) {
         required.push(key);
@@ -335,7 +345,7 @@ export function toSchema(data: DateType | string | null | undefined): any {
     return {
       type: 'object',
       properties: props,
-      required,
+      required: sortArray(required),
       additionalProperties: false,
     };
   }

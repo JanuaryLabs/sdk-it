@@ -146,7 +146,7 @@ app.get('/resource/:id', validate(({ params }) => ({
     );
   });
 
-  it.only('should handle multiple HTTP methods and content types', async () => {
+  it('should handle multiple HTTP methods and content types', async () => {
     await using workspace = await tsworkspace(
 tsconfig,
       {
@@ -198,6 +198,251 @@ app.get('/items', validate((payload) => ({
       Object.keys(result.paths).length,
       1,
       'Should have one path',
+    );
+  });
+
+  it('should analyze responses from all middlewares', async () => {
+    // Test Case 4: Middleware analysis with authenticate and ratelimit
+    await using workspace = await tsworkspace(
+      tsconfig,
+      {
+        'test4.ts': `
+import { validate } from 'hono';
+import { z } from 'zod';
+
+const app = {
+  post: (path: string, ...args: any[]) => {}
+};
+
+class HTTPException extends Error {}
+
+const authenticate = () => (ctx: any) => {
+  const token = ctx.headers.get('Authorization');
+  if (!token) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
+  return ctx;
+};
+
+const ratelimit = () => (ctx: any) => {
+  const limit = ctx.headers.get('X-RateLimit-Remaining');
+  if (limit === '0') {
+    throw new HTTPException(429, { message: 'Too many requests' });
+  }
+  return ctx;
+};
+
+const earlyReturn = () => (ctx: any) => {
+  if (ctx.query.get('skip') === 'true') {
+    return output.json({ skipped: true }, 202);
+  }
+  return ctx;
+};
+
+/**
+ * @openapi createVendor
+ * @tags vendors
+ * @description Create a new vendor account.
+ */
+app.post(
+  '/vendor',
+  ratelimit(),
+  authenticate(),
+  earlyReturn(),
+  validate((payload) => ({
+    id: { select: payload.body.id, against: z.string().min(1) },
+    email: { select: payload.body.email, against: z.string().email() },
+    name: { select: payload.body.name, against: z.string().min(1) }
+  })),
+  (c) => {
+    return output.json({ success: true, vendor: c.get('input') });
+  }
+);
+`,
+      },
+    );
+
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer: responseAnalyzer,
+    });
+
+    assert.strictEqual(
+      Object.keys(result.paths).length,
+      1,
+      'Should have one path',
+    );
+
+    const vendorPath = result.paths['/vendor']?.post;
+    assert.ok(vendorPath, 'Should have vendor POST endpoint');
+
+    // Should have responses from all middlewares
+    assert.ok(
+      vendorPath.responses?.['401'] !== undefined,
+      'Should have 401 response from authenticate middleware',
+    );
+    assert.ok(
+      vendorPath.responses?.['429'] !== undefined,
+      'Should have 429 response from ratelimit middleware',
+    );
+    assert.ok(
+      vendorPath.responses?.['202'] !== undefined,
+      'Should have 202 response from earlyReturn middleware',
+    );
+    assert.ok(
+      vendorPath.responses?.['200'] !== undefined,
+      'Should have 200 response from main handler',
+    );
+  });
+
+  it('should follow call expressions into helper functions', async () => {
+    // Test Case 5: Recursive call expression following
+    await using workspace = await tsworkspace(
+      tsconfig,
+      {
+        'test5.ts': `
+import { validate } from 'hono';
+import { z } from 'zod';
+
+const app = {
+  post: (path: string, ...args: any[]) => {}
+};
+
+class HTTPException extends Error {}
+
+// Helper function that throws
+function verifyContentType(contentType: string | undefined) {
+  if (!contentType) {
+    throw new HTTPException(415, {
+      message: 'Unsupported Media Type',
+      cause: { code: 'api/unsupported-media-type' }
+    });
+  }
+}
+
+// Helper function that calls another helper
+function parseJson(context: any) {
+  verifyContentType(context.headers.get('content-type'));
+  try {
+    return context.req.json();
+  } catch (error) {
+    throw new HTTPException(400, {
+      message: 'Invalid JSON',
+      cause: { code: 'api/invalid-json' }
+    });
+  }
+}
+
+/**
+ * @openapi createItem
+ * @tags items
+ */
+app.post(
+  '/items',
+  validate((payload) => ({
+    name: { select: payload.body.name, against: z.string() }
+  })),
+  (c) => {
+    const data = parseJson(c);
+    return output.json({ success: true, item: data });
+  }
+);
+`,
+      },
+    );
+
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer: responseAnalyzer,
+    });
+
+    assert.strictEqual(
+      Object.keys(result.paths).length,
+      1,
+      'Should have one path',
+    );
+
+    const itemPath = result.paths['/items']?.post;
+    assert.ok(itemPath, 'Should have item POST endpoint');
+
+    // Should have responses from helper functions
+    assert.ok(
+      itemPath.responses?.['415'] !== undefined,
+      'Should have 415 response from verifyContentType helper',
+    );
+    assert.ok(
+      itemPath.responses?.['400'] !== undefined,
+      'Should have 400 response from parseJson helper',
+    );
+    assert.ok(
+      itemPath.responses?.['200'] !== undefined,
+      'Should have 200 response from main handler',
+    );
+  });
+
+  it('should respect depth limits when following call expressions', async () => {
+    // Test Case 6: Depth limiting
+    await using workspace = await tsworkspace(
+      tsconfig,
+      {
+        'test6.ts': `
+import { validate } from 'hono';
+import { z } from 'zod';
+
+const app = {
+  get: (path: string, ...args: any[]) => {}
+};
+
+class HTTPException extends Error {}
+
+function level5() {
+  throw new HTTPException(503, { message: 'Too deep' });
+}
+
+function level4() {
+  level5();
+}
+
+function level3() {
+  level4();
+}
+
+function level2() {
+  level3();
+}
+
+function level1() {
+  level2();
+}
+
+/**
+ * @openapi deepTest
+ */
+app.get(
+  '/deep',
+  validate((payload) => ({
+    id: { select: payload.query.id, against: z.string() }
+  })),
+  (c) => {
+    level1();
+    return output.json({ success: true });
+  }
+);
+`,
+      },
+    );
+
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer: responseAnalyzer,
+    });
+
+    const deepPath = result.paths['/deep']?.get;
+    assert.ok(deepPath, 'Should have deep GET endpoint');
+
+    // With default max depth of 5, should capture the exception at level 5
+    // Depth 0: handler -> Depth 1: level1 -> Depth 2: level2 ->
+    // Depth 3: level3 -> Depth 4: level4 -> Depth 5: level5
+    assert.ok(
+      deepPath.responses?.['503'] !== undefined,
+      'Should have 503 response from deeply nested function within depth limit',
     );
   });
 });

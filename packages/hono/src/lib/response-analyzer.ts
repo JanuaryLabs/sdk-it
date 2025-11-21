@@ -57,7 +57,7 @@ function resolveStatusCode(node: ts.Node) {
 }
 
 export function defaultResponseAnalyzer(
-  handler: ts.ArrowFunction,
+  handler: ts.ArrowFunction | ts.FunctionExpression,
   deriver: TypeDeriver,
 ) {
   const contextVarName = handler.parameters[0].name.getText();
@@ -75,7 +75,7 @@ export function defaultResponseAnalyzer(
 }
 
 export function streamText(
-  handler: ts.ArrowFunction,
+  handler: ts.ArrowFunction | ts.FunctionExpression,
   deriver: TypeDeriver,
 ): ResponseItem[] {
   return [
@@ -93,7 +93,7 @@ export function streamText(
 }
 
 export function stream(
-  handler: ts.ArrowFunction,
+  handler: ts.ArrowFunction | ts.FunctionExpression,
   deriver: TypeDeriver,
 ): ResponseItem[] {
   return [

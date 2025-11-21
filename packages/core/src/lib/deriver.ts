@@ -1,6 +1,7 @@
 import ts, { TypeFlags, symbolName } from 'typescript';
 
 import { isInterfaceType } from './program.js';
+import { sortObjectKeys } from './utils.js';
 
 type Collector = Record<string, any>;
 
@@ -195,13 +196,15 @@ export class TypeDeriver {
       const maybeDeclaration = typeSymbol.declarations?.[0];
       if (maybeDeclaration) {
         if (ts.isMappedTypeNode(maybeDeclaration)) {
-          const resolvedType = this.checker
-            .getPropertiesOfType(argType)
-            .reduce<Record<string, unknown>>((acc, prop) => {
-              const propType = this.checker.getTypeOfSymbol(prop);
-              acc[prop.name] = this.serializeType(propType);
-              return acc;
-            }, {});
+          const resolvedType = sortObjectKeys(
+            this.checker
+              .getPropertiesOfType(argType)
+              .reduce<Record<string, unknown>>((acc, prop) => {
+                const propType = this.checker.getTypeOfSymbol(prop);
+                acc[prop.name] = this.serializeType(propType);
+                return acc;
+              }, {}),
+          );
           return {
             kind: 'array',
             optional: false,
@@ -284,7 +287,7 @@ export class TypeDeriver {
           [deriveSymbol]: true,
           kind: 'object',
           optional: false,
-          [$types]: [serializedProps],
+          [$types]: [sortObjectKeys(serializedProps)],
         };
       }
       const declaration =
@@ -331,7 +334,7 @@ export class TypeDeriver {
         }
       }
 
-      return props;
+      return sortObjectKeys(props);
     }
     if (ts.isPropertyAccessExpression(node)) {
       const symbol = this.checker.getSymbolAtLocation(node.name);
@@ -377,7 +380,7 @@ export class TypeDeriver {
         for (const member of node.members.filter(ts.isPropertySignature)) {
           members[member.name.getText()] = this.serializeNode(member);
         }
-        this.collector[node.name.text] = members;
+        this.collector[node.name.text] = sortObjectKeys(members);
       }
       return {
         [deriveSymbol]: true,
@@ -403,7 +406,7 @@ export class TypeDeriver {
         for (const member of node.members.filter(ts.isPropertyDeclaration)) {
           members[member.name!.getText()] = this.serializeNode(member);
         }
-        this.collector[node.name.text] = members;
+        this.collector[node.name.text] = sortObjectKeys(members);
       }
       return {
         [deriveSymbol]: true,
@@ -456,7 +459,7 @@ export class TypeDeriver {
       return {
         [deriveSymbol]: true,
         optional: false,
-        [$types]: [props],
+        [$types]: [sortObjectKeys(props)],
       };
     }
     if (node.kind === ts.SyntaxKind.NullKeyword) {

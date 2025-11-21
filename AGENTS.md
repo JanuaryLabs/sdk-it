@@ -28,5 +28,5 @@ Planned follow-ups: add cross-package dependency graph, highlight shared IR flow
 To build a package, run the following command
 
 ```bash
-nx run build <package-name>
+nx run <package-name>:build
 ```

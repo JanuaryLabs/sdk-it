@@ -42,7 +42,10 @@ const handlerVisitor: (
   };
 };
 
-function toResponses(handler: ts.ArrowFunction, deriver: TypeDeriver) {
+function toResponses(
+  handler: ts.ArrowFunction | ts.FunctionExpression,
+  deriver: TypeDeriver,
+) {
   const responsesList: ResponseItem[] = [];
   const visit = handlerVisitor((node, statusCode, headers, contentType) => {
     responsesList.push({
@@ -64,7 +67,7 @@ function resolveStatusCode(node: ts.Node) {
 }
 
 export function defaultResponseAnalyzer(
-  handler: ts.ArrowFunction,
+  handler: ts.ArrowFunction | ts.FunctionExpression,
   deriver: TypeDeriver,
 ) {
   try {
