@@ -831,9 +831,7 @@ export class TypeScriptSnippet implements Generator {
     if (!isEmpty(authOptions)) {
       const [primaryAuth] = authOptions;
       const authOptionName = primaryAuth['x-optionName'] ?? primaryAuth.name;
-      configurationUpdateCode.push(
-        `  ${authOptionName}: 'YOUR_STAGING_TOKEN'`,
-      );
+      configurationUpdateCode.push(`  ${authOptionName}: 'YOUR_STAGING_TOKEN'`);
     }
 
     configurationUpdateCode.push('});');
