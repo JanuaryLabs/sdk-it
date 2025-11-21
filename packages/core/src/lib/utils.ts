@@ -109,7 +109,7 @@ export function exclude<T>(list: T[], exclude: T[]): T[] {
  */
 export function sortObjectKeys<T extends Record<string, unknown>>(obj: T): T {
   const sorted: Record<string, unknown> = {};
-  const keys = Object.keys(obj).sort();
+  const keys = Object.keys(obj).sort((a, b) => a.localeCompare(b));
   for (const key of keys) {
     sorted[key] = obj[key];
   }
@@ -123,5 +123,5 @@ export function sortObjectKeys<T extends Record<string, unknown>>(obj: T): T {
  * sortArray(['z', 'a', 'm']) // ['a', 'm', 'z']
  */
 export function sortArray(arr: string[]): string[] {
-  return [...arr].sort();
+  return [...arr].sort((a, b) => a.localeCompare(b));
 }

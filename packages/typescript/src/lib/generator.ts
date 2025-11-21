@@ -8,7 +8,7 @@ import type {
 } from 'openapi3-ts/oas31';
 import { camelcase, spinalcase } from 'stringcase';
 
-import { followRef, isEmpty, isRef, resolveRef } from '@sdk-it/core';
+import { followRef, isEmpty, isRef, resolveRef, sortArray } from '@sdk-it/core';
 import {
   type IR,
   type TunedOperationObject,
@@ -234,19 +234,17 @@ function bodyInputs(spec: IR, ctSchema: SchemaObject | ReferenceObject) {
   toProps(spec, ctSchema, props);
 
   return (
-    props
-      // TODO: should we preproccess the sort at spec level instead of generator's?
-      .toSorted((a, b) => a.localeCompare(b))
-      .reduce<Record<string, OperationInput>>(
-        (acc, prop) => ({
-          ...acc,
-          [prop]: {
-            in: 'body',
-            schema: '',
-          },
-        }),
-        {},
-      )
+    // TODO: should we preproccess the sort at spec level instead of generator's?
+    sortArray(props).reduce<Record<string, OperationInput>>(
+      (acc, prop) => ({
+        ...acc,
+        [prop]: {
+          in: 'body',
+          schema: '',
+        },
+      }),
+      {},
+    )
   );
 }
 

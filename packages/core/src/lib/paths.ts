@@ -9,7 +9,7 @@ import type {
 } from 'openapi3-ts/oas31';
 
 import { $types } from './deriver.js';
-import { sortArray } from './utils.js';
+import { sortArray, sortObjectKeys } from './utils.js';
 import { type InjectImport, evalZod } from './zod-jsonschema.js';
 
 export type OperationInfo = {
@@ -134,9 +134,7 @@ export class Paths {
             ? item.headers.reduce<HeadersObject>((acc, current) => {
                 const headers =
                   typeof current === 'string' ? { [current]: [] } : current;
-                const sortedHeaders = Object.entries(headers).sort(([a], [b]) =>
-                  a.localeCompare(b),
-                );
+                const sortedHeaders = Object.entries(sortObjectKeys(headers));
                 return sortedHeaders.reduce<HeadersObject>(
                   (subAcc, [key, value]) => {
                     const header: HeadersObject = {
@@ -231,8 +229,8 @@ export class Paths {
         await this.#selectosToParameters(selectors);
       const bodySchema: Record<string, SchemaObject> = {};
       const required: string[] = [];
-      const sortedBodySchemaProps = Object.entries(bodySchemaProps).sort(
-        ([a], [b]) => a.localeCompare(b),
+      const sortedBodySchemaProps = Object.entries(
+        sortObjectKeys(bodySchemaProps),
       );
       for (const [key, value] of sortedBodySchemaProps) {
         if (value.required) {
@@ -333,9 +331,7 @@ export function toSchema(data: DateType | string | null | undefined): any {
   } else {
     const props: Record<string, unknown> = {};
     const required: string[] = [];
-    const sortedEntries = Object.entries(data).sort(([a], [b]) =>
-      a.localeCompare(b),
-    );
+    const sortedEntries = Object.entries(sortObjectKeys(data));
     for (const [key, value] of sortedEntries) {
       props[key] = toSchema(value as any);
       if (!(value as any).optional) {
