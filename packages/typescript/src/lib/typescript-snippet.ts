@@ -814,7 +814,7 @@ export class TypeScriptSnippet implements Generator {
     if (!isEmpty(authOptions)) {
       const [primaryAuth] = authOptions;
       const authOptionName = primaryAuth['x-optionName'] ?? primaryAuth.name;
-      initialClientOptions[authOptionName] = 'prod_sk_1234567890abcdef';
+      initialClientOptions[authOptionName] = 'YOUR_PRODUCTION_TOKEN';
     }
 
     const initialClientSetup = this.#constructClient(initialClientOptions);
@@ -832,7 +832,7 @@ export class TypeScriptSnippet implements Generator {
       const [primaryAuth] = authOptions;
       const authOptionName = primaryAuth['x-optionName'] ?? primaryAuth.name;
       configurationUpdateCode.push(
-        `  ${authOptionName}: 'staging_sk_abcdef1234567890'`,
+        `  ${authOptionName}: 'YOUR_STAGING_TOKEN'`,
       );
     }
 

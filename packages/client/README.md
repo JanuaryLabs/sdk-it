@@ -38,14 +38,14 @@ You can update client configuration after initialization using the `setOptions` 
 ```typescript
 // Initial client setup
 const sdkIt = new SdkIt({
-		baseUrl: "https://api.production-service.com",
-		token: "prod_sk_1234567890abcdef"
-	});
+    baseUrl: "https://api.production-service.com",
+    token: "YOUR_PRODUCTION_TOKEN"
+  });
 
 // Later, update specific options
 client.setOptions({
   baseUrl: 'https://api.staging-service.com',
-  token: 'staging_sk_abcdef1234567890'
+  token: 'YOUR_STAGING_TOKEN'
 });
 ```
 
@@ -63,8 +63,8 @@ Pass your bearer token directly - the "Bearer" prefix is automatically added:
 
 ```typescript
 const sdkIt = new SdkIt({
-		token: "test_51234567890abcdef1234567890abcdef"
-	});
+    token: "YOUR_TEST_TOKEN"
+  });
 ```
 
 
