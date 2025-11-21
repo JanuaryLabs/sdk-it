@@ -82,6 +82,7 @@ await generate(
   // await loadSpec('https://api.uploadthing.com/openapi-spec.json'),
   {
     mode: 'full',
+    readme: true,
     name: 'SdkIt',
     output: join(process.cwd(), 'packages/client'),
     formatCode: ({ output, env }) => {

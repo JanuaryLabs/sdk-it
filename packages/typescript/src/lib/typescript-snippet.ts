@@ -741,7 +741,7 @@ export class TypeScriptSnippet implements Generator {
         );
         sections.push('');
         const bearerAuthClient = this.#constructClient({
-          [optionName]: 'REDACTED_STRIPE_KEY',
+          [optionName]: 'test_51234567890abcdef1234567890abcdef',
         });
         sections.push(createCodeBlock('typescript', [bearerAuthClient.use]));
         sections.push('');
@@ -753,7 +753,7 @@ export class TypeScriptSnippet implements Generator {
         sections.push(`${headingLevel} ${apiKeyHeading}`);
         sections.push('');
         const apiKeyAuthClient = this.#constructClient({
-          [optionName]: 'api_key_1234567890abcdef1234567890abcdef',
+          [optionName]: 'test_api_key_1234567890abcdef1234567890abcdef',
         });
         sections.push(createCodeBlock('typescript', [apiKeyAuthClient.use]));
         sections.push('');
@@ -765,7 +765,7 @@ export class TypeScriptSnippet implements Generator {
         sections.push(`${headingLevel} ${queryParamHeading}`);
         sections.push('');
         const queryParamAuthClient = this.#constructClient({
-          [optionName]: 'qp_key_1234567890abcdef1234567890abcdef',
+          [optionName]: 'test_qp_key_1234567890abcdef1234567890abcdef',
         });
         sections.push(
           createCodeBlock('typescript', [queryParamAuthClient.use]),
@@ -780,7 +780,7 @@ export class TypeScriptSnippet implements Generator {
         sections.push(`${headingLevel} ${genericAuthHeading}`);
         sections.push('');
         const genericAuthClient = this.#constructClient({
-          [optionName]: 'auth_token_1234567890abcdef1234567890abcdef',
+          [optionName]: 'test_auth_token_1234567890abcdef1234567890abcdef',
         });
         sections.push(createCodeBlock('typescript', [genericAuthClient.use]));
         sections.push('');

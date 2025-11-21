@@ -31,7 +31,11 @@ import {
 export default {
   'GET /fetch': {
     schema: fetch.getFetchSchema,
-    output: [http.Ok<outputs.GetFetch>, http.BadRequest<outputs.GetFetch400>],
+    output: [
+      http.Ok<outputs.GetFetch>,
+      http.BadRequest<outputs.GetFetch400>,
+      http.UnsupportedMediaType<outputs.GetFetch415>,
+    ],
     toRequest(input: z.input<typeof fetch.getFetchSchema>) {
       return toRequest(
         'GET /fetch',

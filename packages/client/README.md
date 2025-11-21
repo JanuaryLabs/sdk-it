@@ -63,7 +63,7 @@ Pass your bearer token directly - the "Bearer" prefix is automatically added:
 
 ```typescript
 const sdkIt = new SdkIt({
-		token: "REDACTED_STRIPE_KEY"
+		token: "test_51234567890abcdef1234567890abcdef"
 	});
 ```
 
@@ -324,6 +324,13 @@ Content Type: `application/json`
 
 **Type:** [`PostPublish400`](#postpublish400)
 
+**415** - Response for 415
+
+
+**Content Type:** `application/json`
+
+**Type:** [`PostPublish415`](#postpublish415)
+
 ### postAugment | _POST /augment_
 
 
@@ -369,6 +376,13 @@ Content Type: `application/json`
 
 **Type:** [`PostAugment400`](#postaugment400)
 
+**415** - Response for 415
+
+
+**Content Type:** `application/json`
+
+**Type:** [`PostAugment415`](#postaugment415)
+
 ### getFetch | _GET /fetch_
 
 
@@ -411,6 +425,13 @@ Content Type: `application/empty`
 **Content Type:** `application/json`
 
 **Type:** [`GetFetch400`](#getfetch400)
+
+**415** - Response for 415
+
+
+**Content Type:** `application/json`
+
+**Type:** [`GetFetch415`](#getfetch415)
 
 ### postGenerate | _POST /generate_
 
@@ -459,6 +480,13 @@ Content Type: `multipart/form-data`
 
 **Type:** [`PostGenerate400`](#postgenerate400)
 
+**415** - Response for 415
+
+
+**Content Type:** `application/json`
+
+**Type:** [`PostGenerate415`](#postgenerate415)
+
 ### postPlayground | _POST /playground_
 
 
@@ -503,6 +531,13 @@ Content Type: `multipart/form-data`
 **Content Type:** `application/json`
 
 **Type:** [`PostPlayground400`](#postplayground400)
+
+**415** - Response for 415
+
+
+**Content Type:** `application/json`
+
+**Type:** [`PostPlayground415`](#postplayground415)
 
 ### getOperations | _GET /operations_
 
@@ -549,6 +584,13 @@ Content Type: `application/empty`
 
 **Type:** [`GetOperations400`](#getoperations400)
 
+**415** - Response for 415
+
+
+**Content Type:** `application/json`
+
+**Type:** [`GetOperations415`](#getoperations415)
+
 ## Schemas
 
 
@@ -580,6 +622,68 @@ Content Type: `application/empty`
 
 
 **Type:** [`ValidationError`](#validationerror)
+
+
+
+</details>
+
+
+
+<details>
+
+<summary><h3 id="postpublish415">PostPublish415</h3></summary>
+
+
+
+**One of (Exclusive Union):**
+
+- **Option 1:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required default: "GET requests cannot have a content type header":
+
+- `message` `string` required default: "Unsupported Media Type":
+
+- **Option 2:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required default: "Missing content type header":
+
+- `message` `string` required default: "Unsupported Media Type":
+
+- **Option 3:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required:
+
+- `message` `string` required default: "Unsupported Media Type":
 
 
 
@@ -639,6 +743,68 @@ Content Type: `application/empty`
 
 <details>
 
+<summary><h3 id="postaugment415">PostAugment415</h3></summary>
+
+
+
+**One of (Exclusive Union):**
+
+- **Option 1:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required default: "GET requests cannot have a content type header":
+
+- `message` `string` required default: "Unsupported Media Type":
+
+- **Option 2:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required default: "Missing content type header":
+
+- `message` `string` required default: "Unsupported Media Type":
+
+- **Option 3:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required:
+
+- `message` `string` required default: "Unsupported Media Type":
+
+
+
+</details>
+
+
+
+<details>
+
 <summary><h3 id="postaugmentinput">PostAugmentInput</h3></summary>
 
 
@@ -680,6 +846,68 @@ Content Type: `application/empty`
 
 
 **Type:** [`ValidationError`](#validationerror)
+
+
+
+</details>
+
+
+
+<details>
+
+<summary><h3 id="getfetch415">GetFetch415</h3></summary>
+
+
+
+**One of (Exclusive Union):**
+
+- **Option 1:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required default: "GET requests cannot have a content type header":
+
+- `message` `string` required default: "Unsupported Media Type":
+
+- **Option 2:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required default: "Missing content type header":
+
+- `message` `string` required default: "Unsupported Media Type":
+
+- **Option 3:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required:
+
+- `message` `string` required default: "Unsupported Media Type":
 
 
 
@@ -731,6 +959,68 @@ Content Type: `application/empty`
 
 <details>
 
+<summary><h3 id="postgenerate415">PostGenerate415</h3></summary>
+
+
+
+**One of (Exclusive Union):**
+
+- **Option 1:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required default: "GET requests cannot have a content type header":
+
+- `message` `string` required default: "Unsupported Media Type":
+
+- **Option 2:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required default: "Missing content type header":
+
+- `message` `string` required default: "Unsupported Media Type":
+
+- **Option 3:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required:
+
+- `message` `string` required default: "Unsupported Media Type":
+
+
+
+</details>
+
+
+
+<details>
+
 <summary><h3 id="postgenerateinput">PostGenerateInput</h3></summary>
 
 
@@ -757,13 +1047,13 @@ Content Type: `application/empty`
 
 **Properties:**
 
-- `url` `string` required default: "https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml":
-
-- `title` `string` required:
+- `clientName` `string` required:
 
 - `name` `string` required:
 
-- `clientName` `string` required:
+- `title` `string` required:
+
+- `url` `string` required default: "https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml":
 
 
 
@@ -778,6 +1068,68 @@ Content Type: `application/empty`
 
 
 **Type:** [`ValidationError`](#validationerror)
+
+
+
+</details>
+
+
+
+<details>
+
+<summary><h3 id="postplayground415">PostPlayground415</h3></summary>
+
+
+
+**One of (Exclusive Union):**
+
+- **Option 1:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required default: "GET requests cannot have a content type header":
+
+- `message` `string` required default: "Unsupported Media Type":
+
+- **Option 2:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required default: "Missing content type header":
+
+- `message` `string` required default: "Unsupported Media Type":
+
+- **Option 3:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required:
+
+- `message` `string` required default: "Unsupported Media Type":
 
 
 
@@ -823,6 +1175,10 @@ Content Type: `application/empty`
 
 **Properties:**
 
+- `hasNextPage` `boolean` required:
+
+- `hasPreviousPage` `boolean` required:
+
 - `page` `number` required:
 
 - `pageSize` `number` required:
@@ -830,10 +1186,6 @@ Content Type: `application/empty`
 - `totalItems` `number` required:
 
 - `totalPages` `number` required:
-
-- `hasNextPage` `boolean` required:
-
-- `hasPreviousPage` `boolean` required:
 
 
 
@@ -848,6 +1200,68 @@ Content Type: `application/empty`
 
 
 **Type:** [`ValidationError`](#validationerror)
+
+
+
+</details>
+
+
+
+<details>
+
+<summary><h3 id="getoperations415">GetOperations415</h3></summary>
+
+
+
+**One of (Exclusive Union):**
+
+- **Option 1:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required default: "GET requests cannot have a content type header":
+
+- `message` `string` required default: "Unsupported Media Type":
+
+- **Option 2:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required default: "Missing content type header":
+
+- `message` `string` required default: "Unsupported Media Type":
+
+- **Option 3:**
+
+**Type:** `object`
+
+**Properties:**
+
+- `cause` `object` required:
+
+**Properties:**
+
+- `code` `string` required default: "api/unsupported-media-type":
+
+- `details` `string` required:
+
+- `message` `string` required default: "Unsupported Media Type":
 
 
 

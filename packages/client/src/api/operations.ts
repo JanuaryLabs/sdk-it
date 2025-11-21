@@ -34,6 +34,7 @@ export default {
     output: [
       http.Ok<outputs.GetOperations>,
       http.BadRequest<outputs.GetOperations400>,
+      http.UnsupportedMediaType<outputs.GetOperations415>,
     ],
     toRequest(input: z.input<typeof operations.getOperationsSchema>) {
       return toRequest(

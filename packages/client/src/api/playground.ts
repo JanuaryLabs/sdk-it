@@ -34,6 +34,7 @@ export default {
     output: [
       http.Ok<outputs.PostPlayground>,
       http.BadRequest<outputs.PostPlayground400>,
+      http.UnsupportedMediaType<outputs.PostPlayground415>,
     ],
     toRequest(input: z.input<typeof playground.postPlaygroundSchema>) {
       return toRequest(

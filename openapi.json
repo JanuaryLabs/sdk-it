@@ -85,6 +85,96 @@
                 }
               }
             }
+          },
+          "415": {
+            "description": "Response for 415",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "enum": [
+                                "GET requests cannot have a content type header"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "enum": ["Missing content type header"],
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            }
           }
         }
       }
@@ -126,6 +216,96 @@
                 }
               }
             }
+          },
+          "415": {
+            "description": "Response for 415",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "enum": [
+                                "GET requests cannot have a content type header"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "enum": ["Missing content type header"],
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            }
           }
         }
       }
@@ -162,6 +342,96 @@
                   "oneOf": [
                     {
                       "$ref": "#/components/schemas/ValidationError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Response for 415",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "enum": [
+                                "GET requests cannot have a content type header"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "enum": ["Missing content type header"],
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
                     }
                   ]
                 }
@@ -225,6 +495,96 @@
                 }
               }
             }
+          },
+          "415": {
+            "description": "Response for 415",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "enum": [
+                                "GET requests cannot have a content type header"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "enum": ["Missing content type header"],
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            }
           }
         }
       }
@@ -259,23 +619,23 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "url": {
-                      "enum": [
-                        "https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml"
-                      ],
-                      "type": "string"
-                    },
-                    "title": {
+                    "clientName": {
                       "type": "string"
                     },
                     "name": {
                       "type": "string"
                     },
-                    "clientName": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "enum": [
+                        "https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml"
+                      ],
                       "type": "string"
                     }
                   },
-                  "required": ["url", "title", "name", "clientName"],
+                  "required": ["clientName", "name", "title", "url"],
                   "additionalProperties": false
                 }
               }
@@ -289,6 +649,96 @@
                   "oneOf": [
                     {
                       "$ref": "#/components/schemas/ValidationError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Response for 415",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "enum": [
+                                "GET requests cannot have a content type header"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "enum": ["Missing content type header"],
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
                     }
                   ]
                 }
@@ -342,6 +792,12 @@
                     "pagination": {
                       "type": "object",
                       "properties": {
+                        "hasNextPage": {
+                          "type": "boolean"
+                        },
+                        "hasPreviousPage": {
+                          "type": "boolean"
+                        },
                         "page": {
                           "type": "number"
                         },
@@ -353,21 +809,15 @@
                         },
                         "totalPages": {
                           "type": "number"
-                        },
-                        "hasNextPage": {
-                          "type": "boolean"
-                        },
-                        "hasPreviousPage": {
-                          "type": "boolean"
                         }
                       },
                       "required": [
+                        "hasNextPage",
+                        "hasPreviousPage",
                         "page",
                         "pageSize",
                         "totalItems",
-                        "totalPages",
-                        "hasNextPage",
-                        "hasPreviousPage"
+                        "totalPages"
                       ],
                       "additionalProperties": false
                     }
@@ -386,6 +836,96 @@
                   "oneOf": [
                     {
                       "$ref": "#/components/schemas/ValidationError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Response for 415",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "enum": [
+                                "GET requests cannot have a content type header"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "enum": ["Missing content type header"],
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "cause": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": ["api/unsupported-media-type"],
+                              "type": "string"
+                            },
+                            "details": {
+                              "type": "string"
+                            }
+                          },
+                          "required": ["code", "details"],
+                          "additionalProperties": false
+                        },
+                        "message": {
+                          "enum": ["Unsupported Media Type"],
+                          "type": "string"
+                        }
+                      },
+                      "required": ["cause", "message"],
+                      "additionalProperties": false
                     }
                   ]
                 }
