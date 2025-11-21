@@ -60,8 +60,11 @@ export function defaultResponseAnalyzer(
   handler: ts.ArrowFunction | ts.FunctionExpression,
   deriver: TypeDeriver,
 ) {
-  const contextVarName = handler.parameters[0].name.getText();
   const responsesList: ResponseItem[] = [];
+  if (!handler.parameters.length) {
+    return responsesList;
+  }
+  const contextVarName = handler.parameters[0].name.getText();
   const visit = handlerVisitor((node, statusCode, headers, contentType) => {
     responsesList.push({
       headers: headers ? Object.keys(deriver.serializeNode(headers)) : [],

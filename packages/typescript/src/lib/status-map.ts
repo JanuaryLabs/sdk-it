@@ -14,6 +14,7 @@ export default {
   '412': 'PreconditionFailed',
   '413': 'PayloadTooLarge',
   '410': 'Gone',
+  '415': 'UnsupportedMediaType',
   '422': 'UnprocessableEntity',
   '429': 'TooManyRequests',
   '500': 'InternalServerError',

@@ -234,6 +234,10 @@ class Receiver {
         throw ConflictError('');
       case 410:
         throw GoneError('');
+      case 412:
+        throw PreconditionFailedError('');
+      case 415:
+        throw UnsupportedMediaTypeError('');
       case 422:
         throw UnprocessableEntityError('');
       case 429:
