@@ -34,6 +34,7 @@ export default {
     output: [
       http.Ok<outputs.PostAugment>,
       http.BadRequest<outputs.PostAugment400>,
+      http.UnsupportedMediaType<outputs.PostAugment415>,
     ],
     toRequest(input: z.input<typeof augment.postAugmentSchema>) {
       return toRequest(

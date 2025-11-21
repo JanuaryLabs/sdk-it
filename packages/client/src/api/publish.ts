@@ -34,6 +34,7 @@ export default {
     output: [
       http.Ok<outputs.PostPublish>,
       http.BadRequest<outputs.PostPublish400>,
+      http.UnsupportedMediaType<outputs.PostPublish415>,
     ],
     toRequest(input: z.input<typeof publish.postPublishSchema>) {
       return toRequest(

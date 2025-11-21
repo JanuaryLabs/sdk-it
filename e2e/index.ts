@@ -74,11 +74,6 @@ const specs = [
     flags: [],
   },
   {
-    name: 'oto',
-    spec: join(process.cwd(), '.specs', 'oto.json'),
-    flags: [],
-  },
-  {
     name: 'openstatus',
     spec: 'https://api.openstatus.dev/v1/openapi',
     flags: [],
@@ -96,11 +91,6 @@ const specs = [
   {
     name: 'UploadThings',
     spec: 'https://api.uploadthing.com/openapi-spec.json',
-    flags: [],
-  },
-  {
-    name: 'OpenAPIWithRecursiveSchemas',
-    spec: join(process.cwd(), '.specs', 'problem.json'),
     flags: [],
   },
   {

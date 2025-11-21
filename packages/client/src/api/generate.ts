@@ -34,6 +34,7 @@ export default {
     output: [
       { type: http.Ok<outputs.PostGenerate>, parser: chunked },
       http.BadRequest<outputs.PostGenerate400>,
+      http.UnsupportedMediaType<outputs.PostGenerate415>,
     ],
     toRequest(input: z.input<typeof generate.postGenerateSchema>) {
       return toRequest(
