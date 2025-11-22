@@ -30,7 +30,8 @@
     "registry-auth-token": "^5.1.0",
     "@sdk-it/python": "0.34.0",
     "execa": "^9.6.0",
-    "@sdk-it/readme": "0.34.0"
+    "@sdk-it/readme": "0.34.0",
+    "@inquirer/prompts": "^7.7.1"
   },
   "publishConfig": {
     "access": "public"

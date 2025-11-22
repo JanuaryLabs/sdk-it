@@ -23,14 +23,14 @@ export function coerceObject(schema: SchemaObject): SchemaObject {
   return schema;
 }
 
-type Context = Record<string, any>;
+type Context = Record<string, unknown>;
 type Serialized = {
   nullable?: boolean;
   encode?: string;
   encodeV2?: string;
   use: string;
   matches?: string;
-  fromJson: any;
+  fromJson: unknown;
   type?: string;
   literal?: unknown;
   content: string;
@@ -110,8 +110,9 @@ export class PythonEmitter {
 
   #ref(ref: ReferenceObject): Serialized {
     const cacheKey = ref.$ref;
-    if (this.#typeCache.has(cacheKey)) {
-      return this.#typeCache.get(cacheKey)!;
+    const cached = this.#typeCache.get(cacheKey);
+    if (cached) {
+      return cached;
     }
 
     const refInfo = parseRef(ref.$ref);
@@ -195,7 +196,7 @@ export class PythonEmitter {
     // Process properties
     for (const [propName, propSchema] of Object.entries(properties)) {
       if (isRef(propSchema)) {
-        const refResult = this.#ref(propSchema);
+        this.#ref(propSchema);
         const refInfo = parseRef(propSchema.$ref);
         const refName = refInfo.model;
         const pythonType = pascalcase(refName);
@@ -255,7 +256,7 @@ export class PythonEmitter {
 
     // Generate class docstring
     const docstring = schema.description
-      ? `    \"\"\"${schema.description}\"\"\"\n`
+      ? `    """${schema.description}"""\n`
       : '';
 
     // Generate to_request_config method for input models
@@ -263,7 +264,7 @@ export class PythonEmitter {
     if (schema['x-inputname']) {
       requestConfigMethod = `
     def to_request_config(self, config: RequestConfig) -> RequestConfig:
-        \"\"\"Convert this input model to request configuration.\"\"\"
+        """Convert this input model to request configuration."""
         # Handle path parameters
         path_params = {}
         for key, value in self.dict(exclude_none=True).items():
@@ -296,9 +297,9 @@ ${docstring}${fields.length > 0 ? fields.join('\n') : '    pass'}${requestConfig
     };
   }
 
-  #primitive(schema: SchemaObject, context: Context): Serialized {
+  #primitive(schema: SchemaObject): Serialized {
     const { type, format } = schema;
-    const nullable = (schema as any).nullable; // Handle nullable as it may not be in the type definition
+    const nullable = (schema as { nullable?: boolean }).nullable; // Handle nullable as it may not be in the type definition
 
     let pythonType = 'Any';
 
@@ -375,17 +376,17 @@ ${docstring}${fields.length > 0 ? fields.join('\n') : '    pass'}${requestConfig
     };
   }
 
-  #enum(schema: SchemaObject, context: Context): Serialized {
+  #enum(schema: SchemaObject, _context: Context): Serialized {
     const { enum: enumValues } = schema;
     if (!enumValues || enumValues.length === 0) {
-      return this.#primitive(schema, context);
+      return this.#primitive(schema);
     }
 
-    if (!context.name) {
+    if (!_context.name || typeof _context.name !== 'string') {
       throw new Error('Enum schemas must have a name in context');
     }
 
-    const className = pascalcase(context.name);
+    const className = pascalcase(_context.name as string);
 
     const enumItems = enumValues.map((value, index) => {
       const name =
@@ -399,7 +400,7 @@ ${docstring}${fields.length > 0 ? fields.join('\n') : '    pass'}${requestConfig
     });
 
     const content = `class ${className}(Enum):
-    \"\"\"Enumeration for ${context.name}.\"\"\"
+    """Enumeration for ${_context.name}."""
 ${enumItems.join('\n')}
 `;
 
@@ -414,7 +415,7 @@ ${enumItems.join('\n')}
     };
   }
 
-  #const(schema: SchemaObject, context: Context): Serialized {
+  #const(schema: SchemaObject): Serialized {
     const { const: constValue } = schema;
 
     if (typeof constValue === 'string') {
@@ -447,7 +448,7 @@ ${enumItems.join('\n')}
 
     // Handle const values
     if ('const' in schema && schema.const !== undefined) {
-      return this.#const(schema, context);
+      return this.#const(schema);
     }
 
     // Handle enums
@@ -473,16 +474,16 @@ ${enumItems.join('\n')}
       schema.oneOf ||
       schema.anyOf
     ) {
-      if (!context.name) {
+      if (!context.name || typeof context.name !== 'string') {
         throw new Error('Object schemas must have a name in context');
       }
-      const className = pascalcase(context.name);
+      const className = pascalcase(context.name as string);
       return this.#object(className, schema, context);
     }
 
     // Handle primitives
     if (isPrimitiveSchema(schema)) {
-      return this.#primitive(schema, context);
+      return this.#primitive(schema);
     }
 
     // Fallback to Any

@@ -1,6 +1,11 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { OpenAPIObject, OperationObject } from 'openapi3-ts/oas31';
+import type {
+  OpenAPIObject,
+  OperationObject,
+  ReferenceObject,
+  SchemaObject,
+} from 'openapi3-ts/oas31';
 import { snakecase } from 'stringcase';
 
 import { isEmpty, isRef, pascalcase } from '@sdk-it/core';
@@ -87,7 +92,7 @@ export async function generate(
 
     const docstring =
       operation.summary || operation.description
-        ? `        \"\"\"${operation.summary || operation.description}\"\"\"`
+        ? `        """${operation.summary || operation.description}"""`
         : '';
 
     group.methods.push(`
@@ -127,7 +132,7 @@ ${docstring}
 
       acc[fileName] = `${imports}
 class ${className}:
-    \"\"\"API client for ${name} operations.\"\"\"
+    """API client for ${name} operations."""
 
     def __init__(self, dispatcher: Dispatcher, receiver: Receiver):
         self.dispatcher = dispatcher
@@ -145,16 +150,16 @@ ${methods.join('\n')}
       (name) =>
         `from .api.${snakecase(name)}_api import ${pascalcase(name)}Api`,
     )
-    .join('\\n');
+    .join('\n');
 
   const apiProperties = Object.keys(groups)
     .map(
       (name) =>
         `        self.${snakecase(name)} = ${pascalcase(name)}Api(dispatcher, receiver)`,
     )
-    .join('\\n');
+    .join('\n');
 
-  const clientCode = `\"\"\"Main API client.\"\"\"
+  const clientCode = `"""Main API client."""
 
 from typing import Optional, List
 import httpx
@@ -172,7 +177,7 @@ from .http.interceptors import (
 
 
 class ${clientName}:
-    \"\"\"Main API client for the SDK.\"\"\"
+    """Main API client for the SDK."""
 
     def __init__(
         self,
@@ -184,7 +189,7 @@ class ${clientName}:
         user_agent: Optional[str] = None,
         custom_interceptors: Optional[List[Interceptor]] = None,
     ):
-        \"\"\"
+        """
         Initialize the API client.
 
         Args:
@@ -195,7 +200,7 @@ class ${clientName}:
             enable_logging: Enable request/response logging
             user_agent: Custom User-Agent header
             custom_interceptors: Additional custom interceptors
-        \"\"\"
+        """
         self.base_url = base_url
 
         # Build interceptor chain
@@ -234,7 +239,7 @@ ${apiProperties}
         await self.close()
 
     async def close(self):
-        \"\"\"Close the HTTP client.\"\"\"
+        """Close the HTTP client."""
         await self.dispatcher.close()
 `;
 
@@ -246,7 +251,7 @@ ${apiProperties}
     'http/dispatcher.py': dispatcherTxt,
     'http/interceptors.py': interceptorsTxt,
     'http/responses.py': responsesTxt,
-    '__init__.py': `\"\"\"SDK package.\"\"\"
+    '__init__.py': `"""SDK package."""
 
 from .client import ${clientName}
 
@@ -306,7 +311,7 @@ python-dateutil>=2.8.0
       join(output, 'api'),
       settings.readFolder,
     ),
-    'http/__init__.py': `\"\"\"HTTP utilities.\"\"\"
+    'http/__init__.py': `"""HTTP utilities."""
 
 from .dispatcher import Dispatcher, RequestConfig
 from .interceptors import *
@@ -345,21 +350,21 @@ async function generateModuleInit(
       .map((file) => file.fileName.replace('.py', ''));
 
     if (pyFiles.length === 0) {
-      return '\"\"\"Package module.\"\"\"\n';
+      return '"""Package module."""\n';
     }
 
     const imports = pyFiles.map((name) => `from .${name} import *`).join('\n');
-    return `\"\"\"Package module.\"\"\"\n\n${imports}\n`;
+    return `"""Package module."""\n\n${imports}\n`;
   } catch {
-    return '\"\"\"Package module.\"\"\"\\n';
+    return '"""Package module."""\n';
   }
 }
 
 function toInputs(
   spec: IR,
-  { entry, operation }: { entry: any; operation: OperationObject },
+  { entry, operation }: { entry: unknown; operation: OperationObject },
 ) {
-  const inputName = (entry as any).inputName || 'Input';
+  const inputName = (entry as { inputName?: string }).inputName || 'Input';
   const haveInput =
     !isEmpty(operation.parameters) || !isEmpty(operation.requestBody);
 
@@ -397,7 +402,7 @@ function toOutput(spec: IR, operation: OperationObject) {
     return null;
   }
 
-  const [statusCode, response] = successResponse;
+  const [, response] = successResponse;
   if (isRef(response)) {
     return null;
   }
@@ -421,7 +426,8 @@ function toOutput(spec: IR, operation: OperationObject) {
   }
 
   const [, mediaType] = jsonContent;
-  const schema = (mediaType as any).schema;
+  const schema = (mediaType as { schema?: SchemaObject | ReferenceObject })
+    .schema;
 
   if (!schema || isRef(schema)) {
     return { returnType: 'Any', successModel: null, errorModel: null };
@@ -454,7 +460,7 @@ async function serializeModels(
   ].join('\n');
 
   // Emit all schemas
-  emitter.onEmit((name: string, content: string, schema: any) => {
+  emitter.onEmit((name: string, content: string, schema: SchemaObject) => {
     // Add imports to the content
     const fullContent = `${standardImports}
 ${schema['x-inputname'] ? 'from ..http.dispatcher import RequestConfig' : ''}

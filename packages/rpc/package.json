@@ -27,6 +27,7 @@
     "fast-content-type-parse": "^3.0.0",
     "@sdk-it/typescript": "0.34.0",
     "ai": "^5.0.0-beta.24",
-    "openapi3-ts": "4.5.0"
+    "openapi3-ts": "4.5.0",
+    "@sdk-it/core": "0.34.0"
   }
 }
