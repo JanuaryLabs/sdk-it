@@ -12,6 +12,14 @@
         "additionalEntryPoints": ["packages/hono/src/lib/runtime/index.ts"],
         "external": ["@sdk-it/core"]
       }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
+      "options": {
+        "command": "node --test src/**/*.test.ts",
+        "cwd": "{projectRoot}"
+      }
     }
   }
 }
