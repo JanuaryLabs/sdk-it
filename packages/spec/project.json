@@ -12,6 +12,14 @@
         "bundle": false,
         "deleteOutputPath": true
       }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
+      "options": {
+        "command": "node --test src/**/*.test.ts",
+        "cwd": "{projectRoot}"
+      }
     }
   }
 }

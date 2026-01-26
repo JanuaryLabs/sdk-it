@@ -89,11 +89,6 @@ const specs = [
   //   flags: [],
   // },
   // {
-  //   name: 'Nowa',
-  //   spec: 'https://nowa-server-dev-412327058882.europe-west1.run.app/swagger/v1/swagger.json',
-  //   flags: [],
-  // },
-  // {
   //   name: 'UploadThings',
   //   spec: 'https://api.uploadthing.com/openapi-spec.json',
   //   flags: [],

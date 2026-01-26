@@ -349,19 +349,23 @@ describe('Response Analyzer', () => {
         const responses = defaultResponseAnalyzer(handler, deriver);
 
         assert.equal(responses.length, 1);
-        const response = responses[0].response as unknown as Record<string, unknown>;
+        const response = responses[0].response as unknown as Record<string | symbol, unknown>;
 
-        const createdAt = response.createdAt as Record<string | symbol, unknown>;
-        const updatedAt = response.updatedAt as Record<string | symbol, unknown>;
-        const phoneNumber = response.phoneNumber as Record<string | symbol, unknown>;
-        const id = response.id as Record<string | symbol, unknown>;
-        const userType = response.userType as Record<string | symbol, unknown>;
+        assert.equal(response.kind, 'intersection');
 
-        assert.equal(createdAt.optional, false, 'createdAt should be required');
-        assert.equal(updatedAt.optional, false, 'updatedAt should be required');
-        assert.equal(phoneNumber.optional, false, 'phoneNumber should be required');
-        assert.equal(id.optional, false, 'id should be required');
-        assert.equal(userType.optional, false, 'userType should be required');
+        const { toSchema } = await import('@sdk-it/core');
+        const openApiSchema = toSchema(response as any);
+
+        assert.ok(openApiSchema.allOf, 'Should have allOf');
+        assert.equal(openApiSchema.allOf.length, 2);
+
+        const allRequired = openApiSchema.allOf.flatMap((obj: any) => obj.required || []);
+
+        assert.ok(allRequired.includes('createdAt'), 'createdAt should be required');
+        assert.ok(allRequired.includes('updatedAt'), 'updatedAt should be required');
+        assert.ok(allRequired.includes('phoneNumber'), 'phoneNumber should be required');
+        assert.ok(allRequired.includes('id'), 'id should be required');
+        assert.ok(allRequired.includes('userType'), 'userType should be required');
       } finally {
         await cleanup();
       }
