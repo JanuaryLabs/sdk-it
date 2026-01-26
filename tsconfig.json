@@ -34,22 +34,10 @@
       "path": "./packages/readme"
     },
     {
-      "path": "./apps/www"
-    },
-    {
-      "path": "./apps/api"
-    },
-    {
-      "path": "./packages/client"
-    },
-    {
       "path": "./packages/python"
     },
     {
       "path": "./packages/rpc"
-    },
-    {
-      "path": "./apps/agent"
     },
     {
       "path": "./packages/shadcn"

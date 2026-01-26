@@ -11,7 +11,7 @@
       "!{projectRoot}/src/test-setup.[jt]s"
     ],
     "sharedGlobals": []
-},
+  },
 
   "tui": { "enabled": false },
   "plugins": [
@@ -95,24 +95,6 @@
       "cache": true,
       "dependsOn": ["^build"],
       "inputs": ["production", "^production"]
-    },
-    "build": {
-      "dependsOn": [
-        {
-          "target": "client",
-          "projects": "@sdk-it/source"
-        },
-        "^build"
-      ]
-    },
-    "dev": {
-      "dependsOn": [
-        {
-          "target": "client",
-          "projects": "@sdk-it/source"
-        },
-        "^build"
-      ]
     }
   },
   "release": {
