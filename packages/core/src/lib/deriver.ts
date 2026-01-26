@@ -83,6 +83,8 @@ export class TypeDeriver {
       return {
         [deriveSymbol]: true,
         optional: false,
+        kind: 'literal',
+        value: this.checker.typeToString(type) === 'true',
         [$types]: ['boolean'],
       };
     }

@@ -34,6 +34,29 @@ export default [
   },
   {
     files: [
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      '**/*.test.js',
+      '**/*.test.jsx',
+      '**/*.spec.ts',
+      '**/*.spec.tsx',
+      '**/*.spec.js',
+      '**/*.spec.jsx',
+      '**/test/**/*.ts',
+      '**/test/**/*.tsx',
+      '**/test/**/*.js',
+      '**/test/**/*.jsx',
+      '**/tests/**/*.ts',
+      '**/tests/**/*.tsx',
+      '**/tests/**/*.js',
+      '**/tests/**/*.jsx',
+    ],
+    rules: {
+      '@nx/enforce-module-boundaries': 'off',
+    },
+  },
+  {
+    files: [
       '**/*.ts',
       '**/*.tsx',
       '**/*.cts',

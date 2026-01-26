@@ -30,3 +30,29 @@ To build a package, run the following command
 ```bash
 nx run <package-name>:build
 ```
+
+## Testing
+
+- Focus on **integration tests** that test entire flows, not unit tests for individual functions.
+
+### Running Tests
+
+We write tests exclusively using Node.js test runner.
+
+```sh
+node --test path/to/package/test/file.test.ts
+```
+
+### Test Import Rules
+
+- **Always use package module specifiers** in test files, not relative source paths:
+
+  ```typescript
+  // ✅ CORRECT
+  import { tables, Sqlite } from '@deepagents/text2sql/sqlite';
+
+  // ❌ WRONG - causes type mismatches
+  import { tables } from './index.ts';
+  ```
+
+- **Why**: TypeScript treats private class members (`#field`) as unique per class declaration. Mixing imports from built packages and source files creates two incompatible types.
