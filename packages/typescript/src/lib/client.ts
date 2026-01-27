@@ -42,20 +42,23 @@ export default (spec: Omit<Spec, 'operations'>) => {
         token = await Promise.resolve(token());
       }
       return \`Bearer \${token}\`;
-    })`,
+    }).describe('Bearer token for authentication. Can be a string or a function that returns a string.')`,
           },
         }
       : {}),
     fetch: {
-      schema: 'fetchType',
+      schema: `fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.')`,
     },
     baseUrl: {
       schema: spec.servers.length
-        ? `z.enum(servers).default(servers[0])`
-        : 'z.string()',
+        ? `z.enum(servers).default(servers[0]).describe('Base URL of the API server.')`
+        : `z.string().describe('Base URL of the API server.')`,
     },
     headers: {
-      schema: 'z.record(z.string()).optional()',
+      schema: `z.record(z.string()).optional().describe('Default headers to include in all requests.')`,
+    },
+    skipValidation: {
+      schema: `z.boolean().optional().describe('Skip request input validation. Client options and TypeScript types still enforce correct usage.')`,
     },
   };
 
@@ -113,7 +116,7 @@ export class ${spec.name} {
       ),
       createBaseUrlInterceptor(clientOptions.baseUrl),
     ];
-    const parsedInput = parseInput(route.schema, input);
+    const parsedInput = clientOptions.skipValidation ? input : parseInput(route.schema, input);
 
     let config = route.toRequest(parsedInput as never);
     for (const interceptor of interceptors) {
@@ -154,13 +157,13 @@ export async function request<const E extends keyof typeof schemas>(
   options?: { signal?: AbortSignal; headers?: HeadersInit },
 ): Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>> {
   const route = schemas[endpoint];
+  const clientOptions = await optionsSchema.parseAsync(client.options);
   const withDefaultInputs = Object.assign(
     {},
     await client.defaultInputs(),
     input,
   );
-  const parsedInput = parseInput(route.schema, withDefaultInputs);
-  const clientOptions = await optionsSchema.parseAsync(client.options);
+  const parsedInput = clientOptions.skipValidation ? withDefaultInputs : parseInput(route.schema, withDefaultInputs);
   const result = await route.dispatch(parsedInput as never, {
     fetch: clientOptions.fetch,
     interceptors: [

@@ -1,0 +1,127 @@
+import z from 'zod';
+import { APIResponse } from './http/response';
+import type { HeadersInit, RequestConfig } from './http/request';
+import { fetchType, parse } from './http/dispatcher';
+import schemas from './api/schemas';
+import type { InferData } from './api/endpoints';
+import {
+  createBaseUrlInterceptor,
+  createHeadersInterceptor,
+} from './http/interceptors';
+
+import { type ParseError, parseInput } from './http/parser';
+
+export const servers = [
+  "https://api.example.com"
+] as const
+const optionsSchema = z.object({'token': z.union([z.string(),z.function().returns(z.union([z.string(), z.promise(z.string())])),]).optional()
+    .transform(async (token) => {
+      if (!token) return undefined;
+      if (typeof token === 'function') {
+        token = await Promise.resolve(token());
+      }
+      return `Bearer ${token}`;
+    }).describe('Bearer token for authentication. Can be a string or a function that returns a string.'), 'x-api-key': z.string(), fetch: fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.'), baseUrl: z.enum(servers).default(servers[0]).describe('Base URL of the API server.'), headers: z.record(z.string()).optional().describe('Default headers to include in all requests.'), skipValidation: z.boolean().optional().describe('Skip request input validation. Client options and TypeScript types still enforce correct usage.')});
+export type Servers = typeof servers[number];
+
+type FullClientOptions = z.input<typeof optionsSchema>;
+
+export class FullClient {
+  public options: FullClientOptions;
+  constructor(options: FullClientOptions) {
+    this.options = options;
+  }
+
+  async request<const E extends keyof typeof schemas>(
+    endpoint: E,
+    input: z.input<(typeof schemas)[E]['schema']>,
+    options?: { signal?: AbortSignal; headers?: HeadersInit },
+  ) {
+    return request(this, endpoint, input, options).then(function unwrap(it) {
+      if (it instanceof APIResponse) {
+        return it.data as InferData<E>;
+      }
+      return it as InferData<E>;
+    });
+  }
+
+  async prepare<const E extends keyof typeof schemas>(
+    endpoint: E,
+    input: z.input<(typeof schemas)[E]['schema']>,
+    options?: { headers?: HeadersInit },
+  ): Promise<RequestConfig & {
+    parse: (response: Response) => ReturnType<typeof parse>;
+  }> {
+    const clientOptions = await optionsSchema.parseAsync(this.options);
+    const route = schemas[endpoint];
+    const interceptors = [
+      createHeadersInterceptor(
+        await this.defaultHeaders(),
+        options?.headers ?? {},
+      ),
+      createBaseUrlInterceptor(clientOptions.baseUrl),
+    ];
+    const parsedInput = clientOptions.skipValidation ? input : parseInput(route.schema, input);
+
+    let config = route.toRequest(parsedInput as never);
+    for (const interceptor of interceptors) {
+      if (interceptor.before) {
+        config = await interceptor.before(config);
+      }
+    }
+    const prepared = { ...config, parse: (response: Response) => parse(route.output, response, (d) => d) as never };
+    return prepared as any;
+  }
+
+  async defaultHeaders() {
+    const options = await optionsSchema.parseAsync(this.options);
+    return {
+      ...{'Authorization': options['token'],
+'x-api-key': options['x-api-key']},
+      ...options.headers,
+    };
+  }
+
+  async defaultInputs() {
+    const options = await optionsSchema.parseAsync(this.options);
+    return {}
+  }
+
+  setOptions(options: Partial<FullClientOptions>) {
+    this.options = {
+      ...this.options,
+      ...options,
+    };
+  }
+
+}
+
+export async function request<const E extends keyof typeof schemas>(
+  client: FullClient,
+  endpoint: E,
+  input: z.input<(typeof schemas)[E]['schema']>,
+  options?: { signal?: AbortSignal; headers?: HeadersInit },
+): Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>> {
+  const route = schemas[endpoint];
+  const clientOptions = await optionsSchema.parseAsync(client.options);
+  const withDefaultInputs = Object.assign(
+    {},
+    await client.defaultInputs(),
+    input,
+  );
+  const parsedInput = clientOptions.skipValidation ? withDefaultInputs : parseInput(route.schema, withDefaultInputs);
+  const result = await route.dispatch(parsedInput as never, {
+    fetch: clientOptions.fetch,
+    interceptors: [
+      createHeadersInterceptor(
+        await client.defaultHeaders(),
+        options?.headers ?? {},
+      ),
+      createBaseUrlInterceptor(clientOptions.baseUrl),
+    ],
+    signal: options?.signal,
+  });
+  return result as Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>;
+}
+
+

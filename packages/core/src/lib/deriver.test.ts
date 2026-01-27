@@ -208,7 +208,24 @@ describe('Type Derivation', () => {
     test.todo('handles arrays of primitives');
     test.todo('handles arrays of objects');
     test.todo('handles tuples');
-    test.todo('handles Record type');
+    test('handles Record type', async () => {
+      const result = await deriveTypeFromCode(
+        `export type Payload = Record<string, unknown>;`,
+        'Payload',
+      );
+      assert.deepStrictEqual(result, {
+        [deriveSymbol]: true,
+        kind: 'record',
+        optional: false,
+        [$types]: [
+          {
+            [deriveSymbol]: true,
+            optional: false,
+            [$types]: [],
+          },
+        ],
+      });
+    });
   });
 
   describe('Unions & Intersections', () => {
