@@ -88,6 +88,12 @@ export const returnTokens = (
           node: node.expression,
         });
       }
+      if (ts.isNewExpression(node.expression)) {
+        tokens.push({
+          token: `new.${node.expression.expression.getText()}`,
+          node: node.expression,
+        });
+      }
       // Continue traversing into the returned expression (e.g., arrow functions)
       // This handles: return async (c, next) => { throw ... }
       ts.forEachChild(node.expression, (child) => visitor(child, depth));
