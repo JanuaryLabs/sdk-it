@@ -1,5 +1,35 @@
 import { parse } from "fast-content-type-parse";
 
+function isBinaryContentType(contentType: string) {
+	const type = contentType.toLowerCase();
+	if (type.startsWith("image/")) {
+		return true;
+	}
+	if (type.startsWith("audio/")) {
+		return true;
+	}
+	if (type.startsWith("video/")) {
+		return true;
+	}
+	switch (type) {
+		case "application/pdf":
+		case "application/zip":
+		case "application/gzip":
+		case "application/x-7z-compressed":
+		case "application/x-tar":
+		case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+		case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+		case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+		case "application/vnd.ms-excel":
+		case "application/vnd.ms-powerpoint":
+		case "application/msword":
+		case "application/octet-stream":
+			return true;
+		default:
+			return false;
+	}
+}
+
 async function handleChunkedResponse(response: Response, contentType: string) {
 	const { type } = parse(contentType);
 
@@ -47,14 +77,15 @@ export async function buffered(response: Response) {
 	}
 
 	const { type } = parse(contentType);
+	if (isBinaryContentType(type)) {
+		return response.blob();
+	}
+	if (type.startsWith("text/")) {
+		return response.text();
+	}
 	switch (type) {
 		case "application/json":
 			return response.json();
-		case "text/plain":
-			return response.text();
-		case "text/html":
-			return response.text();
-		case "text/xml":
 		case "application/xml":
 			return response.text();
 		case "application/x-www-form-urlencoded": {

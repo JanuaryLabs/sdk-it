@@ -1,3 +1,4 @@
+import { parse as parseContentType } from 'fast-content-type-parse';
 import type {
   MediaTypeObject,
   OperationObject,
@@ -9,7 +10,9 @@ import { isEmpty, pascalcase } from '@sdk-it/core/utils.js';
 
 import { findUniqueSchemaName } from './find-unique-schema-name.js';
 import {
+  isBinaryContentType,
   isSseContentType,
+  isStreamingContentType,
   isSuccessStatusCode,
   isTextContentType,
   parseJsonContentType,
@@ -112,6 +115,17 @@ export function resolveResponses(
       if (isSseContentType(contentType)) {
         continue; // Skip SSE content types
       }
+      const normalizedContentType = normalizeContentType(contentType);
+      const hasContentDisposition = hasHeader(
+        response.headers,
+        'Content-Disposition',
+      );
+      const isBinary =
+        isBinaryContentType(contentType) ||
+        (isStreamingContentType(normalizedContentType) &&
+          hasContentDisposition);
+      const isText = isTextContentType(contentType);
+
       if (parseJsonContentType(contentType)) {
         if (isEmpty(mediaType.schema)) {
           // add "additionalProperties" because we're certain this is a response body is of json type
@@ -121,9 +135,15 @@ export function resolveResponses(
           };
         }
       } else {
+        if (isEmpty(mediaType.schema) && (isText || isBinary)) {
+          mediaType.schema = {
+            type: 'string',
+            ...(isBinary ? { format: 'binary' } : {}),
+          };
+        }
         spec.components.schemas[outputName] = {
           ...spec.components.schemas[outputName],
-          'x-stream': !isTextContentType(contentType),
+          'x-stream': !isText && !isBinary,
         };
       }
 
@@ -140,4 +160,20 @@ export function resolveResponses(
   }
 
   return operation.responses;
+}
+
+function normalizeContentType(contentType: string) {
+  try {
+    return parseContentType(contentType)?.type?.toLowerCase();
+  } catch {
+    return contentType.split(';')[0]?.trim().toLowerCase();
+  }
+}
+
+function hasHeader(headers: ResponseObject['headers'], name: string) {
+  if (!headers) {
+    return false;
+  }
+  const target = name.toLowerCase();
+  return Object.keys(headers).some((key) => key.toLowerCase() === target);
 }

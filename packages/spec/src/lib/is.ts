@@ -4,6 +4,78 @@ export function isStreamingContentType(
   return contentType === 'application/octet-stream';
 }
 
+export function isBinaryContentType(
+  contentType: string | null | undefined,
+): boolean {
+  if (!contentType) {
+    return false;
+  }
+
+  let mainType = contentType.trim();
+  const semicolonIndex = mainType.indexOf(';');
+  if (semicolonIndex !== -1) {
+    mainType = mainType.substring(0, semicolonIndex).trim();
+  }
+  mainType = mainType.toLowerCase();
+
+  if (mainType.startsWith('text/')) {
+    return false;
+  }
+  if (mainType.endsWith('/json') || mainType.endsWith('+json')) {
+    return false;
+  }
+  if (mainType.endsWith('/xml') || mainType.endsWith('+xml')) {
+    return false;
+  }
+  if (mainType === 'application/xml' || mainType === 'text/xml') {
+    return false;
+  }
+  if (
+    mainType === 'application/x-www-form-urlencoded' ||
+    mainType === 'multipart/form-data'
+  ) {
+    return false;
+  }
+
+  if (mainType.startsWith('image/')) {
+    return true;
+  }
+  if (mainType.startsWith('audio/')) {
+    return true;
+  }
+  if (mainType.startsWith('video/')) {
+    return true;
+  }
+  if (mainType === 'application/pdf') {
+    return true;
+  }
+  if (mainType === 'application/zip') {
+    return true;
+  }
+  if (mainType === 'application/gzip') {
+    return true;
+  }
+  if (mainType === 'application/x-7z-compressed') {
+    return true;
+  }
+  if (mainType === 'application/x-tar') {
+    return true;
+  }
+  if (
+    mainType.startsWith('application/vnd.openxmlformats-officedocument.')
+  ) {
+    return true;
+  }
+  if (mainType.startsWith('application/vnd.ms-')) {
+    return true;
+  }
+  if (mainType === 'application/msword') {
+    return true;
+  }
+
+  return false;
+}
+
 export function isSuccessStatusCode(statusCode: number | string): boolean {
   if (typeof statusCode === 'string') {
     const statusGroup = +statusCode.slice(0, 1);

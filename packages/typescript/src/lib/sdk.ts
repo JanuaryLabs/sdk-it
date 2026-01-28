@@ -7,6 +7,7 @@ import {
   type OperationPagination,
   type OurParameter,
   type TunedOperationObject,
+  isBinaryContentType,
   isStreamingContentType,
   isTextContentType,
   parseJsonContentType,
@@ -257,9 +258,21 @@ function fromContentType(
   if ((response.headers ?? {})['Transfer-Encoding']) {
     return streamedOutput();
   }
+  const hasContentDisposition = hasHeader(response, 'Content-Disposition');
   for (const type in response.content) {
-    if (isStreamingContentType(type)) {
+    const isStreaming = isStreamingContentType(type);
+    const isBinary = isBinaryContentType(type) || (isStreaming && hasContentDisposition);
+    // Octet-stream defaults to streaming unless Content-Disposition hints a file download.
+    if (isStreaming && !hasContentDisposition) {
       return streamedOutput();
+    }
+    if (isBinary) {
+      return {
+        parser: 'buffered' as const,
+        responseSchema: response.content[type].schema
+          ? typeScriptDeserialzer.handle(response.content[type].schema, true)
+          : 'Blob',
+      };
     }
     if (parseJsonContentType(type)) {
       return {
@@ -279,6 +292,12 @@ function fromContentType(
     }
   }
   return streamedOutput();
+}
+
+function hasHeader(response: ResponseObject, name: string) {
+  const headers = response.headers ?? {};
+  const target = name.toLowerCase();
+  return Object.keys(headers).some((key) => key.toLowerCase() === target);
 }
 
 function streamedOutput() {
