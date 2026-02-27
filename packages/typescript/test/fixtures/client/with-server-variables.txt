@@ -11,15 +11,20 @@ import {
 
 import { type ParseError, parseInput } from './http/parser';
 
+export const servers = [
+  "https://production.api.example.com/v1",
+  "https://production.api.example.com/v2",
+  "https://staging.api.example.com/v1",
+  "https://staging.api.example.com/v2"
+] as const
+const optionsSchema = z.object({fetch: fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.'), baseUrl: z.enum(servers).default(servers[0]).describe('Base URL of the API server.'), headers: z.record(z.string()).optional().describe('Default headers to include in all requests.'), skipValidation: z.boolean().optional().describe('Skip request input validation. Client options and TypeScript types still enforce correct usage.')});
+export type Servers = typeof servers[number];
 
-const optionsSchema = z.object({'x-api-key': z.string(), fetch: fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.'), baseUrl: z.string().describe('Base URL of the API server.'), headers: z.record(z.string()).optional().describe('Default headers to include in all requests.'), skipValidation: z.boolean().optional().describe('Skip request input validation. Client options and TypeScript types still enforce correct usage.')});
+type ApiClientOptions = z.input<typeof optionsSchema>;
 
-
-type ApiKeyClientOptions = z.input<typeof optionsSchema>;
-
-export class ApiKeyClient {
-  public options: ApiKeyClientOptions;
-  constructor(options: ApiKeyClientOptions) {
+export class ApiClient {
+  public options: ApiClientOptions;
+  constructor(options: ApiClientOptions) {
     this.options = options;
   }
 
@@ -49,7 +54,7 @@ export class ApiKeyClient {
   async defaultHeaders() {
     const options = await optionsSchema.parseAsync(this.options);
     return {
-      ...{'x-api-key': options['x-api-key']},
+      ...{},
       ...options.headers,
     };
   }
@@ -59,7 +64,7 @@ export class ApiKeyClient {
     return {}
   }
 
-  setOptions(options: Partial<ApiKeyClientOptions>) {
+  setOptions(options: Partial<ApiClientOptions>) {
     this.options = {
       ...this.options,
       ...options,
@@ -79,7 +84,7 @@ export class ApiKeyClient {
  * ```
  */
 export async function request<const E extends keyof typeof schemas>(
-  client: ApiKeyClient,
+  client: ApiClient,
   endpoint: E,
   input: z.input<(typeof schemas)[E]['schema']>,
   requestOptions?: { signal?: AbortSignal; headers?: HeadersInit },
@@ -96,7 +101,7 @@ export async function request<const E extends keyof typeof schemas>(
     fetch: options.fetch,
     interceptors: [
       createHeadersInterceptor(
-        { ...{'x-api-key': options['x-api-key']}, ...options.headers },
+        { ...{}, ...options.headers },
         requestOptions?.headers ?? {},
       ),
       createBaseUrlInterceptor(options.baseUrl),
@@ -119,7 +124,7 @@ export async function request<const E extends keyof typeof schemas>(
  * ```
  */
 export async function prepare<const E extends keyof typeof schemas>(
-  client: ApiKeyClient,
+  client: ApiClient,
   endpoint: E,
   input: z.input<(typeof schemas)[E]['schema']>,
   requestOptions?: { headers?: HeadersInit },
@@ -136,7 +141,7 @@ export async function prepare<const E extends keyof typeof schemas>(
   const parsedInput = options.skipValidation ? withDefaultInputs : parseInput(route.schema, withDefaultInputs);
   const interceptors = [
     createHeadersInterceptor(
-      { ...{'x-api-key': options['x-api-key']}, ...options.headers },
+      { ...{}, ...options.headers },
       requestOptions?.headers ?? {},
     ),
     createBaseUrlInterceptor(options.baseUrl),

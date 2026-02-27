@@ -32,6 +32,7 @@ export class FullClient {
     this.options = options;
   }
 
+  /** Sends a request and returns the unwrapped response data. Delegates to the standalone {@link request} function. */
   async request<const E extends keyof typeof schemas>(
     endpoint: E,
     input: z.input<(typeof schemas)[E]['schema']>,
@@ -45,32 +46,13 @@ export class FullClient {
     });
   }
 
+  /** Builds a ready-to-send request without sending it. Delegates to the standalone {@link prepare} function. */
   async prepare<const E extends keyof typeof schemas>(
     endpoint: E,
     input: z.input<(typeof schemas)[E]['schema']>,
     options?: { headers?: HeadersInit },
-  ): Promise<RequestConfig & {
-    parse: (response: Response) => ReturnType<typeof parse>;
-  }> {
-    const clientOptions = await optionsSchema.parseAsync(this.options);
-    const route = schemas[endpoint];
-    const interceptors = [
-      createHeadersInterceptor(
-        await this.defaultHeaders(),
-        options?.headers ?? {},
-      ),
-      createBaseUrlInterceptor(clientOptions.baseUrl),
-    ];
-    const parsedInput = clientOptions.skipValidation ? input : parseInput(route.schema, input);
-
-    let config = route.toRequest(parsedInput as never);
-    for (const interceptor of interceptors) {
-      if (interceptor.before) {
-        config = await interceptor.before(config);
-      }
-    }
-    const prepared = { ...config, parse: (response: Response) => parse(route.output, response, (d) => d) as never };
-    return prepared as any;
+  ) {
+    return prepare(this, endpoint, input, options);
   }
 
   async defaultHeaders() {
@@ -96,32 +78,89 @@ export class FullClient {
 
 }
 
+/**
+ * Sends a validated request using the client's configuration and returns the parsed response.
+ * Merges the client's default inputs and headers before sending.
+ * Throws `APIError` on non-ok responses.
+ *
+ * @example
+ * ```ts
+ * const result = await request(client, 'GET /users', { limit: 10 });
+ * ```
+ */
 export async function request<const E extends keyof typeof schemas>(
   client: FullClient,
   endpoint: E,
   input: z.input<(typeof schemas)[E]['schema']>,
-  options?: { signal?: AbortSignal; headers?: HeadersInit },
+  requestOptions?: { signal?: AbortSignal; headers?: HeadersInit },
 ): Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>> {
   const route = schemas[endpoint];
-  const clientOptions = await optionsSchema.parseAsync(client.options);
+  const options = await optionsSchema.parseAsync(client.options);
   const withDefaultInputs = Object.assign(
     {},
-    await client.defaultInputs(),
+    {},
     input,
   );
-  const parsedInput = clientOptions.skipValidation ? withDefaultInputs : parseInput(route.schema, withDefaultInputs);
+  const parsedInput = options.skipValidation ? withDefaultInputs : parseInput(route.schema, withDefaultInputs);
   const result = await route.dispatch(parsedInput as never, {
-    fetch: clientOptions.fetch,
+    fetch: options.fetch,
     interceptors: [
       createHeadersInterceptor(
-        await client.defaultHeaders(),
-        options?.headers ?? {},
+        { ...{'Authorization': options['token'],
+'x-api-key': options['x-api-key']}, ...options.headers },
+        requestOptions?.headers ?? {},
       ),
-      createBaseUrlInterceptor(clientOptions.baseUrl),
+      createBaseUrlInterceptor(options.baseUrl),
     ],
-    signal: options?.signal,
+    signal: requestOptions?.signal,
   });
   return result as Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>;
+}
+
+/**
+ * Builds a validated `RequestConfig` (url + init) with a `parse` function attached, without sending.
+ * Use when you need control over the fetch call — framework integration (Next.js, SvelteKit),
+ * custom retry/logging, request batching, or testing.
+ *
+ * @example
+ * ```ts
+ * const { url, init, parse } = await prepare(client, 'GET /users', { limit: 10 });
+ * const response = await fetch(new Request(url, init));
+ * const result = await parse(response);
+ * ```
+ */
+export async function prepare<const E extends keyof typeof schemas>(
+  client: FullClient,
+  endpoint: E,
+  input: z.input<(typeof schemas)[E]['schema']>,
+  requestOptions?: { headers?: HeadersInit },
+): Promise<RequestConfig & {
+  parse: (response: Response) => ReturnType<typeof parse>;
+}> {
+  const route = schemas[endpoint];
+  const options = await optionsSchema.parseAsync(client.options);
+  const withDefaultInputs = Object.assign(
+    {},
+    {},
+    input,
+  );
+  const parsedInput = options.skipValidation ? withDefaultInputs : parseInput(route.schema, withDefaultInputs);
+  const interceptors = [
+    createHeadersInterceptor(
+      { ...{'Authorization': options['token'],
+'x-api-key': options['x-api-key']}, ...options.headers },
+      requestOptions?.headers ?? {},
+    ),
+    createBaseUrlInterceptor(options.baseUrl),
+  ];
+
+  let config = route.toRequest(parsedInput as never);
+  for (const interceptor of interceptors) {
+    if (interceptor.before) {
+      config = await interceptor.before(config);
+    }
+  }
+  return { ...config, parse: (response: Response) => parse(route.output, response, (d) => d) as never } as any;
 }
 
 
