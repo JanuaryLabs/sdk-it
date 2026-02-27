@@ -14,6 +14,7 @@ import {
 } from '@sdk-it/spec';
 
 import { SnippetEmitter } from './emitters/snippet.ts';
+import { expandServerUrls } from './server-urls.ts';
 import type { TypeScriptGeneratorOptions } from './options.ts';
 
 export class TypeScriptSnippet implements Generator {
@@ -201,7 +202,7 @@ export class TypeScriptSnippet implements Generator {
 
   client() {
     const options: Record<string, unknown> = {
-      baseUrl: this.#spec.servers?.[0]?.url ?? 'http://localhost:3000',
+      baseUrl: expandServerUrls(this.#spec.servers ?? [])[0] ?? 'http://localhost:3000',
     };
 
     const authOptions = this.#authentication();
@@ -253,7 +254,7 @@ export class TypeScriptSnippet implements Generator {
     const hasServers = Boolean(
       this.#spec.servers && this.#spec.servers.length > 0,
     );
-    const baseUrl = this.#spec.servers?.[0]?.url || 'https://api.example.com';
+    const baseUrl = expandServerUrls(this.#spec.servers ?? [])[0] || 'https://api.example.com';
 
     // Use the existing authentication method to get auth options
     const authOptions = this.#authentication();
