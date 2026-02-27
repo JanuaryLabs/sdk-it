@@ -1,0 +1,85 @@
+export type SSEListener = (eventType: string) => AsyncIterable<string>;
+
+export function sse(response: Response): SSEListener {
+	const subscribers = new Map<
+		string,
+		{ queue: string[]; resolve: (() => void) | null }
+	>();
+	let started = false;
+	let streamDone = false;
+
+	function dispatch(eventType: string, data: string) {
+		const sub = subscribers.get(eventType);
+		if (sub) {
+			sub.queue.push(data);
+			sub.resolve?.();
+			sub.resolve = null;
+		}
+	}
+
+	function endAll() {
+		streamDone = true;
+		for (const sub of subscribers.values()) {
+			sub.resolve?.();
+		}
+	}
+
+	function startReading() {
+		if (started) return;
+		started = true;
+		const decoder = new TextDecoder();
+		let buffer = "";
+
+		(async () => {
+			try {
+				for await (const value of response.body!) {
+					buffer += decoder.decode(value as BufferSource, { stream: true });
+					const parts = buffer.split("\n\n");
+					buffer = parts.pop()!;
+
+					for (const part of parts) {
+						if (!part.trim()) continue;
+						let eventType = "message";
+						let data = "";
+						for (const line of part.split("\n")) {
+							if (line.startsWith("event:")) {
+								eventType = line.slice(6).trim();
+							} else if (line.startsWith("data:")) {
+								data += (data ? "\n" : "") + line.slice(5).trim();
+							}
+						}
+						if (data) dispatch(eventType, data);
+					}
+				}
+			} catch {}
+			endAll();
+		})();
+	}
+
+	return function listen(eventType: string): AsyncIterable<string> {
+		if (!subscribers.has(eventType)) {
+			subscribers.set(eventType, { queue: [], resolve: null });
+		}
+		const sub = subscribers.get(eventType)!;
+		startReading();
+
+		return {
+			[Symbol.asyncIterator]() {
+				return {
+					async next(): Promise<IteratorResult<string>> {
+						while (sub.queue.length === 0) {
+							if (streamDone) return { value: undefined as any, done: true };
+							const { promise, resolve } = Promise.withResolvers<void>();
+							sub.resolve = resolve;
+							await promise;
+						}
+						return { value: sub.queue.shift()!, done: false };
+					},
+					async return(): Promise<IteratorResult<string>> {
+						return { value: undefined as any, done: true };
+					},
+				};
+			},
+		};
+	};
+}

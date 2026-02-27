@@ -6,7 +6,7 @@ import { describe, test } from 'node:test';
 import ts from 'typescript';
 
 import { $types, TypeDeriver, deriveSymbol } from '@sdk-it/core';
-import { defaultResponseAnalyzer, newResponse } from '@sdk-it/hono';
+import { defaultResponseAnalyzer, newResponse, streamSSE } from '@sdk-it/hono';
 
 async function createTestProject(code: string) {
   const testDir = await mkdtemp(join(tmpdir(), 'hono-response-test-'));
@@ -797,6 +797,36 @@ describe('Response Analyzer', () => {
     test.todo('extracts from POST route with c.json(data, 201)');
     test.todo('extracts from route with HTTPException throw');
     test.todo('extracts from route with multiple return paths and throws');
+  });
+
+  describe('streamSSE analyzer', () => {
+    test('returns text/event-stream response', async () => {
+      const code = `const handler = async (c: any) => { return 'placeholder'; };`;
+      const { checker, sourceFile, cleanup } = await createTestProject(code);
+
+      try {
+        const handler = findHandlerInRoute(sourceFile);
+        if (!handler) throw new Error('Handler not found');
+
+        const deriver = new TypeDeriver(checker);
+        const responses = streamSSE(handler, deriver);
+
+        assert.deepStrictEqual(responses, [
+          {
+            contentType: 'text/event-stream',
+            headers: [],
+            statusCode: '200',
+            response: {
+              optional: false,
+              kind: 'primitive',
+              [$types]: ['string'],
+            },
+          },
+        ]);
+      } finally {
+        await cleanup();
+      }
+    });
   });
 
   describe('intersection types (allOf bug)', () => {

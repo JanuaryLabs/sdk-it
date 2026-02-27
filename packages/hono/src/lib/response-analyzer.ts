@@ -386,6 +386,24 @@ export function stream(
   ];
 }
 
+export function streamSSE(
+  handler: ts.ArrowFunction | ts.FunctionExpression,
+  deriver: TypeDeriver,
+): ResponseItem[] {
+  return [
+    {
+      contentType: 'text/event-stream',
+      headers: [],
+      statusCode: '200',
+      response: {
+        optional: false,
+        kind: 'primitive',
+        [$types]: ['string'],
+      },
+    },
+  ];
+}
+
 export const httpException: NaunceResponseAnalyzerFn = (
   handler,
   deriver,
@@ -426,6 +444,7 @@ export const responseAnalyzer = {
   default: defaultResponseAnalyzer,
   streamText,
   stream,
+  streamSSE,
   'new.Response': newResponse,
   'throw.new.HTTPException': httpException,
 };

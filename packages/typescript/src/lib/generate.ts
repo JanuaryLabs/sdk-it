@@ -33,6 +33,7 @@ import parseResponse from './http/parse-response.txt';
 import parserTxt from './http/parser.txt';
 import requestTxt from './http/request.txt';
 import responseTxt from './http/response.txt';
+import sseTxt from './http/sse.txt';
 import { type MakeImportFn } from './import-utilities.ts';
 import type { TypeScriptGeneratorOptions } from './options.ts';
 import cursorPaginationTxt from './paginations/cursor-pagination.txt';
@@ -40,6 +41,7 @@ import offsetPaginationTxt from './paginations/offset-pagination.txt';
 import paginationTxt from './paginations/page-pagination.txt';
 import { toReadme } from './readme/readme.ts';
 import type { Operation } from './sdk.ts';
+import { expandServerUrls } from './server-urls.ts';
 import { TypeScriptSnippet } from './typescript-snippet.ts';
 
 function security(spec: IR) {
@@ -134,10 +136,12 @@ export async function generate(
     'response.ts': responseTxt,
     'parser.ts': parserTxt,
     'request.ts': requestTxt,
+    'sse.ts': sseTxt,
     'dispatcher.ts': `import z from 'zod';
 import { type Interceptor } from '${makeImport('../http/interceptors')}';
 import { type RequestConfig } from '${makeImport('../http/request')}';
 import { buffered } from '${makeImport('./parse-response')}';
+import { type SSEListener } from '${makeImport('./sse')}';
 import { APIError, APIResponse, type SuccessfulResponse, type RebindSuccessPayload } from '${makeImport('./response')}';
 
 ${template(dispatcherTxt, {})()}`,
@@ -150,7 +154,7 @@ ${template(dispatcherTxt, {})()}`,
   await settings.writer(output, {
     'client.ts': backend({
       name: clientName,
-      servers: (spec.servers ?? []).map((server) => server.url) || [],
+      servers: expandServerUrls(spec.servers ?? []),
       options: security(spec),
       makeImport,
     }),
@@ -340,13 +344,20 @@ function serializeModels(spec: IR) {
       continue;
     }
     const folder = isResponseBody ? 'outputs' : 'models';
-    let typeContent = 'ReadableStream';
+    const isSse = (schema as any)['x-sse'];
+    let typeContent = isSse ? 'SSEListener' : 'ReadableStream';
     if (!stream) {
       const serializer = new TypeScriptEmitter(spec);
       typeContent = serializer.handle(schema, true);
     }
 
+    const imports: string[] = [];
+    if (isSse) {
+      imports.push(`import type { SSEListener } from '../http/sse.ts';`);
+    }
+
     const fileContent = [
+      ...imports,
       `\n${schema.description ? `\n/** \n * ${schema.description}\n */\n` : ''}`,
       `export type ${pascalcase(sanitizeTag(name))} = ${typeContent};`,
     ];

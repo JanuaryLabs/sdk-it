@@ -174,6 +174,7 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
                   `import * as outputs from '${config.makeImport('../outputs/index')}';`,
                   `import { toRequest, json, urlencoded, empty, formdata, type HeadersInit } from '${config.makeImport('../http/request')}';`,
                   `import { chunked, buffered } from "${config.makeImport('../http/parse-response')}";`,
+                  `import { sse } from "${config.makeImport('../http/sse')}";`,
                   `import * as ${camelcase(name)} from '../inputs/${config.makeImport(spinalcase(name))}';`,
                   `import { createBaseUrlInterceptor, createHeadersInterceptor, type Interceptor } from '${config.makeImport('../http/interceptors')}';`,
                   `import { Dispatcher, fetchType, type InstanceType } from '${config.makeImport('../http/dispatcher')}';`,

@@ -8,6 +8,7 @@ import {
   type OurParameter,
   type TunedOperationObject,
   isBinaryContentType,
+  isSseContentType,
   isStreamingContentType,
   isTextContentType,
   parseJsonContentType,
@@ -18,7 +19,7 @@ import { TypeScriptEmitter } from './emitters/interface.ts';
 import { type MakeImportFn } from './import-utilities.ts';
 import statusMap from './status-map.ts';
 
-export type Parser = 'chunked' | 'buffered';
+export type Parser = 'chunked' | 'buffered' | 'sse';
 
 export interface SdkConfig {
   /**
@@ -280,6 +281,12 @@ function fromContentType(
         responseSchema: response.content[type].schema
           ? typeScriptDeserialzer.handle(response.content[type].schema, true)
           : 'void',
+      };
+    }
+    if (isSseContentType(type)) {
+      return {
+        parser: 'sse' as const,
+        responseSchema: 'SSEListener',
       };
     }
     if (isTextContentType(type)) {

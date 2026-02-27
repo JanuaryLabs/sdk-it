@@ -153,7 +153,7 @@ export async function prepare<const E extends keyof typeof schemas>(
       config = await interceptor.before(config);
     }
   }
-  return { ...config, parse: (response: Response) => parse(route.output, response, (d) => d) as never } as any;
+  return { ...config, parse: (response: Response) => parse(route.output as never, response, (d) => d) as never } as any;
 }
 
 

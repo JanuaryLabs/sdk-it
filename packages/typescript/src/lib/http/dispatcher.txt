@@ -27,7 +27,7 @@ export interface Type<T> {
 }
 export type Parser = (
   response: Response,
-) => Promise<unknown> | ReadableStream<any>;
+) => Promise<unknown> | ReadableStream<any> | SSEListener;
 export type OutputType =
   | Type<APIResponse>
   | { parser: Parser; type: Type<APIResponse> };

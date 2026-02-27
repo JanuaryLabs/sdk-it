@@ -112,9 +112,7 @@ export function resolveResponses(
         response['x-response-name'] = model;
         continue;
       }
-      if (isSseContentType(contentType)) {
-        continue; // Skip SSE content types
-      }
+      const isSse = isSseContentType(contentType);
       const normalizedContentType = normalizeContentType(contentType);
       const hasContentDisposition = hasHeader(
         response.headers,
@@ -143,7 +141,8 @@ export function resolveResponses(
         }
         spec.components.schemas[outputName] = {
           ...spec.components.schemas[outputName],
-          'x-stream': !isText && !isBinary,
+          'x-stream': isSse || (!isText && !isBinary),
+          ...(isSse ? { 'x-sse': true } : {}),
         };
       }
 
