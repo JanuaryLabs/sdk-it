@@ -12,6 +12,7 @@ export interface TypeScriptGeneratorOptions {
   output: string;
   useTsExtension?: boolean;
   name?: string;
+  packageName?: string;
   pagination?: PaginationConfig | false;
   writer?: Writer;
   readFolder?: ReadFolderFn;

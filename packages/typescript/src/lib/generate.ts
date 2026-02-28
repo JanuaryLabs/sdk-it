@@ -78,7 +78,7 @@ function security(spec: IR) {
 export async function generate(
   openapi: OpenAPIObject,
   settings: TypeScriptGeneratorOptions,
-) {
+): Promise<{ packageName: string }> {
   const spec = toIR(
     {
       spec: openapi,
@@ -118,9 +118,9 @@ export async function generate(
 
   const clientName = pascalcase((settings.name || 'client').trim());
 
-  const packageName = settings.name
+  const packageName = settings.packageName ?? (settings.name
     ? `@${spinalcase(settings.name.trim().toLowerCase())}/sdk`
-    : 'sdk';
+    : 'sdk');
 
   const inputs = toInputs(groups, commonZod, makeImport);
   const models = serializeModels(spec);
@@ -324,6 +324,8 @@ ${template(dispatcherTxt, {})()}`,
     output: output,
     env: npmRunPathEnv(),
   });
+
+  return { packageName };
 }
 
 function serializeModels(spec: IR) {

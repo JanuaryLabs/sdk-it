@@ -33,7 +33,7 @@ export function sse(response: Response): SSEListener {
 		(async () => {
 			try {
 				for await (const value of response.body!) {
-					buffer += decoder.decode(value as BufferSource, { stream: true });
+					buffer += decoder.decode(value, { stream: true });
 					const parts = buffer.split("\n\n");
 					buffer = parts.pop()!;
 

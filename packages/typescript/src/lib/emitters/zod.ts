@@ -89,8 +89,13 @@ export class ZodEmitter {
     nullable = false,
   ): string {
     switch (type) {
-      case 'string':
-        return `${this.string(schema)}${this.#suffixes(JSON.stringify(schema.default), required, nullable)}`;
+      case 'string': {
+        const defaultVal =
+          schema.format === 'date' && schema.default
+            ? `new Date(${JSON.stringify(schema.default)})`
+            : JSON.stringify(schema.default);
+        return `${this.string(schema)}${this.#suffixes(defaultVal, required, nullable)}`;
+      }
       case 'number':
       case 'integer': {
         const { base, defaultValue } = this.#number(schema);

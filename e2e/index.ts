@@ -2,16 +2,26 @@ import chalk from 'chalk';
 import { execSync } from 'child_process';
 import { join } from 'path';
 
-function runCommand(title: string, command: string, memory?: number) {
+interface Failure {
+  spec: string;
+  step: string;
+}
+
+const failures: Failure[] = [];
+
+function runCommand(
+  spec: string,
+  title: string,
+  command: string,
+  memory?: number,
+) {
   const width = process.stdout.columns || 80;
   const divider = '='.repeat(width);
 
-  // Print header
   console.log('\n' + chalk.blue(divider));
   console.log(chalk.bgBlue.white.bold(` ${title} `));
   console.log(chalk.blue(divider) + '\n');
 
-  // Run the command and let errors propagate naturally
   const flags: string[] = [];
   if (memory) {
     flags.push(`--max-old-space-size=${memory}`);
@@ -23,18 +33,23 @@ function runCommand(title: string, command: string, memory?: number) {
     chalk.dim(`NODE_OPTIONS: ${flags.join(' ')}`),
   );
 
-  execSync(command, {
-    encoding: 'utf-8',
-    stdio: 'inherit',
-    env: {
-      ...process.env,
-      NODE_OPTIONS: flags.join(' '),
-      NODE_NO_WARNINGS: '1',
-    },
-  });
-
-  // Show success message if execution completes
-  console.log('\n' + chalk.green(`✓ ${title} completed successfully`) + '\n');
+  try {
+    execSync(command, {
+      encoding: 'utf-8',
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        NODE_OPTIONS: flags.join(' '),
+        NODE_NO_WARNINGS: '1',
+      },
+    });
+    console.log(
+      '\n' + chalk.green(`✓ ${title} completed successfully`) + '\n',
+    );
+  } catch {
+    console.log('\n' + chalk.red(`✗ ${title} failed`) + '\n');
+    failures.push({ spec, step: title });
+  }
 }
 
 const specs = [
@@ -100,7 +115,24 @@ const specs = [
   },
 ];
 
-for (const { spec, name, flags } of specs) {
+const filterName = process.argv[2];
+const filtered = filterName
+  ? specs.filter((s) => s.name.toLowerCase() === filterName.toLowerCase())
+  : specs;
+
+if (filterName && filtered.length === 0) {
+  console.log(chalk.red(`No spec found matching "${filterName}"`));
+  console.log(
+    chalk.dim(`Available: ${specs.map((s) => s.name).join(', ')}`),
+  );
+  process.exit(1);
+}
+
+if (filterName) {
+  console.log(chalk.cyan(`Running only: ${filtered.map((s) => s.name).join(', ')}\n`));
+}
+
+for (const { spec, name, flags } of filtered) {
   console.log('\n' + chalk.magenta('='.repeat(80)));
   console.log(chalk.magenta.bold(`RUNNING TEST SUITE FOR: ${spec}`));
   console.log(chalk.magenta('='.repeat(80)) + '\n');
@@ -122,36 +154,47 @@ for (const { spec, name, flags } of specs) {
   const tscScript = join('node_modules', 'typescript', 'bin', 'tsc');
   const tsc = `node "${tscScript}" -p "${tsconfigPath}"`;
 
-  // Generate SDK
   runCommand(
+    name,
     `GENERATING SDK: ${name}`,
     `node ${cliPath} typescript ${sdkFlags.join(' ')}`,
   );
 
-  // Run type checking with Node environment
-  runCommand(`TYPE CHECKING: ${name}`, tsc, 8096);
+  runCommand(name, `TYPE CHECKING: ${name}`, tsc, 8096);
 
-  // Test with Bun runtime
   runCommand(
+    name,
     `TESTING WITH BUN RUNTIME: ${name}`,
     `bun ${join(sdkOutput, 'src', 'index.ts')}`,
   );
 
-  // Test with Node runtime
   runCommand(
+    name,
     `TESTING WITH NODE RUNTIME: ${name}`,
     `node ${join(sdkOutput, 'src', 'index.ts')}`,
   );
 
-  // Test browser compatibility by type checking with DOM lib
   runCommand(
+    name,
     `TYPE CHECKING WITH DOM LIB: ${name}`,
-    `${tsc} --lib ES2022,DOM,DOM.Iterable --skipLibCheck`,
+    `${tsc} --lib ES2024,DOM,DOM.Iterable,DOM.AsyncIterable --skipLibCheck`,
     8096,
   );
 }
 
 const width = process.stdout.columns || 80;
 const divider = '='.repeat(width);
-console.log('\n' + chalk.blue(divider));
-console.log(chalk.bgGreen.white.bold(` ALL TESTS COMPLETED SUCCESSFULLY `));
+
+if (failures.length > 0) {
+  console.log('\n' + chalk.red(divider));
+  console.log(chalk.bgRed.white.bold(` ${failures.length} FAILURE(S) `));
+  console.log(chalk.red(divider));
+  for (const { spec, step } of failures) {
+    console.log(chalk.red(`  ✗ [${spec}] ${step}`));
+  }
+  console.log();
+  process.exit(1);
+} else {
+  console.log('\n' + chalk.blue(divider));
+  console.log(chalk.bgGreen.white.bold(` ALL TESTS COMPLETED SUCCESSFULLY `));
+}

@@ -11,6 +11,13 @@ interface TestSpec {
   flags?: string[];
 }
 
+interface Failure {
+  spec: string;
+  step: string;
+}
+
+const failures: Failure[] = [];
+
 function logHeader(title: string) {
   const width = process.stdout.columns || 80;
   const divider = '='.repeat(width);
@@ -82,6 +89,19 @@ async function setupContainer(): Promise<void> {
   );
 }
 
+async function runStep(
+  specName: string,
+  title: string,
+  fn: () => Promise<void>,
+) {
+  try {
+    await fn();
+  } catch {
+    console.log('\n' + chalk.red(`✗ ${title} failed`) + '\n');
+    failures.push({ spec: specName, step: title });
+  }
+}
+
 async function testSpec(spec: TestSpec): Promise<void> {
   console.log('\n' + chalk.magenta('='.repeat(80)));
   console.log(chalk.magenta.bold(`TESTING IN DOCKER: ${spec.name}`));
@@ -90,14 +110,7 @@ async function testSpec(spec: TestSpec): Promise<void> {
   const outputDir = `./.client-${spec.name}`;
   const hostOutputDir = join(process.cwd(), outputDir);
 
-  // Clean up previous output
-  try {
-    rmSync(hostOutputDir, { recursive: true, force: true });
-  } catch (error) {
-    // Ignore if directory doesn't exist
-  }
-
-  // Create output directory
+  rmSync(hostOutputDir, { recursive: true, force: true });
   mkdirSync(hostOutputDir, { recursive: true });
 
   const flags = [
@@ -112,29 +125,37 @@ async function testSpec(spec: TestSpec): Promise<void> {
 
   const cliCommand = `node packages/cli/dist/index.js typescript ${flags.join(' ')}`;
 
-  // Generate SDK in container
-  await runInContainer(`Generating SDK: ${spec.name}`, cliCommand);
-
-  // Install TypeScript in container for type checking
-  await runInContainer(`Installing TypeScript`, 'npm install -g typescript');
-
-  // Type check generated SDK
-  await runInContainer(
-    `Type checking: ${spec.name}`,
-    `tsc -p ${outputDir}/tsconfig.json`,
-    '/app',
+  await runStep(spec.name, `Generating SDK: ${spec.name}`, () =>
+    runInContainer(`Generating SDK: ${spec.name}`, cliCommand),
   );
 
-  // Test with Node runtime in container
-  await runInContainer(
-    `Testing with Node runtime: ${spec.name}`,
-    `node ${outputDir}/src/index.ts`,
+  await runStep(spec.name, `Installing TypeScript`, () =>
+    runInContainer(`Installing TypeScript`, 'npm install -g typescript'),
   );
 
-  // Type check with DOM lib for browser compatibility
-  await runInContainer(
+  await runStep(spec.name, `Type checking: ${spec.name}`, () =>
+    runInContainer(
+      `Type checking: ${spec.name}`,
+      `tsc -p ${outputDir}/tsconfig.json`,
+      '/app',
+    ),
+  );
+
+  await runStep(spec.name, `Testing with Node runtime: ${spec.name}`, () =>
+    runInContainer(
+      `Testing with Node runtime: ${spec.name}`,
+      `node ${outputDir}/src/index.ts`,
+    ),
+  );
+
+  await runStep(
+    spec.name,
     `Type checking with DOM lib: ${spec.name}`,
-    `tsc -p ${outputDir}/tsconfig.json --lib ES2022,DOM,DOM.Iterable --skipLibCheck`,
+    () =>
+      runInContainer(
+        `Type checking with DOM lib: ${spec.name}`,
+        `tsc -p ${outputDir}/tsconfig.json --lib ES2024,DOM,DOM.Iterable,DOM.AsyncIterable --skipLibCheck`,
+      ),
   );
 }
 await setupContainer();
@@ -173,8 +194,20 @@ for (const spec of specs) {
 
 const width = process.stdout.columns || 80;
 const divider = '='.repeat(width);
-console.log('\n' + chalk.blue(divider));
-console.log(
-  chalk.bgGreen.white.bold(` ALL DOCKER TESTS COMPLETED SUCCESSFULLY `),
-);
-console.log(chalk.blue(divider) + '\n');
+
+if (failures.length > 0) {
+  console.log('\n' + chalk.red(divider));
+  console.log(chalk.bgRed.white.bold(` ${failures.length} FAILURE(S) `));
+  console.log(chalk.red(divider));
+  for (const { spec, step } of failures) {
+    console.log(chalk.red(`  ✗ [${spec}] ${step}`));
+  }
+  console.log();
+  process.exit(1);
+} else {
+  console.log('\n' + chalk.blue(divider));
+  console.log(
+    chalk.bgGreen.white.bold(` ALL DOCKER TESTS COMPLETED SUCCESSFULLY `),
+  );
+  console.log(chalk.blue(divider) + '\n');
+}
