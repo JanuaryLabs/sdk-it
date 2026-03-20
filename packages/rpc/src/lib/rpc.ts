@@ -164,6 +164,7 @@ function createRpc(ir: IR, options: Partial<ClientOptions> = {}) {
     const inputSchema = schemaToZod(
       operationSchema(ir, operation, details.ct),
       ir,
+      { required: true },
     );
     schemas[endpoint] = {
       operationId: operation.operationId,

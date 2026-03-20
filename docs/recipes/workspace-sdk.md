@@ -19,10 +19,11 @@ await generate(spec, {
   output: '.sdk-it',
   mode: 'full',
   name: 'myApi',
+  packageName: '@my-api/sdk',
 });
 ```
 
-This generates the SDK with a `package.json` (`name: @my-api/sdk`) inside `.sdk-it/`.
+`name` controls the generated client class name (`MyApi`). `packageName` controls the `package.json` name — this is what you'll use in import statements.
 
 ### 2. Register as Workspace
 
@@ -80,15 +81,23 @@ node scripts/generate-sdk.ts
 
 ## With Vite
 
-The `@sdk-it/vite` plugin automates this. It defaults to generating into `.sdk-it/` with `mode: 'full'` and adds a Vite resolve alias automatically.
+The `@sdk-it/vite` plugin automates regeneration. It reads your OpenAPI spec, generates the SDK on dev server start and production build, and watches for spec changes during development.
 
 ```typescript
 // vite.config.ts
 import sdkIt from '@sdk-it/vite';
+import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [sdkIt('./openapi.json', { name: 'myApi' })],
+  plugins: [
+    sdkIt('./openapi.json', {
+      output: '.sdk-it',
+      mode: 'full',
+      name: 'myApi',
+      packageName: '@my-api/sdk',
+    }),
+  ],
 });
 ```
 
-You still need to add `.sdk-it` to your workspace config and `.gitignore` — the plugin handles everything else.
+You still need to add `.sdk-it` to your workspace config and `.gitignore`. The initial `npm install` is also required to create the workspace symlink — run the generation script once first so `.sdk-it/package.json` exists before `npm install`.

@@ -264,7 +264,7 @@ function getHeaderKeys(headersNode: ts.Node | undefined, deriver: TypeDeriver) {
 }
 
 export const newResponse: NaunceResponseAnalyzerFn = (
-  handler,
+  _handler,
   deriver,
   node,
 ) => {
@@ -351,8 +351,8 @@ export function defaultResponseAnalyzer(
 }
 
 export function streamText(
-  handler: ts.ArrowFunction | ts.FunctionExpression,
-  deriver: TypeDeriver,
+  _handler: ts.ArrowFunction | ts.FunctionExpression,
+  _deriver: TypeDeriver,
 ): ResponseItem[] {
   return [
     {
@@ -369,8 +369,8 @@ export function streamText(
 }
 
 export function stream(
-  handler: ts.ArrowFunction | ts.FunctionExpression,
-  deriver: TypeDeriver,
+  _handler: ts.ArrowFunction | ts.FunctionExpression,
+  _deriver: TypeDeriver,
 ): ResponseItem[] {
   return [
     {
@@ -387,8 +387,8 @@ export function stream(
 }
 
 export function streamSSE(
-  handler: ts.ArrowFunction | ts.FunctionExpression,
-  deriver: TypeDeriver,
+  _handler: ts.ArrowFunction | ts.FunctionExpression,
+  _deriver: TypeDeriver,
 ): ResponseItem[] {
   return [
     {
@@ -405,7 +405,7 @@ export function streamSSE(
 }
 
 export const httpException: NaunceResponseAnalyzerFn = (
-  handler,
+  _handler,
   deriver,
   node,
 ) => {

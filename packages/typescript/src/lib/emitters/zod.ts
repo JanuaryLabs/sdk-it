@@ -91,7 +91,7 @@ export class ZodEmitter {
     switch (type) {
       case 'string': {
         const defaultVal =
-          schema.format === 'date' && schema.default
+          (schema['x-zod-type'] === 'date' || schema['x-zod-type'] === 'coerce-date') && schema.default
             ? `new Date(${JSON.stringify(schema.default)})`
             : JSON.stringify(schema.default);
         return `${this.string(schema)}${this.#suffixes(defaultVal, required, nullable)}`;
@@ -200,10 +200,16 @@ export class ZodEmitter {
     switch (schema.format) {
       case 'date-time':
       case 'datetime':
-        base = 'z.string().datetime()';
+        if (schema['x-zod-type'] === 'coerce-date') {
+          base = 'z.coerce.date()';
+        } else if (schema['x-zod-type'] === 'date') {
+          base = 'z.date()';
+        } else {
+          base = 'z.string().datetime()';
+        }
         break;
       case 'date':
-        base = 'z.coerce.date()';
+        base = 'z.string().date()';
         break;
       case 'time':
         base =
@@ -251,16 +257,17 @@ export class ZodEmitter {
    */
   #number(schema: SchemaObject) {
     let defaultValue = schema.default;
-    let base = 'z.number()';
+    let base: string;
     if (schema.format === 'int64') {
-      base = 'z.bigint()';
+      base = schema['x-zod-type'] === 'coerce-bigint' ? 'z.coerce.bigint()' : 'z.bigint()';
       if (schema.default !== undefined) {
         defaultValue = `BigInt(${schema.default})`;
       }
+    } else {
+      base = schema['x-zod-type'] === 'coerce-number' ? 'z.coerce.number()' : 'z.number()';
     }
 
-    if (schema.format === 'int32') {
-      // 32-bit integer
+    if (schema.type === 'integer' && schema.format !== 'int64') {
       base += '.int()';
     }
 

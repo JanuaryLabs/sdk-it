@@ -149,10 +149,16 @@ export class RuntimeZodConverter {
     switch (schema.format) {
       case 'date-time':
       case 'datetime':
-        base = z.string().datetime();
+        if (schema['x-zod-type'] === 'coerce-date') {
+          base = z.coerce.date();
+        } else if (schema['x-zod-type'] === 'date') {
+          base = z.date();
+        } else {
+          base = z.string().datetime();
+        }
         break;
       case 'date':
-        base = z.coerce.date();
+        base = z.string().date();
         break;
       case 'time':
         base = z.string(); // Could add regex for HH:MM:SS format
@@ -193,14 +199,16 @@ export class RuntimeZodConverter {
    * Handle number/integer constraints from OpenAPI/JSON Schema.
    */
   #number(schema: SchemaObject): ZodSchema {
-    let base: ZodSchema = z.number();
+    let base: ZodSchema = schema['x-zod-type'] === 'coerce-number'
+      ? z.coerce.number()
+      : z.number();
 
     if (schema.format === 'int64') {
       base = z.bigint();
     }
 
     if (schema.format === 'int32') {
-      base = z.number().int();
+      base = (base as z.ZodNumber).int();
     }
 
     // Exclusive bounds
@@ -299,8 +307,13 @@ export class RuntimeZodConverter {
         // Rebuild the base schema with default to avoid type issues
         const defaultValue = schema.default;
         switch (type) {
-          case 'string':
-            base = this.string(schema).default(defaultValue);
+          case 'string': {
+            const wrappedDefault =
+              (schema['x-zod-type'] === 'date' || schema['x-zod-type'] === 'coerce-date') && defaultValue
+                ? new Date(defaultValue)
+                : defaultValue;
+            base = this.string(schema).default(wrappedDefault);
+          }
             break;
           case 'number':
           case 'integer':

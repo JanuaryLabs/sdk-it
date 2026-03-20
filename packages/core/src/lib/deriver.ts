@@ -16,16 +16,56 @@ export const defaultTypesMap: Record<string, string> = {
   Int8ArrayConstructor: 'any',
   Uint8Array: 'any',
 };
+
+interface TraceContext {
+  file?: string;
+  operation?: string;
+}
+
+export function nodeLocation(node: ts.Node): string | undefined {
+  try {
+    const sourceFile = node.getSourceFile();
+    if (!sourceFile) return undefined;
+    const { line, character } = sourceFile.getLineAndCharacterOfPosition(
+      node.getStart(),
+    );
+    return `${sourceFile.fileName}:${line + 1}:${character + 1}`;
+  } catch {
+    return undefined;
+  }
+}
+
 export class TypeDeriver {
   public readonly collector: Collector = {};
   public readonly checker: ts.TypeChecker;
   public readonly typesMap: Record<string, string>;
+  private trace: TraceContext = {};
+  private currentNode?: ts.Node;
   constructor(
     checker: ts.TypeChecker,
     typeMappings: Record<string, string> = defaultTypesMap,
   ) {
     this.checker = checker;
     this.typesMap = typeMappings;
+  }
+
+  setTrace(ctx: { file?: string; operation?: string }) {
+    this.trace = { ...ctx };
+  }
+
+  private warn(message: string, node?: ts.Node) {
+    const parts = [`\x1b[33m\u26a0 ${message}\x1b[0m`];
+    const resolvedNode = node ?? this.currentNode;
+    const location = resolvedNode ? nodeLocation(resolvedNode) : undefined;
+    if (location) {
+      parts.push(`  at \x1b[36m${location}\x1b[0m`);
+    } else if (this.trace.file) {
+      parts.push(`  at \x1b[36m${this.trace.file}\x1b[0m`);
+    }
+    if (this.trace.operation) {
+      parts.push(`  in \x1b[2m${this.trace.operation}\x1b[0m`);
+    }
+    console.warn(parts.join('\n'));
   }
 
   serializeType(type: ts.Type): any {
@@ -168,7 +208,7 @@ export class TypeDeriver {
       const [argType] = this.checker.getTypeArguments(type as ts.TypeReference);
       if (!argType) {
         const typeName = type.symbol?.getName() || '<unknown>';
-        console.warn(
+        this.warn(
           `Could not find generic type argument for array type ${typeName}`,
         );
         return {
@@ -280,7 +320,6 @@ export class TypeDeriver {
             const propType = this.checker.getTypeOfSymbol(prop);
             serializedProps[prop.name] = this.serializeType(propType);
           } else {
-            // SymbolObject props
             const propType = this.checker.getTypeOfSymbol(prop);
             serializedProps[prop.name] = this.serializeType(propType);
           }
@@ -304,7 +343,7 @@ export class TypeDeriver {
       return this.serializeNode(declaration);
     }
 
-    console.warn(`Unhandled type: ${type.flags} ${ts.TypeFlags[type.flags]}`);
+    this.warn(`Unhandled type: ${type.flags} ${ts.TypeFlags[type.flags]}`);
 
     return {
       [deriveSymbol]: true,
@@ -320,6 +359,7 @@ export class TypeDeriver {
   }
 
   serializeNode(node: ts.Node): any {
+    this.currentNode = node;
     if (ts.isObjectLiteralExpression(node)) {
       const symbolType = this.checker.getTypeAtLocation(node);
       const props: Record<string, any> = {};
@@ -341,7 +381,7 @@ export class TypeDeriver {
     if (ts.isPropertyAccessExpression(node)) {
       const symbol = this.checker.getSymbolAtLocation(node.name);
       if (!symbol) {
-        console.warn(`No symbol found for ${node.name.getText()}`);
+        this.warn(`No symbol found for ${node.name.getText()}`, node);
         return null;
       }
       const type = this.checker.getTypeOfSymbol(symbol);
@@ -350,7 +390,7 @@ export class TypeDeriver {
     if (ts.isPropertySignature(node)) {
       const symbol = this.checker.getSymbolAtLocation(node.name);
       if (!symbol) {
-        console.warn(`No symbol found for ${node.name.getText()}`);
+        this.warn(`No symbol found for ${node.name.getText()}`, node);
         return null;
       }
       const type = this.checker.getTypeOfSymbol(symbol);
@@ -359,7 +399,7 @@ export class TypeDeriver {
     if (ts.isPropertyDeclaration(node)) {
       const symbol = this.checker.getSymbolAtLocation(node.name);
       if (!symbol) {
-        console.warn(`No symbol found for ${node.name.getText()}`);
+        this.warn(`No symbol found for ${node.name.getText()}`, node);
         return null;
       }
       const type = this.checker.getTypeOfSymbol(symbol);
@@ -420,11 +460,11 @@ export class TypeDeriver {
     if (ts.isVariableDeclaration(node)) {
       const symbol = this.checker.getSymbolAtLocation(node.name);
       if (!symbol) {
-        console.warn(`No symbol found for ${node.name.getText()}`);
+        this.warn(`No symbol found for ${node.name.getText()}`, node);
         return null;
       }
       if (!node.type) {
-        console.warn(`No type found for ${node.name.getText()}`);
+        this.warn(`No type found for ${node.name.getText()}`, node);
         return 'any';
       }
       const type = this.checker.getTypeFromTypeNode(node.type);
@@ -433,7 +473,7 @@ export class TypeDeriver {
     if (ts.isIdentifier(node)) {
       const symbol = this.checker.getSymbolAtLocation(node);
       if (!symbol) {
-        console.warn(`Identifer: No symbol found for ${node.getText()}`);
+        this.warn(`No symbol found for identifier ${node.getText()}`, node);
         return null;
       }
       const type = this.checker.getTypeAtLocation(node);
@@ -498,7 +538,7 @@ export class TypeDeriver {
     }
     if (ts.isFunctionDeclaration(node)) {
       if (!node.name) {
-        console.warn('Function declaration has no name');
+        this.warn('Function declaration has no name', node);
         return {
           [deriveSymbol]: true,
           optional: false,
@@ -571,16 +611,13 @@ export class TypeDeriver {
       return this.serializeType(type);
     }
 
-    console.warn(
-      'Unhandled node details:',
-      `Node kind: ${ts.SyntaxKind[node.kind]}`,
-      `Node flags: ${node.flags}`,
-      `Node text: ${node.getText()}`,
-      `Node type: ${this.checker.typeToString(
+    this.warn(
+      `Unhandled node: ${ts.SyntaxKind[node.kind]} "${node.getText()}" (type: ${this.checker.typeToString(
         this.checker.getTypeAtLocation(node),
         undefined,
         ts.TypeFormatFlags.NoTruncation,
-      )}`,
+      )})`,
+      node,
     );
 
     return {

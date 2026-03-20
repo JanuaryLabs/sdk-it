@@ -13,6 +13,7 @@ import {
   type Selector,
   type SemanticSource,
   TypeDeriver,
+  nodeLocation,
   getProgram,
   isCallExpression,
   isHttpMethod,
@@ -220,6 +221,7 @@ function visit(
   ) => ResponseItem[],
   paths: Paths,
   typeChecker: ts.TypeChecker,
+  typeDeriver: TypeDeriver,
 ) {
   if (!ts.isCallExpression(node) || node.arguments.length < 2) {
     return moveOn();
@@ -341,6 +343,11 @@ function visit(
 
   const sourceFile = node.getSourceFile();
 
+  typeDeriver.setTrace({
+    file: sourceFile.fileName,
+    operation: `${method.toUpperCase()} ${path}`,
+  });
+
   const responses: ResponseItem[] = [];
 
   // Analyze all middlewares for potential responses
@@ -372,7 +379,7 @@ function visit(
 
   function moveOn() {
     ts.forEachChild(node, (node) =>
-      visit(node, responseAnalyzer, paths, typeChecker),
+      visit(node, responseAnalyzer, paths, typeChecker, typeDeriver),
     );
   }
 }
@@ -388,14 +395,14 @@ function toSelectors(props: ts.PropertyAssignment[]) {
       .filter(ts.isPropertyAssignment)
       .find((prop) => prop.name.getText() === 'select');
     if (!select) {
-      console.warn(`No select found in ${name}`);
+      console.warn(`\u26a0 No select found in ${name}\n  at ${nodeLocation(prop) ?? 'unknown'}`);
       continue;
     }
     const against = prop.initializer.properties
       .filter(ts.isPropertyAssignment)
       .find((prop) => prop.name.getText() === 'against');
     if (!against) {
-      console.warn(`No against found in ${name}`);
+      console.warn(`\u26a0 No against found in ${name}\n  at ${nodeLocation(prop) ?? 'unknown'}`);
       continue;
     }
     const [, source, selectText] = select.initializer.getText().split('.');
@@ -452,6 +459,7 @@ export async function analyze(
         },
         paths,
         typeChecker,
+        typeDeriver,
       );
     }
   }

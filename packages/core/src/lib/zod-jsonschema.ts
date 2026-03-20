@@ -31,11 +31,26 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
 						const { $schema, ...result } = toJsonSchema(def.innerType);
             return result;
           }
+          if (def.typeName === 'ZodDate') {
+            return {
+              type: 'string',
+              format: 'date-time',
+              'x-zod-type': def.coerce ? 'coerce-date' : 'date',
+            };
+          }
           return ignoreOverride;
         },
       });
     }`,
-    `const { $schema, ...result } = toJsonSchema(${removeUnsupportedMethods(schema)});`,
+    `const zodSchema = ${removeUnsupportedMethods(schema)};`,
+    `const { $schema, ...result } = toJsonSchema(zodSchema);`,
+    `let innerDef = zodSchema._def;
+    while (innerDef && (innerDef.typeName === 'ZodOptional' || innerDef.typeName === 'ZodDefault' || innerDef.typeName === 'ZodNullable')) {
+      innerDef = innerDef.innerType?._def;
+    }
+    if (innerDef?.coerce && !result['x-zod-type']) {
+      result['x-zod-type'] = 'coerce-' + innerDef.typeName.replace('Zod', '').toLowerCase();
+    }`,
     `export default {schema: result, optional}`,
   ];
 

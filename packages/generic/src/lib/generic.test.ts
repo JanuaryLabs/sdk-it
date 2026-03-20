@@ -360,6 +360,229 @@ app.post(
     );
   });
 
+  it('should handle zod date and datetime validators', async () => {
+    await using workspace = await tsworkspace(
+      tsconfig,
+      {
+        'index.ts': `
+import { validate } from 'hono';
+import { z } from 'zod';
+
+const app = {
+  post: (path: string, middleware: any, handler: any) => {}
+};
+
+/**
+ * @openapi createEvent
+ * @tags events
+ */
+app.post('/events', validate((payload) => ({
+  scheduledAt: {
+    select: payload.body.scheduledAt,
+    against: z.string().datetime()
+  },
+  dateOnly: {
+    select: payload.body.dateOnly,
+    against: z.string().date()
+  },
+  nativeDate: {
+    select: payload.body.nativeDate,
+    against: z.date()
+  },
+  coercedDate: {
+    select: payload.body.coercedDate,
+    against: z.coerce.date()
+  }
+})), (c) => {
+  return c.json({ success: true });
+});
+`,
+      },
+    );
+
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer: responseAnalyzer,
+    });
+
+    assert.strictEqual(
+      Object.keys(result.paths).length,
+      1,
+      'Should have one path',
+    );
+
+    const operation = result.paths['/events']?.post;
+    assert.ok(operation, 'Should have POST /events');
+
+    const requestBody = operation.requestBody;
+    const body =
+      requestBody && 'content' in requestBody
+        ? requestBody.content?.['application/json']?.schema
+        : undefined;
+    assert.ok(body && 'properties' in body, 'Should have request body schema');
+
+    const props = body.properties;
+    assert.ok(props, 'Should have properties');
+
+    // z.string().datetime() => { type: "string", format: "date-time" }
+    assert.deepStrictEqual(props.scheduledAt, {
+      type: 'string',
+      format: 'date-time',
+    });
+
+    // z.string().date() => { type: "string", format: "date" }
+    assert.deepStrictEqual(props.dateOnly, {
+      type: 'string',
+      format: 'date',
+    });
+
+    // z.date() => { type: "string", format: "date-time", "x-zod-type": "date" }
+    assert.deepStrictEqual(props.nativeDate, {
+      type: 'string',
+      format: 'date-time',
+      'x-zod-type': 'date',
+    });
+
+    // z.coerce.date() => { type: "string", format: "date-time", "x-zod-type": "coerce-date" }
+    assert.deepStrictEqual(props.coercedDate, {
+      type: 'string',
+      format: 'date-time',
+      'x-zod-type': 'coerce-date',
+    });
+  });
+
+  it('should handle optional date validators', async () => {
+    await using workspace = await tsworkspace(
+      tsconfig,
+      {
+        'index.ts': `
+import { validate } from 'hono';
+import { z } from 'zod';
+
+const app = {
+  post: (path: string, middleware: any, handler: any) => {}
+};
+
+/**
+ * @openapi updateEvent
+ * @tags events
+ */
+app.post('/events/:id', validate((payload) => ({
+  id: { select: payload.params.id, against: z.string() },
+  scheduledAt: {
+    select: payload.body.scheduledAt,
+    against: z.date().optional()
+  },
+  coercedDate: {
+    select: payload.body.coercedDate,
+    against: z.coerce.date().optional()
+  }
+})), (c) => {
+  return c.json({ success: true });
+});
+`,
+      },
+    );
+
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer: responseAnalyzer,
+    });
+
+    const operation = result.paths['/events/{id}']?.post;
+    assert.ok(operation, 'Should have POST /events/{id}');
+
+    const requestBody = operation.requestBody;
+    const body =
+      requestBody && 'content' in requestBody
+        ? requestBody.content?.['application/json']?.schema
+        : undefined;
+    assert.ok(body && 'properties' in body, 'Should have request body schema');
+
+    const props = body.properties as Record<string, unknown>;
+
+    // optional z.date() preserves x-zod-type and is not required
+    assert.deepStrictEqual(props.scheduledAt, {
+      type: 'string',
+      format: 'date-time',
+      'x-zod-type': 'date',
+    });
+    assert.ok(
+      !((body as any).required ?? []).includes('scheduledAt'),
+      'scheduledAt should not be required',
+    );
+
+    // optional z.coerce.date() preserves x-zod-type and is not required
+    assert.deepStrictEqual(props.coercedDate, {
+      type: 'string',
+      format: 'date-time',
+      'x-zod-type': 'coerce-date',
+    });
+    assert.ok(
+      !((body as any).required ?? []).includes('coercedDate'),
+      'coercedDate should not be required',
+    );
+  });
+
+  it('should handle date validators in query params', async () => {
+    await using workspace = await tsworkspace(
+      tsconfig,
+      {
+        'index.ts': `
+import { validate } from 'hono';
+import { z } from 'zod';
+
+const app = {
+  get: (path: string, middleware: any, handler: any) => {}
+};
+
+/**
+ * @openapi listEvents
+ * @tags events
+ */
+app.get('/events', validate((payload) => ({
+  since: {
+    select: payload.query.since,
+    against: z.string().datetime().optional()
+  },
+  before: {
+    select: payload.query.before,
+    against: z.string().date()
+  }
+})), (c) => {
+  return c.json({ items: [] });
+});
+`,
+      },
+    );
+
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer: responseAnalyzer,
+    });
+
+    const operation = result.paths['/events']?.get;
+    assert.ok(operation, 'Should have GET /events');
+
+    const params = (operation.parameters ?? []) as Array<{
+      name: string;
+      required: boolean;
+      schema: unknown;
+    }>;
+    const since = params.find((p) => p.name === 'since');
+    assert.ok(since, 'Should have since parameter');
+    assert.equal(since.required, false);
+    assert.deepStrictEqual(since.schema, {
+      type: 'string',
+      format: 'date-time',
+    });
+
+    const before = params.find((p) => p.name === 'before');
+    assert.ok(before, 'Should have before parameter');
+    assert.equal(before.required, true);
+    assert.deepStrictEqual(before.schema, {
+      type: 'string',
+      format: 'date',
+    });
+  });
+
   it('should respect depth limits when following call expressions', async () => {
     // Test Case 6: Depth limiting
     await using workspace = await tsworkspace(

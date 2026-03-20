@@ -139,7 +139,7 @@ export class TypeScriptEmitter {
       case 'date-time':
       case 'datetime':
       case 'date':
-        type = 'Date';
+        type = 'string';
         break;
       case 'binary':
       case 'byte':

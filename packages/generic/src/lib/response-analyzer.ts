@@ -104,7 +104,7 @@ export const responseAnalyzer: NaunceResponseAnalyzer = {
           contentType: 'application/problem+json',
           headers: [],
           statusCode: properties.status,
-          response: problem ? deriver.serializeNode(problem) : undefined,
+          response: deriver.serializeNode(problem),
         },
       ];
     }
