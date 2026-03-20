@@ -61,6 +61,7 @@ export interface ResponseItem {
   response?: DateType;
   contentType: string;
   headers: (string | Record<string, string[]>)[];
+  middlewareName?: string;
 }
 
 export type OnOperation = (
@@ -72,6 +73,7 @@ export type OnOperation = (
 export class Paths {
   #imports: InjectImport[] = [];
   #onOperation?: OnOperation;
+  #sharedResponses = new Map<string, SchemaObject>();
   #operations: Array<{
     sourceFile: string;
     name: string;
@@ -117,7 +119,18 @@ export class Paths {
     const responsesObject: ResponsesObject = {};
     for (const item of responses) {
       const ct = item.contentType;
-      const schema = item.response ? toSchema(item.response) : {};
+      let schema = item.response ? toSchema(item.response) : {};
+
+      // Deduplicate named middleware responses via $ref
+      if (item.middlewareName) {
+        const sanitizedCt = ct.replace(/\//g, '_');
+        const sharedKey = `${item.middlewareName}${item.statusCode}_${sanitizedCt}`;
+        if (!this.#sharedResponses.has(sharedKey)) {
+          this.#sharedResponses.set(sharedKey, schema);
+        }
+        schema = { $ref: `#/components/schemas/${sharedKey}` };
+      }
+
       if (!responsesObject[item.statusCode]) {
         responsesObject[item.statusCode] = {
           description: `Response for ${item.statusCode}`,
@@ -218,6 +231,10 @@ export class Paths {
     }
 
     return Array.from(tags);
+  }
+
+  getSharedSchemas(): Record<string, SchemaObject> {
+    return Object.fromEntries(this.#sharedResponses);
   }
 
   async getPaths() {

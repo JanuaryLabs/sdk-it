@@ -282,7 +282,7 @@ function visit(
   }
 
   // Collect all middleware declarations for analysis
-  const middlewareDeclarations: ts.Node[] = [];
+  const middlewareDeclarations: { node: ts.Node; name?: string }[] = [];
 
   // slice(1, -1) to skip first (path) and last (handler) arguments
   // and skip the validate middleware - it's handled separately
@@ -290,6 +290,7 @@ function visit(
     if (ts.isCallExpression(arg)) {
       // Try to resolve the factory function declaration
       if (ts.isIdentifier(arg.expression)) {
+        const middlewareFnName = arg.expression.text;
         let symbol = typeChecker.getSymbolAtLocation(arg.expression);
 
         // If symbol has alias, resolve to the actual symbol
@@ -317,7 +318,7 @@ function visit(
         }
 
         if (declaration) {
-          middlewareDeclarations.push(declaration);
+          middlewareDeclarations.push({ node: declaration, name: middlewareFnName });
         }
       }
 
@@ -332,7 +333,7 @@ function visit(
       }
       const firstArg = arg.arguments[0];
       if (isFunctionWithBody(firstArg)) {
-        middlewareDeclarations.push(firstArg);
+        middlewareDeclarations.push({ node: firstArg });
       }
     }
   }
@@ -351,9 +352,15 @@ function visit(
   const responses: ResponseItem[] = [];
 
   // Analyze all middlewares for potential responses
-  for (const middlewareDecl of middlewareDeclarations) {
-    for (const { token, node } of returnTokens(middlewareDecl, typeChecker)) {
-      responses.push(...responseAnalyzer(middlewareDecl as any, token, node));
+  for (const middleware of middlewareDeclarations) {
+    for (const { token, node } of returnTokens(middleware.node, typeChecker)) {
+      const items = responseAnalyzer(middleware.node as any, token, node);
+      if (middleware.name) {
+        for (const item of items) {
+          item.middlewareName = middleware.name;
+        }
+      }
+      responses.push(...items);
     }
   }
 
@@ -465,10 +472,13 @@ export async function analyze(
   }
 
   const components: ComponentsObject = {
-    schemas: Object.entries(typeDeriver.collector).reduce(
-      (acc, [key, value]) => ({ ...acc, [key]: toSchema(value) }),
-      {},
-    ),
+    schemas: {
+      ...paths.getSharedSchemas(),
+      ...Object.entries(typeDeriver.collector).reduce(
+        (acc, [key, value]) => ({ ...acc, [key]: toSchema(value) }),
+        {},
+      ),
+    },
   };
 
   return {

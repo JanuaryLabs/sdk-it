@@ -646,4 +646,108 @@ app.get(
     // Depth 0: handler -> Depth 1: level1 -> Depth 2: level2 ->
     // Depth 3: level3 -> Depth 4: level4 -> Depth 5: level5
   });
+
+  it('should deduplicate named middleware responses across operations', async () => {
+    await using workspace = await tsworkspace(tsconfig, {
+      'test.ts': `
+import { validate } from 'hono';
+import { z } from 'zod';
+
+const app = {
+  get: (path: string, ...args: any[]) => {},
+  post: (path: string, ...args: any[]) => {},
+};
+
+class ProblemDetailsException extends Error {}
+
+const authenticate = () => (ctx: any) => {
+  throw new ProblemDetailsException({
+    status: '401',
+    title: 'Unauthorized',
+    detail: 'Authentication required'
+  });
+};
+
+/** @openapi listUsers @tags users */
+app.get('/users', authenticate(), validate((p) => ({
+  page: { select: p.query.page, against: z.string().optional() }
+})), (c) => {
+  return output.json({ users: [] });
+});
+
+/** @openapi createUser @tags users */
+app.post('/users', authenticate(), validate((p) => ({
+  name: { select: p.body.name, against: z.string() }
+})), (c) => {
+  return output.json({ id: 1 });
+});
+`,
+    });
+
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer: responseAnalyzer,
+    });
+
+    // Shared middleware schema should exist once in components
+    const sharedKey = 'authenticate401_application_problem+json';
+    assert.ok(result.components.schemas?.[sharedKey],
+      'Should have shared schema for authenticate 401');
+
+    // Both operations should reference the shared schema via $ref
+    const listUsers = result.paths['/users']?.get;
+    const createUser = result.paths['/users']?.post;
+    const listRef = listUsers?.responses?.['401']?.content?.['application/problem+json']?.schema;
+    const createRef = createUser?.responses?.['401']?.content?.['application/problem+json']?.schema;
+    assert.deepStrictEqual(listRef, { $ref: `#/components/schemas/${sharedKey}` });
+    assert.deepStrictEqual(createRef, { $ref: `#/components/schemas/${sharedKey}` });
+  });
+
+  it('should not deduplicate anonymous middleware responses', async () => {
+    await using workspace = await tsworkspace(tsconfig, {
+      'test.ts': `
+import { validate } from 'hono';
+import { z } from 'zod';
+
+const app = {
+  get: (path: string, ...args: any[]) => {},
+};
+
+/** @openapi getItem @tags items */
+app.get('/items/:id',
+  validate((p) => ({
+    id: { select: p.params.id, against: z.string() }
+  })),
+  (c) => {
+    return output.json({ item: {} });
+  }
+);
+
+/** @openapi listItems @tags items */
+app.get('/items',
+  validate((p) => ({
+    page: { select: p.query.page, against: z.string().optional() }
+  })),
+  (c) => {
+    return output.json({ items: [] });
+  }
+);
+`,
+    });
+
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer: responseAnalyzer,
+    });
+
+    // No shared schemas should exist since there are no named middlewares
+    const sharedSchemaKeys = Object.keys(result.components.schemas ?? {});
+    assert.ok(
+      !sharedSchemaKeys.some((k) => k.includes('401') || k.includes('403')),
+      'Should not have any shared middleware schemas',
+    );
+
+    // Responses should be inlined, not $ref
+    const getItem = result.paths['/items/{id}']?.get;
+    const schema200 = getItem?.responses?.['200']?.content?.['application/json']?.schema;
+    assert.ok(schema200 && !('$ref' in schema200), '200 response should be inlined');
+  });
 });
