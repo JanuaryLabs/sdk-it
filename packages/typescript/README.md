@@ -50,7 +50,7 @@ await generate(spec, {
 
 ### Format Generated Code
 
-You can format the generated code using the `formatCode` option. This is especially useful if you include the generated code in source control.
+You can format the generated code using the `formatCode` option. Useful when committing generated code to source control.
 
 ```typescript
 import { generate } from '@sdk-it/typescript';
@@ -86,7 +86,7 @@ bun ./openapi.ts
 ```typescript
 import { OpenStatus } from './client';
 
-const client = new Client({
+const client = new OpenStatus({
   baseUrl: 'https://api.openstatus.dev/v1/',
 });
 
@@ -95,9 +95,9 @@ const [result, error] = await client.request('GET /status_report', {});
 
 ## Using with Your Favorite Frameworks
 
-The SDK works great on its own, but you might want to native integration with your frameworks:
+The SDK works on its own, but you might want native integration with your frameworks:
 
 - [React Query](../../docs/react-query.md)
 - [Angular](../../docs/angular.md)
 
-Let us know what are you using, and we will help you integrate it.
+Let us know what you're using, and we'll help you integrate it.

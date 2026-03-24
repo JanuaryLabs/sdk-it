@@ -7,9 +7,9 @@ import {
   type Varient,
   findPolymorphicVarients,
   findVarients,
-} from './find-polymorphic-varients.ts';
-import { toIR } from './ir.ts';
-import type { IR } from './types.ts';
+} from '@sdk-it/spec/find-polymorphic-varients.js';
+import { toIR } from '@sdk-it/spec/ir.js';
+import type { IR } from '@sdk-it/spec/types.js';
 
 function createSpec(openapi?: Partial<OpenAPIObject>): IR {
   return toIR(

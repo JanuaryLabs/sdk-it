@@ -1,14 +1,14 @@
 ## Error Handling in SDK-IT Generated Dart Clients
 
-SDK-IT generated Dart clients handle API errors by throwing exceptions. This approach aligns with common Dart error handling practices using `try...catch` blocks.
+SDK-IT generated Dart clients throw exceptions on API errors. Catch them with `try...catch`.
 
 ### Error Categories
 
-Errors encountered during API requests fall into several categories:
+Four error categories:
 
-- **API Errors:** These occur when the API server responds with a non-successful HTTP status code (4xx or 5xx). The client throws an exception that extends the base `ApiError` class. Each specific HTTP error status corresponds to a distinct subclass (e.g., `NotFoundError`, `BadRequestError`). All `ApiError` instances contain `message`, `statusCode`, and `status` properties derived from the API response.
+- **API Errors:** Thrown when the server responds with 4xx or 5xx. Each status code maps to a subclass of `ApiError` (e.g., `NotFoundError`, `BadRequestError`). All instances carry `message`, `statusCode`, and `status` from the response.
 
-- **Client HTTP Exceptions:** These are thrown by the underlying `http` package for issues during the request process before a response is received or during response processing. `http.ClientException` is a common base class for these. Typical causes include invalid URIs, malformed headers, or other I/O errors within the HTTP client.
+- **Client HTTP Exceptions:** The `http` package throws `http.ClientException` for protocol or I/O problems -- invalid URIs, malformed headers, or client-level I/O errors.
 
 - **Socket Exceptions:** A specific type of I/O exception (`dart:io`) indicating network-level problems like DNS resolution failure or connection refusal.
 
@@ -95,7 +95,7 @@ All API errors (including subclasses like `NotFoundError`, `BadRequestError`) wi
 
 Handle HTTP client errors thrown by the `http` package:
 
-This error fires when the HTTP client encounters protocol or I/O issues before or during parsing of the request/response cycle (e.g. invalid URI, malformed headers, internal client I/O errors).
+Thrown on protocol or I/O failures: invalid URI, malformed headers, or client I/O errors.
 
 ```dart
 // ...existing imports...
@@ -117,7 +117,7 @@ try {
 
 Handle network-level errors such as DNS failures or connection refusals:
 
-This error fires on low‑level network failures such as DNS lookup failures, TCP connection refusals, no route to host, or network interface issues.
+Thrown on low-level network failures: DNS lookup, TCP connection refused, no route to host, or network interface errors.
 
 ```dart
 // ...existing imports...
@@ -197,9 +197,4 @@ void main() async {
 
 ### Notes
 
-- API errors (4xx, 5xx status codes) result in exceptions extending `ApiError`.
-- Network connectivity issues often manifest as `SocketException`.
-- Failures within the HTTP client library might throw `http.ClientException`.
-- Timeouts result in `TimeoutException`.
-- Use `try...catch` blocks to handle these different error types appropriately.
-- The specific `ApiError` subclasses are defined in the `responses.dart` file within the generated SDK.
+- `ApiError` subclasses are defined in `responses.dart` in the generated SDK.

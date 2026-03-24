@@ -1,6 +1,6 @@
 ## Integrate with Angular
 
-This integration builds on Angular's [`resource`](https://angular.dev/guide/signals/resource) function for fetching data and simple wrapper for submitting data to the server.
+Use Angular's [`resource`](https://angular.dev/guide/signals/resource) function to fetch data and a thin wrapper to submit mutations.
 
 > [!IMPORTANT]
 > When generating the TypeScript client SDK within your Angular project or workspace, ensure you include the `--useTsExtension=false` flag.

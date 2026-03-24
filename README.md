@@ -4,13 +4,13 @@ SDK-IT generates type-safe client SDKs from OpenAPI specifications and creates O
 
 ## Features
 
-1. **Generating type-safe client SDKs from OpenAPI specifications to different languages**
+1. **Type-safe SDK generation from OpenAPI specs in multiple languages**
 
 Also
 
-2. Generating OpenAPI specifications from TypeScript code
+2. OpenAPI generation from TypeScript code
 
-3. TypeScript RPC Client From OpenAPI specifications. (WIP)
+3. TypeScript RPC client from OpenAPI specifications (WIP)
 
 ## Quick Start
 
@@ -29,7 +29,7 @@ npx @sdk-it/cli@latest typescript \
 ```typescript
 import { OpenStatus } from './client';
 
-const client = new Client({
+const client = new OpenStatus({
   baseUrl: 'https://api.openstatus.dev/v1/',
 });
 
@@ -42,13 +42,11 @@ Voilà!
 
 ### 2. OpenAPI Generation from TypeScript
 
-With the right framework integration, SDK-IT can statically examine your codebase and generate OpenAPI specifications with minimal input required.
+SDK-IT statically examines your codebase and generates OpenAPI specifications from it.
 
 - Extracts TypeScript types for request/response schemas
 - Uses framework-specific adapters to detect API patterns
-- Requires little to no additional configuration or annotations; depends on your code structure and naming conventions
-
-The result is accurate OpenAPI documentation that stays in sync with your code.
+- Minimal configuration needed; relies on your code structure and naming conventions
 
 ```typescript
 import { validate } from '@sdk-it/hono/runtime';
@@ -74,7 +72,7 @@ app.get(
 );
 ```
 
-This route will be correctly inferred because it uses the validate middleware and has an `@openapi` tag.
+The analyzer infers this route because it uses the validate middleware and has an `@openapi` tag.
 
 [Supported frameworks](#OpenAPI-Generation-Framework-Support)
 
@@ -93,7 +91,7 @@ This route will be correctly inferred because it uses the validate middleware an
 
 ## Roadmap
 
-SDK-IT is evolving to support more languages and frameworks. Here's our current roadmap:
+SDK-IT supports and plans to add:
 
 ### SDK Generation Languages
 
@@ -118,7 +116,7 @@ SDK-IT is evolving to support more languages and frameworks. Here's our current 
 - [ ] Koa.js
 - [ ] Next.js
 
-We welcome contributions to help us expand language and framework support!
+Contributions welcome.
 
 ## Contributing
 
@@ -136,7 +134,7 @@ SDK-IT is organized as a monorepo with multiple packages:
 
 Each package serves a specific purpose:
 
-- **core**: Provides fundamental utilities and services used by all other packages
+- **core**: Shared utilities used by all packages
 - **cli**: Command-line interface for SDK-IT
 - **typescript**: Focuses on generating TypeScript code from OpenAPI specifications (primary use case)
 - **generic**: OpenAPI generation using `output` and `validate` constructs.

@@ -15,7 +15,7 @@ npx @sdk-it/cli@latest typescript \
 ```ts
 import { OpenAI } from './openai';
 
-const openai = new Client({
+const openai = new OpenAI({
   baseUrl: 'https://api.openai.com/v1',
   token: process.env.OPENAI_API_KEY,
 });

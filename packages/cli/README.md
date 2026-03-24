@@ -1,6 +1,6 @@
 # @sdk-it/cli
 
-<p align="center">Command-line interface for SDK-IT that simplifies generating type-safe client SDKs from OpenAPI specifications</p>
+<p align="center">Command-line interface for SDK-IT that generates type-safe client SDKs from OpenAPI specifications</p>
 
 ## Installation
 
@@ -14,7 +14,7 @@ npx @sdk-it/cli
 
 ## Usage
 
-The CLI provides a simple way to generate SDKs from OpenAPI specifications
+Generate SDKs from OpenAPI specifications:
 
 ### Basic Command Structure
 
@@ -80,13 +80,13 @@ Let's generate a client SDK for the Hetzner Cloud API with automatic formatting:
 npx sdk-it -s https://raw.githubusercontent.com/MaximilianKoestler/hcloud-openapi/refs/heads/main/openapi/hcloud.json -o ./client --formatter "prettier $SDK_IT_OUTPUT --write"
 ```
 
-After running this command:
+This command:
 
-1. The OpenAPI specification is downloaded from the Hetzner Cloud documentation
-2. A type-safe TypeScript SDK is generated in the `./client` directory
-3. Prettier is run on the generated code to ensure consistent formatting
+1. Downloads the OpenAPI specification from the Hetzner Cloud documentation
+2. Generates a type-safe TypeScript SDK in the `./client` directory
+3. Runs Prettier on the generated code for consistent formatting
 
-You can then use the generated SDK in your application:
+Use the generated SDK:
 
 ```typescript
 import { Client } from './client';
@@ -100,7 +100,7 @@ const client = new Client({
 });
 
 // Call API methods with type safety
-const servers = await client.request('GET /servers', {});
+const [servers, error] = await client.request('GET /servers', {});
 
 if (error) {
   console.error('Error fetching servers:', error);

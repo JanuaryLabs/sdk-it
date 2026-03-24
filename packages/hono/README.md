@@ -12,11 +12,11 @@ npm install @sdk-it/{hono,generic}
 
 ## Runtime Primitives
 
-You can use these functions without the SDK-IT code generation tools, they're completely separate and functional on their own.
+You can use these functions without the SDK-IT code generation tools -- they're completely separate and functional on their own.
 
 ### Validator Middleware
 
-The validator middleware offers type-safe request validation using [Zod](https://github.com/colinhacks/zod) schemas. It automatically validates incoming requests against your defined schemas and provides typed inputs to your handlers.
+The validator middleware validates requests against [Zod](https://github.com/colinhacks/zod) schemas and provides typed inputs to your handlers.
 
 > [!IMPORTANT]
 > For openapi generation to work correctly, you must use the `validate` middleware for each route.
@@ -90,7 +90,7 @@ app.post(
 
 **Enforcing Content Type:**
 
-The `validate` function can optionally enforce a specific content type before validation.
+Pass a content type as the first argument to enforce it before validation:
 
 ```typescript
 import { z } from 'zod';
@@ -189,7 +189,7 @@ app.post(
 
 ### Response Helper
 
-The output function provides a clean API for sending HTTP responses with proper status codes and content types.
+The output function sends HTTP responses with typed status codes and content types.
 
 The `output` utility builds on hono's `context.body`.
 

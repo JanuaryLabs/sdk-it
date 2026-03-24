@@ -75,8 +75,5 @@ dart format ./openstatus
 
 ## Notes
 
-- The Dart SDK generator creates a package structure compatible with Dart and Flutter projects.
-- The generated code uses the `http` package for HTTP requests.
-- Each API group (tag) is mapped to a Dart client class.
-- The generator supports OpenAPI 3.0 and 3.1 specifications.
+- Supports OpenAPI 3.0 and 3.1 specifications.
 - For advanced usage, see the [TypeScript package documentation](../typescript/README.md) for general SDK-IT concepts.

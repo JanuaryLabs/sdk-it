@@ -1,21 +1,21 @@
 ## Error Handling in SDK-IT Generated Clients
 
-SDK-IT generated clients use exception-based error handling. The `client.request` method returns a promise that resolves with the response data on success (2xx HTTP status). If an error occurs, the method throws an exception that you can catch using `try...catch` blocks.
+`client.request` resolves with response data on success (2xx) and throws on failure. Catch errors with `try...catch`.
 
 > [!IMPORTANT]
-> Errors can occur before the request is sent (input validation) or after the request due to the server's response or network issues.
+> Errors can occur before the request (input validation) or after it (server response, network failure).
 
-There are three main error categories:
+Three error categories:
 
-1.  **Parse Errors (`ParseError`)**: These occur before the HTTP request if the input data fails validation against the endpoint's Zod input schema. A `ParseError` exception is thrown with a `data` property containing the flattened validation errors from Zod.
+1.  **Parse Errors (`ParseError`)**: Thrown before the HTTP request when input fails Zod schema validation. The `data` property contains flattened validation errors.
 
-2.  **HTTP Errors (`APIError` subclasses)**: These occur after the HTTP request if the server responds with a non-2xx status code (4xx or 5xx). The thrown error is an instance of a specific `APIError` subclass (such as `NotFound` for 404, `BadRequest` for 400). These error objects have `status` (HTTP status code) and `data` (parsed error response body).
+2.  **HTTP Errors (`APIError` subclasses)**: Thrown when the server responds with 4xx or 5xx. Each status code maps to a specific subclass (`NotFound` for 404, `BadRequest` for 400). Each error has `status` and `data` (parsed response body). The possible error types for each endpoint come from your OpenAPI specification.
 
-3.  **Network Errors**: These occur when the request cannot be completed due to network issues (DNS resolution failure, connection refused, timeouts, CORS issues). Standard JavaScript errors are thrown in these cases.
+3.  **Network Errors**: Thrown when the request cannot complete -- DNS failure, connection refused, timeout, or CORS block. These are standard JavaScript errors.
 
 ### Basic Error Handling
 
-Each call to `client.request` returns a promise that resolves with the response data on success. Use `try...catch` blocks to handle errors:
+Use `try...catch` to handle errors from `client.request`:
 
 ```typescript
 import { Client } from './client';
@@ -31,16 +31,14 @@ try {
 }
 ```
 
-- If the request succeeds, the promise resolves with the parsed response data.
-- If input validation fails before the request, a `ParseError` is thrown.
-- If the API returns an error status code, a specific `APIError` subclass is thrown (e.g., `NotFound`, `BadRequest`).
-- If a network error occurs, a standard JavaScript error is thrown.
+- Success: resolves with parsed response data.
+- Invalid input: throws `ParseError` before sending the request.
+- Error status code: throws a specific `APIError` subclass (`NotFound`, `BadRequest`, etc.).
+- Network failure: throws a standard JavaScript error.
 
 ### Handling Input Validation Errors (`ParseError`)
 
-Before sending a request, the SDK validates input data against the Zod schema for the endpoint. If the input does not match the schema, the request is not sent and a `ParseError` is thrown.
-
-The `error.data` property contains the flattened Zod validation errors.
+The SDK validates input against the endpoint's Zod schema before sending the request. Mismatched input throws a `ParseError` without sending the request. Access validation details through `error.data`.
 
 ```typescript
 import { APIError, ParseError } from './client';
@@ -73,7 +71,7 @@ try {
 
 ### Handling API Errors (4xx/5xx)
 
-HTTP errors occur when the server responds with an error status code. Use `instanceof` within a `catch` block to check for specific `APIError` subclasses or the base `APIError` class.
+The server signals errors with 4xx/5xx status codes. Use `instanceof` to check for specific `APIError` subclasses:
 
 ```typescript
 import {
@@ -112,7 +110,7 @@ try {
 
 ### Handling Network Errors
 
-Network errors (e.g., DNS resolution failure, connection refused, timeouts, CORS issues in browsers) occur when the request cannot be completed. These are thrown as standard JavaScript errors and can be caught alongside other errors.
+Network errors (DNS failure, connection refused, timeout, CORS) are standard JavaScript errors. Catch them alongside API errors:
 
 ```typescript
 import { APIError, ParseError } from './client';
@@ -132,12 +130,3 @@ try {
 }
 ```
 
-### Notes
-
-- The `client.request` method returns a promise that resolves with the response data on success.
-- Use `try...catch` blocks to handle all errors.
-- `ParseError` is thrown before the request is sent when input validation fails. Access `error.data` for Zod validation details.
-- `APIError` and its subclasses (such as `NotFound`, `Unauthorized`, `BadRequest`) are thrown when the server responds with an error status code.
-- The possible error types for each endpoint are derived from the OpenAPI specification.
-- Network-level errors (connection issues, DNS failures, CORS, timeouts) are thrown as standard JavaScript errors.
-- Use `instanceof` checks to handle specific error types and provide appropriate error messages to users.

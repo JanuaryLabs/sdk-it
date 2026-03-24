@@ -38,10 +38,19 @@ export const fetchType = z
   .returns(z.promise(z.instanceof(Response)))
   .optional();
 
-export async function parse<T extends OutputType[], R = ResponseData<T>>(
+export async function parse<T extends OutputType[]>(
+  outputs: T,
+  response: Response,
+): Promise<Extract<Unionize<T>, SuccessfulResponse<unknown>>>;
+export async function parse<T extends OutputType[], R>(
   outputs: T,
   response: Response,
   mapper: ResponseMapper<T, R>,
+): Promise<RebindSuccessPayload<Extract<Unionize<T>, SuccessfulResponse<unknown>>, R>>;
+export async function parse<T extends OutputType[], R = ResponseData<T>>(
+  outputs: T,
+  response: Response,
+  mapper?: ResponseMapper<T, R>,
 ) {
   let output: typeof APIResponse | null = null;
   let parser: Parser = buffered;
@@ -63,13 +72,15 @@ export async function parse<T extends OutputType[], R = ResponseData<T>>(
   }
 
   if (response.ok) {
+    const data = (await parser(response)) as ResponseData<T>;
+    const mapped = mapper ? mapper(data) : data;
     const apiresponse = (output || APIResponse).create(
       response.status,
       response.headers,
-      mapper((await parser(response)) as ResponseData<T>),
+      mapped,
     );
 
-    return apiresponse as RebindSuccessPayload<Extract<InstanceType<T>, SuccessfulResponse<unknown>>, R>;
+    return apiresponse as any;
   }
 
   throw (output || APIError).create(
@@ -101,6 +112,17 @@ export class Dispatcher {
     this.#fetch = fetch;
   }
 
+  async send<T extends OutputType[]>(
+    config: RequestConfig,
+    outputs: T,
+    signal?: AbortSignal,
+  ): Promise<Extract<Unionize<T>, SuccessfulResponse<unknown>>>;
+  async send<T extends OutputType[], R>(
+    config: RequestConfig,
+    outputs: T,
+    signal?: AbortSignal,
+    mapper: ResponseMapper<T, R>,
+  ): Promise<RebindSuccessPayload<Extract<Unionize<T>, SuccessfulResponse<unknown>>, R>>;
   async send<T extends OutputType[], R = ResponseData<T>>(
     config: RequestConfig,
     outputs: T,
@@ -128,10 +150,9 @@ export class Dispatcher {
       }
     }
 
-    return await parse(
-      outputs,
-      response,
-      mapper ?? ((data: ResponseData<T>) => data as unknown as R),
-    );
+    if (mapper) {
+      return await parse(outputs, response, mapper);
+    }
+    return await parse(outputs, response);
   }
 }

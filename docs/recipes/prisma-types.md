@@ -1,12 +1,12 @@
 # Prisma Types in OpenAPI Generation
 
-Prisma generate complex types depending how complex the prisma schema is. Sometypes like `Decimal` are not natively supported in TypeScript, which can lead to issues when generating OpenAPI specifications and others like `JsonValue` are difficult to serialize. This document explains how to handle Prisma's types.
+Prisma generates complex types that vary with schema complexity. Types like `Decimal` lack native TypeScript support, causing issues in OpenAPI generation. Others like `JsonValue` resist serialization. This document shows how to handle both.
 
 ## Prisma's Decimal Type
 
-When using Prisma, the `Decimal` type is used for high-precision numbers. To prevent precision loss in JavaScript, these values can be handled as strings. This document shows how to configure the SDK generator to map the `Decimal` type to a `string`.
+Prisma's `Decimal` type stores high-precision numbers. JavaScript loses that precision, so map `Decimal` to `string` in the SDK generator.
 
-The SDK generator does not have a default mapping for Prisma's `Decimal` type, potentially defaulting to `any`. This results in a loss of type safety.
+Without a custom mapping, the generator defaults `Decimal` to `any`, losing type safety.
 
 ### Prisma Schema
 
@@ -72,13 +72,13 @@ export type Product = {
 };
 ```
 
-This approach allows for handling high-precision numbers as strings across the application stack.
+High-precision numbers now travel as strings across the entire stack.
 
 ### Notes
 
-- Prisma's `Decimal` type can be mapped to `string` to avoid precision loss in JavaScript.
-- The `analyze` function can be customized with a `typesMap` to change type mappings.
-- Use the `createDeriver` option in the `analyze` function to provide the custom mappings during SDK generation.
+- Map Prisma's `Decimal` to `string` to avoid JavaScript precision loss.
+- Customize the `analyze` function's `typesMap` to change type mappings.
+- Use the `createDeriver` option for custom mappings during generation.
 
 ## Prisma's Json Type
 
@@ -151,13 +151,13 @@ await generate(spec, {
 
 ### Result
 
-With this configuration, Prisma's `Json` type is properly represented in the OpenAPI specification with a comprehensive schema that describes all possible JSON value types. The schema is split into three interconnected definitions:
+This configuration represents Prisma's `Json` type as three interconnected OpenAPI schema definitions:
 
 1. **`JsonValue`**: The main type that can be any valid JSON value (primitive types, objects, or arrays)
 2. **`JsonObject`**: Represents JSON objects with properties that can be any `JsonValue`
 3. **`JsonArray`**: Represents JSON arrays with items that can be any `JsonValue`
 
-This recursive structure allows for proper representation of nested JSON data while maintaining type safety.
+This recursive structure preserves type safety for nested JSON data.
 
 For an API endpoint that returns a `User` with metadata, the generated type definition would reference the JsonValue schema:
 
@@ -182,11 +182,10 @@ export type JsonArray = JsonValue[];
 
 ### Notes
 
-- Prisma's `Json` type is mapped to the `JsonValue` schema in OpenAPI, which uses `oneOf` to represent the union of all possible JSON value types
-- `JsonObject` and `JsonArray` are separate schema definitions that reference `JsonValue`, creating a recursive type structure
-- This approach properly handles deeply nested JSON structures while maintaining type safety
-- Mapping to `#/components/schemas/JsonValue` creates a reusable schema reference
-- This approach provides clear API documentation for consumers of your OpenAPI specification
+- Prisma's `Json` maps to a `JsonValue` OpenAPI schema using `oneOf` for all JSON value types.
+- `JsonObject` and `JsonArray` reference `JsonValue` recursively.
+- This handles deeply nested JSON while preserving type safety.
+- `#/components/schemas/JsonValue` serves as a reusable schema reference.
 
 ## Using Prisma's $Enums and Prisma Namespace
 
@@ -309,11 +308,10 @@ const { paths, components } = await analyze('path/to/tsconfig.json', {
 
 ### Notes
 
-- The `imports` option tells the analyzer where to find external type definitions during OpenAPI generation
-- In your route handlers, use the standard named imports: `import { $Enums, Prisma } from '@prisma/client';`
-- Access enum values directly with `$Enums.EnumName` (e.g., `$Enums.ProductStatus`)
-- Access Prisma types with `Prisma.TypeName`.
-- The paths in the `imports` configuration should point to the compiled output files (`.js` or `.d.ts`), not the source files unless you're using a runtime that supports TypeScript directly (node 22+ or Bun).
-- If using a monorepo with custom Prisma output, adjust the paths to match your project structure
-- This approach works for any external type definitions, not just Prisma types
-- Make sure the Prisma client is generated (`npx prisma generate`) before running the OpenAPI generation script
+- The `imports` option tells the analyzer where to find external type definitions.
+- In route handlers, import normally: `import { $Enums, Prisma } from '@prisma/client';`
+- Access enums as `$Enums.EnumName` and types as `Prisma.TypeName`.
+- Point `imports` paths to compiled files (`.js` or `.d.ts`), not source files -- unless your runtime handles TypeScript directly (Node 22+, Bun).
+- In monorepos with custom Prisma output, adjust paths to match your structure.
+- This works for any external type definitions, not just Prisma.
+- Run `npx prisma generate` before running the OpenAPI generation script.

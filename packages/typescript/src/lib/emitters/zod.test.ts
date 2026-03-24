@@ -7,6 +7,27 @@ import { ZodEmitter } from './zod.ts';
 const emptySpec = {} as OpenAPIObject;
 
 describe('ZodEmitter date handling', () => {
+  describe('plain string coercion', () => {
+    test('coerce-string preserves basic string coercion', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle({ type: 'string', 'x-zod-type': 'coerce-string' }, true),
+        'z.coerce.string()',
+      );
+    });
+
+    test('coerce-string composes with string formats', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle(
+          { type: 'string', format: 'email', 'x-zod-type': 'coerce-string' },
+          true,
+        ),
+        'z.coerce.string().email()',
+      );
+    });
+  });
+
   describe('format: date-time (no x-zod-type)', () => {
     test('required', () => {
       const emitter = new ZodEmitter(emptySpec);
@@ -293,6 +314,38 @@ describe('ZodEmitter date handling', () => {
         'z.coerce.number().optional()',
       );
     });
+
+    test('nullable integer union keeps coerced numeric branch', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle(
+          {
+            anyOf: [
+              { type: 'integer', 'x-zod-type': 'coerce-number' },
+              { type: 'null' },
+            ],
+          },
+          true,
+        ),
+        'z.union([z.coerce.number().int(), z.null()])',
+      );
+    });
+
+    test('merged coerced integer keeps default and constraints', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle(
+          {
+            type: 'integer',
+            minimum: 0,
+            default: 1,
+            'x-zod-type': 'coerce-number',
+          },
+          true,
+        ),
+        'z.coerce.number().int().min(0).default(1)',
+      );
+    });
   });
 
   describe('bigint types', () => {
@@ -331,6 +384,34 @@ describe('ZodEmitter date handling', () => {
           false,
         ),
         'z.coerce.bigint().optional()',
+      );
+    });
+  });
+
+  describe('boolean types', () => {
+    test('coerce-boolean produces z.coerce.boolean()', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle(
+          { type: 'boolean', 'x-zod-type': 'coerce-boolean' },
+          true,
+        ),
+        'z.coerce.boolean()',
+      );
+    });
+
+    test('coerce-boolean keeps default and optional', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle(
+          {
+            type: 'boolean',
+            default: true,
+            'x-zod-type': 'coerce-boolean',
+          },
+          false,
+        ),
+        'z.coerce.boolean().optional().default(true)',
       );
     });
   });

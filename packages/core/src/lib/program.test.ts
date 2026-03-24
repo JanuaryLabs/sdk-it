@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 import ts from 'typescript';
 
-import { isInterfaceType } from './program.ts';
+import { isInterfaceType } from '@sdk-it/core/program.js';
 
 describe('isInterfaceType Helper Function - Error-First Testing', () => {
   // Phase 1: Error-First Testing - Attack Before You Defend

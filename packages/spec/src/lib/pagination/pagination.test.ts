@@ -164,22 +164,21 @@ describe('Offset Pagination Detection', () => {
       test(`should detect offset with "${offsetKey}" and "${limitKey}"`, () => {
         const op = createOperation([qParam(offsetKey), qParam(limitKey)]);
         const result = guessPagination(op, void 0, minimalResponse());
-        // Note: With a simple mock, these detailed assertions might fail.
-        // They are designed for the actual implementation.
-        assert.strictEqual(
-          result.type,
-          'offset',
+        assert.deepStrictEqual(
+          result,
+          {
+            type: 'offset',
+            offsetParamName: offsetKey,
+            offsetKeyword: getExpectedKeyword(offsetKey, OFFSET_PARAM_REGEXES),
+            limitParamName: limitKey,
+            limitKeyword: getExpectedKeyword(
+              limitKey,
+              GENERIC_LIMIT_PARAM_REGEXES,
+            ),
+            items: 'items',
+            hasMore: 'hasMore',
+          },
           `Failed for ${offsetKey}, ${limitKey}`,
-        );
-        assert.strictEqual(result.offsetParamName, offsetKey);
-        assert.strictEqual(
-          result.offsetKeyword,
-          getExpectedKeyword(offsetKey, OFFSET_PARAM_REGEXES),
-        );
-        assert.strictEqual(result.limitParamName, limitKey);
-        assert.strictEqual(
-          result.limitKeyword,
-          getExpectedKeyword(limitKey, GENERIC_LIMIT_PARAM_REGEXES),
         );
       });
     }
@@ -188,7 +187,7 @@ describe('Offset Pagination Detection', () => {
   test('should not detect offset if one param is not in query', () => {
     const op = createOperation([hParam('offset'), qParam('limit')]);
     const result = guessPagination(op, void 0, minimalResponse());
-    assert.strictEqual(result.type, 'none');
+    assert.deepStrictEqual(result, { type: 'none', reason: 'no pagination' });
   });
 
   test('should not detect with two offset-like params and no limit', () => {
@@ -200,9 +199,15 @@ describe('Offset Pagination Detection', () => {
   test('should correctly handle params in different order', () => {
     const op = createOperation([qParam('limit'), qParam('offset')]);
     const result = guessPagination(op, void 0, minimalResponse());
-    assert.strictEqual(result.type, 'offset');
-    assert.strictEqual(result.offsetParamName, 'offset');
-    assert.strictEqual(result.limitParamName, 'limit');
+    assert.deepStrictEqual(result, {
+      type: 'offset',
+      offsetParamName: 'offset',
+      offsetKeyword: 'offset',
+      limitParamName: 'limit',
+      limitKeyword: 'limit',
+      items: 'items',
+      hasMore: 'hasMore',
+    });
   });
 
   test('should handle extra non-pagination params', () => {
@@ -213,9 +218,15 @@ describe('Offset Pagination Detection', () => {
       qParam('limit'),
     ]);
     const result = guessPagination(op, void 0, minimalResponse());
-    assert.strictEqual(result.type, 'offset');
-    assert.strictEqual(result.offsetParamName, 'offset');
-    assert.strictEqual(result.limitParamName, 'limit');
+    assert.deepStrictEqual(result, {
+      type: 'offset',
+      offsetParamName: 'offset',
+      offsetKeyword: 'offset',
+      limitParamName: 'limit',
+      limitKeyword: 'limit',
+      items: 'items',
+      hasMore: 'hasMore',
+    });
   });
 });
 
@@ -249,20 +260,18 @@ describe('Page Pagination Detection', () => {
       test(`should detect page with "${pageKey}" and "${sizeKey}"`, () => {
         const op = createOperation([qParam(pageKey), qParam(sizeKey)]);
         const result = guessPagination(op, void 0, minimalResponse());
-        assert.strictEqual(
-          result.type,
-          'page',
+        assert.deepStrictEqual(
+          result,
+          {
+            type: 'page',
+            pageNumberParamName: pageKey,
+            pageNumberKeyword: getExpectedKeyword(pageKey, PAGE_NUMBER_REGEXES),
+            pageSizeParamName: sizeKey,
+            pageSizeKeyword: getExpectedKeyword(sizeKey, PAGE_SIZE_REGEXES),
+            items: 'items',
+            hasMore: 'hasMore',
+          },
           `Failed for ${pageKey}, ${sizeKey}`,
-        );
-        assert.strictEqual(result.pageNumberParamName, pageKey);
-        assert.strictEqual(
-          result.pageNumberKeyword,
-          getExpectedKeyword(pageKey, PAGE_NUMBER_REGEXES),
-        );
-        assert.strictEqual(result.pageSizeParamName, sizeKey);
-        assert.strictEqual(
-          result.pageSizeKeyword,
-          getExpectedKeyword(sizeKey, PAGE_SIZE_REGEXES),
         );
       });
     }
@@ -308,20 +317,18 @@ describe('Cursor Pagination Detection', () => {
           qParam(limitKey),
         ]);
         const result = guessPagination(op, void 0, minimalResponse());
-        assert.strictEqual(
-          result.type,
-          'cursor',
+        assert.deepStrictEqual(
+          result,
+          {
+            type: 'cursor',
+            cursorParamName: cursorKey,
+            cursorKeyword: getExpectedKeyword(cursorKey, CURSOR_REGEXES),
+            limitParamName: limitKey,
+            limitKeyword: getExpectedKeyword(limitKey, CURSOR_LIMIT_REGEXES),
+            items: 'items',
+            hasMore: 'hasMore',
+          },
           `Failed for ${cursorKey}, ${limitKey}`,
-        );
-        assert.strictEqual(result.cursorParamName, cursorKey);
-        assert.strictEqual(
-          result.cursorKeyword,
-          getExpectedKeyword(cursorKey, CURSOR_REGEXES),
-        );
-        assert.strictEqual(result.limitParamName, limitKey);
-        assert.strictEqual(
-          result.limitKeyword,
-          getExpectedKeyword(limitKey, CURSOR_LIMIT_REGEXES),
         );
       });
     }
@@ -347,12 +354,15 @@ describe('Pagination Type Precedence', () => {
       qParam('page'),
     ]);
     const result = guessPagination(op, void 0, minimalResponse()); // Assuming 'skip'/'limit' makes it 'offset'
-    assert.strictEqual(result.type, 'offset');
-    if (result.type === 'offset') {
-      // Type guard for TS
-      assert.strictEqual(result.offsetParamName, 'skip');
-      assert.strictEqual(result.limitParamName, 'limit');
-    }
+    assert.deepStrictEqual(result, {
+      type: 'offset',
+      offsetParamName: 'skip',
+      offsetKeyword: 'skip',
+      limitParamName: 'limit',
+      limitKeyword: 'limit',
+      items: 'items',
+      hasMore: 'hasMore',
+    });
   });
 
   test('Offset should take precedence over Cursor (e.g., "offset", "count", "after_token")', () => {
@@ -362,11 +372,15 @@ describe('Pagination Type Precedence', () => {
       qParam('after_token'),
     ]);
     const result = guessPagination(op, void 0, minimalResponse());
-    assert.strictEqual(result.type, 'offset');
-    if (result.type === 'offset') {
-      assert.strictEqual(result.offsetParamName, 'offset');
-      assert.strictEqual(result.limitParamName, 'count');
-    }
+    assert.deepStrictEqual(result, {
+      type: 'offset',
+      offsetParamName: 'offset',
+      offsetKeyword: 'offset',
+      limitParamName: 'count',
+      limitKeyword: 'count',
+      items: 'items',
+      hasMore: 'hasMore',
+    });
   });
 
   test('Page should take precedence over Cursor (e.g., "page", "size", "next_cursor")', () => {
@@ -376,21 +390,29 @@ describe('Pagination Type Precedence', () => {
       qParam('next_cursor'),
     ]);
     const result = guessPagination(op, void 0, minimalResponse());
-    assert.strictEqual(result.type, 'page');
-    if (result.type === 'page') {
-      assert.strictEqual(result.pageNumberParamName, 'page');
-      assert.strictEqual(result.pageSizeParamName, 'size');
-    }
+    assert.deepStrictEqual(result, {
+      type: 'page',
+      pageNumberParamName: 'page',
+      pageNumberKeyword: 'page',
+      pageSizeParamName: 'size',
+      pageSizeKeyword: 'size',
+      items: 'items',
+      hasMore: 'hasMore',
+    });
   });
 
   test('Params like "page" and "limit" should resolve to Page pagination', () => {
     const op = createOperation([qParam('page'), qParam('limit')]);
     const result = guessPagination(op, void 0, minimalResponse());
-    assert.strictEqual(result.type, 'page');
-    if (result.type === 'page') {
-      assert.strictEqual(result.pageNumberParamName, 'page');
-      assert.strictEqual(result.pageSizeParamName, 'limit');
-    }
+    assert.deepStrictEqual(result, {
+      type: 'page',
+      pageNumberParamName: 'page',
+      pageNumberKeyword: 'page',
+      pageSizeParamName: 'limit',
+      pageSizeKeyword: 'limit',
+      items: 'items',
+      hasMore: 'hasMore',
+    });
   });
 });
 

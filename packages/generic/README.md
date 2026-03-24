@@ -2,7 +2,7 @@
 
 <p align="center">A TypeScript analysis tool for generating OpenAPI specifications from TypeScript code</p>
 
-This package provides tools to analyze TypeScript code and generate OpenAPI specifications from it. It can extract route information, parameter types, and response schemas from your TypeScript codebase.
+Analyzes TypeScript code to generate OpenAPI specifications. Extracts route information, parameter types, and response schemas from your codebase.
 
 ## Frameworks specific integrations
 
@@ -82,7 +82,7 @@ You can customize the operations as well as add more through the `onOperation` f
 
 **Use file name as tag**
 
-Assuming your projects structurd like the following where routes are grouped by representivie file names.
+Assuming your project is structured like the following, where routes are grouped by representative file names:
 
 ```
 apps/
@@ -93,7 +93,7 @@ apps/
         authors.ts
 ```
 
-Then you can consider the file name as the tag for the operation which means you don't need to specify the tag in the JSDoc comment or only specify the tag if you want to override the default behavior.
+The file name becomes the default tag for each operation. Specify a tag in JSDoc only to override this default.
 
 ```typescript
 import { basename } from 'node:path';
@@ -119,9 +119,9 @@ const { paths, components } = await analyze('apps/backend/tsconfig.app.json', {
 
 ### Customizing Type Mappings
 
-The type analysis can be customized to handle types that are not standard in TypeScript, such as `Decimal` from Prisma. The `typesMap` option in the `analyze` function allows you to provide your own type mappings.
+Custom type mappings handle non-standard TypeScript types like Prisma's `Decimal`. Use the `typesMap` option in `analyze` to define your mappings.
 
-The example below shows how to map a `Decimal` type to a `string`.
+The example below maps `Decimal` to `string`.
 
 ```typescript
 import { writeFile } from 'node:fs/promises';
@@ -158,11 +158,11 @@ const spec = {
 await writeFile('openapi.json', JSON.stringify(spec, null, 2));
 ```
 
-This configuration ensures that any property with the `Decimal` type is represented as a `string` in the generated OpenAPI specification.
+With this, the generator maps `Decimal` properties to `string` in the OpenAPI specification.
 
 ### Referencing external schemas
 
-By default, the analyzer doesn't see beyond the validation schema defined in the validate middleware route handler and expects the schemas to be defined inline.
+By default, the analyzer only sees schemas defined inline in the validate middleware.
 
 For instance the following route handler is perfectly valid and will be analyzed correctly.
 
@@ -229,9 +229,9 @@ app.post(
 );
 ```
 
-In this case the analyzer needs to be able to resolve the `authorSchema` reference to generate the correct OpenAPI schema otherwise it will fail.
+The analyzer must resolve the `authorSchema` reference to generate the correct OpenAPI schema. Otherwise it will fail.
 
-Luckily, the analyzer provides an `imports` option that allows you to specify additional files to be included in the analysis.
+The analyzer's `imports` option lets you include additional files in the analysis.
 
 ```ts
 import { join } from 'node:path';
@@ -279,7 +279,7 @@ app.post(
 
 ### Control endpoint/operation visibility
 
-You can control the visibility of endpoints and operations in the generated OpenAPI specification by using the `@access` tag in your JSDoc comments. for now only `private` is supported.
+Control endpoint visibility with the `@access` tag in JSDoc comments. For now, only `private` is supported.
 
 ```typescript
 /**

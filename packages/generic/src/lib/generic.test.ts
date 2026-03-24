@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
-import { rm } from 'node:fs/promises';
+import { rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -38,6 +38,16 @@ async function tsworkspace(
       await rm(dir, { recursive: true, force: true });
     },
   };
+}
+
+function getNonNullBranch(schema: any) {
+  if (Array.isArray(schema.anyOf)) {
+    return schema.anyOf.find((candidate: any) => candidate.type !== 'null');
+  }
+  if (Array.isArray(schema.oneOf)) {
+    return schema.oneOf.find((candidate: any) => candidate.type !== 'null');
+  }
+  return schema;
 }
 
 describe('analyze function tests', () => {
@@ -749,5 +759,379 @@ app.get('/items',
     const getItem = result.paths['/items/{id}']?.get;
     const schema200 = getItem?.responses?.['200']?.content?.['application/json']?.schema;
     assert.ok(schema200 && !('$ref' in schema200), '200 response should be inlined');
+  });
+
+  it('should preserve integer type for z.number().int() in query and path params', async () => {
+    await using workspace = await tsworkspace(tsconfig, {
+      'index.ts': `
+import { validate } from 'hono';
+import { z } from 'zod';
+
+const app = {
+  get: (path: string, ...args: any[]) => {}
+};
+
+/**
+ * @openapi getUsers
+ * @tags users
+ */
+app.get('/users', validate((payload) => ({
+  page: {
+    select: payload.query.page,
+    against: z.coerce.number().int().positive().default(1).nullish().transform((v) => v ?? 1),
+  },
+  limit: {
+    select: payload.query.limit,
+    against: z.coerce.number().int().min(1).max(1000).default(50).nullish().transform((v) => v ?? 50),
+  },
+  query: {
+    select: payload.query.query,
+    against: z.string().optional(),
+  },
+})), (c) => {
+  return c.json({ users: [], pagination: {} });
+});
+
+/**
+ * @openapi getUserById
+ * @tags users
+ */
+app.get('/users/:userId', validate((payload) => ({
+  userId: {
+    select: payload.params.userId,
+    against: z.coerce.number().int().positive(),
+  },
+})), (c) => {
+  return c.json({ id: 1 });
+});
+`,
+    });
+
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer: responseAnalyzer,
+    });
+
+    // Check getUsers parameters
+    const getUsers = result.paths['/users']?.get;
+    assert.ok(getUsers, 'Should have GET /users');
+
+    const params = (getUsers.parameters ?? []) as Array<{
+      name: string;
+      schema: any;
+    }>;
+
+    const pageParam = params.find((p) => p.name === 'page');
+    assert.ok(pageParam, 'Should have page parameter');
+
+    // The anyOf wrapper from .nullish() should contain type: "integer"
+    const pageInnerSchema = getNonNullBranch(pageParam.schema);
+    assert.strictEqual(
+      pageInnerSchema.type,
+      'integer',
+      'page parameter should have type "integer" (from .int())',
+    );
+    assert.strictEqual(
+      pageInnerSchema['x-zod-type'],
+      'coerce-number',
+      'page parameter should preserve x-zod-type on the non-null branch',
+    );
+
+    const limitParam = params.find((p) => p.name === 'limit');
+    assert.ok(limitParam, 'Should have limit parameter');
+
+    const limitInnerSchema = getNonNullBranch(limitParam.schema);
+    assert.strictEqual(
+      limitInnerSchema.type,
+      'integer',
+      'limit parameter should have type "integer" (from .int())',
+    );
+    assert.strictEqual(
+      limitInnerSchema['x-zod-type'],
+      'coerce-number',
+      'limit parameter should preserve x-zod-type on the non-null branch',
+    );
+
+    // Check getUserById path parameter
+    const getUserById = result.paths['/users/{userId}']?.get;
+    assert.ok(getUserById, 'Should have GET /users/{userId}');
+
+    const byIdParams = (getUserById.parameters ?? []) as Array<{
+      name: string;
+      schema: any;
+    }>;
+    const userIdParam = byIdParams.find((p) => p.name === 'userId');
+    assert.ok(userIdParam, 'Should have userId parameter');
+    assert.strictEqual(
+      userIdParam.schema.type,
+      'integer',
+      'userId parameter should have type "integer" (from .int())',
+    );
+    assert.strictEqual(
+      userIdParam.schema['x-zod-type'],
+      'coerce-number',
+      'userId parameter should preserve x-zod-type',
+    );
+
+    // Full pipeline: analyze → toIR → generateCode → assert .int() in Zod output
+    const { toIR } = await import('@sdk-it/spec');
+    const { generateCode } = await import('@sdk-it/typescript');
+
+    const spec = {
+      openapi: '3.1.0' as const,
+      info: { title: 'Test', version: '1.0.0' },
+      paths: result.paths,
+      components: result.components,
+    };
+
+    const ir = toIR(
+      { spec, responses: { flattenErrorResponses: true }, pagination: false },
+      false,
+    );
+
+    const { groups } = generateCode({
+      spec: ir,
+      style: { name: 'github' },
+      makeImport: (m: string) => m + '.ts',
+    });
+
+    // Find getUsers schema in generated output
+    let getUsersZod = '';
+    for (const ops of Object.values(groups)) {
+      for (const op of ops) {
+        if (op.operationId === 'getUsers') {
+          getUsersZod = Object.values(op.schemas)[0] as string;
+        }
+      }
+    }
+
+    assert.ok(getUsersZod, 'Should have generated getUsers schema');
+    assert.ok(
+      getUsersZod.includes("'page': z.coerce.number().int().gt(0)"),
+      `Generated getUsers schema should preserve coerce for page but got: ${getUsersZod}`,
+    );
+    assert.ok(
+      getUsersZod.includes("'limit': z.coerce.number().int().min(1).max(1000)"),
+      `Generated getUsers schema should preserve coerce for limit but got: ${getUsersZod}`,
+    );
+
+    // Find getUserById schema in generated output
+    let getUserByIdZod = '';
+    for (const ops of Object.values(groups)) {
+      for (const op of ops) {
+        if (op.operationId === 'getUserById') {
+          getUserByIdZod = Object.values(op.schemas)[0] as string;
+        }
+      }
+    }
+
+    assert.ok(getUserByIdZod, 'Should have generated getUserById schema');
+    assert.ok(
+      getUserByIdZod.includes('z.coerce.number().int().gt(0)'),
+      `Generated getUserById Zod schema should preserve coerce but got: ${getUserByIdZod}`,
+    );
+  });
+
+  it('should preserve integer type when using external imported schemas', async () => {
+    await using workspace = await tsworkspace(tsconfig, {
+      'inputs.ts': `
+import { z } from 'zod';
+
+export const pageNumberSchema = z.coerce
+  .number()
+  .int()
+  .positive()
+  .default(1)
+  .nullish()
+  .transform((value) => (value === null || value === undefined ? 1 : value));
+
+export const pageSizeSchema = z.coerce
+  .number()
+  .int()
+  .min(1)
+  .max(1000)
+  .default(50)
+  .nullish()
+  .transform((value) => (value === null || value === undefined ? 50 : value));
+
+export const intLikeSchema = z.coerce.number().int().positive();
+`,
+      'index.ts': `
+import { validate } from 'hono';
+import * as inputs from './inputs';
+
+const app = {
+  get: (path: string, ...args: any[]) => {}
+};
+
+/**
+ * @openapi getUsers
+ * @tags users
+ */
+app.get('/users', validate((payload) => ({
+  page: {
+    select: payload.query.page,
+    against: inputs.pageNumberSchema,
+  },
+  limit: {
+    select: payload.query.limit,
+    against: inputs.pageSizeSchema,
+  },
+})), (c) => {
+  return c.json({ users: [] });
+});
+
+/**
+ * @openapi getUserById
+ * @tags users
+ */
+app.get('/users/:userId', validate((payload) => ({
+  userId: {
+    select: payload.params.userId,
+    against: inputs.intLikeSchema,
+  },
+})), (c) => {
+  return c.json({ id: 1 });
+});
+`,
+    });
+
+    // Symlink node_modules so the imported inputs.ts can resolve 'zod'
+    const projectRoot = join(workspace.tsconfig, '..', '..');
+    const nodeModulesPath = join(projectRoot, 'node_modules');
+    try {
+      await symlink(
+        join(process.cwd(), 'node_modules'),
+        nodeModulesPath,
+        'dir',
+      );
+    } catch {
+      // symlink may already exist
+    }
+
+    const inputsPath = join(workspace.tsconfig, '..', 'src', 'inputs.ts');
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer: responseAnalyzer,
+      imports: [
+        {
+          import: 'inputs',
+          from: inputsPath,
+        },
+      ],
+    });
+
+    // Check getUsers parameters
+    const getUsers = result.paths['/users']?.get;
+    assert.ok(getUsers, 'Should have GET /users');
+
+    const params = (getUsers.parameters ?? []) as Array<{
+      name: string;
+      schema: any;
+    }>;
+
+    const pageParam = params.find((p) => p.name === 'page');
+    assert.ok(pageParam, 'Should have page parameter');
+
+    const pageInnerSchema = getNonNullBranch(pageParam.schema);
+    assert.strictEqual(
+      pageInnerSchema.type,
+      'integer',
+      'page parameter should have type "integer" when using external import',
+    );
+    assert.strictEqual(
+      pageInnerSchema['x-zod-type'],
+      'coerce-number',
+      'page parameter should preserve x-zod-type when using external import',
+    );
+
+    const limitParam = params.find((p) => p.name === 'limit');
+    assert.ok(limitParam, 'Should have limit parameter');
+
+    const limitInnerSchema = getNonNullBranch(limitParam.schema);
+    assert.strictEqual(
+      limitInnerSchema.type,
+      'integer',
+      'limit parameter should have type "integer" when using external import',
+    );
+    assert.strictEqual(
+      limitInnerSchema['x-zod-type'],
+      'coerce-number',
+      'limit parameter should preserve x-zod-type when using external import',
+    );
+
+    const getUserById = result.paths['/users/{userId}']?.get;
+    assert.ok(getUserById, 'Should have GET /users/{userId}');
+
+    const byIdParams = (getUserById.parameters ?? []) as Array<{
+      name: string;
+      schema: any;
+    }>;
+    const userIdParam = byIdParams.find((p) => p.name === 'userId');
+    assert.ok(userIdParam, 'Should have userId parameter');
+    assert.strictEqual(
+      userIdParam.schema.type,
+      'integer',
+      'userId parameter should have type "integer" when using external import',
+    );
+    assert.strictEqual(
+      userIdParam.schema['x-zod-type'],
+      'coerce-number',
+      'userId parameter should preserve x-zod-type when using external import',
+    );
+
+    // Full pipeline check
+    const { toIR } = await import('@sdk-it/spec');
+    const { generateCode } = await import('@sdk-it/typescript');
+
+    const spec = {
+      openapi: '3.1.0' as const,
+      info: { title: 'Test', version: '1.0.0' },
+      paths: result.paths,
+      components: result.components,
+    };
+
+    const ir = toIR(
+      { spec, responses: { flattenErrorResponses: true }, pagination: false },
+      false,
+    );
+
+    const { groups } = generateCode({
+      spec: ir,
+      style: { name: 'github' },
+      makeImport: (m: string) => m + '.ts',
+    });
+
+    let getUsersZod = '';
+    for (const ops of Object.values(groups)) {
+      for (const op of ops) {
+        if (op.operationId === 'getUsers') {
+          getUsersZod = Object.values(op.schemas)[0] as string;
+        }
+      }
+    }
+
+    assert.ok(getUsersZod, 'Should have generated getUsers schema');
+    assert.ok(
+      getUsersZod.includes("'page': z.coerce.number().int().gt(0)"),
+      `Generated getUsers schema from external import should preserve coerce for page but got: ${getUsersZod}`,
+    );
+    assert.ok(
+      getUsersZod.includes("'limit': z.coerce.number().int().min(1).max(1000)"),
+      `Generated getUsers schema from external import should preserve coerce for limit but got: ${getUsersZod}`,
+    );
+
+    let getUserByIdZod = '';
+    for (const ops of Object.values(groups)) {
+      for (const op of ops) {
+        if (op.operationId === 'getUserById') {
+          getUserByIdZod = Object.values(op.schemas)[0] as string;
+        }
+      }
+    }
+
+    assert.ok(getUserByIdZod, 'Should have generated getUserById schema');
+    assert.ok(
+      getUserByIdZod.includes('z.coerce.number().int().gt(0)'),
+      `Generated getUserById schema from external import should preserve coerce but got: ${getUserByIdZod}`,
+    );
   });
 });

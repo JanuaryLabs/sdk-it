@@ -11,7 +11,11 @@ import type { IR } from '@sdk-it/spec';
  * Convert an OpenAPI (JSON Schema style) object into a runtime Zod schema,
  */
 export class RuntimeZodConverter {
-  constructor(private spec: IR) {}
+  readonly #spec: IR;
+
+  constructor(spec: IR) {
+    this.#spec = spec;
+  }
 
   #object(schema: SchemaObject): ZodSchema {
     const properties = schema.properties || {};
@@ -72,7 +76,7 @@ export class RuntimeZodConverter {
   }
 
   #ref($ref: string): ZodSchema {
-    const resolvedSchema = followRef(this.spec, $ref);
+    const resolvedSchema = followRef(this.#spec, $ref);
     const zodSchema = this.handle(resolvedSchema, true);
     return zodSchema;
   }
@@ -144,105 +148,100 @@ export class RuntimeZodConverter {
       return z.instanceof(Blob);
     }
 
-    let base: ZodSchema = z.string();
+    const base = schema['x-zod-type'] === 'coerce-string'
+      ? z.coerce.string()
+      : z.string();
 
     switch (schema.format) {
       case 'date-time':
       case 'datetime':
         if (schema['x-zod-type'] === 'coerce-date') {
-          base = z.coerce.date();
+          return z.coerce.date();
         } else if (schema['x-zod-type'] === 'date') {
-          base = z.date();
+          return z.date();
         } else {
-          base = z.string().datetime();
+          return base.datetime();
         }
-        break;
       case 'date':
-        base = z.string().date();
-        break;
+        return base.date();
       case 'time':
-        base = z.string(); // Could add regex for HH:MM:SS format
-        break;
+        return base; // Could add regex for HH:MM:SS format
       case 'email':
-        base = z.string().email();
-        break;
+        return base.email();
       case 'uuid':
-        base = z.string().uuid();
-        break;
+        return base.uuid();
       case 'url':
       case 'uri':
-        base = z.string().url();
-        break;
+        return base.url();
       case 'ipv4':
-        base = z.string().ip({ version: 'v4' });
-        break;
+        return base.ip({ version: 'v4' });
       case 'ipv6':
-        base = z.string().ip({ version: 'v6' });
-        break;
+        return base.ip({ version: 'v6' });
       case 'byte':
       case 'binary':
-        base = z.instanceof(Blob);
-        break;
+        return z.instanceof(Blob);
       case 'int64':
         // JS numbers can't reliably store int64, keep as string or use bigint
-        base = z.string();
-        break;
+        return base;
       default:
         // No special format
-        break;
+        return base;
     }
-
-    return base;
   }
 
   /**
    * Handle number/integer constraints from OpenAPI/JSON Schema.
    */
   #number(schema: SchemaObject): ZodSchema {
+    if (schema.format === 'int64') {
+      let base: ZodSchema = schema['x-zod-type'] === 'coerce-bigint'
+        ? z.coerce.bigint()
+        : z.bigint();
+
+      // Exclusive bounds
+      if (typeof schema.exclusiveMinimum === 'number') {
+        base = (base as z.ZodBigInt).gt(BigInt(schema.exclusiveMinimum));
+      }
+
+      if (typeof schema.exclusiveMaximum === 'number') {
+        base = (base as z.ZodBigInt).lt(BigInt(schema.exclusiveMaximum));
+      }
+
+      if (typeof schema.minimum === 'number') {
+        base = (base as z.ZodBigInt).min(BigInt(schema.minimum));
+      }
+
+      if (typeof schema.maximum === 'number') {
+        base = (base as z.ZodBigInt).max(BigInt(schema.maximum));
+      }
+
+      return base;
+    }
+
     let base: ZodSchema = schema['x-zod-type'] === 'coerce-number'
       ? z.coerce.number()
       : z.number();
 
-    if (schema.format === 'int64') {
-      base = z.bigint();
-    }
-
-    if (schema.format === 'int32') {
+    if (schema.type === 'integer' || schema.format === 'int32') {
       base = (base as z.ZodNumber).int();
     }
 
     // Exclusive bounds
     if (typeof schema.exclusiveMinimum === 'number') {
-      if (schema.format === 'int64') {
-        base = (base as z.ZodBigInt).gt(BigInt(schema.exclusiveMinimum));
-      } else {
-        base = (base as z.ZodNumber).gt(schema.exclusiveMinimum);
-      }
+      base = (base as z.ZodNumber).gt(schema.exclusiveMinimum);
     }
 
     if (typeof schema.exclusiveMaximum === 'number') {
-      if (schema.format === 'int64') {
-        base = (base as z.ZodBigInt).lt(BigInt(schema.exclusiveMaximum));
-      } else {
-        base = (base as z.ZodNumber).lt(schema.exclusiveMaximum);
-      }
+      base = (base as z.ZodNumber).lt(schema.exclusiveMaximum);
     }
 
     // Inclusive bounds
     if (typeof schema.minimum === 'number') {
-      if (schema.format === 'int64') {
-        base = (base as z.ZodBigInt).min(BigInt(schema.minimum));
-      } else {
-        base = (base as z.ZodNumber).min(schema.minimum);
-      }
+      base = (base as z.ZodNumber).min(schema.minimum);
     }
 
     if (typeof schema.maximum === 'number') {
-      if (schema.format === 'int64') {
-        base = (base as z.ZodBigInt).max(BigInt(schema.maximum));
-      } else {
-        base = (base as z.ZodNumber).max(schema.maximum);
-      }
+      base = (base as z.ZodNumber).max(schema.maximum);
     }
 
     // multipleOf
@@ -277,7 +276,9 @@ export class RuntimeZodConverter {
         base = this.#number(schema);
         break;
       case 'boolean':
-        base = z.boolean();
+        base = schema['x-zod-type'] === 'coerce-boolean'
+          ? z.coerce.boolean()
+          : z.boolean();
         break;
       case 'object':
         base = this.#object(schema);
@@ -293,55 +294,25 @@ export class RuntimeZodConverter {
         break;
     }
 
-    // Apply nullable first (this affects the base type)
+    // Apply nullable to the base type before optional/default wrapping.
     if (nullable) {
       base = base.nullable();
     }
 
-    // Apply default before optional (important for proper chaining)
-    if (schema.default !== undefined) {
-      if (schema.format === 'int64' && typeof schema.default === 'number') {
-        // For bigint, rebuild the schema with default
-        base = z.bigint().default(BigInt(schema.default));
-      } else {
-        // Rebuild the base schema with default to avoid type issues
-        const defaultValue = schema.default;
-        switch (type) {
-          case 'string': {
-            const wrappedDefault =
-              (schema['x-zod-type'] === 'date' || schema['x-zod-type'] === 'coerce-date') && defaultValue
-                ? new Date(defaultValue)
-                : defaultValue;
-            base = this.string(schema).default(wrappedDefault);
-          }
-            break;
-          case 'number':
-          case 'integer':
-            base = this.#number(schema);
-            // Number schemas already handle defaults internally
-            break;
-          case 'boolean':
-            base = z.boolean().default(defaultValue);
-            break;
-          case 'object':
-            base = this.#object(schema).default(defaultValue);
-            break;
-          case 'array':
-            // Arrays handle defaults internally
-            break;
-          case 'null':
-            base = z.null().default(defaultValue);
-            break;
-          default:
-            base = z.unknown().default(defaultValue);
-            break;
-        }
-      }
-    }
-
-    // Apply optional last
     if (!required) {
       base = base.optional();
+    }
+
+    if (schema.default !== undefined) {
+      const defaultValue =
+        schema.format === 'int64'
+          ? BigInt(schema.default)
+          : (schema['x-zod-type'] === 'date' ||
+              schema['x-zod-type'] === 'coerce-date') &&
+              schema.default
+            ? new Date(schema.default)
+            : schema.default;
+      base = base.default(defaultValue);
     }
 
     // Handle x-prefix transform (this should be last)

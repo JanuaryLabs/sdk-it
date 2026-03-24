@@ -17,7 +17,7 @@
       "executor": "nx:run-commands",
       "dependsOn": ["build"],
       "options": {
-        "command": "node --test src/**/*.test.ts",
+        "command": "node --test",
         "cwd": "{projectRoot}"
       }
     }

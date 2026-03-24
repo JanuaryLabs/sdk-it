@@ -102,7 +102,7 @@ export class ZodEmitter {
         return `${base}${this.#suffixes(defaultValue, required, nullable)}`;
       }
       case 'boolean':
-        return `z.boolean()${this.#suffixes(schema.default, required, nullable)}`;
+        return `${schema['x-zod-type'] === 'coerce-boolean' ? 'z.coerce.boolean()' : 'z.boolean()'}${this.#suffixes(schema.default, required, nullable)}`;
       case 'object':
         return `${this.#object(schema)}${this.#suffixes(JSON.stringify(schema.default), required, nullable)}`;
       // required always
@@ -186,7 +186,9 @@ export class ZodEmitter {
    * Handle a `string` schema with possible format keywords (JSON Schema).
    */
   string(schema: SchemaObject): string {
-    let base = 'z.string()';
+    let base = schema['x-zod-type'] === 'coerce-string'
+      ? 'z.coerce.string()'
+      : 'z.string()';
 
     // 3.1 replaces `example` in the schema with `examples` (array).
     // We do not strictly need them for the Zod type, so they’re optional
@@ -205,34 +207,33 @@ export class ZodEmitter {
         } else if (schema['x-zod-type'] === 'date') {
           base = 'z.date()';
         } else {
-          base = 'z.string().datetime()';
+          base += '.datetime()';
         }
         break;
       case 'date':
-        base = 'z.string().date()';
+        base += '.date()';
         break;
       case 'time':
-        base =
-          'z.string() /* optionally add .regex(...) for HH:MM:SS format */';
+        base += ' /* optionally add .regex(...) for HH:MM:SS format */';
         break;
       case 'email':
-        base = 'z.string().email()';
+        base += '.email()';
         break;
       case 'uuid':
-        base = 'z.string().uuid()';
+        base += '.uuid()';
         break;
       case 'url':
       case 'uri':
-        base = 'z.string().url()';
+        base += '.url()';
         break;
       case 'ipv4':
-        base = 'z.string().ip({version: "v4"})';
+        base += '.ip({version: "v4"})';
         break;
       case 'ipv6':
-        base = 'z.string().ip({version: "v6"})';
+        base += '.ip({version: "v6"})';
         break;
       case 'phone':
-        base = 'z.string() /* or add .regex(...) for phone formats */';
+        base += ' /* or add .regex(...) for phone formats */';
         break;
       case 'byte':
       case 'binary':
@@ -240,7 +241,7 @@ export class ZodEmitter {
         break;
       case 'int64':
         // JS numbers can't reliably store int64, consider z.bigint() or keep as string
-        base = 'z.string() /* or z.bigint() if your app can handle it */';
+        base += ' /* or z.bigint() if your app can handle it */';
         break;
       default:
         // No special format

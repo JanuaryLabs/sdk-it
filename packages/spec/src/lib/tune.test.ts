@@ -2,8 +2,8 @@ import { merge } from 'lodash-es';
 import { describe, it } from 'node:test';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 
-import { toIR } from './ir.ts';
-import type { IR } from './types.ts';
+import { toIR } from '@sdk-it/spec/ir.js';
+import type { IR } from '@sdk-it/spec/types.js';
 
 function createSpec(openapi?: Partial<OpenAPIObject>): IR {
   return toIR(

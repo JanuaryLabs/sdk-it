@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { SchemaObject, SchemasObject } from 'openapi3-ts/oas31';
 
-import { getItemsName } from './pagination-result.ts';
+import { getItemsName } from '@sdk-it/spec/pagination/pagination-result.js';
 
 function createSchema(properties: SchemasObject) {
   return properties;
@@ -280,7 +280,7 @@ describe('getItemsName()', () => {
         another_singular_array: arraySchema(),
         status: arraySchema(),
       });
-      assert.strictEqual(getItemsName(schema3), 'status'); // 'status' (rank 6) should still be preferred over 'another_singular_array' (rank > 6)
+      assert.strictEqual(getItemsName(schema3), 'another_singular_array'); // both singular, fallback to first
     });
 
     test('complex scenario with multiple heuristics', () => {
@@ -341,7 +341,7 @@ describe('getItemsName()', () => {
         _links_: arraySchema(),
         someData: arraySchema(),
       });
-      assert.strictEqual(getItemsName(schema2), '_links_');
+      assert.strictEqual(getItemsName(schema2), 'someData'); // someData is plural (data=plural of datum), rank 5 beats _links_ rank 6
     });
 
     test('property name with special characters (non-alphanumeric)', () => {

@@ -1,8 +1,8 @@
 ## Handling File Uploads with SDK-IT, Hono, and React Query
 
-This article demonstrates implementing type-safe `multipart/form-data` file uploads using SDK-IT with Hono on the backend and React Query on the frontend.
+Type-safe `multipart/form-data` file uploads with Hono (backend) and React Query (frontend).
 
-We use the `@sdk-it/hono/runtime` `validate` middleware for backend validation and the generated SDK with the `useAction` hook (from the React Query integration recipe) for the frontend.
+The backend validates with `@sdk-it/hono/runtime`'s `validate` middleware. The frontend uses the generated SDK through the `useAction` hook ([React Query recipe](../react-query.md)).
 
 ### Backend: Hono Route with Validation
 
@@ -201,5 +201,5 @@ export default FileUpload;
 
 - The combination of `validate('multipart/form-data', ...)` and `z.instanceof(File)` on the backend is key for correct validation and SDK generation.
 - The `@openapi` tag on the Hono route is essential for the analyzer to discover the endpoint.
-- The `useAction` hook ([as defined in the React Query helper](../react-query.md)) automatically handles creating the `FormData` object when it detects a `File` instance in the in the mutation payload. You don't need to manually create `FormData`.
-- Type safety is preserved throughout the process, from backend validation to frontend usage.
+- The `useAction` hook ([React Query recipe](../react-query.md)) creates the `FormData` object automatically when it detects a `File` in the mutation payload.
+- Types stay safe from backend validation through frontend usage.

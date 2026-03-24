@@ -81,7 +81,7 @@ node scripts/generate-sdk.ts
 
 ## With Vite
 
-The `@sdk-it/vite` plugin automates regeneration. It reads your OpenAPI spec, generates the SDK on dev server start and production build, and watches for spec changes during development.
+The `@sdk-it/vite` plugin automates regeneration. It generates the SDK at dev server start and production build, and watches for spec changes.
 
 ```typescript
 // vite.config.ts

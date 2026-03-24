@@ -15,7 +15,7 @@ import {
   readFolder,
   removeTrialingSlashes,
   writeFiles,
-} from './file-system.ts';
+} from '@sdk-it/core/file-system.js';
 
 describe('File System Utilities - Error-First Testing', () => {
   let testDir: string;
@@ -289,15 +289,17 @@ describe('File System Utilities - Error-First Testing', () => {
   describe('Type Guards - Attack Phase: Type Coercion Vulnerabilities', () => {
     describe('isNullOrUndefined', () => {
       it('should correctly identify falsy values that are not null/undefined', () => {
-        assert.strictEqual(isNullOrUndefined(0), false);
-        assert.strictEqual(isNullOrUndefined(''), false);
-        assert.strictEqual(isNullOrUndefined(false), false);
-        assert.strictEqual(isNullOrUndefined(NaN), false);
+        assert.deepStrictEqual(
+          [0, '', false, NaN].map((value) => isNullOrUndefined(value)),
+          [false, false, false, false],
+        );
       });
 
       it('should correctly identify null and undefined', () => {
-        assert.strictEqual(isNullOrUndefined(null), true);
-        assert.strictEqual(isNullOrUndefined(undefined), true);
+        assert.deepStrictEqual(
+          [null, undefined].map((value) => isNullOrUndefined(value)),
+          [true, true],
+        );
       });
     });
 
@@ -336,21 +338,14 @@ describe('File System Utilities - Error-First Testing', () => {
       await writeFiles(testDir, complexContent);
 
       // Verify final state
-      assert.strictEqual(
-        await getFile(join(testDir, 'folder1/file1.txt')),
-        'content1',
-      );
-      assert.strictEqual(
-        await exist(join(testDir, 'folder1/file2.txt')),
-        false,
-      );
-      assert.strictEqual(
-        await getFile(join(testDir, 'folder2/subfolder/file3.txt')),
-        'content3',
-      );
-      assert.strictEqual(
-        await getFile(join(testDir, 'folder2/existing.txt')),
-        'original',
+      assert.deepStrictEqual(
+        await Promise.all([
+          getFile(join(testDir, 'folder1/file1.txt')),
+          exist(join(testDir, 'folder1/file2.txt')),
+          getFile(join(testDir, 'folder2/subfolder/file3.txt')),
+          getFile(join(testDir, 'folder2/existing.txt')),
+        ]),
+        ['content1', false, 'content3', 'original'],
       );
     });
 
@@ -364,9 +359,18 @@ describe('File System Utilities - Error-First Testing', () => {
       const files = await readFolder(join(testDir, 'nested'), true);
 
       // Verify structure is maintained
-      assert.ok(files.includes('deep/structure/file.txt'));
-      assert.ok(files.includes('file2.txt'));
-      assert.strictEqual(files.filter((f) => f.startsWith('deep/')).length, 1);
+      assert.deepStrictEqual(
+        {
+          hasDeepFile: files.includes('deep/structure/file.txt'),
+          hasTopLevelFile: files.includes('file2.txt'),
+          deepFileCount: files.filter((f) => f.startsWith('deep/')).length,
+        },
+        {
+          hasDeepFile: true,
+          hasTopLevelFile: true,
+          deepFileCount: 1,
+        },
+      );
     });
   });
 
@@ -387,8 +391,10 @@ describe('File System Utilities - Error-First Testing', () => {
       await writeFile(filePath, 'content');
       await mkdir(dirPath);
 
-      assert.strictEqual(await exist(filePath), true);
-      assert.strictEqual(await exist(dirPath), true);
+      assert.deepStrictEqual(
+        await Promise.all([exist(filePath), exist(dirPath)]),
+        [true, true],
+      );
     });
 
     it('should read folder contents correctly', async () => {
@@ -412,20 +418,22 @@ describe('File System Utilities - Error-First Testing', () => {
 
       await writeFiles(testDir, content);
 
-      assert.strictEqual(
-        await getFile(join(testDir, 'simple.txt')),
-        'simple content',
-      );
-      assert.strictEqual(
-        await getFile(join(testDir, 'complex.txt')),
-        'complex content',
+      assert.deepStrictEqual(
+        await Promise.all([
+          getFile(join(testDir, 'simple.txt')),
+          getFile(join(testDir, 'complex.txt')),
+        ]),
+        ['simple content', 'complex content'],
       );
     });
 
     it('should extract file extensions correctly', () => {
-      assert.strictEqual(getExt('file.txt'), 'txt');
-      assert.strictEqual(getExt('script.js'), 'js');
-      assert.strictEqual(getExt('component.tsx'), 'tsx');
+      assert.deepStrictEqual(
+        ['file.txt', 'script.js', 'component.tsx'].map((filePath) =>
+          getExt(filePath),
+        ),
+        ['txt', 'js', 'tsx'],
+      );
     });
 
     it('should format paths correctly', () => {
