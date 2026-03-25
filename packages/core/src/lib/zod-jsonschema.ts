@@ -247,6 +247,7 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
           if (def.typeName === 'ZodOptional') {
 						optional = true;
 						const { $schema, ...result } = toJsonSchema(def.innerType);
+            if (def.description) { result.description = def.description; }
             return result;
           }
           if (def.typeName === 'ZodDate') {
@@ -254,6 +255,7 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
               type: 'string',
               format: 'date-time',
               'x-zod-type': def.coerce ? 'coerce-date' : 'date',
+              ...(def.description ? { description: def.description } : {}),
             };
           }
           return ignoreOverride;

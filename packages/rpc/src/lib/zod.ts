@@ -1,7 +1,4 @@
-import type {
-  ReferenceObject,
-  SchemaObject
-} from 'openapi3-ts/oas31';
+import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 import { type ZodSchema, type ZodTypeAny, z } from 'zod';
 
 import { followRef, isRef } from '@sdk-it/core';
@@ -148,9 +145,8 @@ export class RuntimeZodConverter {
       return z.instanceof(Blob);
     }
 
-    const base = schema['x-zod-type'] === 'coerce-string'
-      ? z.coerce.string()
-      : z.string();
+    const base =
+      schema['x-zod-type'] === 'coerce-string' ? z.coerce.string() : z.string();
 
     switch (schema.format) {
       case 'date-time':
@@ -194,9 +190,10 @@ export class RuntimeZodConverter {
    */
   #number(schema: SchemaObject): ZodSchema {
     if (schema.format === 'int64') {
-      let base: ZodSchema = schema['x-zod-type'] === 'coerce-bigint'
-        ? z.coerce.bigint()
-        : z.bigint();
+      let base: ZodSchema =
+        schema['x-zod-type'] === 'coerce-bigint'
+          ? z.coerce.bigint()
+          : z.bigint();
 
       // Exclusive bounds
       if (typeof schema.exclusiveMinimum === 'number') {
@@ -218,9 +215,8 @@ export class RuntimeZodConverter {
       return base;
     }
 
-    let base: ZodSchema = schema['x-zod-type'] === 'coerce-number'
-      ? z.coerce.number()
-      : z.number();
+    let base: ZodSchema =
+      schema['x-zod-type'] === 'coerce-number' ? z.coerce.number() : z.number();
 
     if (schema.type === 'integer' || schema.format === 'int32') {
       base = (base as z.ZodNumber).int();
@@ -276,9 +272,10 @@ export class RuntimeZodConverter {
         base = this.#number(schema);
         break;
       case 'boolean':
-        base = schema['x-zod-type'] === 'coerce-boolean'
-          ? z.coerce.boolean()
-          : z.boolean();
+        base =
+          schema['x-zod-type'] === 'coerce-boolean'
+            ? z.coerce.boolean()
+            : z.boolean();
         break;
       case 'object':
         base = this.#object(schema);
@@ -308,7 +305,7 @@ export class RuntimeZodConverter {
         schema.format === 'int64'
           ? BigInt(schema.default)
           : (schema['x-zod-type'] === 'date' ||
-              schema['x-zod-type'] === 'coerce-date') &&
+                schema['x-zod-type'] === 'coerce-date') &&
               schema.default
             ? new Date(schema.default)
             : schema.default;
@@ -335,39 +332,45 @@ export class RuntimeZodConverter {
       if (!required) {
         result = result.optional();
       }
+      if (schema.description) {
+        result = result.describe(schema.description);
+      }
       return result;
     }
+
+    let result: ZodSchema = z.unknown();
 
     // Handle allOf → intersection
     if (schema.allOf && Array.isArray(schema.allOf)) {
-      let result = this.allOf(schema.allOf);
+      result = this.allOf(schema.allOf);
       if (!required) {
         result = result.optional();
       }
-      return result;
     }
 
     // anyOf → union
-    if (schema.anyOf && Array.isArray(schema.anyOf)) {
-      let result = this.anyOf(schema.anyOf);
+    else if (schema.anyOf && Array.isArray(schema.anyOf)) {
+      result = this.anyOf(schema.anyOf);
       if (!required) {
         result = result.optional();
       }
-      return result;
     }
 
     // oneOf → union
-    if (schema.oneOf && Array.isArray(schema.oneOf) && schema.oneOf.length) {
-      let result = this.oneOf(schema.oneOf);
+    else if (
+      schema.oneOf &&
+      Array.isArray(schema.oneOf) &&
+      schema.oneOf.length
+    ) {
+      result = this.oneOf(schema.oneOf);
       if (!required) {
         result = result.optional();
       }
-      return result;
     }
 
     // enum
-    if (schema.enum && Array.isArray(schema.enum)) {
-      let result = this.enum(schema.type as string, schema.enum);
+    else if (schema.enum && Array.isArray(schema.enum)) {
+      result = this.enum(schema.type as string, schema.enum);
 
       // Apply default if it exists and is in the enum
       if (
@@ -412,48 +415,55 @@ export class RuntimeZodConverter {
       if (!required) {
         result = result.optional();
       }
-      return result;
-    }
+    } else {
+      // Parse types (can be string or array in OpenAPI 3.1)
+      const types = Array.isArray(schema.type)
+        ? schema.type
+        : schema.type
+          ? [schema.type]
+          : [];
 
-    // Parse types (can be string or array in OpenAPI 3.1)
-    const types = Array.isArray(schema.type)
-      ? schema.type
-      : schema.type
-        ? [schema.type]
-        : [];
-
-    // Backward compatibility with OpenAPI 3.0 nullable
-    if ('nullable' in schema && schema.nullable) {
-      types.push('null');
-    } else if (schema.default === null) {
-      types.push('null');
-    }
-
-    // If no explicit "type", fallback to unknown
-    if (!types.length) {
-      return required ? z.unknown() : z.unknown().optional();
-    }
-
-    // Handle union types
-    if (types.length > 1) {
-      const realTypes = types.filter((t) => t !== 'null');
-      if (realTypes.length === 1 && types.includes('null')) {
-        // Single real type + "null"
-        return this.normal(realTypes[0], schema, required, true);
+      // Backward compatibility with OpenAPI 3.0 nullable
+      if ('nullable' in schema && schema.nullable) {
+        types.push('null');
+      } else if (schema.default === null) {
+        types.push('null');
       }
-      // Multiple different types, build a union
-      const subSchemas = types.map((t) => this.normal(t, schema, true));
-      if (subSchemas.length >= 2) {
-        const [first, second, ...rest] = subSchemas;
-        let result: ZodSchema = z.union([first, second, ...rest]);
-        if (!required) {
-          result = result.optional();
+
+      // If no explicit "type", fallback to unknown
+      if (!types.length) {
+        result = required ? z.unknown() : z.unknown().optional();
+      }
+
+      // Handle union types
+      else if (types.length > 1) {
+        const realTypes = types.filter((t) => t !== 'null');
+        if (realTypes.length === 1 && types.includes('null')) {
+          // Single real type + "null"
+          result = this.normal(realTypes[0], schema, required, true);
+        } else {
+          // Multiple different types, build a union
+          const subSchemas = types.map((t) => this.normal(t, schema, true));
+          if (subSchemas.length >= 2) {
+            const [first, second, ...rest] = subSchemas;
+            result = z.union([first, second, ...rest]);
+            if (!required) {
+              result = result.optional();
+            }
+          } else {
+            result = this.normal(types[0], schema, required, false);
+          }
         }
-        return result;
+      } else {
+        result = this.normal(types[0], schema, required, false);
       }
     }
 
-    return this.normal(types[0], schema, required, false);
+    if (schema.description) {
+      result = result.describe(schema.description);
+    }
+
+    return result;
   }
 }
 

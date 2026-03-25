@@ -144,7 +144,7 @@ export function findVarients(
       //   continue;
       // }
 
-      varients.push({ name: 'textContent', type: 'string', position });
+      varients.push({ name: 'text', type: 'string', position });
     }
     varients = uniqBy(varients, (it) => it.name);
   }
@@ -294,10 +294,6 @@ export function findVarients(
         name = schema.const ?? schema.enum?.[0] ?? name;
         if (schema.type === 'string') {
           return {
-            priority:
-              schema.const !== undefined || schema.enum?.[0] !== undefined
-                ? 100 - matrix.length
-                : undefined,
             static: true,
             subtype: 'string',
             source: name,

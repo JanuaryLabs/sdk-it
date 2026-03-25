@@ -121,7 +121,7 @@ export class Dispatcher {
     config: RequestConfig,
     outputs: T,
     signal?: AbortSignal,
-    mapper: ResponseMapper<T, R>,
+    mapper?: ResponseMapper<T, R>,
   ): Promise<RebindSuccessPayload<Extract<Unionize<T>, SuccessfulResponse<unknown>>, R>>;
   async send<T extends OutputType[], R = ResponseData<T>>(
     config: RequestConfig,

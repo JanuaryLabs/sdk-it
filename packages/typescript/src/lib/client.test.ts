@@ -112,6 +112,95 @@ describe('expandServerUrls', () => {
     ]);
     assert.deepStrictEqual(result, ['https://prod.api.example.com']);
   });
+
+  test('replaces all occurrences when same variable appears multiple times', () => {
+    const result = expandServerUrls([
+      {
+        url: 'https://{region}.api.{region}.example.com',
+        variables: {
+          region: { default: 'us', enum: ['us', 'eu'] },
+        },
+      },
+    ]);
+    assert.deepStrictEqual(result, [
+      'https://us.api.us.example.com',
+      'https://eu.api.eu.example.com',
+    ]);
+  });
+
+  test('ignores variables not referenced in URL', () => {
+    const result = expandServerUrls([
+      {
+        url: 'https://api.example.com',
+        variables: {
+          unused: { default: 'value', enum: ['a', 'b'] },
+        },
+      },
+    ]);
+    assert.deepStrictEqual(result, [
+      'https://api.example.com',
+      'https://api.example.com',
+    ]);
+  });
+
+  test('keeps placeholder when variable is in URL but not defined', () => {
+    const result = expandServerUrls([
+      {
+        url: 'https://{env}.api.example.com:{port}',
+        variables: {
+          env: { default: 'prod', enum: ['prod'] },
+        },
+      },
+    ]);
+    assert.deepStrictEqual(result, ['https://prod.api.example.com:{port}']);
+  });
+
+  test('coerces numeric default to string', () => {
+    const result = expandServerUrls([
+      {
+        url: 'https://api.example.com:{port}',
+        variables: {
+          port: { default: 8080 as unknown as string },
+        },
+      },
+    ]);
+    assert.deepStrictEqual(result, ['https://api.example.com:8080']);
+  });
+
+  test('expands cartesian product of three variables', () => {
+    const result = expandServerUrls([
+      {
+        url: 'https://{env}.{region}.api.example.com/v{version}',
+        variables: {
+          env: { default: 'prod', enum: ['prod', 'staging'] },
+          region: { default: 'us', enum: ['us', 'eu'] },
+          version: { default: '1', enum: ['1', '2'] },
+        },
+      },
+    ]);
+    assert.deepStrictEqual(result, [
+      'https://prod.us.api.example.com/v1',
+      'https://prod.us.api.example.com/v2',
+      'https://prod.eu.api.example.com/v1',
+      'https://prod.eu.api.example.com/v2',
+      'https://staging.us.api.example.com/v1',
+      'https://staging.us.api.example.com/v2',
+      'https://staging.eu.api.example.com/v1',
+      'https://staging.eu.api.example.com/v2',
+    ]);
+  });
+
+  test('single enum value behaves like default-only', () => {
+    const result = expandServerUrls([
+      {
+        url: 'https://{env}.api.example.com',
+        variables: {
+          env: { default: 'prod', enum: ['prod'] },
+        },
+      },
+    ]);
+    assert.deepStrictEqual(result, ['https://prod.api.example.com']);
+  });
 });
 
 describe('client template', () => {
