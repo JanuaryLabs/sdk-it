@@ -1,5 +1,4 @@
-import { type UseChatHelpers, useChat } from '@ai-sdk/react';
-import type { Message } from 'ai/react';
+import { type Message, type UseChatHelpers, useChat } from '@ai-sdk/react';
 import { Dot } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import React, {

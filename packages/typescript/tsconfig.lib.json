@@ -10,6 +10,7 @@
     "types": ["node"]
   },
   "include": ["src/**/*.ts", "global.d.ts"],
+  "exclude": ["src/**/*.test.ts"],
   "references": [
     {
       "path": "../readme/tsconfig.lib.json"

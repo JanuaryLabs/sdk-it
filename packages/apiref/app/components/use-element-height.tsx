@@ -54,6 +54,7 @@ function useElementHeight<
         }
       };
     }
+    return undefined;
   }, [node]); // Rerun effect if the node changes
 
   return [ref, height];

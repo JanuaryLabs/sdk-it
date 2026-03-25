@@ -698,12 +698,13 @@ describe('toAgents', () => {
       messages: [],
     });
 
-    assert.ok(capturedRequest, 'fetch was called');
+    const req = capturedRequest!;
+    assert.ok(req, 'fetch was called');
     assert.ok(
-      capturedRequest!.url.includes('/users'),
+      req.url.includes('/users'),
       'request URL includes /users',
     );
-    assert.equal(capturedRequest!.method, 'GET', 'request method is GET');
+    assert.equal(req.method, 'GET', 'request method is GET');
 
     const parsed = JSON.parse(result as string);
     assert.deepEqual(
