@@ -431,7 +431,7 @@ function requestToOperation(
               );
               const [contentTypeValue] =
                 contentTypeIdx !== -1
-                  ? headers.splice(contentTypeIdx).map((h) => h.value)
+                  ? headers.splice(contentTypeIdx, 1).map((h) => h.value)
                   : [];
 
               let contentType = response.body
