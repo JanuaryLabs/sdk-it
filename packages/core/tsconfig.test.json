@@ -1,11 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "rootDir": "src",
     "outDir": "dist",
     "tsBuildInfoFile": "dist/tsconfig.test.tsbuildinfo",
-    "forceConsistentCasingInFileNames": true,
     "types": ["node"],
     "paths": {
       "~test/*": ["./src/tests/*"]

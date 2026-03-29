@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["DOM", "DOM.Iterable", "DOM.AsyncIterable"],
+    "lib": ["DOM"],
     "outDir": "dist",
     "types": [
       "node",
