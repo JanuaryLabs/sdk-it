@@ -199,7 +199,7 @@ function createRpc(ir: IR, options: Partial<ClientOptions> = {}) {
           endpoint,
           serializer(input, inputToPath(operation, details.inputs)),
         );
-        return dispatcher.send(request, this.output);
+        return dispatcher.send(request, this.output, options.signal);
       },
     };
   });

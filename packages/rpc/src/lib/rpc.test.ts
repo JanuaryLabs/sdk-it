@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, test } from 'node:test';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
-import { toAgents } from './rpc.ts';
+import { rpc, toAgents } from './rpc.ts';
 
 let tempDir: string;
 
@@ -768,5 +768,36 @@ describe('toAgents', () => {
       capturedUrls[1]?.startsWith('http://localhost:4000/users'),
       'second request uses updated baseUrl',
     );
+  });
+});
+
+describe('rpc', () => {
+  afterEach(() => cleanup());
+
+  test('passes AbortSignal from client.request to the transport request', async () => {
+    const spec = makeSpec();
+    const path = writeSpec(spec);
+    let receivedRequest: Request | undefined;
+
+    const client = await rpc(path, {
+      fetch: async (request: Request) => {
+        receivedRequest = request;
+        return new Response(JSON.stringify({ users: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      },
+    });
+
+    const controller = new AbortController();
+    const response = await client.request('GET /users', {}, {
+      signal: controller.signal,
+    });
+
+    assert.ok(receivedRequest);
+    assert.equal(receivedRequest.signal.aborted, false);
+    controller.abort();
+    assert.equal(receivedRequest.signal.aborted, true);
+    assert.equal(response.status, 200);
   });
 });
