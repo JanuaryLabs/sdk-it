@@ -8,6 +8,10 @@ interface Metadata {
   hasMore?: boolean;
 }
 
+type PaginationRequestOptions = {
+  signal?: AbortSignal;
+};
+
 type PaginationResult<T, M extends Metadata> = {
   data: T[];
   meta: M;
@@ -18,7 +22,10 @@ type FetchFn<
   M extends Metadata,
   P extends number | bigint,
   S extends number | bigint,
-> = (input: Partial<PaginationParams<P, S>>) => Promise<PaginationResult<T, M>>;
+> = (
+  input: Partial<PaginationParams<P, S>>,
+  requestOptions?: PaginationRequestOptions,
+) => Promise<PaginationResult<T, M>>;
 
 /**
  * @experimental
@@ -33,22 +40,28 @@ export class Pagination<
   #params: PaginationParams<P, S>;
   #currentPage: Page<T> | null = null;
   readonly #fetchFn: FetchFn<T, M, P, S>;
+  readonly #requestOptions: PaginationRequestOptions;
 
   constructor(
     initialParams: Partial<PaginationParams<P, S>>,
     fetchFn: FetchFn<T, M, P, S>,
+    requestOptions: PaginationRequestOptions = {},
   ) {
     this.#fetchFn = fetchFn;
+    this.#requestOptions = requestOptions;
     this.#params = { ...initialParams, page: initialParams.page };
   }
 
-  async getNextPage() {
-    const result = await this.#fetchFn(this.#params);
+  async getNextPage(requestOptions?: PaginationRequestOptions) {
+    const result = await this.#fetchFn(this.#params, {
+      ...this.#requestOptions,
+      ...requestOptions,
+    });
     this.#currentPage = new Page(result.data);
     this.#meta = result.meta;
     this.#params = {
       ...this.#params,
-      page: ((this.#params.page as number) || 0 + 1) as never,
+      page: (((this.#params.page as number) || 0) + 1) as never,
     };
     return this;
   }
@@ -77,13 +90,13 @@ export class Pagination<
     }
   }
 
-  async *iter() {
+  async *iter(requestOptions?: PaginationRequestOptions) {
     if (!this.#currentPage) {
-      yield await this.getNextPage();
+      yield await this.getNextPage(requestOptions);
     }
 
     while (this.hasMore) {
-      yield await this.getNextPage();
+      yield await this.getNextPage(requestOptions);
     }
   }
 

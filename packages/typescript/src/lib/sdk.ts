@@ -126,12 +126,12 @@ function paginationOperation(operation: TunedOperationObject) {
     const nextPageParams = sameInputNames
       ? '...nextPageParams'
       : `${pagination.offsetParamName}: nextPageParams.offset, ${pagination.limitParamName}: nextPageParams.limit`;
-    const logic = `const pagination = new OffsetPagination(${initialParams}, async (nextPageParams) => {
+    const logic = `const pagination = new OffsetPagination(${initialParams}, async (nextPageParams, requestOptions) => {
         const dispatcher = new Dispatcher(options.interceptors, options.fetch);
         const result = await dispatcher.send(
           this.toRequest({...input, ${nextPageParams}}),
           this.output,
-          options.signal,
+          requestOptions?.signal ?? options.signal,
         );
         return {
           data: ${data}.${pagination.items},
@@ -139,7 +139,7 @@ function paginationOperation(operation: TunedOperationObject) {
             hasMore: Boolean(${data}.${pagination.hasMore}),
           },
         };
-      });
+      }, { signal: options.signal });
       await pagination.getNextPage();
       return ${returnValue}
       `;
@@ -155,12 +155,12 @@ function paginationOperation(operation: TunedOperationObject) {
       ? '...nextPageParams'
       : `${pagination.cursorParamName}: nextPageParams.cursor`;
     const logic = `
-      const pagination = new CursorPagination(${initialParams}, async (nextPageParams) => {
+      const pagination = new CursorPagination(${initialParams}, async (nextPageParams, requestOptions) => {
         const dispatcher = new Dispatcher(options.interceptors, options.fetch);
         const result = await dispatcher.send(
           this.toRequest({...input, ${nextPageParams}}),
           this.output,
-          options.signal,
+          requestOptions?.signal ?? options.signal,
         );
         return {
           data: ${data}.${pagination.items},
@@ -168,7 +168,7 @@ function paginationOperation(operation: TunedOperationObject) {
             hasMore: Boolean(${data}.${pagination.hasMore}),
           },
         };
-      });
+      }, { signal: options.signal });
       await pagination.getNextPage();
       return ${returnValue}
       `;
@@ -186,12 +186,12 @@ function paginationOperation(operation: TunedOperationObject) {
       : `${pagination.pageNumberParamName}: nextPageParams.page, ${pagination.pageSizeParamName}: nextPageParams.pageSize`;
 
     const logic = `
-      const pagination = new Pagination(${initialParams}, async (nextPageParams) => {
+      const pagination = new Pagination(${initialParams}, async (nextPageParams, requestOptions) => {
         const dispatcher = new Dispatcher(options.interceptors, options.fetch);
         const result = await dispatcher.send(
           this.toRequest({...input, ${nextPageParams}}),
           this.output,
-          options.signal,
+          requestOptions?.signal ?? options.signal,
         );
         return {
           data: ${data}.${pagination.items},
@@ -199,7 +199,8 @@ function paginationOperation(operation: TunedOperationObject) {
             hasMore: Boolean(${data}.${pagination.hasMore}),
           },
         };
-      });
+      }, { signal: options.signal });
+      await pagination.getNextPage();
       return ${returnValue}
       `;
     return `{${logic}}}`;
@@ -262,7 +263,8 @@ function fromContentType(
   const hasContentDisposition = hasHeader(response, 'Content-Disposition');
   for (const type in response.content) {
     const isStreaming = isStreamingContentType(type);
-    const isBinary = isBinaryContentType(type) || (isStreaming && hasContentDisposition);
+    const isBinary =
+      isBinaryContentType(type) || (isStreaming && hasContentDisposition);
     // Octet-stream defaults to streaming unless Content-Disposition hints a file download.
     if (isStreaming && !hasContentDisposition) {
       return streamedOutput();

@@ -7,6 +7,10 @@ interface Metadata {
   hasMore?: boolean;
 }
 
+type PaginationRequestOptions = {
+  signal?: AbortSignal;
+};
+
 type PaginationResult<T, M extends Metadata> = {
   data: T[];
   meta: M;
@@ -14,6 +18,7 @@ type PaginationResult<T, M extends Metadata> = {
 
 type FetchFn<T, M extends Metadata> = (
   input: OffsetPaginationParams,
+  requestOptions?: PaginationRequestOptions,
 ) => Promise<PaginationResult<T, M>>;
 
 /**
@@ -24,20 +29,26 @@ export class OffsetPagination<T, M extends Metadata> {
   #params: OffsetPaginationParams;
   #currentPage: Page<T> | null = null;
   readonly #fetchFn: FetchFn<T, M>;
+  readonly #requestOptions: PaginationRequestOptions;
 
   constructor(
     initialParams: Partial<OffsetPaginationParams>,
     fetchFn: FetchFn<T, M>,
+    requestOptions: PaginationRequestOptions = {},
   ) {
     this.#fetchFn = fetchFn;
+    this.#requestOptions = requestOptions;
     this.#params = {
       limit: initialParams.limit ?? 0,
       offset: initialParams.offset ?? 0,
     };
   }
 
-  async getNextPage() {
-    const result = await this.#fetchFn(this.#params);
+  async getNextPage(requestOptions?: PaginationRequestOptions) {
+    const result = await this.#fetchFn(this.#params, {
+      ...this.#requestOptions,
+      ...requestOptions,
+    });
     this.#currentPage = new Page(result.data);
     this.#meta = result.meta;
     this.#params = {
@@ -71,13 +82,13 @@ export class OffsetPagination<T, M extends Metadata> {
     }
   }
 
-  async *iter() {
+  async *iter(requestOptions?: PaginationRequestOptions) {
     if (!this.#currentPage) {
-      yield await this.getNextPage();
+      yield await this.getNextPage(requestOptions);
     }
 
     while (this.hasMore) {
-      yield await this.getNextPage();
+      yield await this.getNextPage(requestOptions);
     }
   }
 

@@ -10,6 +10,10 @@ interface Metadata {
   hasMore?: boolean;
 }
 
+type PaginationRequestOptions = {
+  signal?: AbortSignal;
+};
+
 type PaginationResult<T, M extends CursorMetadata> = {
   data: T[];
   meta: M;
@@ -17,6 +21,7 @@ type PaginationResult<T, M extends CursorMetadata> = {
 
 type FetchFn<T, M extends CursorMetadata> = (
   input: CursorPaginationParams,
+  requestOptions?: PaginationRequestOptions,
 ) => Promise<PaginationResult<T, M>>;
 
 /**
@@ -27,19 +32,25 @@ export class CursorPagination<T, M extends CursorMetadata> {
   #params: CursorPaginationParams;
   #currentPage: Page<T> | null = null;
   readonly #fetchFn: FetchFn<T, M>;
+  readonly #requestOptions: PaginationRequestOptions;
 
   constructor(
     initialParams: PartialNullable<CursorPaginationParams>,
     fetchFn: FetchFn<T, M>,
+    requestOptions: PaginationRequestOptions = {},
   ) {
     this.#fetchFn = fetchFn;
+    this.#requestOptions = requestOptions;
     this.#params = {
       cursor: initialParams.cursor ?? undefined,
     };
   }
 
-  async getNextPage() {
-    const result = await this.#fetchFn(this.#params);
+  async getNextPage(requestOptions?: PaginationRequestOptions) {
+    const result = await this.#fetchFn(this.#params, {
+      ...this.#requestOptions,
+      ...requestOptions,
+    });
     this.#currentPage = new Page(result.data);
     this.#meta = result.meta;
     this.#params = {
@@ -73,13 +84,13 @@ export class CursorPagination<T, M extends CursorMetadata> {
     }
   }
 
-  async *iter() {
+  async *iter(requestOptions?: PaginationRequestOptions) {
     if (!this.#currentPage) {
-      yield await this.getNextPage();
+      yield await this.getNextPage(requestOptions);
     }
 
     while (this.hasMore) {
-      yield await this.getNextPage();
+      yield await this.getNextPage(requestOptions);
     }
   }
 
