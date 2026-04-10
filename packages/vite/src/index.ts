@@ -1,4 +1,6 @@
 import chalk from 'chalk';
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
@@ -61,19 +63,22 @@ function filePlugin(openapi: string, settings: Settings): Omit<Plugin, 'name'> {
   let watchPath: string | null = null;
   let sourceRef: string | null = null;
 
-  const generateOnce = onceAtATime(async (ref: string) => {
-    console.log(`${chalk.blue('SDKIT')}: Generating SDK.`);
-    const spec = await loadSpec(ref);
-    await generate(spec, settings);
-    console.log(`${chalk.blue('SDKIT')}: SDK generated successfully.`);
-  });
+  const generateIfNeeded = async (ref: string) => {
+    const hash = await hashFile(watchPath || ref);
+    const key = `${hash}|${settings.output}`;
+    return cachedGeneration(key, async () => {
+      console.log(`${chalk.blue('SDKIT')}: Generating SDK.`);
+      const spec = await loadSpec(ref);
+      await generate(spec, settings);
+      console.log(`${chalk.blue('SDKIT')}: SDK generated successfully.`);
+    });
+  };
 
   return {
     configureServer(server) {
       if (!sourceRef) return;
 
       if (!watchPath) return;
-      // Watch only when we have a real filesystem path
       console.log(
         `${chalk.blue('SDKIT')}: Watching for spec changes in`,
         watchPath,
@@ -82,13 +87,13 @@ function filePlugin(openapi: string, settings: Settings): Omit<Plugin, 'name'> {
       server.watcher.on('change', async (file) => {
         if (file === watchPath) {
           console.log(`${chalk.blue('SDKIT')}: OpenAPI spec changed`, file);
-          await generateOnce(sourceRef!);
+          await generateIfNeeded(sourceRef!);
         }
       });
     },
     async buildStart() {
       if (!sourceRef) return;
-      await generateOnce(sourceRef);
+      await generateIfNeeded(sourceRef);
     },
     async configResolved(config) {
       if (startsWithProtocol(openapi)) {
@@ -108,53 +113,53 @@ function specPlugin(
   openapi: OpenAPIObject,
   settings: Settings,
 ): Omit<Plugin, 'name'> {
-  const generateOnce = onceAtATime(async (spec: OpenAPIObject) => {
-    console.log(`${chalk.blue('SDKIT')}: Generating SDK.`);
-    await generate(spec, settings);
-    console.log(`${chalk.blue('SDKIT')}: SDK generated successfully.`);
-  });
+  const generateIfNeeded = async (spec: OpenAPIObject) => {
+    const hash = hashSpec(spec);
+    const key = `${hash}|${settings.output}`;
+    return cachedGeneration(key, async () => {
+      console.log(`${chalk.blue('SDKIT')}: Generating SDK.`);
+      await generate(spec, settings);
+      console.log(`${chalk.blue('SDKIT')}: SDK generated successfully.`);
+    });
+  };
   return {
     async configResolved() {
       // No-op for specPlugin
     },
     async configureServer() {
-      await generateOnce(openapi);
+      await generateIfNeeded(openapi);
     },
     async buildStart() {
-      await generateOnce(openapi);
+      await generateIfNeeded(openapi);
     },
   };
 }
 
-/**
- * Ensures that an async function has only one execution at a time (prevents concurrent calls).
- * If called while already executing, subsequent calls will wait for the current execution to complete
- * and receive the same result.
- * @param fn The async function to serialize.
- */
-export function onceAtATime<TArgs extends readonly unknown[], TReturn>(
-  fn: (...args: TArgs) => Promise<TReturn>,
-): (...args: TArgs) => Promise<TReturn> {
-  let current: Promise<TReturn> | null = null;
+const generationCache = new Map<string, Promise<void>>();
 
-  return function (...args: TArgs): Promise<TReturn> {
-    if (current) {
-      // Return the existing promise if already executing
-      return current;
-    }
+function cachedGeneration(
+  key: string,
+  fn: () => Promise<void>,
+): Promise<void> {
+  const existing = generationCache.get(key);
+  if (existing) return existing;
 
-    // Start new execution
-    current = (async () => {
-      try {
-        return await fn(...args);
-      } finally {
-        // Clear the current execution when done
-        current = null;
-      }
-    })();
+  const promise = fn().catch((err) => {
+    generationCache.delete(key);
+    throw err;
+  });
+  generationCache.set(key, promise);
+  return promise;
+}
 
-    return current;
-  };
+function hashFile(filePath: string): Promise<string> {
+  return readFile(filePath).then((content) =>
+    createHash('sha256').update(content).digest('hex'),
+  );
+}
+
+function hashSpec(spec: OpenAPIObject): string {
+  return createHash('sha256').update(JSON.stringify(spec)).digest('hex');
 }
 
 function startsWithProtocol(url: string): boolean {

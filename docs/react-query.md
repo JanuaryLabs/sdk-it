@@ -12,6 +12,7 @@ Copy the following code into your project.
 <summary>View the API code</summary>
 
 ```ts
+import { Client, type Endpoints } from '@datahub/client';
 import {
   type MutationFunctionContext,
   QueryClient,
@@ -23,8 +24,6 @@ import {
   useMutationState,
   useQuery,
 } from '@tanstack/react-query';
-
-import { Client, type Endpoints } from '@datahub/client';
 
 const BASE_URL = 'https://api.example.com';
 
@@ -74,7 +73,8 @@ export function useData<E extends DataEndpoints>(
     queryKey: [endpoint, JSON.stringify(input)],
     ...options,
     meta: { endpoint, input },
-    queryFn: () => client.request(endpoint, input ?? ({} as never)),
+    queryFn: ({ signal }) =>
+      client.request(endpoint, input ?? ({} as never), { signal }),
   });
 }
 
@@ -275,7 +275,8 @@ export function fetchData<E extends DataEndpoints>(
     queryKey: [endpoint, JSON.stringify(input)],
     ...options,
     meta: { endpoint, input },
-    queryFn: () => client.request(endpoint, input ?? ({} as never)),
+    queryFn: ({ signal }) =>
+      client.request(endpoint, input ?? ({} as never), { signal }),
   });
 }
 
@@ -330,6 +331,7 @@ function Payments() {
 
 ```tsx
 import { useState } from 'react';
+
 import { useAction } from './use-client.ts';
 
 function CreatePaymentForm() {
@@ -417,7 +419,8 @@ function JobStatus({ jobId }: { jobId: string }) {
     { id: jobId },
     {
       interval: 2000,
-      shouldStop: (data) => data?.status === 'completed' || data?.status === 'failed',
+      shouldStop: (data) =>
+        data?.status === 'completed' || data?.status === 'failed',
     },
   );
 
