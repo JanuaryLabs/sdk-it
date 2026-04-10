@@ -131,18 +131,18 @@ export class TypeScriptSnippet implements Generator {
     switch (pagination.type) {
       case 'page':
         return {
-          content: `const result = ${this.#toRequest(entry, payload)}`,
-          footer: `for await (const page of result) {\n\t\tconsole.log(page);\n}`,
+          content: `const controller = new AbortController();\nconst result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload}, { signal: controller.signal });`,
+          footer: `for await (const page of result.iter({ signal: controller.signal })) {\n\t\tconsole.log(page);\n}`,
         };
       case 'offset':
         return {
-          content: `const result = ${this.#toRequest(entry, payload)}`,
-          footer: `for await (const page of result) {\n\t\tconsole.log(page);\n}`,
+          content: `const controller = new AbortController();\nconst result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload}, { signal: controller.signal });`,
+          footer: `for await (const page of result.iter({ signal: controller.signal })) {\n\t\tconsole.log(page);\n}`,
         };
       case 'cursor':
         return {
-          content: `const result = ${this.#toRequest(entry, payload)}`,
-          footer: `for await (const page of result) {\n\t\tconsole.log(page);\n}`,
+          content: `const controller = new AbortController();\nconst result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload}, { signal: controller.signal });`,
+          footer: `for await (const page of result.iter({ signal: controller.signal })) {\n\t\tconsole.log(page);\n}`,
         };
     }
     return this.#normal(entry, payload);
@@ -378,10 +378,10 @@ export class TypeScriptSnippet implements Generator {
         '',
         '// Check if more pages exist',
         'if (result.hasMore) {',
-        '  await result.getNextPage();',
+        '  await result.getNextPage({ signal: controller.signal });',
         '}',
         '',
-        '// Or iterate through all pages automatically',
+        '// Or iterate through all pages with cancellable page fetches',
         paginationExample.footer,
       ]),
     );

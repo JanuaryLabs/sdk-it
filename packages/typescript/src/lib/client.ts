@@ -109,7 +109,7 @@ export class ${spec.name} {
   async prepare<const E extends keyof typeof schemas>(
     endpoint: E,
     input: z.input<(typeof schemas)[E]['schema']>,
-    options?: { headers?: HeadersInit },
+    options?: { signal?: AbortSignal; headers?: HeadersInit },
   ) {
     return prepare(this, endpoint, input, options);
   }
@@ -190,7 +190,7 @@ export async function prepare<const E extends keyof typeof schemas>(
   client: ${spec.name},
   endpoint: E,
   input: z.input<(typeof schemas)[E]['schema']>,
-  requestOptions?: { headers?: HeadersInit },
+  requestOptions?: { signal?: AbortSignal; headers?: HeadersInit },
 ): Promise<RequestConfig & {
   parse: (response: Response) => ReturnType<typeof parse>;
 }> {
@@ -211,6 +211,15 @@ export async function prepare<const E extends keyof typeof schemas>(
   ];
 
   let config = route.toRequest(parsedInput as never);
+  if (requestOptions?.signal) {
+    config = {
+      ...config,
+      init: {
+        ...config.init,
+        signal: requestOptions.signal,
+      },
+    };
+  }
   for (const interceptor of interceptors) {
     if (interceptor.before) {
       config = await interceptor.before(config);

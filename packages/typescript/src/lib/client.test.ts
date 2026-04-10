@@ -5,8 +5,8 @@ import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import backend from './client.ts';
-import { expandServerUrls } from './server-urls.ts';
 import type { Spec } from './sdk.ts';
+import { expandServerUrls } from './server-urls.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(__dirname, '../../test/fixtures/client');
@@ -27,9 +27,7 @@ async function assertMatchesGolden(name: string, actual: string) {
 
 describe('expandServerUrls', () => {
   test('passes through URLs without variables', () => {
-    const result = expandServerUrls([
-      { url: 'https://api.example.com' },
-    ]);
+    const result = expandServerUrls([{ url: 'https://api.example.com' }]);
     assert.deepStrictEqual(result, ['https://api.example.com']);
   });
 
@@ -212,6 +210,26 @@ describe('client template', () => {
       makeImport: (p) => p,
     };
     await assertMatchesGolden('basic', backend(spec));
+  });
+
+  test('prepare accepts signal and includes it in the prepared request config', () => {
+    const spec: Omit<Spec, 'operations'> = {
+      name: 'TestClient',
+      servers: [],
+      options: [],
+      makeImport: (p) => p,
+    };
+
+    const result = backend(spec);
+
+    assert.match(
+      result,
+      /async prepare<const E extends keyof typeof schemas>\([\s\S]*?options\?: \{ signal\?: AbortSignal; headers\?: HeadersInit \},/,
+    );
+    assert.match(
+      result,
+      /let config = route\.toRequest\(parsedInput as never\);\n  if \(requestOptions\?\.signal\) \{\n    config = \{\n      \.\.\.config,\n      init: \{\n        \.\.\.config\.init,\n        signal: requestOptions\.signal,\n      \},\n    \};\n  \}/,
+    );
   });
 
   test('client with server URLs', async () => {
