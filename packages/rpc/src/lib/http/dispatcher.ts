@@ -104,13 +104,10 @@ export class Dispatcher {
       }
     }
 
-    let response = await (this.#fetch ?? fetch)(
-      new Request(config.url, config.init),
-      {
-        ...config.init,
-        signal: signal,
-      },
-    );
+    const init =
+      signal === undefined ? config.init : { ...config.init, signal };
+
+    let response = await (this.#fetch ?? fetch)(new Request(config.url, init));
 
     for (let i = this.#interceptors.length - 1; i >= 0; i--) {
       const interceptor = this.#interceptors[i];
