@@ -21,7 +21,12 @@ const optionsSchema = z.object({'token': z.union([z.string(),z.function().return
         token = await Promise.resolve(token());
       }
       return `Bearer ${token}`;
-    }).describe('Bearer token for authentication. Can be a string or a function that returns a string.'), 'x-api-key': z.string(), fetch: fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.'), baseUrl: z.enum(servers).default(servers[0]).describe('Base URL of the API server.'), headers: z.record(z.string()).optional().describe('Default headers to include in all requests.'), skipValidation: z.boolean().optional().describe('Skip request input validation. Client options and TypeScript types still enforce correct usage.')});
+    }).describe('Bearer token for authentication. Can be a string or a function that returns a string.'), 'x-api-key': z.string(), fetch: fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.'), baseUrl: z.union([z.string(),z.function().returns(z.union([z.string(), z.promise(z.string())])),]).default(servers[0]).transform(async (baseUrl) => {
+      if (typeof baseUrl === 'function') {
+        return Promise.resolve(baseUrl());
+      }
+      return baseUrl;
+    }).describe('Base URL of the API server. Can be a string or a function that returns a string.'), headers: z.record(z.string()).optional().describe('Default headers to include in all requests.'), skipValidation: z.boolean().optional().describe('Skip request input validation. Client options and TypeScript types still enforce correct usage.')});
 export type Servers = typeof servers[number];
 
 type FullClientOptions = z.input<typeof optionsSchema>;

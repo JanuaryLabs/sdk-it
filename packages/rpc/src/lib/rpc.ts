@@ -35,6 +35,18 @@ import {
 import * as http from './http/response.ts';
 import { schemaToZod } from './zod.ts';
 
+const baseUrlSchema = z
+  .union([
+    z.string(),
+    z.function().returns(z.union([z.string(), z.promise(z.string())])),
+  ])
+  .transform(async (baseUrl) => {
+    if (typeof baseUrl === 'function') {
+      return Promise.resolve(baseUrl());
+    }
+    return baseUrl;
+  });
+
 const optionsSchema = z.object({
   token: z
     .union([
@@ -50,7 +62,7 @@ const optionsSchema = z.object({
       return `Bearer ${token}`;
     }),
   fetch: fetchType,
-  baseUrl: z.string(),
+  baseUrl: baseUrlSchema,
   headers: z.record(z.string()).optional(),
 });
 

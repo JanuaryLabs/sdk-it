@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
-import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, test, afterEach } from 'node:test';
-
+import { afterEach, describe, test } from 'node:test';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
 import { toAgents } from './rpc.ts';
@@ -23,11 +22,13 @@ function cleanup() {
   }
 }
 
-function makeSpec(overrides: {
-  tags?: object[];
-  paths?: object;
-  servers?: object[];
-} = {}) {
+function makeSpec(
+  overrides: {
+    tags?: object[];
+    paths?: object;
+    servers?: object[];
+  } = {},
+) {
   return {
     openapi: '3.1.0',
     info: { title: 'Test API', version: '1.0.0' },
@@ -323,8 +324,16 @@ describe('toAgents', () => {
     assert.ok(agents.posts, 'posts group exists');
     assert.ok(agents.users.tools.getUsers, 'getUsers in users group');
     assert.ok(agents.posts.tools.getPosts, 'getPosts in posts group');
-    assert.equal(agents.users.tools.getPosts, undefined, 'getPosts not in users');
-    assert.equal(agents.posts.tools.getUsers, undefined, 'getUsers not in posts');
+    assert.equal(
+      agents.users.tools.getPosts,
+      undefined,
+      'getPosts not in users',
+    );
+    assert.equal(
+      agents.posts.tools.getUsers,
+      undefined,
+      'getUsers not in posts',
+    );
   });
 
   test('multiple operations with same tag are grouped together', async () => {
@@ -693,17 +702,17 @@ describe('toAgents', () => {
     });
 
     const toolDef = agents.users.tools.getUsers;
-    const result = await toolDef.execute({ query: 'test' }, {
-      toolCallId: 'test-call',
-      messages: [],
-    });
+    const result = await toolDef.execute(
+      { query: 'test' },
+      {
+        toolCallId: 'test-call',
+        messages: [],
+      },
+    );
 
     const req = capturedRequest!;
     assert.ok(req, 'fetch was called');
-    assert.ok(
-      req.url.includes('/users'),
-      'request URL includes /users',
-    );
+    assert.ok(req.url.includes('/users'), 'request URL includes /users');
     assert.equal(req.method, 'GET', 'request method is GET');
 
     const parsed = JSON.parse(result as string);
@@ -711,6 +720,53 @@ describe('toAgents', () => {
       parsed.data,
       { users: [{ id: 1, name: 'Alice' }] },
       'response data matches mock',
+    );
+  });
+
+  test('tool execute resolves baseUrl functions for each request', async () => {
+    const capturedUrls: string[] = [];
+    let currentBaseUrl = 'http://localhost:3000';
+
+    const mockFetch = async (request: Request) => {
+      capturedUrls.push(request.url);
+      return new Response(JSON.stringify({ users: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+
+    const spec = makeSpec();
+    const path = writeSpec(spec);
+    const agents = await toAgents(path, {
+      baseUrl: () => currentBaseUrl,
+      fetch: mockFetch as any,
+    });
+
+    await agents.users.tools.getUsers.execute(
+      {},
+      {
+        toolCallId: 'test-call-1',
+        messages: [],
+      },
+    );
+
+    currentBaseUrl = 'http://localhost:4000';
+
+    await agents.users.tools.getUsers.execute(
+      {},
+      {
+        toolCallId: 'test-call-2',
+        messages: [],
+      },
+    );
+
+    assert.ok(
+      capturedUrls[0]?.startsWith('http://localhost:3000/users'),
+      'first request uses initial baseUrl',
+    );
+    assert.ok(
+      capturedUrls[1]?.startsWith('http://localhost:4000/users'),
+      'second request uses updated baseUrl',
     );
   });
 });

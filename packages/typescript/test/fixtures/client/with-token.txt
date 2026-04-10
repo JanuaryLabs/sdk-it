@@ -19,7 +19,12 @@ const optionsSchema = z.object({'token': z.union([z.string(),z.function().return
         token = await Promise.resolve(token());
       }
       return `Bearer ${token}`;
-    }).describe('Bearer token for authentication. Can be a string or a function that returns a string.'), fetch: fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.'), baseUrl: z.string().describe('Base URL of the API server.'), headers: z.record(z.string()).optional().describe('Default headers to include in all requests.'), skipValidation: z.boolean().optional().describe('Skip request input validation. Client options and TypeScript types still enforce correct usage.')});
+    }).describe('Bearer token for authentication. Can be a string or a function that returns a string.'), fetch: fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.'), baseUrl: z.union([z.string(),z.function().returns(z.union([z.string(), z.promise(z.string())])),]).transform(async (baseUrl) => {
+      if (typeof baseUrl === 'function') {
+        return Promise.resolve(baseUrl());
+      }
+      return baseUrl;
+    }).describe('Base URL of the API server. Can be a string or a function that returns a string.'), headers: z.record(z.string()).optional().describe('Default headers to include in all requests.'), skipValidation: z.boolean().optional().describe('Skip request input validation. Client options and TypeScript types still enforce correct usage.')});
 
 
 type AuthClientOptions = z.input<typeof optionsSchema>;

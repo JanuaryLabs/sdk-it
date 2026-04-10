@@ -4,6 +4,7 @@ import { toZod } from './emitters/zod.ts';
 import type { Spec } from './sdk.ts';
 
 export default (spec: Omit<Spec, 'operations'>) => {
+  const baseUrlSchema = `z.union([z.string(),z.function().returns(z.union([z.string(), z.promise(z.string())])),])${spec.servers.length ? '.default(servers[0])' : ''}`;
   const defaultHeaders = `{${spec.options
     .filter((value) => value.in === 'header')
     .map(
@@ -50,9 +51,12 @@ export default (spec: Omit<Spec, 'operations'>) => {
       schema: `fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.')`,
     },
     baseUrl: {
-      schema: spec.servers.length
-        ? `z.enum(servers).default(servers[0]).describe('Base URL of the API server.')`
-        : `z.string().describe('Base URL of the API server.')`,
+      schema: `${baseUrlSchema}.transform(async (baseUrl) => {
+      if (typeof baseUrl === 'function') {
+        return Promise.resolve(baseUrl());
+      }
+      return baseUrl;
+    }).describe('Base URL of the API server. Can be a string or a function that returns a string.')`,
     },
     headers: {
       schema: `z.record(z.string()).optional().describe('Default headers to include in all requests.')`,
