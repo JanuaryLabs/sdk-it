@@ -388,6 +388,35 @@ describe('ZodEmitter date handling', () => {
     });
   });
 
+  describe('binary types', () => {
+    test('contentEncoding binary emits z.custom<Blob>()', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle(
+          { type: 'string', contentEncoding: 'binary' },
+          true,
+        ),
+        'z.custom<Blob>()',
+      );
+    });
+
+    test('format byte emits z.custom<Blob>()', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle({ type: 'string', format: 'byte' }, true),
+        'z.custom<Blob>()',
+      );
+    });
+
+    test('format binary emits z.custom<Blob>()', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle({ type: 'string', format: 'binary' }, true),
+        'z.custom<Blob>()',
+      );
+    });
+  });
+
   describe('boolean types', () => {
     test('coerce-boolean produces z.coerce.boolean()', () => {
       const emitter = new ZodEmitter(emptySpec);

@@ -142,7 +142,7 @@ export class RuntimeZodConverter {
    */
   string(schema: SchemaObject): ZodSchema {
     if (schema.contentEncoding === 'binary') {
-      return z.instanceof(Blob);
+      return z.custom<Blob>();
     }
 
     const base =
@@ -175,7 +175,7 @@ export class RuntimeZodConverter {
         return base.ip({ version: 'v6' });
       case 'byte':
       case 'binary':
-        return z.instanceof(Blob);
+        return z.custom<Blob>();
       case 'int64':
         // JS numbers can't reliably store int64, keep as string or use bigint
         return base;

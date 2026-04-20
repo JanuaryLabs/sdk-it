@@ -4,8 +4,11 @@ export type InjectImport = {
 };
 
 function removeUnsupportedMethods(schema: string) {
-  // fixme: use overrides to detect instanceOf
-  return schema.replaceAll('.instanceof(File)', '.string().base64()');
+  return schema
+    .replaceAll('.instanceof(File)', '.string().base64()')
+    .replaceAll('.instanceof(Blob)', '.string().base64()')
+    .replaceAll('.custom<File>()', '.string().base64()')
+    .replaceAll('.custom<Blob>()', '.string().base64()');
 }
 
 export async function evalZod(schema: string, imports: InjectImport[] = []) {

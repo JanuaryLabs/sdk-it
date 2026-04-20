@@ -203,3 +203,11 @@ export default FileUpload;
 - The `@openapi` tag on the Hono route is essential for the analyzer to discover the endpoint.
 - The `useAction` hook ([React Query recipe](../react-query.md)) creates the `FormData` object automatically when it detects a `File` in the mutation payload.
 - Types stay safe from backend validation through frontend usage.
+
+### Binary fields in generated SDKs
+
+Backend routes use `z.instanceof(File)` because Node has `File` as a global. Generated client SDKs cannot assume the same — they ship to browsers, workers, and older Node versions where `Blob`, `File`, `Request`, or `Response` may not exist as globals.
+
+To stay portable, the generator emits `z.custom<Blob>()` (and similar) for binary fields instead of `z.instanceof(Blob)`. The static type stays `Blob`; only the runtime `instanceof` check is dropped, since referencing `Blob` as a value would throw `ReferenceError` in environments without it.
+
+Trade-off: the SDK no longer rejects a non-Blob value at the validation step. Bad inputs surface later in `fetch`/`FormData` instead. If you need strict runtime checks in your own server code, keep using `z.instanceof(File)` — this only affects emitted client code.

@@ -195,7 +195,7 @@ export class ZodEmitter {
     // for validation. However, we could keep them as metadata if you want.
 
     if (schema.contentEncoding === 'binary') {
-      base = 'z.instanceof(Blob)';
+      base = 'z.custom<Blob>()';
       return base;
     }
 
@@ -237,7 +237,7 @@ export class ZodEmitter {
         break;
       case 'byte':
       case 'binary':
-        base = 'z.instanceof(Blob)';
+        base = 'z.custom<Blob>()';
         break;
       case 'int64':
         // JS numbers can't reliably store int64, consider z.bigint() or keep as string

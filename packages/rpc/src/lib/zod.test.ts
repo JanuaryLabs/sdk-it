@@ -172,6 +172,27 @@ describe('RuntimeZodConverter', () => {
     assert.equal(schema.safeParse({ a: 1 }).success, true);
   });
 
+  test('contentEncoding binary accepts Blob values', () => {
+    const schema = converter.handle(
+      { type: 'string', contentEncoding: 'binary' },
+      true,
+    );
+    const blob = new Blob(['hello'], { type: 'text/plain' });
+    assert.equal(schema.safeParse(blob).success, true);
+  });
+
+  test('format byte/binary accepts Blob values', () => {
+    for (const format of ['byte', 'binary'] as const) {
+      const schema = converter.handle({ type: 'string', format }, true);
+      const blob = new Blob(['hello'], { type: 'text/plain' });
+      assert.equal(
+        schema.safeParse(blob).success,
+        true,
+        `format ${format} should accept Blob`,
+      );
+    }
+  });
+
   test('coerce-bigint preserves bigint coercion and defaults', () => {
     const schema = converter.handle(
       {

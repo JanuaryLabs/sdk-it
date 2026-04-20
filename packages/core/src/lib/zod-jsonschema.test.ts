@@ -156,6 +156,25 @@ describe('evalZod', () => {
     }
   });
 
+  test('converts binary-like zod schemas to a base64 string schema', async () => {
+    const cases = [
+      'z.instanceof(File)',
+      'z.instanceof(Blob)',
+      'z.custom<File>()',
+      'z.custom<Blob>()',
+    ];
+
+    for (const source of cases) {
+      const { schema } = await evalZod(source);
+      assert.equal(schema.type, 'string', `${source}: expected string type`);
+      assert.equal(
+        schema.format,
+        'binary',
+        `${source}: expected base64 format:binary`,
+      );
+    }
+  });
+
   test('collapses primitive pipelines into a single schema', async () => {
     const { optional, schema } = await evalZod(
       'z.coerce.number().int().default(1).pipe(z.number().min(0)).nullish()',

@@ -34,8 +34,8 @@ export type OutputType =
 
 export const fetchType = z
   .function()
-  .args(z.instanceof(Request))
-  .returns(z.promise(z.instanceof(Response)))
+  .args(z.custom<Request>())
+  .returns(z.promise(z.custom<Response>()))
   .optional();
 
 export async function parse<T extends OutputType[]>(
