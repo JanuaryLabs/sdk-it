@@ -88,8 +88,10 @@
           "@sdk-it/typescript",
           "@sdk-it/dart",
           "@sdk-it/cli",
+          "@sdk-it/command",
           "@sdk-it/generic",
-          "@sdk-it/hono"
+          "@sdk-it/hono",
+          "@sdk-it/rpc"
         ]
       },
       "cache": true,

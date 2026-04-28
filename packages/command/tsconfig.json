@@ -1,0 +1,25 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../rpc"
+    },
+    {
+      "path": "../spec"
+    },
+    {
+      "path": "../typescript"
+    },
+    {
+      "path": "./tsconfig.lib.json"
+    },
+    {
+      "path": "./tsconfig.test.json"
+    }
+  ]
+}

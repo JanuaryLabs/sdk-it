@@ -1,0 +1,33 @@
+{
+  "name": "@sdk-it/command",
+  "version": "0.42.1",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!**/*.tsbuildinfo",
+    "!**/*.test.*"
+  ],
+  "dependencies": {
+    "@sdk-it/core": "0.42.1",
+    "@sdk-it/rpc": "0.42.1",
+    "@sdk-it/spec": "0.42.1",
+    "@sdk-it/typescript": "0.42.1",
+    "commander": "^13.0.0",
+    "openapi3-ts": "4.5.0",
+    "zod": "^3.25.76 || ^4.0.0"
+  }
+}

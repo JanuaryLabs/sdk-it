@@ -44,6 +44,9 @@
     },
     {
       "path": "./packages/vite"
+    },
+    {
+      "path": "./packages/command"
     }
   ]
 }

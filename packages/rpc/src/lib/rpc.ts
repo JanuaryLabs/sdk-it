@@ -66,7 +66,7 @@ const optionsSchema = z.object({
   headers: z.record(z.string()).optional(),
 });
 
-type ClientOptions = z.input<typeof optionsSchema>;
+export type ClientOptions = z.input<typeof optionsSchema>;
 
 export function inputToPath(
   operation: TunedOperationObject,
@@ -153,7 +153,7 @@ export class Client {
   }
 }
 
-function createRpc(ir: IR, options: Partial<ClientOptions> = {}) {
+export function createRpc(ir: IR, options: Partial<ClientOptions> = {}) {
   const schemas: Record<Endpoint, any> = {};
   forEachOperation(ir, (entry, operation) => {
     const endpoint: Endpoint = `${entry.method.toUpperCase() as Method} ${entry.path}`;
