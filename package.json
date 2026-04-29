@@ -54,7 +54,7 @@
     "nx": "21.2.1",
     "prettier": "^3.6.1",
     "prettier-plugin-tailwindcss": "^0.6.13",
-    "shiki": "^3.7.0",
+    "shiki": "^3.23.0",
     "tslib": "^2.8.1",
     "typescript": "^6.0.0",
     "typescript-eslint": "^8.35.0",

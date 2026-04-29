@@ -20,7 +20,6 @@ import { AskAi } from './ai';
 const aiValue = crypto.randomUUID();
 
 export function SearchCmdk() {
-  // const { containerRef } = useScrollToBottom();
   const { sidebar, operationsMap } = useRootData();
   const [open, setOpen] = useState(false);
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(

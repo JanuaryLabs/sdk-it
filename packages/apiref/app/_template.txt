@@ -1,4 +1,4 @@
-import { MD } from '../api-doc/md.tsx';
+import { MD } from '../api-doc/markdown.tsx';
 import { Loader, Wand2 } from 'lucide-react';
 
 import { SearchCmdk } from '../components/search';

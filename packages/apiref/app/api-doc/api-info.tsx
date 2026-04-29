@@ -1,5 +1,5 @@
 import { useRootData } from '../use-root-data';
-import { MD } from './md';
+import { MD } from './markdown';
 
 export function ApiInfoSection() {
   const {
@@ -16,7 +16,6 @@ export function ApiInfoSection() {
 
         <MD
           className="prose dark:prose-invert"
-          id={'api-info-description'}
           content={info.description}
         />
 

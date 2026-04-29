@@ -32,7 +32,6 @@ export function OperationsList() {
                 <h3 className="mb-4 text-3xl font-semibold">{group.title}</h3>
                 <Description
                   className="prose"
-                  id={group.id}
                   description={group.description}
                 />
                 <Separator className="mt-12" />

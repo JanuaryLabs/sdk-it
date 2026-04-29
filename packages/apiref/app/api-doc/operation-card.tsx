@@ -7,7 +7,7 @@ import { EditorTabs } from '../components/sdks-tabs';
 import { Badge } from '../shadcn/badge';
 import { cn } from '../shadcn/cn';
 import { useRootData } from '../use-root-data';
-import { MD } from './md';
+import { MD } from './markdown';
 import type { AugmentedOperation } from './types';
 
 interface OperationCardProps {
@@ -34,14 +34,9 @@ export function OperationCard({
     return entry.snippets.map((snippet) => ({
       name: snippet.language,
       value: snippet.language,
-      content: (
-        <MD
-          id={`${operation.operationId}-${snippet.language}`}
-          content={snippet.code}
-        />
-      ),
+      content: <MD content={snippet.code} />,
     }));
-  }, [entry.snippets, operation.operationId]);
+  }, [entry.snippets]);
 
   return (
     <div className={cn('pt-12', className)}>

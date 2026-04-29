@@ -1,18 +1,27 @@
-import { type Message, type UseChatHelpers, useChat } from '@ai-sdk/react';
+import { type UIMessage, type UseChatHelpers, useChat } from '@ai-sdk/react';
+import {
+  DefaultChatTransport,
+  getToolName,
+  isToolUIPart,
+} from 'ai';
 import { Dot } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import React, {
+  type ChangeEvent,
+  type FormEvent,
   type PropsWithChildren,
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { AiOutlineArrowDown } from 'react-icons/ai';
-import { useLocalStorage } from 'usehooks-ts';
+import { type ScrollToBottom, useStickToBottom } from 'use-stick-to-bottom';
 
 import { Button } from '@sdk-it/shadcn';
 
-import { StillMarkdown } from '../api-doc/still-markdown';
+import { StillMarkdown } from '../api-doc/markdown';
 import {
   Credenza,
   CredenzaBody,
@@ -22,11 +31,21 @@ import {
   CredenzaTitle,
   CredenzaTrigger,
 } from '../components/credenza';
-import { useScrollToBottom } from '../hooks/use-scroll-to-bottom';
 import { cn } from '../shadcn/cn';
 import { MessageInput } from './message-input';
 import { TextShimmer } from './text-shimmer';
 import useElementHeight from './use-element-height';
+
+type ChatHelpers = UseChatHelpers<UIMessage>;
+
+function getMessageText(message: UIMessage): string {
+  return message.parts
+    .filter((part): part is Extract<UIMessage['parts'][number], { type: 'text' }> =>
+      part.type === 'text',
+    )
+    .map((part) => part.text)
+    .join('');
+}
 
 export function AI(props: PropsWithChildren<{ open: boolean }>) {
   const [open, setOpen] = useState(() => props.open);
@@ -52,26 +71,37 @@ export function AI(props: PropsWithChildren<{ open: boolean }>) {
 }
 
 export function AskAi(props: { className?: string }) {
-  const [storedMessages, setStoredMessages] = useLocalStorage<Message[]>(
-    'messages',
+  const [input, setInput] = useState('');
+  const transport = useMemo(
+    () => new DefaultChatTransport({ api: 'http://localhost:3000' }),
     [],
   );
-  const [height, setHeight] = useState();
-  const {
-    messages,
-    input,
-    setInput,
-    append,
-    addToolResult,
-    handleInputChange,
-    handleSubmit,
-    status,
-    stop,
-  } = useChat({
-    api: 'http://localhost:3000',
-    // initialMessages: storedMessages,
-  });
+  const { messages, sendMessage, status, stop } = useChat({ transport });
   const [elementRef, scrollByHeight] = useElementHeight<HTMLDivElement>();
+  const { scrollRef, contentRef, isAtBottom, scrollToBottom } = useStickToBottom({
+    resize: 'smooth',
+    initial: false,
+  });
+
+  const setScrollRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      elementRef(node);
+      scrollRef(node);
+    },
+    [elementRef, scrollRef],
+  );
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = input.trim();
+    if (!trimmed) return;
+    sendMessage({ text: trimmed });
+    setInput('');
+  };
+
+  const handleInputChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(event.target.value);
+  };
 
   return (
     <div
@@ -80,24 +110,21 @@ export function AskAi(props: { className?: string }) {
         props.className,
       )}
     >
-      <div ref={elementRef} className="relative flex flex-col overflow-auto">
-        <div className="flex h-full flex-col items-start">
+      <div
+        ref={setScrollRef}
+        className="relative flex flex-col overflow-auto"
+      >
+        <div ref={contentRef} className="flex h-full flex-col items-start">
           <ChatList
             scrollByHeight={scrollByHeight}
             status={status}
             messages={messages}
-            append={append}
+            sendMessage={sendMessage}
+            isAtBottom={isAtBottom}
+            scrollToBottom={scrollToBottom}
           />
         </div>
       </div>
-      {/* <Separator /> */}
-      {/* <PromptForm
-        handleInputChange={handleInputChange}
-        handleSubmit={handleSubmit}
-        input={input}
-        status={status}
-        stop={stop}
-      /> */}
       <form
         onSubmit={handleSubmit}
         className="flex w-full items-center justify-between"
@@ -116,23 +143,20 @@ export function AskAi(props: { className?: string }) {
 
 export function ChatList(
   props: PropsWithChildren<{
-    messages: Message[];
-    append: UseChatHelpers['append'];
-    status: UseChatHelpers['status'];
+    messages: UIMessage[];
+    sendMessage: ChatHelpers['sendMessage'];
+    status: ChatHelpers['status'];
     scrollByHeight: number;
+    isAtBottom: boolean;
+    scrollToBottom: ScrollToBottom;
   }>,
 ) {
   const [containerHeight, setContainerHeight] = useState<number | undefined>(
     undefined,
   );
-  const {
-    isAtBottom,
-    scrollToBottom,
-    containerRef: messagesContainerRef,
-    endRef: messagesEndRef,
-    onViewportEnter,
-    onViewportLeave,
-  } = useScrollToBottom();
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { isAtBottom, scrollToBottom } = props;
 
   useEffect(() => {
     if (props.status === 'submitted') {
@@ -140,7 +164,6 @@ export function ChatList(
     }
   }, [props.status, scrollToBottom]);
 
-  // move the last message to top on submit
   useEffect(() => {
     if (props.status === 'submitted' && messagesContainerRef.current) {
       const el = messagesContainerRef.current;
@@ -148,7 +171,6 @@ export function ChatList(
       if (!lastMessage) {
         return;
       }
-      // Calculate height based on the last message's position
       const lastMessageBottom =
         lastMessage.offsetTop + lastMessage.offsetHeight;
       const additionalSpace =
@@ -170,10 +192,7 @@ export function ChatList(
     if (lastMessage.role === 'user') {
       return true;
     }
-    if (!lastMessage.parts) {
-      return true;
-    }
-    if (lastMessage.parts.length === 0) {
+    if (!lastMessage.parts || lastMessage.parts.length === 0) {
       return true;
     }
     const lastPart = lastMessage.parts.at(-1);
@@ -183,10 +202,7 @@ export function ChatList(
     if (lastPart.type === 'step-start') {
       return true;
     }
-    if (
-      lastPart.type === 'tool-invocation' &&
-      lastPart.toolInvocation.state !== 'result'
-    ) {
+    if (isToolUIPart(lastPart) && lastPart.state !== 'output-available') {
       return true;
     }
     return false;
@@ -200,16 +216,11 @@ export function ChatList(
     if (!lastMessage) {
       return null;
     }
-    const lastCall = (lastMessage.parts ?? []).findLast(
-      (it) => it.type === 'tool-invocation',
-    );
+    const lastCall = (lastMessage.parts ?? []).findLast(isToolUIPart);
     if (!lastCall) {
       return null;
     }
-    if (lastCall.type !== 'tool-invocation') {
-      return null;
-    }
-    return lastCall.toolInvocation.toolName;
+    return getToolName(lastCall);
   }, [props.messages, props.status]);
 
   return (
@@ -224,22 +235,26 @@ export function ChatList(
       {props.messages.length === 0 && (
         <SuggestedPrompts
           onSelectPrompt={(prompt) => {
-            props.append({
-              role: 'user',
-              content: prompt,
-            });
+            props.sendMessage({ text: prompt });
           }}
         />
       )}
-      {props.messages.map((message, index) => (
-        <React.Fragment key={message.id}>
-          {message.role === 'user' ? (
-            <UserMessage message={message.content} />
-          ) : (
-            <AssistantMessage message={message} />
-          )}
-        </React.Fragment>
-      ))}
+      {props.messages.map((message, index) => {
+        const isLast = index === props.messages.length - 1;
+        const isStreaming =
+          isLast &&
+          message.role === 'assistant' &&
+          (props.status === 'streaming' || props.status === 'submitted');
+        return (
+          <React.Fragment key={message.id}>
+            {message.role === 'user' ? (
+              <UserMessage message={getMessageText(message)} />
+            ) : (
+              <AssistantMessage message={message} isStreaming={isStreaming} />
+            )}
+          </React.Fragment>
+        );
+      })}
 
       {(isWaiting || lastCallName) && (
         <div className="flex flex-col border-l pl-4 text-sm">
@@ -248,11 +263,6 @@ export function ChatList(
           </TextShimmer>
         </div>
       )}
-      {/* {lastCallName && (
-        <TextShimmer className="font-mono text-sm" as="span">
-          {lastCallName}
-        </TextShimmer>
-      )} */}
       <AnimatePresence>
         {!isAtBottom && (
           <motion.div
@@ -277,11 +287,9 @@ export function ChatList(
           </motion.div>
         )}
       </AnimatePresence>
-      <motion.div
+      <div
         ref={messagesEndRef}
         className="min-h-[24px] min-w-[24px] shrink-0"
-        onViewportLeave={onViewportLeave}
-        onViewportEnter={onViewportEnter}
       />
     </div>
   );
@@ -290,12 +298,6 @@ export function ChatList(
 function SuggestedPrompts(props: { onSelectPrompt: (prompt: string) => void }) {
   return (
     <div className="mb-4 flex flex-col items-start">
-      {/* <p className="text-secondary-foreground/70 my-4 text-sm">
-        Hi! I'm an AI assistant trained on documentation, code, and other
-        content. I can answer questions about{' '}
-        <span className="font-bold text-foreground">SDK-IT</span>, what's on
-        your mind?
-      </p> */}
       <p className="text-secondary-foreground/70 mb-4 text-xs">
         Suggested Prompts
       </p>
@@ -319,7 +321,11 @@ function SuggestedPrompts(props: { onSelectPrompt: (prompt: string) => void }) {
   );
 }
 
-export function AssistantMessage(props: { message: Message }) {
+export function AssistantMessage(props: {
+  message: UIMessage;
+  isStreaming?: boolean;
+}) {
+  const text = getMessageText(props.message);
   return (
     <div className="border-l pl-4 text-sm">
       <div className="flex flex-col gap-1">
@@ -327,21 +333,21 @@ export function AssistantMessage(props: { message: Message }) {
           props.message.parts
             ?.filter((it) => it.type !== 'step-start' && it.type !== 'text')
             .map((part) => {
-              if (part.type === 'tool-invocation') {
-                const toolInvocation = part.toolInvocation;
-                const toolCallId = toolInvocation.toolCallId;
-                return 'result' in toolInvocation ? (
-                  toolInvocation.toolName === 'getOperations' ? (
+              if (isToolUIPart(part)) {
+                const toolName = getToolName(part);
+                const toolCallId = part.toolCallId;
+                return part.state === 'output-available' ? (
+                  toolName === 'getOperations' ? (
                     <div key={toolCallId} className="contents"></div>
                   ) : (
                     <div key={toolCallId} className="text-gray-500">
-                      Tool call {`${toolInvocation.toolName}: `}
-                      {toolInvocation.result}
+                      Tool call {`${toolName}: `}
+                      {String(part.output)}
                     </div>
                   )
                 ) : (
                   <div key={toolCallId} className="text-gray-500">
-                    Calling {toolInvocation.toolName}...
+                    Calling {toolName}...
                   </div>
                 );
               }
@@ -353,7 +359,7 @@ export function AssistantMessage(props: { message: Message }) {
                 </div>
               );
             })}
-        <StillMarkdown content={props.message.content} id={props.message.id} />
+        <StillMarkdown content={text} isAnimating={props.isStreaming} />
       </div>
     </div>
   );

@@ -28,7 +28,7 @@ await writeFiles(
         ...acc,
         [`${curr.id}.tsx`]: template.replace(
           '###PLACE_HERE###',
-          `<MD id={'${curr.id}'} content={${JSON.stringify(curr.content)}} />`,
+          `<MD content={${JSON.stringify(curr.content)}} />`,
         ),
       }),
       {},
