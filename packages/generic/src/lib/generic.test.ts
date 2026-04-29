@@ -1134,4 +1134,112 @@ app.get('/users/:userId', validate((payload) => ({
       `Generated getUserById schema from external import should preserve coerce but got: ${getUserByIdZod}`,
     );
   });
+
+  it('characterizes union of string and string literals in response type', async () => {
+    await using workspace = await tsworkspace(tsconfig, {
+      'index.ts': `
+import { validate } from 'hono';
+import { z } from 'zod';
+
+const app = {
+  get: (path: string, ...args: any[]) => {},
+};
+
+type EmployeePosition =
+  | string
+  | 'Director'
+  | 'Associate Director'
+  | 'Project Leader'
+  | 'Delivery Leader'
+  | 'Associate'
+  | 'Analyst'
+  | 'Unknown';
+
+declare const examplePosition: EmployeePosition;
+
+/** @openapi getEmployee @tags employees */
+app.get('/employee', validate(() => ({})), (c) => {
+  return output.json({ position: examplePosition });
+});
+`,
+    });
+
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer: responseAnalyzer,
+    });
+
+    const schema = result.paths['/employee']?.get?.responses?.['200']
+      ?.content?.['application/json']?.schema as any;
+    assert.ok(schema, 'Should have 200 response schema');
+
+    const positionSchema = schema.properties?.position;
+    assert.deepStrictEqual(positionSchema, { type: 'string' });
+  });
+
+  it('preserves literals when bare string is wrapped in (string & {})', async () => {
+    await using workspace = await tsworkspace(tsconfig, {
+      'index.ts': `
+import { validate } from 'hono';
+import { z } from 'zod';
+
+const app = {
+  get: (path: string, ...args: any[]) => {},
+};
+
+type EmployeePosition =
+  | (string & {})
+  | 'Director'
+  | 'Associate Director'
+  | 'Project Leader'
+  | 'Delivery Leader'
+  | 'Associate'
+  | 'Analyst'
+  | 'Unknown';
+
+declare const examplePosition: EmployeePosition;
+
+/** @openapi getEmployee @tags employees */
+app.get('/employee', validate(() => ({})), (c) => {
+  return output.json({ position: examplePosition });
+});
+`,
+    });
+
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer: responseAnalyzer,
+    });
+
+    const schema = result.paths['/employee']?.get?.responses?.['200']
+      ?.content?.['application/json']?.schema as any;
+    assert.ok(schema, 'Should have 200 response schema');
+
+    const positionSchema = schema.properties?.position;
+    assert.ok(
+      Array.isArray(positionSchema?.anyOf),
+      'position schema should be an anyOf union',
+    );
+    const members = positionSchema.anyOf as any[];
+    assert.ok(
+      members.some(
+        (m) => m.type === 'string' && !m.enum && !m.const && !m.format,
+      ),
+      'should preserve the bare string member',
+    );
+    const literals = members
+      .filter((m) => Array.isArray(m.enum) && m.type === 'string')
+      .flatMap((m) => m.enum);
+    assert.deepStrictEqual(
+      [...literals].sort(),
+      [
+        'Analyst',
+        'Associate',
+        'Associate Director',
+        'Delivery Leader',
+        'Director',
+        'Project Leader',
+        'Unknown',
+      ],
+      'should preserve all 7 string literals',
+    );
+  });
 });
