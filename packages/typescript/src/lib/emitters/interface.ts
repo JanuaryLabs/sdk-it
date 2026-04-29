@@ -3,7 +3,7 @@ import type {
   SchemaObject
 } from 'openapi3-ts/oas31';
 
-import { followRef, isRef, parseRef, pascalcase } from '@sdk-it/core';
+import { followRef, isRef, parseRef, pascalcase, resolveRef } from '@sdk-it/core';
 import { type IR, isPrimitiveSchema, sanitizeTag } from '@sdk-it/spec';
 
 export class TypeScriptEmitter {
@@ -103,8 +103,30 @@ export class TypeScriptEmitter {
     schemas: (SchemaObject | ReferenceObject)[],
     required: boolean,
   ): string {
-    // For TypeScript we use union types for anyOf/oneOf
-    const oneOfTypes = schemas.map((sub) => this.handle(sub, true));
+    const isBareString = (s: SchemaObject | ReferenceObject) => {
+      const r = resolveRef(this.#spec, s);
+      return r.type === 'string' && !r.enum && !r.const && !r.format;
+    };
+    const isStringLiteral = (s: SchemaObject | ReferenceObject) => {
+      const r = resolveRef(this.#spec, s);
+      return (
+        (Array.isArray(r.enum) &&
+          r.enum.every((v: unknown) => typeof v === 'string')) ||
+        typeof r.const === 'string'
+      );
+    };
+    const hasStringLiteral = schemas.some(isStringLiteral);
+    const seen = new Set<string>();
+    const oneOfTypes: string[] = [];
+    for (const sub of schemas) {
+      const part =
+        hasStringLiteral && isBareString(sub)
+          ? '(string & {})'
+          : this.handle(sub, true);
+      if (seen.has(part)) continue;
+      seen.add(part);
+      oneOfTypes.push(part);
+    }
     return appendOptional(
       oneOfTypes.length > 1 ? `${oneOfTypes.join(' | ')}` : oneOfTypes[0],
       required,
