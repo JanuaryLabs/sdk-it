@@ -30,7 +30,7 @@ export function toPagination(spec: IR, tunedOperation: TunedOperationObject) {
     schema,
   );
   if (pagination && pagination.type !== 'none' && schema) {
-    return pagination;
+    return { ...pagination, statusCode: 200 };
   }
   return undefined;
 }

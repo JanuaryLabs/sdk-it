@@ -17,6 +17,7 @@ import {
 
 import { TypeScriptEmitter } from './emitters/interface.ts';
 import { type MakeImportFn } from './import-utilities.ts';
+import { paginationOperation } from './pagination-emit.ts';
 import statusMap from './status-map.ts';
 
 export type Parser = 'chunked' | 'buffered' | 'sse';
@@ -97,7 +98,7 @@ export function toEndpoint(
             signal?: AbortSignal;
             interceptors: Interceptor[];
             fetch: z.infer<typeof fetchType>;
-          })${specOperation['x-pagination'] ? paginationOperation(specOperation) : normalOperation()}`,
+          })${specOperation['x-pagination'] ? paginationOperation(specOperation['x-pagination'] as OperationPagination) : normalOperation()}`,
     );
   }
   return { schemas };
@@ -109,103 +110,6 @@ function normalOperation() {
             return dispatcher.send(this.toRequest(input), this.output, options?.signal);
             },
           }`;
-}
-
-function paginationOperation(operation: TunedOperationObject) {
-  const pagination = operation['x-pagination'] as OperationPagination;
-  const data = `result.data`;
-  const returnValue = `pagination`;
-  if (pagination.type === 'offset') {
-    const sameInputNames =
-      pagination.limitParamName === 'limit' &&
-      pagination.offsetParamName === 'offset';
-    const initialParams = sameInputNames
-      ? 'input'
-      : `{...input, limit: input.${pagination.limitParamName}, offset: input.${pagination.offsetParamName}}`;
-
-    const nextPageParams = sameInputNames
-      ? '...nextPageParams'
-      : `${pagination.offsetParamName}: nextPageParams.offset, ${pagination.limitParamName}: nextPageParams.limit`;
-    const logic = `const pagination = new OffsetPagination(${initialParams}, async (nextPageParams, requestOptions) => {
-        const dispatcher = new Dispatcher(options.interceptors, options.fetch);
-        const result = await dispatcher.send(
-          this.toRequest({...input, ${nextPageParams}}),
-          this.output,
-          requestOptions?.signal ?? options.signal,
-        );
-        return {
-          data: ${data}.${pagination.items},
-          meta: {
-            hasMore: Boolean(${data}.${pagination.hasMore}),
-          },
-        };
-      }, { signal: options.signal });
-      await pagination.getNextPage();
-      return ${returnValue}
-      `;
-    return `{${logic}}}`;
-  }
-  if (pagination.type === 'cursor') {
-    const sameInputNames = pagination.cursorParamName === 'cursor';
-    const initialParams = sameInputNames
-      ? 'input'
-      : `{...input, cursor: input.${pagination.cursorParamName}}`;
-
-    const nextPageParams = sameInputNames
-      ? '...nextPageParams'
-      : `${pagination.cursorParamName}: nextPageParams.cursor`;
-    const logic = `
-      const pagination = new CursorPagination(${initialParams}, async (nextPageParams, requestOptions) => {
-        const dispatcher = new Dispatcher(options.interceptors, options.fetch);
-        const result = await dispatcher.send(
-          this.toRequest({...input, ${nextPageParams}}),
-          this.output,
-          requestOptions?.signal ?? options.signal,
-        );
-        return {
-          data: ${data}.${pagination.items},
-          meta: {
-            hasMore: Boolean(${data}.${pagination.hasMore}),
-          },
-        };
-      }, { signal: options.signal });
-      await pagination.getNextPage();
-      return ${returnValue}
-      `;
-    return `{${logic}}}`;
-  }
-  if (pagination.type === 'page') {
-    const sameInputNames =
-      pagination.pageNumberParamName === 'page' &&
-      pagination.pageSizeParamName === 'pageSize';
-    const initialParams = sameInputNames
-      ? 'input'
-      : `{...input, page: input.${pagination.pageNumberParamName}, pageSize: input.${pagination.pageSizeParamName}}`;
-    const nextPageParams = sameInputNames
-      ? '...nextPageParams'
-      : `${pagination.pageNumberParamName}: nextPageParams.page, ${pagination.pageSizeParamName}: nextPageParams.pageSize`;
-
-    const logic = `
-      const pagination = new Pagination(${initialParams}, async (nextPageParams, requestOptions) => {
-        const dispatcher = new Dispatcher(options.interceptors, options.fetch);
-        const result = await dispatcher.send(
-          this.toRequest({...input, ${nextPageParams}}),
-          this.output,
-          requestOptions?.signal ?? options.signal,
-        );
-        return {
-          data: ${data}.${pagination.items},
-          meta: {
-            hasMore: Boolean(${data}.${pagination.hasMore}),
-          },
-        };
-      }, { signal: options.signal });
-      await pagination.getNextPage();
-      return ${returnValue}
-      `;
-    return `{${logic}}}`;
-  }
-  return normalOperation();
 }
 
 export function toHttpOutput(

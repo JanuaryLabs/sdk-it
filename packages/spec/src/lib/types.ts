@@ -67,4 +67,5 @@ export type Operation = {
 
 export type OperationPagination = PaginationGuess & {
   items: string;
+  statusCode: number;
 };
