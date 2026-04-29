@@ -233,6 +233,77 @@ describe('Type Derivation', () => {
     test.todo('handles optional via union with undefined');
     test.todo('handles intersection types');
     test.todo('handles discriminated unions');
+
+    // TS subsumes the literals into `string` here. See sibling test
+    // "union of (string & {}) and string literals preserves literals" for the
+    // workaround that prevents collapse.
+    test('union of string and string literals', async () => {
+      const code = `
+        export type EmployeePosition =
+          | string
+          | 'Director'
+          | 'Associate Director'
+          | 'Project Leader'
+          | 'Delivery Leader'
+          | 'Associate'
+          | 'Analyst'
+          | 'Unknown';
+      `;
+      const result = await deriveTypeFromCode(code, 'EmployeePosition');
+      assert.deepStrictEqual(result, {
+        [deriveSymbol]: true,
+        optional: false,
+        [$types]: ['string'],
+      });
+    });
+
+    test('union of (string & {}) and string literals preserves literals', async () => {
+      const code = `
+        export type EmployeePosition =
+          | (string & {})
+          | 'Director'
+          | 'Associate Director'
+          | 'Project Leader'
+          | 'Delivery Leader'
+          | 'Associate'
+          | 'Analyst'
+          | 'Unknown';
+      `;
+      const result = await deriveTypeFromCode(code, 'EmployeePosition');
+      const literal = (value: string) => ({
+        [deriveSymbol]: true,
+        optional: false,
+        kind: 'literal',
+        value,
+        [$types]: ['string'],
+      });
+      // `__type` is TS's synthetic name for anonymous/empty object types — the
+      // `& {}` member shows up as a placeholder. `paths.ts:toSchema` strips it
+      // when emitting OpenAPI (see ANON_OBJECT there).
+      assert.deepStrictEqual(result, {
+        [deriveSymbol]: true,
+        optional: false,
+        kind: 'union',
+        [$types]: [
+          {
+            [deriveSymbol]: true,
+            optional: false,
+            kind: 'intersection',
+            [$types]: [
+              { [deriveSymbol]: true, optional: false, [$types]: ['string'] },
+              { [deriveSymbol]: true, optional: false, [$types]: ['__type'] },
+            ],
+          },
+          literal('Director'),
+          literal('Associate Director'),
+          literal('Project Leader'),
+          literal('Delivery Leader'),
+          literal('Associate'),
+          literal('Analyst'),
+          literal('Unknown'),
+        ],
+      });
+    });
   });
 
   describe('Type Mappings', () => {

@@ -342,7 +342,23 @@ export function toSchema(data: DateType | string | null | undefined): any {
   } else if (data.kind === 'union') {
     return { anyOf: data[$types].map(toSchema) };
   } else if (data.kind === 'intersection') {
-    return { allOf: data[$types].map(toSchema) };
+    // TS gives anonymous/empty object types the synthetic symbol name "__type".
+    // Members like `& {}` (the autocomplete-trick wrapper) contribute no schema
+    // info — drop them so `(string & {})` emits as plain `{type:'string'}`.
+    const ANON_OBJECT = '__type';
+    const meaningful = (data[$types] as unknown[]).filter((m) => {
+      if (!m || typeof m !== 'object') return true;
+      const node = m as { kind?: unknown; [$types]?: readonly unknown[] };
+      return !(
+        !node.kind &&
+        node[$types]?.length === 1 &&
+        node[$types][0] === ANON_OBJECT
+      );
+    });
+    if (meaningful.length === 0) return {};
+    if (meaningful.length === 1)
+      return toSchema(meaningful[0] as DateType | string);
+    return { allOf: meaningful.map((m) => toSchema(m as DateType | string)) };
   } else if ($types in data) {
     return data[$types].map(toSchema)[0] ?? {};
   } else {
