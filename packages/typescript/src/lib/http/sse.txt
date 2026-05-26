@@ -51,7 +51,9 @@ export function sse(response: Response): SSEListener {
 						if (data) dispatch(eventType, data);
 					}
 				}
-			} catch {}
+			} catch (err) {
+				console.warn("sse stream error", err);
+			}
 			endAll();
 		})();
 	}

@@ -58,7 +58,11 @@ export class NoContent extends APIResponse<never, 204> {
   constructor(headers: Headers) {
     super(NoContent.status, headers, null as never);
   }
-  static override create(status: number, headers: Headers): NoContent {
+  static override create(
+    status: number,
+    headers: Headers,
+    data?: unknown,
+  ): NoContent {
     return new this(headers);
   }
 }
