@@ -67,13 +67,19 @@ export function chunked(response: Response) {
 }
 
 export async function buffered(response: Response) {
+	// Statuses that, per the HTTP spec, carry no message body. These responses
+	// usually omit Content-Type entirely, so this must run before the guard below.
+	if (
+		response.status === 204 ||
+		response.status === 205 ||
+		response.status === 304
+	) {
+		return null;
+	}
+
 	const contentType = response.headers.get("Content-Type");
 	if (!contentType) {
 		throw new Error("Content-Type header is missing");
-	}
-
-	if (response.status === 204) {
-		return null;
 	}
 
 	const { type } = parse(contentType);
