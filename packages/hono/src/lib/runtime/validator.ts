@@ -10,9 +10,13 @@ type ContentType =
   | 'multipart/form-data'
   | 'text/plain';
 
+// z.ZodType<any> mirrors zod v3's ZodTypeAny: with the default `unknown`
+// output, concrete middlewares stop being assignable to
+// ValidateMiddleware<ValidatorConfig>.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ValidatorConfig = Record<
   string,
-  { select: unknown; against: z.ZodTypeAny }
+  { select: unknown; against: z.ZodType<any> }
 >;
 
 type ExtractInput<T extends ValidatorConfig> = {
@@ -162,7 +166,7 @@ export function validate<T extends ValidatorConfig>(
           acc[key] = value.against;
           return acc;
         },
-        {} as Record<string, z.ZodTypeAny>,
+        {} as Record<string, z.ZodType>,
       ),
     );
 
@@ -191,10 +195,9 @@ export async function parse<T extends z.ZodRawShape>(
       cause: {
         code: 'api/validation-failed',
         detail: 'The input data is invalid',
-        errors: result.error.flatten((issue) => ({
+        errors: z.flattenError(result.error, (issue) => ({
           message: issue.message,
           code: issue.code,
-          fatal: issue.fatal,
           path: issue.path.join('.'),
         })).fieldErrors,
       },

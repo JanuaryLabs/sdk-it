@@ -195,23 +195,52 @@ describe('pagination templates', () => {
   });
 
   test('sdk pagination generation forwards default and per-page signals', async () => {
-    const source = await readFile(join(sourceDir, 'sdk.ts'), 'utf-8');
+    const { paginationOperation } = await import('./pagination-emit.ts');
 
-    assert.match(
-      source,
-      /new OffsetPagination\([^\n]+, async \(nextPageParams, requestOptions\) => \{[\s\S]*requestOptions\?\.signal \?\? options\.signal,[\s\S]*\}, \{ signal: options\.signal \}\);/,
-    );
-    assert.match(
-      source,
-      /new CursorPagination\([^\n]+, async \(nextPageParams, requestOptions\) => \{[\s\S]*requestOptions\?\.signal \?\? options\.signal,[\s\S]*\}, \{ signal: options\.signal \}\);/,
-    );
-    assert.match(
-      source,
-      /new Pagination\([^\n]+, async \(nextPageParams, requestOptions\) => \{[\s\S]*requestOptions\?\.signal \?\? options\.signal,[\s\S]*\}, \{ signal: options\.signal \}\);/,
-    );
-    assert.match(
-      source,
-      /if \(pagination\.type === 'page'\) \{[\s\S]*new Pagination\([^\n]+, async \(nextPageParams, requestOptions\) => \{[\s\S]*\}, \{ signal: options\.signal \}\);[\s\S]*await pagination\.getNextPage\(\);[\s\S]*return \$\{returnValue\}/,
-    );
+    const cases = [
+      {
+        className: 'OffsetPagination',
+        pagination: {
+          type: 'offset',
+          items: 'items',
+          hasMore: 'hasMore',
+          statusCode: 200,
+          limitParamName: 'limit',
+          offsetParamName: 'offset',
+        },
+      },
+      {
+        className: 'CursorPagination',
+        pagination: {
+          type: 'cursor',
+          items: 'items',
+          hasMore: 'hasMore',
+          statusCode: 200,
+          cursorParamName: 'cursor',
+        },
+      },
+      {
+        className: 'Pagination',
+        pagination: {
+          type: 'page',
+          items: 'items',
+          hasMore: 'hasMore',
+          statusCode: 200,
+          pageNumberParamName: 'page',
+          pageSizeParamName: 'pageSize',
+        },
+      },
+    ] as const;
+
+    for (const { className, pagination } of cases) {
+      const source = paginationOperation(pagination as never);
+      assert.match(
+        source,
+        new RegExp(
+          `new ${className}\\([^\\n]+, async \\(nextPageParams, requestOptions\\) => \\{[\\s\\S]*requestOptions\\?\\.signal \\?\\? options\\.signal,[\\s\\S]*\\}, \\{ signal: options\\.signal \\}\\);`,
+        ),
+      );
+      assert.match(source, /await pagination\.getNextPage\(\);/);
+    }
   });
 });

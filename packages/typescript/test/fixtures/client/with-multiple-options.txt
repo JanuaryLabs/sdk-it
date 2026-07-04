@@ -14,19 +14,23 @@ import { type ParseError, parseInput } from './http/parser';
 export const servers = [
   "https://api.example.com"
 ] as const
-const optionsSchema = z.object({'token': z.union([z.string(),z.function().returns(z.union([z.string(), z.promise(z.string())])),]).optional()
-    .transform(async (token) => {
+const optionsSchema = z.object({'token': z.union([z.string(),z.custom<() => string | Promise<string>>((value) => typeof value === 'function'),]).optional()
+    .transform(async (token, ctx) => {
       if (!token) return undefined;
-      if (typeof token === 'function') {
-        token = await Promise.resolve(token());
+      const value = typeof token === 'function' ? await token() : token;
+      if (typeof value !== 'string') {
+        ctx.addIssue({ code: 'custom', message: 'token must resolve to a string' });
+        return z.NEVER;
       }
-      return `Bearer ${token}`;
-    }).describe('Bearer token for authentication. Can be a string or a function that returns a string.'), 'x-api-key': z.string(), fetch: fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.'), baseUrl: z.union([z.string(),z.function().returns(z.union([z.string(), z.promise(z.string())])),]).default(servers[0]).transform(async (baseUrl) => {
-      if (typeof baseUrl === 'function') {
-        return Promise.resolve(baseUrl());
+      return `Bearer ${value}`;
+    }).describe('Bearer token for authentication. Can be a string or a function that returns a string.'), 'x-api-key': z.string(), fetch: fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.'), baseUrl: z.union([z.string(),z.custom<() => string | Promise<string>>((value) => typeof value === 'function'),]).default(servers[0]).transform(async (baseUrl, ctx) => {
+      const value = typeof baseUrl === 'function' ? await baseUrl() : baseUrl;
+      if (typeof value !== 'string') {
+        ctx.addIssue({ code: 'custom', message: 'baseUrl must resolve to a string' });
+        return z.NEVER;
       }
-      return baseUrl;
-    }).describe('Base URL of the API server. Can be a string or a function that returns a string.'), headers: z.record(z.string()).optional().describe('Default headers to include in all requests.'), skipValidation: z.boolean().optional().describe('Skip request input validation. Client options and TypeScript types still enforce correct usage.')});
+      return value;
+    }).describe('Base URL of the API server. Can be a string or a function that returns a string.'), headers: z.record(z.string(), z.string()).optional().describe('Default headers to include in all requests.'), skipValidation: z.boolean().optional().describe('Skip request input validation. Client options and TypeScript types still enforce correct usage.')});
 export type Servers = typeof servers[number];
 
 type FullClientOptions = z.input<typeof optionsSchema>;
@@ -43,7 +47,9 @@ export class FullClient {
     input: z.input<(typeof schemas)[E]['schema']>,
     options?: { signal?: AbortSignal; headers?: HeadersInit },
   ) {
-    return request(this, endpoint, input, options).then(function unwrap(it) {
+    return request(this, endpoint, input, options).then(function unwrap(
+      it: unknown,
+    ) {
       if (it instanceof APIResponse) {
         return it.data as InferData<E>;
       }

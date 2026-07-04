@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { type ZodObject, type ZodTypeAny } from 'zod';
+import { type ZodObject, type ZodType } from 'zod';
 
 import { RuntimeZodConverter } from './zod.ts';
 
@@ -106,7 +106,7 @@ describe('RuntimeZodConverter', () => {
       true,
     );
 
-    const shape = (schema as ZodObject<Record<string, ZodTypeAny>>).shape;
+    const shape = (schema as ZodObject<Record<string, ZodType>>).shape;
     assert.equal(shape.name.description, 'The user name');
     assert.equal(shape.age.description, 'Age in years');
   });
@@ -193,23 +193,35 @@ describe('RuntimeZodConverter', () => {
     }
   });
 
-  test('coerce-bigint preserves bigint coercion and defaults', () => {
+});
+
+describe('RuntimeZodConverter 64-bit integers', () => {
+  const converter = new RuntimeZodConverter({} as never);
+
+  // int64/uint64 stop being special: an integer on the wire is a plain
+  // number, a string on the wire is a plain string. No bigint.
+  test('integer int64 is a plain integer schema', () => {
+    const schema = converter.handle({ type: 'integer', format: 'int64' }, true);
+
+    assert.equal(schema.safeParse(5).success, true);
+    assert.equal(schema.safeParse(5.5).success, false);
+    assert.equal(schema.safeParse('5').success, false);
+  });
+
+  test('integer uint64 is a plain integer schema', () => {
     const schema = converter.handle(
-      {
-        type: 'integer',
-        format: 'int64',
-        default: 1,
-        'x-zod-type': 'coerce-bigint',
-      },
+      { type: 'integer', format: 'uint64' },
       true,
     );
 
-    const parsedString = schema.safeParse('5');
-    assert.equal(parsedString.success, true);
-    assert.equal(parsedString.data, 5n);
+    assert.equal(schema.safeParse(5).success, true);
+    assert.equal(schema.safeParse('5').success, false);
+  });
 
-    const parsedUndefined = schema.safeParse(undefined);
-    assert.equal(parsedUndefined.success, true);
-    assert.equal(parsedUndefined.data, 1n);
+  test('string-encoded int64 is a plain string schema', () => {
+    const schema = converter.handle({ type: 'string', format: 'int64' }, true);
+
+    assert.equal(schema.safeParse('9007199254740993').success, true);
+    assert.equal(schema.safeParse(5).success, false);
   });
 });

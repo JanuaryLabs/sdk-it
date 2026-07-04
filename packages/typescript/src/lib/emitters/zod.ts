@@ -91,7 +91,9 @@ export class ZodEmitter {
     switch (type) {
       case 'string': {
         const defaultVal =
-          (schema['x-zod-type'] === 'date' || schema['x-zod-type'] === 'coerce-date') && schema.default
+          (schema['x-zod-type'] === 'date' ||
+            schema['x-zod-type'] === 'coerce-date') &&
+          schema.default
             ? `new Date(${JSON.stringify(schema.default)})`
             : JSON.stringify(schema.default);
         return `${this.string(schema)}${this.#suffixes(defaultVal, required, nullable)}`;
@@ -102,7 +104,7 @@ export class ZodEmitter {
         return `${base}${this.#suffixes(defaultValue, required, nullable)}`;
       }
       case 'boolean':
-        return `${schema['x-zod-type'] === 'coerce-boolean' ? 'z.coerce.boolean()' : 'z.boolean()'}${this.#suffixes(schema.default, required, nullable)}`;
+        return `${schema['x-zod-type'] === 'coerce-boolean' ? 'z.union([z.boolean(), z.stringbool()])' : 'z.boolean()'}${this.#suffixes(schema.default, required, nullable)}`;
       case 'object':
         return `${this.#object(schema)}${this.#suffixes(JSON.stringify(schema.default), required, nullable)}`;
       // required always
@@ -167,37 +169,49 @@ export class ZodEmitter {
     if (oneOfSchemas.length === 1) {
       return `${oneOfSchemas[0]}${appendOptional(required)}`;
     }
-    return `z.union([${oneOfSchemas.join(', ')}])${appendOptional(required)}`;
+    // oneOf is exclusive-or per JSON Schema; z.xor rejects values matching
+    // more than one branch, unlike z.union's anyOf semantics.
+    return `z.xor([${oneOfSchemas.join(', ')}])${appendOptional(required)}`;
   }
 
   enum(type: string, values: any[]) {
     if (values.length === 1) {
       return `z.literal(${values.join(', ')})`;
     }
-    if (type === 'integer') {
-      // Zod doesn’t have a direct enum for numbers, so we use union of literals
-      return `z.union([${values.map((val) => `z.literal(${val})`).join(', ')}])`;
+    // Values arrive JSON.stringify'd, so string literals start with a quote.
+    // z.enum only takes strings; zod 4 silently filters numeric entries as
+    // reverse mappings, so any non-string enum must emit z.literal([...]).
+    if (values.every((value) => String(value).startsWith('"'))) {
+      return `z.enum([${values.join(', ')}])`;
     }
-
-    return `z.enum([${values.join(', ')}])`;
+    return `z.literal([${values.join(', ')}])`;
   }
 
   /**
    * Handle a `string` schema with possible format keywords (JSON Schema).
    */
   string(schema: SchemaObject): string {
-    let base = schema['x-zod-type'] === 'coerce-string'
-      ? 'z.coerce.string()'
-      : 'z.string()';
+    let base =
+      schema['x-zod-type'] === 'coerce-string'
+        ? 'z.coerce.string()'
+        : 'z.string()';
 
     // 3.1 replaces `example` in the schema with `examples` (array).
     // We do not strictly need them for the Zod type, so they’re optional
     // for validation. However, we could keep them as metadata if you want.
 
     if (schema.contentEncoding === 'binary') {
+      // Emitted client code must not reference Blob as a runtime value:
+      // it throws ReferenceError where the global is missing and fails
+      // instanceof for cross-realm/polyfill Blobs (see e62c4e1 and
+      // docs/recipes/file-upload.md).
       base = 'z.custom<Blob>()';
       return base;
     }
+
+    const coerced = schema['x-zod-type'] === 'coerce-string';
+    const withFormat = (format: string) =>
+      coerced ? `${base}.pipe(${format})` : format;
 
     switch (schema.format) {
       case 'date-time':
@@ -207,41 +221,52 @@ export class ZodEmitter {
         } else if (schema['x-zod-type'] === 'date') {
           base = 'z.date()';
         } else {
-          base += '.datetime()';
+          // RFC 3339 date-time allows numeric zone offsets, which
+          // z.iso.datetime() rejects by default.
+          base = withFormat('z.iso.datetime({ offset: true })');
         }
         break;
       case 'date':
-        base += '.date()';
+        base = withFormat('z.iso.date()');
         break;
       case 'time':
-        base += ' /* optionally add .regex(...) for HH:MM:SS format */';
+        // z.iso.time() rejects RFC 3339 zone suffixes, which JSON Schema's
+        // format: time allows.
+        base = withFormat(
+          'z.string().regex(/^([01]\\d|2[0-3]):[0-5]\\d(:[0-5]\\d(\\.\\d+)?)?(Z|[+-]([01]\\d|2[0-3]):[0-5]\\d)?$/)',
+        );
         break;
       case 'email':
-        base += '.email()';
+        base = withFormat('z.email()');
         break;
       case 'uuid':
-        base += '.uuid()';
+        // z.guid() preserves zod v3's looser .uuid() semantics; z.uuid()
+        // enforces RFC 9562 variant bits and rejects Microsoft-style GUIDs.
+        base = withFormat('z.guid()');
         break;
       case 'url':
       case 'uri':
-        base += '.url()';
+        base = withFormat('z.url()');
         break;
       case 'ipv4':
-        base += '.ip({version: "v4"})';
+        base = withFormat('z.ipv4()');
         break;
       case 'ipv6':
-        base += '.ip({version: "v6"})';
+        base = withFormat('z.ipv6()');
+        break;
+      case 'cidrv4':
+        base = withFormat('z.cidrv4()');
+        break;
+      case 'cidrv6':
+        base = withFormat('z.cidrv6()');
         break;
       case 'phone':
         base += ' /* or add .regex(...) for phone formats */';
         break;
       case 'byte':
       case 'binary':
+        // Bare z.custom on purpose — see the contentEncoding branch above.
         base = 'z.custom<Blob>()';
-        break;
-      case 'int64':
-        // JS numbers can't reliably store int64, consider z.bigint() or keep as string
-        base += ' /* or z.bigint() if your app can handle it */';
         break;
       default:
         // No special format
@@ -257,18 +282,12 @@ export class ZodEmitter {
    * rather than a boolean toggling `minimum`/`maximum`.
    */
   #number(schema: SchemaObject) {
-    let defaultValue = schema.default;
-    let base: string;
-    if (schema.format === 'int64') {
-      base = schema['x-zod-type'] === 'coerce-bigint' ? 'z.coerce.bigint()' : 'z.bigint()';
-      if (schema.default !== undefined) {
-        defaultValue = `BigInt(${schema.default})`;
-      }
-    } else {
-      base = schema['x-zod-type'] === 'coerce-number' ? 'z.coerce.number()' : 'z.number()';
-    }
+    let base =
+      schema['x-zod-type'] === 'coerce-number'
+        ? 'z.coerce.number()'
+        : 'z.number()';
 
-    if (schema.type === 'integer' && schema.format !== 'int64') {
+    if (schema.type === 'integer') {
       base += '.int()';
     }
 
@@ -286,16 +305,10 @@ export class ZodEmitter {
 
     // If standard minimum/maximum
     if (typeof schema.minimum === 'number') {
-      base +=
-        schema.format === 'int64'
-          ? `.min(BigInt(${schema.minimum}))`
-          : `.min(${schema.minimum})`;
+      base += `.min(${schema.minimum})`;
     }
     if (typeof schema.maximum === 'number') {
-      base +=
-        schema.format === 'int64'
-          ? `.max(BigInt(${schema.maximum}))`
-          : `.max(${schema.maximum})`;
+      base += `.max(${schema.maximum})`;
     }
 
     // multipleOf
@@ -305,7 +318,7 @@ export class ZodEmitter {
       base += `.refine((val) => Number.isInteger(val / ${schema.multipleOf}), "Must be a multiple of ${schema.multipleOf}")`;
     }
 
-    return { base, defaultValue };
+    return { base, defaultValue: schema.default };
   }
 
   handle(schema: SchemaObject | ReferenceObject, required: boolean): string {
@@ -378,6 +391,7 @@ export class ZodEmitter {
 function appendOptional(isRequired?: boolean) {
   return isRequired ? '' : '.optional()';
 }
+
 
 function appendDefault(defaultValue?: any) {
   return defaultValue !== undefined || typeof defaultValue !== 'undefined'

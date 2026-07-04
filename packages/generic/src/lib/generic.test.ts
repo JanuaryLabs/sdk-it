@@ -1243,3 +1243,509 @@ app.get('/employee', validate(() => ({})), (c) => {
     );
   });
 });
+
+async function analyzeRequestBody(source: string) {
+  const workspace = await tsworkspace(tsconfig, { 'index.ts': source });
+  try {
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer: responseAnalyzer,
+    });
+    const op = result.paths['/x']?.post;
+    assert.ok(op, 'Should have POST /x');
+    const requestBody = op.requestBody;
+    const body =
+      requestBody && 'content' in requestBody
+        ? requestBody.content?.['application/json']?.schema
+        : undefined;
+    assert.ok(body && 'properties' in body, 'Should have request body schema');
+    return body as any;
+  } finally {
+    await workspace[Symbol.asyncDispose]();
+  }
+}
+
+function bodySource(againstExpr: string, extraImports = '') {
+  return `
+import { validate } from 'hono';
+import { z } from 'zod';
+${extraImports}
+
+const app = { post: (path: string, middleware: any, handler: any) => {} };
+
+/** @openapi op @tags x */
+app.post('/x', validate((p) => ({
+  field: { select: p.body.field, against: ${againstExpr} }
+})), (c) => {
+  return c.json({ ok: true });
+});
+`;
+}
+
+describe('zod v3 → v4 migration characterization: string formats', () => {
+  it('z.string().email() emits format=email', async () => {
+    const body = await analyzeRequestBody(bodySource('z.string().email()'));
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'string',
+      format: 'email',
+    });
+  });
+
+  it('z.string().uuid() emits format=uuid', async () => {
+    const body = await analyzeRequestBody(bodySource('z.string().uuid()'));
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'string',
+      format: 'uuid',
+    });
+  });
+
+  it('z.string().url() emits format=uri', async () => {
+    const body = await analyzeRequestBody(bodySource('z.string().url()'));
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'string',
+      format: 'uri',
+    });
+  });
+
+  it('z.string().datetime() emits format=date-time', async () => {
+    const body = await analyzeRequestBody(bodySource('z.string().datetime()'));
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'string',
+      format: 'date-time',
+    });
+  });
+
+  it('z.string().date() emits format=date', async () => {
+    const body = await analyzeRequestBody(bodySource('z.string().date()'));
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'string',
+      format: 'date',
+    });
+  });
+
+  it('z.string().ip({ version: "v4" }) emits format=ipv4', async () => {
+    const body = await analyzeRequestBody(
+      bodySource(`z.string().ip({ version: 'v4' })`),
+    );
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'string',
+      format: 'ipv4',
+    });
+  });
+
+  it('z.string().ip({ version: "v6" }) emits format=ipv6', async () => {
+    const body = await analyzeRequestBody(
+      bodySource(`z.string().ip({ version: 'v6' })`),
+    );
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'string',
+      format: 'ipv6',
+    });
+  });
+
+  it('z.string().min(n).max(n) emits minLength/maxLength', async () => {
+    const body = await analyzeRequestBody(
+      bodySource('z.string().min(3).max(10)'),
+    );
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'string',
+      minLength: 3,
+      maxLength: 10,
+    });
+  });
+});
+
+describe('zod v3 → v4 migration characterization: primitives', () => {
+  it('z.boolean() emits type=boolean', async () => {
+    const body = await analyzeRequestBody(bodySource('z.boolean()'));
+    assert.deepStrictEqual(body.properties.field, { type: 'boolean' });
+  });
+
+  it('z.bigint() is interpreted as int64', async () => {
+    const body = await analyzeRequestBody(bodySource('z.bigint()'));
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'integer',
+      format: 'int64',
+    });
+  });
+
+  it('z.int64() emits integer with int64 format', async () => {
+    const body = await analyzeRequestBody(bodySource('z.int64()'));
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'integer',
+      format: 'int64',
+    });
+  });
+
+  it('z.literal(string) emits const string', async () => {
+    const body = await analyzeRequestBody(bodySource(`z.literal('foo')`));
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'string',
+      const: 'foo',
+    });
+  });
+
+  it('z.literal(number) emits const number', async () => {
+    const body = await analyzeRequestBody(bodySource('z.literal(42)'));
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'number',
+      const: 42,
+    });
+  });
+
+  it('z.literal(boolean) emits const boolean', async () => {
+    const body = await analyzeRequestBody(bodySource('z.literal(true)'));
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'boolean',
+      const: true,
+    });
+  });
+
+  it('z.enum([...]) emits string with enum members', async () => {
+    const body = await analyzeRequestBody(
+      bodySource(`z.enum(['a','b','c'])`),
+    );
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'string',
+      enum: ['a', 'b', 'c'],
+    });
+  });
+
+  it('z.nativeEnum(inlineRecord) emits number with enum members', async () => {
+    const body = await analyzeRequestBody(
+      bodySource('z.nativeEnum({ A: 1, B: 2 })'),
+    );
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'number',
+      enum: [1, 2],
+    });
+  });
+
+  it('z.nativeEnum referencing a non-imported local identifier throws (analyzer requires self-contained expressions)', async () => {
+    await assert.rejects(
+      analyzeRequestBody(
+        bodySource('z.nativeEnum(MyEnum)', 'enum MyEnum { A = 1, B = 2 }'),
+      ),
+      /MyEnum is not defined/,
+    );
+  });
+
+  it('against expression with TS-only syntax (as const) fails to evaluate', async () => {
+    await assert.rejects(
+      analyzeRequestBody(bodySource('z.nativeEnum({ A: 1, B: 2 } as const)')),
+      /missing \) after argument list/,
+    );
+  });
+});
+
+describe('zod v3 → v4 migration characterization: collections', () => {
+  it('z.array(z.string()) emits array with items', async () => {
+    const body = await analyzeRequestBody(bodySource('z.array(z.string())'));
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'array',
+      items: { type: 'string' },
+    });
+  });
+
+  it('z.tuple([...]) emits array with positional items', async () => {
+    const body = await analyzeRequestBody(
+      bodySource('z.tuple([z.string(), z.number()])'),
+    );
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'array',
+      minItems: 2,
+      maxItems: 2,
+      items: [{ type: 'string' }, { type: 'number' }],
+    });
+  });
+
+  it('z.record(z.string(), z.number()) emits object with additionalProperties', async () => {
+    const body = await analyzeRequestBody(
+      bodySource('z.record(z.string(), z.number())'),
+    );
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'object',
+      additionalProperties: { type: 'number' },
+    });
+  });
+
+  it('z.object({...}).catchall(z.number()) emits typed additionalProperties', async () => {
+    const body = await analyzeRequestBody(
+      bodySource('z.object({ a: z.string() }).catchall(z.number())'),
+    );
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'object',
+      properties: { a: { type: 'string' } },
+      required: ['a'],
+      additionalProperties: { type: 'number' },
+    });
+  });
+
+  it('z.object({...}).strict() emits additionalProperties=false', async () => {
+    const body = await analyzeRequestBody(
+      bodySource('z.object({ a: z.string() }).strict()'),
+    );
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'object',
+      properties: { a: { type: 'string' } },
+      required: ['a'],
+      additionalProperties: false,
+    });
+  });
+
+  it('z.object({...}).passthrough() emits permissive additionalProperties (zod v4 emits {} instead of true — semantically identical)', async () => {
+    const body = await analyzeRequestBody(
+      bodySource('z.object({ a: z.string() }).passthrough()'),
+    );
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'object',
+      properties: { a: { type: 'string' } },
+      required: ['a'],
+      additionalProperties: {},
+    });
+  });
+
+  it('nested z.object schemas preserve structure', async () => {
+    const body = await analyzeRequestBody(
+      bodySource(
+        'z.object({ inner: z.object({ x: z.string(), y: z.number() }) })',
+      ),
+    );
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'object',
+      properties: {
+        inner: {
+          type: 'object',
+          properties: {
+            x: { type: 'string' },
+            y: { type: 'number' },
+          },
+          required: ['x', 'y'],
+          additionalProperties: false,
+        },
+      },
+      required: ['inner'],
+      additionalProperties: false,
+    });
+  });
+});
+
+describe('zod v3 → v4 migration characterization: composition', () => {
+  it('z.union([string, number]) emits a union', async () => {
+    const body = await analyzeRequestBody(
+      bodySource('z.union([z.string(), z.number()])'),
+    );
+    const field = body.properties.field;
+    const variants = field.anyOf ?? field.oneOf;
+    if (variants) {
+      const types = variants.map((v: any) => v.type).sort();
+      assert.deepStrictEqual(types, ['number', 'string']);
+    } else {
+      assert.deepStrictEqual([...field.type].sort(), ['number', 'string']);
+    }
+  });
+
+  it('z.discriminatedUnion emits anyOf of object schemas', async () => {
+    const body = await analyzeRequestBody(
+      bodySource(
+        `z.discriminatedUnion('kind', [
+          z.object({ kind: z.literal('a'), x: z.string() }),
+          z.object({ kind: z.literal('b'), y: z.number() }),
+        ])`,
+      ),
+    );
+    const field = body.properties.field;
+    assert.ok(Array.isArray(field.anyOf), 'discriminatedUnion -> anyOf');
+    assert.strictEqual(field.anyOf.length, 2);
+    assert.strictEqual(field.anyOf[0].properties.kind.const, 'a');
+    assert.strictEqual(field.anyOf[1].properties.kind.const, 'b');
+  });
+
+  it('z.intersection emits allOf', async () => {
+    const body = await analyzeRequestBody(
+      bodySource(
+        'z.intersection(z.object({ a: z.string() }), z.object({ b: z.number() }))',
+      ),
+    );
+    const field = body.properties.field;
+    assert.ok(
+      Array.isArray(field.allOf) ||
+        (field.type === 'object' && field.properties),
+      'intersection -> allOf or merged object',
+    );
+    if (Array.isArray(field.allOf)) {
+      assert.strictEqual(field.allOf.length, 2);
+    }
+  });
+});
+
+describe('zod v3 → v4 migration characterization: modifiers', () => {
+  it('.optional() marks the field as not required', async () => {
+    const body = await analyzeRequestBody(
+      bodySource('z.string().optional()'),
+    );
+    assert.deepStrictEqual(body.properties.field, { type: 'string' });
+    assert.ok(
+      !(body.required ?? []).includes('field'),
+      'field should not be required',
+    );
+  });
+
+  it('.nullable() emits anyOf with null branch', async () => {
+    const body = await analyzeRequestBody(
+      bodySource('z.string().nullable()'),
+    );
+    const field = body.properties.field;
+    const hasNull =
+      (Array.isArray(field.anyOf) &&
+        field.anyOf.some((c: any) => c.type === 'null')) ||
+      (Array.isArray(field.oneOf) &&
+        field.oneOf.some((c: any) => c.type === 'null')) ||
+      (Array.isArray(field.type) && field.type.includes('null'));
+    assert.ok(hasNull, 'nullable must include a null branch');
+  });
+
+  it('.nullish() makes field optional with null branch', async () => {
+    const body = await analyzeRequestBody(
+      bodySource('z.string().nullish()'),
+    );
+    const field = body.properties.field;
+    assert.ok(
+      !(body.required ?? []).includes('field'),
+      'nullish field should not be required',
+    );
+    const hasNull =
+      (Array.isArray(field.anyOf) &&
+        field.anyOf.some((c: any) => c.type === 'null')) ||
+      (Array.isArray(field.oneOf) &&
+        field.oneOf.some((c: any) => c.type === 'null')) ||
+      (Array.isArray(field.type) && field.type.includes('null'));
+    assert.ok(hasNull, 'nullish must include a null branch');
+  });
+
+  it('.default(value) emits default key', async () => {
+    const body = await analyzeRequestBody(
+      bodySource(`z.string().default('hi')`),
+    );
+    assert.strictEqual(body.properties.field.default, 'hi');
+    assert.strictEqual(body.properties.field.type, 'string');
+  });
+
+  it('.describe("...") emits description', async () => {
+    const body = await analyzeRequestBody(
+      bodySource(`z.string().describe('a name')`),
+    );
+    assert.strictEqual(body.properties.field.description, 'a name');
+    assert.strictEqual(body.properties.field.type, 'string');
+  });
+
+  it('.refine(...) does not add to the emitted schema (passes through)', async () => {
+    const body = await analyzeRequestBody(
+      bodySource('z.string().refine((v) => v.length > 0)'),
+    );
+    assert.deepStrictEqual(body.properties.field, { type: 'string' });
+  });
+
+  it('.transform(...) keeps the input schema type (effectStrategy: input)', async () => {
+    const body = await analyzeRequestBody(
+      bodySource('z.string().transform((v) => v.length)'),
+    );
+    assert.deepStrictEqual(body.properties.field, { type: 'string' });
+  });
+
+  it('.pipe(...) preserves the chained input shape', async () => {
+    const body = await analyzeRequestBody(
+      bodySource('z.string().pipe(z.string().min(1))'),
+    );
+    const field = body.properties.field;
+    const isAllOf = Array.isArray(field.allOf);
+    const isMergedString =
+      field.type === 'string' && field.minLength === 1;
+    assert.ok(
+      isAllOf || isMergedString,
+      `pipe should emit allOf or a merged string schema, got ${JSON.stringify(field)}`,
+    );
+  });
+
+  it('.brand("...") is transparent in the JSON schema', async () => {
+    const body = await analyzeRequestBody(
+      bodySource(`z.string().brand('UserId')`),
+    );
+    assert.deepStrictEqual(body.properties.field, { type: 'string' });
+  });
+});
+
+describe('zod v3 → v4 migration characterization: coerce variants', () => {
+  it('z.coerce.string() carries x-zod-type=coerce-string', async () => {
+    const body = await analyzeRequestBody(bodySource('z.coerce.string()'));
+    assert.strictEqual(body.properties.field.type, 'string');
+    assert.strictEqual(
+      body.properties.field['x-zod-type'],
+      'coerce-string',
+    );
+  });
+
+  it('z.coerce.boolean() carries x-zod-type=coerce-boolean', async () => {
+    const body = await analyzeRequestBody(bodySource('z.coerce.boolean()'));
+    assert.strictEqual(body.properties.field.type, 'boolean');
+    assert.strictEqual(
+      body.properties.field['x-zod-type'],
+      'coerce-boolean',
+    );
+  });
+
+  it('z.coerce.bigint() carries x-zod-type=coerce-bigint', async () => {
+    const body = await analyzeRequestBody(bodySource('z.coerce.bigint()'));
+    assert.strictEqual(body.properties.field.type, 'integer');
+    assert.strictEqual(
+      body.properties.field['x-zod-type'],
+      'coerce-bigint',
+    );
+  });
+});
+
+describe('zod v3 → v4 migration characterization: recursive (z.lazy)', () => {
+  it('inline z.lazy with a non-recursive body resolves to an object schema', async () => {
+    const body = await analyzeRequestBody(
+      bodySource('z.lazy(() => z.object({ value: z.string() }))'),
+    );
+    assert.deepStrictEqual(body.properties.field, {
+      type: 'object',
+      properties: { value: { type: 'string' } },
+      required: ['value'],
+      additionalProperties: false,
+    });
+  });
+
+  it('z.lazy referencing an enclosing schema variable throws (analyzer requires self-contained expressions)', async () => {
+    const workspace = await tsworkspace(tsconfig, {
+      'index.ts': `
+import { validate } from 'hono';
+import { z } from 'zod';
+
+const app = { post: (path: string, middleware: any, handler: any) => {} };
+
+type Node = { value: string; next?: Node };
+const nodeSchema: z.ZodType<Node> = z.lazy(() =>
+  z.object({ value: z.string(), next: nodeSchema.optional() })
+);
+
+/** @openapi op @tags x */
+app.post('/x', validate((p) => ({
+  field: { select: p.body.field, against: nodeSchema }
+})), (c) => {
+  return c.json({ ok: true });
+});
+`,
+    });
+    try {
+      await assert.rejects(
+        analyze(workspace.tsconfig, {
+          responseAnalyzer: responseAnalyzer,
+        }),
+        /nodeSchema is not defined/,
+      );
+    } finally {
+      await workspace[Symbol.asyncDispose]();
+    }
+  });
+});

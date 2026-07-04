@@ -1,11 +1,10 @@
+import { build as esbuild } from 'esbuild';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { after, before, describe, test } from 'node:test';
+import { describe, test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-
-import { build as esbuild } from 'esbuild';
 
 import backend from './client.ts';
 import type { Spec } from './sdk.ts';
@@ -14,45 +13,25 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const httpTemplatesDir = join(__dirname, 'http');
 const repoRoot = join(__dirname, '..', '..', '..', '..');
 
-let dispatcherTxt = '';
-let interceptorsTxt = '';
-let parseResponseTxt = '';
-let parserTxt = '';
-let requestTxt = '';
-let responseTxt = '';
-let sseTxt = '';
-
-before(async () => {
+const [
+  dispatcherTxt,
+  interceptorsTxt,
+  parseResponseTxt,
+  parserTxt,
+  requestTxt,
+  responseTxt,
+  sseTxt,
+] = await Promise.all(
   [
-    dispatcherTxt,
-    interceptorsTxt,
-    parseResponseTxt,
-    parserTxt,
-    requestTxt,
-    responseTxt,
-    sseTxt,
-  ] = await Promise.all(
-    [
-      'dispatcher.txt',
-      'interceptors.txt',
-      'parse-response.txt',
-      'parser.txt',
-      'request.txt',
-      'response.txt',
-      'sse.txt',
-    ].map((file) => readFile(join(httpTemplatesDir, file), 'utf-8')),
-  );
-});
-
-const tmpDirs: string[] = [];
-
-after(async () => {
-  await Promise.all(
-    tmpDirs.map((dir) =>
-      import('node:fs/promises').then((fs) => fs.rm(dir, { recursive: true, force: true })),
-    ),
-  );
-});
+    'dispatcher.txt',
+    'interceptors.txt',
+    'parse-response.txt',
+    'parser.txt',
+    'request.txt',
+    'response.txt',
+    'sse.txt',
+  ].map((file) => readFile(join(httpTemplatesDir, file), 'utf-8')),
+);
 
 interface BuiltClient {
   module: any;
@@ -68,20 +47,39 @@ interface BuildOptions {
   output?: string;
 }
 
-async function buildSdk(options: BuildOptions): Promise<BuiltClient> {
+// Identical inputs produce identical bundles, so cache compiled modules
+// instead of re-running esbuild for every test that shares a spec. The tmp
+// dir is removed as soon as the bundle is imported — no teardown needed.
+const compiledSdks = new Map<string, Promise<any>>();
+
+function compileSdk(options: BuildOptions): Promise<any> {
+  const key = JSON.stringify({
+    spec: options.spec,
+    makeImport: options.spec.makeImport?.toString(),
+    extraSchema: options.extraSchema,
+    output: options.output,
+  });
+  let compiled = compiledSdks.get(key);
+  if (!compiled) {
+    compiled = bundleSdk(options);
+    compiledSdks.set(key, compiled);
+  }
+  return compiled;
+}
+
+async function bundleSdk(options: BuildOptions): Promise<any> {
   const dir = await mkdtemp(join(tmpdir(), 'sdk-it-client-runtime-'));
-  tmpDirs.push(dir);
+  try {
+    const clientSrc = backend(options.spec);
 
-  const clientSrc = backend(options.spec);
+    const httpDir = join(dir, 'http');
+    const apiDir = join(dir, 'api');
+    await mkdir(httpDir, { recursive: true });
+    await mkdir(apiDir, { recursive: true });
 
-  const httpDir = join(dir, 'http');
-  const apiDir = join(dir, 'api');
-  await mkdir(httpDir, { recursive: true });
-  await mkdir(apiDir, { recursive: true });
-
-  await writeFile(
-    join(httpDir, 'dispatcher.ts'),
-    `import z from 'zod';
+    await writeFile(
+      join(httpDir, 'dispatcher.ts'),
+      `import z from 'zod';
 import { type Interceptor } from './interceptors';
 import { type RequestConfig } from './request';
 import { buffered } from './parse-response';
@@ -89,24 +87,24 @@ import { type SSEListener } from './sse';
 import { APIError, APIResponse, type SuccessfulResponse, type RebindSuccessPayload } from './response';
 
 ${dispatcherTxt}`,
-  );
-  await writeFile(
-    join(httpDir, 'interceptors.ts'),
-    `import type { RequestConfig, HeadersInit } from './request';\n${interceptorsTxt}`,
-  );
-  await writeFile(join(httpDir, 'parse-response.ts'), parseResponseTxt);
-  await writeFile(join(httpDir, 'parser.ts'), parserTxt);
-  await writeFile(join(httpDir, 'request.ts'), requestTxt);
-  await writeFile(join(httpDir, 'response.ts'), responseTxt);
-  await writeFile(join(httpDir, 'sse.ts'), sseTxt);
+    );
+    await writeFile(
+      join(httpDir, 'interceptors.ts'),
+      `import type { RequestConfig, HeadersInit } from './request';\n${interceptorsTxt}`,
+    );
+    await writeFile(join(httpDir, 'parse-response.ts'), parseResponseTxt);
+    await writeFile(join(httpDir, 'parser.ts'), parserTxt);
+    await writeFile(join(httpDir, 'request.ts'), requestTxt);
+    await writeFile(join(httpDir, 'response.ts'), responseTxt);
+    await writeFile(join(httpDir, 'sse.ts'), sseTxt);
 
-  const operationSchema =
-    options.extraSchema ??
-    `z.object({ limit: z.number().optional(), 'x-trace-id': z.string().optional() })`;
+    const operationSchema =
+      options.extraSchema ??
+      `z.object({ limit: z.number().optional(), 'x-trace-id': z.string().optional() })`;
 
-  await writeFile(
-    join(apiDir, 'schemas.ts'),
-    `import z from 'zod';
+    await writeFile(
+      join(apiDir, 'schemas.ts'),
+      `import z from 'zod';
 import { toRequest, json, empty } from '../http/request';
 import { Dispatcher, fetchType } from '../http/dispatcher';
 import { Ok, NoContent } from '../http/response';
@@ -164,11 +162,11 @@ export default {
   },
 };
 `,
-  );
+    );
 
-  await writeFile(
-    join(apiDir, 'endpoints.ts'),
-    `import type z from 'zod';
+    await writeFile(
+      join(apiDir, 'endpoints.ts'),
+      `import type z from 'zod';
 import type schemas from './schemas';
 import type { APIResponse, SuccessfulResponse } from '../http/response';
 import type { Unionize } from '../http/dispatcher';
@@ -179,38 +177,38 @@ type DispatchReturn<E extends keyof typeof schemas> = Awaited<
 export type InferData<E extends keyof typeof schemas> =
   DispatchReturn<E> extends APIResponse<infer D> ? D : DispatchReturn<E>;
 `,
-  );
+    );
 
-  const clientPath = join(dir, 'client.ts');
-  const rewritten = clientSrc
-    .replaceAll("from './http/response'", "from './http/response'")
-    .replaceAll("from './http/request'", "from './http/request'")
-    .replaceAll("from './http/dispatcher'", "from './http/dispatcher'")
-    .replaceAll("from './api/schemas'", "from './api/schemas'")
-    .replaceAll("from './api/endpoints'", "from './api/endpoints'")
-    .replaceAll("from './http/interceptors'", "from './http/interceptors'")
-    .replaceAll("from './http/parser'", "from './http/parser'");
-  await writeFile(clientPath, rewritten);
+    const clientPath = join(dir, 'client.ts');
+    await writeFile(clientPath, clientSrc);
 
-  const entryPath = join(dir, 'entry.ts');
-  await writeFile(
-    entryPath,
-    `export * from './client';\nexport * from './http/response';\nexport { default as schemas } from './api/schemas';\n`,
-  );
+    const entryPath = join(dir, 'entry.ts');
+    await writeFile(
+      entryPath,
+      `export * from './client';\nexport * from './http/response';\nexport { default as schemas } from './api/schemas';\n`,
+    );
 
-  const outFile = join(dir, 'bundle.mjs');
-  await esbuild({
-    entryPoints: [entryPath],
-    bundle: true,
-    outfile: outFile,
-    format: 'esm',
-    platform: 'node',
-    target: 'node20',
-    absWorkingDir: dir,
-    nodePaths: [join(repoRoot, 'node_modules')],
-    logLevel: 'silent',
-  });
+    const outFile = join(dir, 'bundle.mjs');
+    await esbuild({
+      entryPoints: [entryPath],
+      bundle: true,
+      outfile: outFile,
+      format: 'esm',
+      platform: 'node',
+      target: 'node20',
+      absWorkingDir: dir,
+      nodePaths: [join(repoRoot, 'node_modules')],
+      logLevel: 'silent',
+    });
 
+    return await import(pathToFileURL(outFile).href);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+async function buildSdk(options: BuildOptions): Promise<BuiltClient> {
+  const module = await compileSdk(options);
   const fetchCalls: Request[] = [];
   const respond =
     options.respond ??
@@ -223,9 +221,7 @@ export type InferData<E extends keyof typeof schemas> =
     fetchCalls.push(req);
     return respond(req);
   };
-
-  const mod = await import(pathToFileURL(outFile).href);
-  return { module: mod, fetchCalls, fetchShim };
+  return { module, fetchCalls, fetchShim };
 }
 
 describe('emitted client runtime', () => {
@@ -249,10 +245,7 @@ describe('emitted client runtime', () => {
     assert.strictEqual(fetchCalls.length, 1);
     const req = fetchCalls[0];
     assert.strictEqual(req.method, 'GET');
-    assert.strictEqual(
-      req.url,
-      'https://api.example.com/users?limit=5',
-    );
+    assert.strictEqual(req.url, 'https://api.example.com/users?limit=5');
     assert.deepStrictEqual(data, { ok: true });
   });
 
@@ -312,7 +305,10 @@ describe('emitted client runtime', () => {
 
     await client.request('GET /users', {});
 
-    assert.strictEqual(fetchCalls[0].headers.get('Authorization'), 'Bearer fn-token');
+    assert.strictEqual(
+      fetchCalls[0].headers.get('Authorization'),
+      'Bearer fn-token',
+    );
   });
 
   test('with-token client: async-function token is awaited and sent as Bearer header', async () => {
@@ -389,10 +385,7 @@ describe('emitted client runtime', () => {
 
     await client.request('GET /users', {});
 
-    assert.strictEqual(
-      fetchCalls[0].url,
-      'https://api.example.com/users',
-    );
+    assert.strictEqual(fetchCalls[0].url, 'https://api.example.com/users');
   });
 
   test('with-servers client: explicit baseUrl overrides the default server', async () => {
@@ -412,10 +405,7 @@ describe('emitted client runtime', () => {
 
     await client.request('GET /users', {});
 
-    assert.strictEqual(
-      fetchCalls[0].url,
-      'https://staging.example.com/users',
-    );
+    assert.strictEqual(fetchCalls[0].url, 'https://staging.example.com/users');
   });
 
   test('with-server-variables client: expanded enum URLs become the default server list', async () => {
@@ -558,10 +548,7 @@ describe('emitted client runtime', () => {
       { headers: { 'x-custom': 'per-request' } },
     );
 
-    assert.strictEqual(
-      fetchCalls[0].headers.get('x-custom'),
-      'per-request',
-    );
+    assert.strictEqual(fetchCalls[0].headers.get('x-custom'), 'per-request');
   });
 
   test('POST /users sends JSON body and content-type header', async () => {
@@ -631,10 +618,7 @@ describe('emitted client runtime', () => {
 
     await client.request('GET /users', {});
 
-    assert.strictEqual(
-      fetchCalls[0].url,
-      'https://dynamic.example.com/users',
-    );
+    assert.strictEqual(fetchCalls[0].url, 'https://dynamic.example.com/users');
   });
 
   test('baseUrl accepts async function returning string', async () => {
@@ -654,10 +638,7 @@ describe('emitted client runtime', () => {
 
     await client.request('GET /users', {});
 
-    assert.strictEqual(
-      fetchCalls[0].url,
-      'https://async.example.com/users',
-    );
+    assert.strictEqual(fetchCalls[0].url, 'https://async.example.com/users');
   });
 
   test('skipValidation bypasses zod schema enforcement on input', async () => {

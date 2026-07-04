@@ -4,7 +4,8 @@ import { toZod } from './emitters/zod.ts';
 import type { Spec } from './sdk.ts';
 
 export default (spec: Omit<Spec, 'operations'>) => {
-  const baseUrlSchema = `z.union([z.string(),z.function().returns(z.union([z.string(), z.promise(z.string())])),])${spec.servers.length ? '.default(servers[0])' : ''}`;
+  const callableString = `z.custom<() => string | Promise<string>>((value) => typeof value === 'function')`;
+  const baseUrlSchema = `z.union([z.string(),${callableString},])${spec.servers.length ? '.default(servers[0])' : ''}`;
   const defaultHeaders = `{${spec.options
     .filter((value) => value.in === 'header')
     .map(
@@ -36,13 +37,15 @@ export default (spec: Omit<Spec, 'operations'>) => {
     ...(globalOptions["'token'"]
       ? {
           "'token'": {
-            schema: `z.union([z.string(),z.function().returns(z.union([z.string(), z.promise(z.string())])),]).optional()
-    .transform(async (token) => {
+            schema: `z.union([z.string(),${callableString},]).optional()
+    .transform(async (token, ctx) => {
       if (!token) return undefined;
-      if (typeof token === 'function') {
-        token = await Promise.resolve(token());
+      const value = typeof token === 'function' ? await token() : token;
+      if (typeof value !== 'string') {
+        ctx.addIssue({ code: 'custom', message: 'token must resolve to a string' });
+        return z.NEVER;
       }
-      return \`Bearer \${token}\`;
+      return \`Bearer \${value}\`;
     }).describe('Bearer token for authentication. Can be a string or a function that returns a string.')`,
           },
         }
@@ -51,15 +54,17 @@ export default (spec: Omit<Spec, 'operations'>) => {
       schema: `fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.')`,
     },
     baseUrl: {
-      schema: `${baseUrlSchema}.transform(async (baseUrl) => {
-      if (typeof baseUrl === 'function') {
-        return Promise.resolve(baseUrl());
+      schema: `${baseUrlSchema}.transform(async (baseUrl, ctx) => {
+      const value = typeof baseUrl === 'function' ? await baseUrl() : baseUrl;
+      if (typeof value !== 'string') {
+        ctx.addIssue({ code: 'custom', message: 'baseUrl must resolve to a string' });
+        return z.NEVER;
       }
-      return baseUrl;
+      return value;
     }).describe('Base URL of the API server. Can be a string or a function that returns a string.')`,
     },
     headers: {
-      schema: `z.record(z.string()).optional().describe('Default headers to include in all requests.')`,
+      schema: `z.record(z.string(), z.string()).optional().describe('Default headers to include in all requests.')`,
     },
     skipValidation: {
       schema: `z.boolean().optional().describe('Skip request input validation. Client options and TypeScript types still enforce correct usage.')`,
@@ -97,7 +102,9 @@ export class ${spec.name} {
     input: z.input<(typeof schemas)[E]['schema']>,
     options?: { signal?: AbortSignal; headers?: HeadersInit },
   ) {
-    return request(this, endpoint, input, options).then(function unwrap(it) {
+    return request(this, endpoint, input, options).then(function unwrap(
+      it: unknown,
+    ) {
       if (it instanceof APIResponse) {
         return it.data as InferData<E>;
       }

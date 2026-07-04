@@ -29,7 +29,7 @@
   "dependencies": {
     "@sdk-it/core": "0.43.0",
     "hono": "^4.7.4",
-    "zod": "^3.25.76 || ^4.0.0",
+    "zod": "^4.3.0",
     "fast-content-type-parse": "^3.0.0"
   },
   "peerDependencies": {

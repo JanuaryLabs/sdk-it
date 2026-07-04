@@ -167,9 +167,6 @@ export class TypeScriptEmitter {
       case 'byte':
         type = 'Blob';
         break;
-      case 'int64':
-        type = 'bigint';
-        break;
       default:
         type = 'string';
     }
@@ -180,9 +177,8 @@ export class TypeScriptEmitter {
   /**
    * Handle number/integer types with formats
    */
-  number(schema: SchemaObject, required?: boolean): string {
-    const type = schema.format === 'int64' ? 'bigint' : 'number';
-    return appendOptional(type, required);
+  number(_schema: SchemaObject, required?: boolean): string {
+    return appendOptional('number', required);
   }
 
   handle(schema: SchemaObject | ReferenceObject, required: boolean): string {

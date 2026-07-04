@@ -23,7 +23,7 @@
   ],
   "dependencies": {
     "@sdk-it/spec": "0.43.0",
-    "zod": "^3.25.76 || ^4.0.0",
+    "zod": "^4.3.0",
     "fast-content-type-parse": "^3.0.0",
     "@sdk-it/typescript": "0.43.0",
     "ai": "^5.0.0-beta.24",

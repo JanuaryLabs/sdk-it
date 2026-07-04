@@ -216,7 +216,7 @@ app.post(
     },
     status: {
       select: payload.body.status,
-      against: z.nativeEnum($Enums.ProductStatus), // Using Prisma enum
+      against: z.enum($Enums.ProductStatus), // Using Prisma enum
     },
     price: {
       select: payload.body.price,

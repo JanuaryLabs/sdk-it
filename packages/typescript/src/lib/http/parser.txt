@@ -1,22 +1,24 @@
 import { z } from 'zod';
 
-export class ParseError<T extends z.ZodType<any, any, any>> extends Error {
-  public data: z.typeToFlattenedError<T, z.ZodIssue>;
-  constructor(data: z.typeToFlattenedError<T, z.ZodIssue>) {
+export class ParseError<T extends z.ZodType> extends Error {
+  public data: z.core.$ZodFlattenedError<z.output<T>, z.core.$ZodIssue>;
+  constructor(
+    data: z.core.$ZodFlattenedError<z.output<T>, z.core.$ZodIssue>,
+  ) {
     super('Validation failed');
     this.name = 'ParseError';
     this.data = data;
   }
 }
 
-export function parseInput<T extends z.ZodType<any, any, any>>(
+export function parseInput<T extends z.ZodType>(
   schema: T,
   input: unknown,
 ): z.infer<T> {
   const result = schema.safeParse(input);
   if (!result.success) {
-    const error = result.error.flatten((issue) => issue);
-    throw new ParseError(error);
+    const error = z.flattenError(result.error, (issue) => issue);
+    throw new ParseError<T>(error);
   }
   return result.data as z.infer<T>;
 }

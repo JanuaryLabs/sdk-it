@@ -23,7 +23,7 @@ describe('ZodEmitter date handling', () => {
           { type: 'string', format: 'email', 'x-zod-type': 'coerce-string' },
           true,
         ),
-        'z.coerce.string().email()',
+        'z.coerce.string().pipe(z.email())',
       );
     });
   });
@@ -35,7 +35,7 @@ describe('ZodEmitter date handling', () => {
         { type: 'string', format: 'date-time' },
         true,
       );
-      assert.equal(result, 'z.string().datetime()');
+      assert.equal(result, 'z.iso.datetime({ offset: true })');
     });
 
     test('optional', () => {
@@ -44,7 +44,7 @@ describe('ZodEmitter date handling', () => {
         { type: 'string', format: 'date-time' },
         false,
       );
-      assert.equal(result, 'z.string().datetime().optional()');
+      assert.equal(result, 'z.iso.datetime({ offset: true }).optional()');
     });
 
     test('with default', () => {
@@ -59,7 +59,7 @@ describe('ZodEmitter date handling', () => {
       );
       assert.equal(
         result,
-        'z.string().datetime().default("2024-01-01T00:00:00Z")',
+        'z.iso.datetime({ offset: true }).default("2024-01-01T00:00:00Z")',
       );
     });
   });
@@ -149,20 +149,14 @@ describe('ZodEmitter date handling', () => {
   describe('format: date', () => {
     test('required', () => {
       const emitter = new ZodEmitter(emptySpec);
-      const result = emitter.handle(
-        { type: 'string', format: 'date' },
-        true,
-      );
-      assert.equal(result, 'z.string().date()');
+      const result = emitter.handle({ type: 'string', format: 'date' }, true);
+      assert.equal(result, 'z.iso.date()');
     });
 
     test('optional', () => {
       const emitter = new ZodEmitter(emptySpec);
-      const result = emitter.handle(
-        { type: 'string', format: 'date' },
-        false,
-      );
-      assert.equal(result, 'z.string().date().optional()');
+      const result = emitter.handle({ type: 'string', format: 'date' }, false);
+      assert.equal(result, 'z.iso.date().optional()');
     });
 
     test('with default stays as string', () => {
@@ -171,7 +165,7 @@ describe('ZodEmitter date handling', () => {
         { type: 'string', format: 'date', default: '2024-01-01' },
         true,
       );
-      assert.equal(result, 'z.string().date().default("2024-01-01")');
+      assert.equal(result, 'z.iso.date().default("2024-01-01")');
     });
   });
 
@@ -220,26 +214,75 @@ describe('ZodEmitter date handling', () => {
         { type: 'string', format: 'date-time' },
         true,
       );
-      assert.equal(result, 'z.string().datetime()');
+      assert.equal(result, 'z.iso.datetime({ offset: true })');
     });
 
     test('format date from external spec', () => {
       const emitter = new ZodEmitter(emptySpec);
-      const result = emitter.handle(
-        { type: 'string', format: 'date' },
-        true,
+      const result = emitter.handle({ type: 'string', format: 'date' }, true);
+      assert.equal(result, 'z.iso.date()');
+    });
+  });
+
+  describe('cidr formats', () => {
+    test('emit semantic cidr validators', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle({ type: 'string', format: 'cidrv4' }, true),
+        'z.cidrv4()',
       );
-      assert.equal(result, 'z.string().date()');
+      assert.equal(
+        emitter.handle({ type: 'string', format: 'cidrv6' }, true),
+        'z.cidrv6()',
+      );
+    });
+  });
+
+  describe('uuid format', () => {
+    test('emits z.guid() to keep v3 GUID semantics', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle({ type: 'string', format: 'uuid' }, true),
+        'z.guid()',
+      );
+    });
+  });
+
+  describe('enums', () => {
+    test('integer enum emits a literal values array', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle({ type: 'integer', enum: [1, 2] }, true),
+        'z.literal([1, 2])',
+      );
+    });
+
+    test('numeric enum typed "number" emits a literal values array, not z.enum', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle({ type: 'number', enum: [1.5, 2.5] }, true),
+        'z.literal([1.5, 2.5])',
+      );
+    });
+
+    test('numeric enum with no declared type emits a literal values array', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(emitter.handle({ enum: [1, 2] }, true), 'z.literal([1, 2])');
+    });
+
+    test('string enum emits z.enum', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle({ type: 'string', enum: ['a', 'b'] }, true),
+        'z.enum(["a", "b"])',
+      );
     });
   });
 
   describe('number types', () => {
     test('z.number() required', () => {
       const emitter = new ZodEmitter(emptySpec);
-      assert.equal(
-        emitter.handle({ type: 'number' }, true),
-        'z.number()',
-      );
+      assert.equal(emitter.handle({ type: 'number' }, true), 'z.number()');
     });
 
     test('z.number() optional', () => {
@@ -280,10 +323,7 @@ describe('ZodEmitter date handling', () => {
     test('x-zod-type coerce-number produces z.coerce.number()', () => {
       const emitter = new ZodEmitter(emptySpec);
       assert.equal(
-        emitter.handle(
-          { type: 'number', 'x-zod-type': 'coerce-number' },
-          true,
-        ),
+        emitter.handle({ type: 'number', 'x-zod-type': 'coerce-number' }, true),
         'z.coerce.number()',
       );
     });
@@ -348,54 +388,61 @@ describe('ZodEmitter date handling', () => {
     });
   });
 
-  describe('bigint types', () => {
-    test('int64 format produces z.bigint()', () => {
+  describe('64-bit integers', () => {
+    // int64/uint64 stop being special: an integer on the wire is a plain
+    // number, a string on the wire is a plain string. No bigint, no codec.
+    test('integer int64 is a plain integer', () => {
       const emitter = new ZodEmitter(emptySpec);
       assert.equal(
         emitter.handle({ type: 'integer', format: 'int64' }, true),
-        'z.bigint()',
+        'z.number().int()',
       );
     });
 
-    test('x-zod-type coerce-bigint produces z.coerce.bigint()', () => {
+    test('integer uint64 is a plain integer', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle({ type: 'integer', format: 'uint64' }, true),
+        'z.number().int()',
+      );
+    });
+
+    test('integer int64 bounds emit as plain number literals', () => {
       const emitter = new ZodEmitter(emptySpec);
       assert.equal(
         emitter.handle(
-          {
-            type: 'integer',
-            format: 'int64',
-            'x-zod-type': 'coerce-bigint',
-          },
+          { type: 'integer', format: 'int64', minimum: 5, maximum: 100 },
           true,
         ),
-        'z.coerce.bigint()',
+        'z.number().int().min(5).max(100)',
       );
     });
 
-    test('coerce-bigint optional', () => {
+    test('string-encoded int64 is a plain string', () => {
       const emitter = new ZodEmitter(emptySpec);
       assert.equal(
-        emitter.handle(
-          {
-            type: 'integer',
-            format: 'int64',
-            'x-zod-type': 'coerce-bigint',
-          },
-          false,
-        ),
-        'z.coerce.bigint().optional()',
+        emitter.handle({ type: 'string', format: 'int64' }, true),
+        'z.string()',
+      );
+    });
+
+    test('string-encoded uint64 is a plain string', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle({ type: 'string', format: 'uint64' }, true),
+        'z.string()',
       );
     });
   });
 
+  // Emitted client code must not reference Blob as a runtime value — it
+  // throws ReferenceError where the global is missing and fails instanceof
+  // for cross-realm/polyfill Blobs (see e62c4e1, docs/recipes/file-upload.md).
   describe('binary types', () => {
     test('contentEncoding binary emits z.custom<Blob>()', () => {
       const emitter = new ZodEmitter(emptySpec);
       assert.equal(
-        emitter.handle(
-          { type: 'string', contentEncoding: 'binary' },
-          true,
-        ),
+        emitter.handle({ type: 'string', contentEncoding: 'binary' }, true),
         'z.custom<Blob>()',
       );
     });
@@ -425,7 +472,7 @@ describe('ZodEmitter date handling', () => {
           { type: 'boolean', 'x-zod-type': 'coerce-boolean' },
           true,
         ),
-        'z.coerce.boolean()',
+        'z.union([z.boolean(), z.stringbool()])',
       );
     });
 
@@ -440,7 +487,27 @@ describe('ZodEmitter date handling', () => {
           },
           false,
         ),
-        'z.coerce.boolean().optional().default(true)',
+        'z.union([z.boolean(), z.stringbool()]).optional().default(true)',
+      );
+    });
+  });
+
+  describe('composition keywords', () => {
+    test('oneOf emits z.xor (exclusive), anyOf emits z.union', () => {
+      const emitter = new ZodEmitter(emptySpec);
+      assert.equal(
+        emitter.handle(
+          { oneOf: [{ type: 'string' }, { type: 'number' }] },
+          true,
+        ),
+        'z.xor([z.string(), z.number()])',
+      );
+      assert.equal(
+        emitter.handle(
+          { anyOf: [{ type: 'string' }, { type: 'number' }] },
+          true,
+        ),
+        'z.union([z.string(), z.number()])',
       );
     });
   });

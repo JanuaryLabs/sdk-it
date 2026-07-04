@@ -70,7 +70,7 @@ app.post(
     // URL parameter validation
     userId: {
       select: payload.params.userId,
-      against: z.string().uuid(),
+      against: z.uuid(),
     },
 
     // Header validation
@@ -134,7 +134,7 @@ app.post(
   validate('multipart/form-data', (payload) => ({
     userId: {
       select: payload.params.userId,
-      against: z.string().uuid(),
+      against: z.uuid(),
     },
     // File validation
     avatar: {

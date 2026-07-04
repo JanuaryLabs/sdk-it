@@ -193,7 +193,7 @@ However, if you want to reference external schemas as shown below, you need to p
 import { z } from 'zod';
 
 export const authorSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   name: z.string().min(2).max(100),
 });
 ```

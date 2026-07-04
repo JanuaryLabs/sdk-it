@@ -118,9 +118,11 @@ export async function generate(
 
   const clientName = pascalcase((settings.name || 'client').trim());
 
-  const packageName = settings.packageName ?? (settings.name
-    ? `@${spinalcase(settings.name.trim().toLowerCase())}/sdk`
-    : 'sdk');
+  const packageName =
+    settings.packageName ??
+    (settings.name
+      ? `@${spinalcase(settings.name.trim().toLowerCase())}/sdk`
+      : 'sdk');
 
   const inputs = toInputs(groups, commonZod, makeImport);
   const models = serializeModels(spec);
@@ -279,7 +281,7 @@ ${template(dispatcherTxt, {})()}`,
             },
             dependencies: {
               'fast-content-type-parse': '^3.0.0',
-              zod: '^3.25.76',
+              zod: '^4.3.0',
             },
           },
           null,

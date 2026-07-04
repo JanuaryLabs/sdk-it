@@ -6,7 +6,6 @@ Brief descriptions of each package in the monorepo. These summaries focus on pur
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@sdk-it/apiref`     | React/Radix UI powered API reference web app that renders generated SDK/OpenAPI documentation with markdown, code highlighting, and interactive navigation.                                           |
 | `@sdk-it/cli`        | Command-line interface to generate, format, and publish SDKs (TypeScript, Dart, Python) from OpenAPI specs; coordinates generators and ancillary assets (project scaffolding, README).                |
-| `@sdk-it/client`     | Runtime TypeScript HTTP client with strongly typed request/response handling, pagination iterator, error class hierarchy, and dynamic validation hooks.                                               |
 | `@sdk-it/core`       | Low-level TypeScript analysis & utility primitives (tsconfig parsing, program creation, AST/type helpers, zod→json schema conversion) used by higher-level analyzers and generators.                  |
 | `@sdk-it/dart`       | OpenAPI → Dart SDK generator producing type-safe client classes, models, and request/response handling suitable for Dart & Flutter projects.                                                          |
 | `@sdk-it/generic`    | Framework-agnostic TypeScript code analyzer extracting routes + validation metadata to build OpenAPI specs; supports custom type maps, external schema imports, and operation/tag tuning.             |
@@ -18,6 +17,10 @@ Brief descriptions of each package in the monorepo. These summaries focus on pur
 | `@sdk-it/spec`       | Spec processing/tuning layer: loads local/remote OpenAPI, builds intermediate representation (IR), normalizes operations, names, polymorphism, security, sidebar metadata. Foundation for generators. |
 | `@sdk-it/typescript` | OpenAPI → TypeScript SDK generator producing a cross-runtime, fully typed client; configurable output structure & optional post-generation formatting hooks.                                          |
 | `@sdk-it/vite`       | Vite plugin that watches an OpenAPI spec (local or remote) and auto-generates/refreshes a TypeScript SDK during dev & build (single-flight generation).                                               |
+
+### Cross-package invariants
+
+- **64-bit integers are not special.** The generated type follows the wire encoding: `type: integer, format: int64/uint64` → `number` (`z.number().int()`), `type: string, format: int64/uint64` → `string` (`z.string()`). No `bigint`, no runtime revival machinery — a `type: integer` value past 2^53 is a lossy `number`, and the fix is to encode 64-bit IDs as strings (protobuf-JSON style). `z.int64()`/`z.bigint()` in server code still emit `format: int64` in the spec as documentation. See `docs/recipes/int64-bigint.md` before touching int64 handling.
 
 ### Notes & Next Refinements
 

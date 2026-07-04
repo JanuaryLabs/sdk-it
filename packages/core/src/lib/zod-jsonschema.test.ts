@@ -51,7 +51,7 @@ describe('evalZod', () => {
         expected: {
           type: 'integer',
           format: 'int64',
-          default: 1n,
+          default: 1,
           'x-zod-type': 'coerce-bigint',
         },
       },
@@ -187,5 +187,37 @@ describe('evalZod', () => {
       default: 1,
       'x-zod-type': 'coerce-number',
     });
+  });
+});
+
+describe('bigint spec mapping', () => {
+  test('z.int64() claims format int64 without restating implied bounds', async () => {
+    const { schema } = await evalZod('z.int64()');
+    assert.deepStrictEqual(schema, { type: 'integer', format: 'int64' });
+  });
+
+  test('z.uint64() claims format uint64 without restating implied bounds', async () => {
+    const { schema } = await evalZod('z.uint64()');
+    assert.deepStrictEqual(schema, { type: 'integer', format: 'uint64' });
+  });
+
+  test('bare z.bigint() is interpreted as int64 — sdk-it has no unbounded integer concept', async () => {
+    const { schema } = await evalZod('z.bigint()');
+    assert.deepStrictEqual(schema, { type: 'integer', format: 'int64' });
+  });
+
+  test('z.coerce.bigint() claims int64 alongside the coerce marker', async () => {
+    const { schema } = await evalZod('z.coerce.bigint()');
+    assert.deepStrictEqual(schema, {
+      type: 'integer',
+      format: 'int64',
+      'x-zod-type': 'coerce-bigint',
+    });
+  });
+
+  test('int64 defaults land in the spec as plain numbers', async () => {
+    const { schema } = await evalZod('z.int64().default(42n)');
+    assert.equal(schema.default, 42);
+    assert.equal(schema.format, 'int64');
   });
 });

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { type Tool, tool } from 'ai';
+import { type Tool, jsonSchema, tool } from 'ai';
 import { z } from 'zod';
 
 import {
@@ -22,6 +22,7 @@ import {
   createBaseUrlInterceptor,
   createHeadersInterceptor,
 } from './http/interceptors.ts';
+import { parseInput } from './http/parser.ts';
 import {
   type Endpoint,
   type HeadersInit,
@@ -35,35 +36,43 @@ import {
 import * as http from './http/response.ts';
 import { schemaToZod } from './zod.ts';
 
+const callable = z.custom<() => string | Promise<string>>(
+  (value) => typeof value === 'function',
+);
+
 const baseUrlSchema = z
-  .union([
-    z.string(),
-    z.function().returns(z.union([z.string(), z.promise(z.string())])),
-  ])
-  .transform(async (baseUrl) => {
-    if (typeof baseUrl === 'function') {
-      return Promise.resolve(baseUrl());
+  .union([z.string(), callable])
+  .transform(async (baseUrl, ctx) => {
+    const value = typeof baseUrl === 'function' ? await baseUrl() : baseUrl;
+    if (typeof value !== 'string') {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'baseUrl must resolve to a string',
+      });
+      return z.NEVER;
     }
-    return baseUrl;
+    return value;
   });
 
 const optionsSchema = z.object({
   token: z
-    .union([
-      z.string(),
-      z.function().returns(z.union([z.string(), z.promise(z.string())])),
-    ])
+    .union([z.string(), callable])
     .optional()
-    .transform(async (token) => {
+    .transform(async (token, ctx) => {
       if (!token) return undefined;
-      if (typeof token === 'function') {
-        token = await Promise.resolve(token());
+      const value = typeof token === 'function' ? await token() : token;
+      if (typeof value !== 'string') {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'token must resolve to a string',
+        });
+        return z.NEVER;
       }
-      return `Bearer ${token}`;
+      return `Bearer ${value}`;
     }),
   fetch: fetchType,
   baseUrl: baseUrlSchema,
-  headers: z.record(z.string()).optional(),
+  headers: z.record(z.string(), z.string()).optional(),
 });
 
 export type ClientOptions = z.input<typeof optionsSchema>;
@@ -117,7 +126,7 @@ export class Client {
   ) {
     const route = this.schemas[endpoint];
     const withDefaultInputs = Object.assign({}, this.#defaultInputs, input);
-    const parsedInput = input;
+    const parsedInput = parseInput(route.schema, withDefaultInputs);
     const clientOptions = await optionsSchema.parseAsync(this.options);
     const result = await route.dispatch(parsedInput as never, {
       fetch: clientOptions.fetch,
@@ -268,9 +277,8 @@ export async function toAgents(
         type: 'function',
         description:
           toolInfo?.description || operation.description || operation.summary,
-        inputSchema: client.schemas[endpoint].schema,
+        inputSchema: toToolSchema(client.schemas[endpoint].schema),
         execute: async (input) => {
-          console.log('Executing tool with input:', input);
           const response = await client.request(endpoint, input);
           return JSON.stringify(response);
         },
@@ -298,4 +306,103 @@ export async function toAgents(
 
 function defaultSerializer(ct: string) {
   throw new Error(`Unsupported content type: ${ct}`);
+}
+
+const TOOL_COERCE_MARKER = 'x-sdkit-tool-coerce';
+
+/**
+ * Rebuild JSON tool-call values into what the zod schema validates: date
+ * params are z.date()/z.coerce.date(), which JSON cannot carry. Without this,
+ * every tool call shaped exactly as the advertised schema instructs would be
+ * rejected by the validator.
+ */
+function coerceToolValue(value: any, schema: any): any {
+  if (
+    !schema ||
+    typeof schema !== 'object' ||
+    value === null ||
+    value === undefined
+  ) {
+    return value;
+  }
+  const marker = schema[TOOL_COERCE_MARKER];
+  if (marker === 'date' && typeof value === 'string') {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date;
+  }
+  if (Array.isArray(value)) {
+    if (Array.isArray(schema.items)) {
+      return value.map((item, index) =>
+        coerceToolValue(item, schema.items[index] ?? schema.additionalItems),
+      );
+    }
+    if (schema.items) {
+      return value.map((item) => coerceToolValue(item, schema.items));
+    }
+    return value;
+  }
+  if (
+    typeof value === 'object' &&
+    (schema.properties || schema.additionalProperties)
+  ) {
+    const out: Record<string, any> = { ...value };
+    for (const [key, propValue] of Object.entries(out)) {
+      const propSchema =
+        schema.properties?.[key] ??
+        (typeof schema.additionalProperties === 'object'
+          ? schema.additionalProperties
+          : undefined);
+      if (propSchema) out[key] = coerceToolValue(propValue, propSchema);
+    }
+    return out;
+  }
+  for (const key of ['anyOf', 'oneOf', 'allOf']) {
+    if (Array.isArray(schema[key])) {
+      for (const member of schema[key]) {
+        const coerced = coerceToolValue(value, member);
+        if (coerced !== value) return coerced;
+      }
+    }
+  }
+  return value;
+}
+
+/**
+ * The ai SDK serializes zod schemas with `unrepresentable: 'throw'`, so a
+ * schema containing date/custom/transform (coerce-date, binary, x-prefix
+ * inputs) would crash every agent invocation. Precompute a serializable JSON
+ * schema and keep argument validation on the zod schema.
+ */
+function toToolSchema(schema: z.ZodType) {
+  const marked = z.toJSONSchema(schema, {
+    target: 'draft-7',
+    io: 'input',
+    unrepresentable: 'any',
+    override(ctx) {
+      const def = ctx.zodSchema._zod.def;
+      const json = ctx.jsonSchema as Record<string, unknown>;
+      if (def.type === 'date') {
+        json.type = 'string';
+        json.format = 'date-time';
+        json[TOOL_COERCE_MARKER] = 'date';
+      }
+    },
+  }) as Record<string, unknown>;
+  const advertised = JSON.parse(
+    JSON.stringify(marked, (key, value) =>
+      key === TOOL_COERCE_MARKER ? undefined : value,
+    ),
+  );
+  return jsonSchema(advertised as never, {
+    validate: (value) => {
+      const coerced = coerceToolValue(value, marked);
+      const result = schema.safeParse(coerced);
+      // Return the input-form value, not result.data: Client.request runs
+      // parseInput itself, so returning the parsed output here would apply
+      // schema transforms twice (e.g. x-prefix -> 'Bearer Bearer <token>').
+      return result.success
+        ? { success: true, value: coerced }
+        : { success: false, error: result.error };
+    },
+  });
 }

@@ -1,9 +1,10 @@
+import { asSchema } from 'ai';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, test } from 'node:test';
-import { zodToJsonSchema } from 'zod-to-json-schema';
+import { z } from 'zod';
 
 import { rpc, toAgents } from './rpc.ts';
 
@@ -163,7 +164,7 @@ describe('toAgents', () => {
     });
 
     const toolDef = agents.users.tools.getUsers;
-    const jsonSchema = zodToJsonSchema(toolDef.inputSchema) as any;
+    const jsonSchema = asSchema(toolDef.inputSchema).jsonSchema as any;
 
     assert.equal(
       jsonSchema.properties.query.description,
@@ -248,7 +249,7 @@ describe('toAgents', () => {
     });
 
     const toolDef = agents.users.tools.listItems;
-    const jsonSchema = zodToJsonSchema(toolDef.inputSchema) as any;
+    const jsonSchema = asSchema(toolDef.inputSchema).jsonSchema as any;
 
     assert.equal(jsonSchema.properties.name.type, 'string');
     assert.equal(jsonSchema.properties.count.type, 'integer');
@@ -674,7 +675,7 @@ describe('toAgents', () => {
     });
 
     const toolDef = agents.users.tools.getUser;
-    const jsonSchema = zodToJsonSchema(toolDef.inputSchema) as any;
+    const jsonSchema = asSchema(toolDef.inputSchema).jsonSchema as any;
     assert.ok(jsonSchema.properties.userId, 'path param in schema');
     assert.equal(
       jsonSchema.properties.userId.description,
@@ -790,14 +791,99 @@ describe('rpc', () => {
     });
 
     const controller = new AbortController();
-    const response = await client.request('GET /users', {}, {
-      signal: controller.signal,
-    });
+    const response = await client.request(
+      'GET /users',
+      {},
+      {
+        signal: controller.signal,
+      },
+    );
 
     assert.ok(receivedRequest);
     assert.equal(receivedRequest.signal.aborted, false);
     controller.abort();
     assert.equal(receivedRequest.signal.aborted, true);
     assert.equal(response.status, 200);
+  });
+});
+
+describe('toAgents — ai SDK schema serialization', () => {
+  test('tool inputSchema with a date param serializes the way the ai SDK does, without throwing', async () => {
+    try {
+      const spec = makeSpec({
+        paths: {
+          '/ledger': {
+            get: {
+              operationId: 'getLedger',
+              'x-fn-name': 'getLedger',
+              'x-tool': { name: 'getLedger', description: 'Ledger lookup' },
+              tags: ['users'],
+              parameters: [
+                {
+                  name: 'accountId',
+                  in: 'query',
+                  required: true,
+                  schema: { type: 'integer', format: 'int64' },
+                },
+                {
+                  name: 'since',
+                  in: 'query',
+                  required: false,
+                  schema: {
+                    type: 'string',
+                    format: 'date-time',
+                    'x-zod-type': 'coerce-date',
+                  },
+                },
+              ],
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: {
+                    'application/json': { schema: { type: 'object' } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+      const path = writeSpec(spec);
+      const agents = await toAgents(path, { baseUrl: 'http://localhost:3000' });
+      const toolDef = agents.users.tools.getLedger;
+
+      // asSchema(...).jsonSchema is exactly what generateText/streamText do
+      // when preparing the provider request.
+      const serialized = asSchema(toolDef.inputSchema).jsonSchema as any;
+      // int64 is a plain integer now; the date (unrepresentable to JSON
+      // schema) is what toToolSchema must keep from throwing.
+      assert.equal(serialized.properties.accountId.type, 'integer');
+      assert.equal(serialized.properties.since.type, 'string');
+      assert.equal(serialized.properties.since.format, 'date-time');
+      assert.equal(
+        serialized.properties.since['x-sdkit-tool-coerce'],
+        undefined,
+        'internal coerce marker must not leak into the advertised schema',
+      );
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('tool inputSchema still validates arguments after serialization-safe wrapping', async () => {
+    try {
+      const path = writeSpec(makeSpec());
+      const agents = await toAgents(path, { baseUrl: 'http://localhost:3000' });
+      const toolDef = agents.users.tools.getUsers;
+
+      const schema = asSchema(toolDef.inputSchema);
+      assert.equal(schema.validate === undefined, false, 'validator preserved');
+      const good = await schema.validate!({ query: 'hello' });
+      assert.equal(good.success, true);
+      const bad = await schema.validate!({ query: 42 });
+      assert.equal(bad.success, false, 'non-string query must fail validation');
+    } finally {
+      cleanup();
+    }
   });
 });

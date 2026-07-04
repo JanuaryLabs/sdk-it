@@ -45,10 +45,14 @@ export type OutputType =
   | Type<APIResponse>
   | { parser: Parser; type: Type<APIResponse> };
 
+// Bare z.custom (no predicate) on purpose: Request/Response from another
+// realm (undici vs global fetch) fail instanceof checks. The output is
+// typed as a Promise directly — zod 4 deprecated z.promise.
 export const fetchType = z
-  .function()
-  .args(z.custom<Request>())
-  .returns(z.promise(z.custom<Response>()))
+  .function({
+    input: [z.custom<Request>()],
+    output: z.custom<Promise<Response>>(),
+  })
   .optional();
 
 export async function parse<T extends OutputType[]>(

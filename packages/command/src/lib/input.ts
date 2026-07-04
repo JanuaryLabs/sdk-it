@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import type { ZodSchema } from 'zod';
+import type { ZodType } from 'zod';
 
 async function readStdinIfPiped(): Promise<unknown> {
   if (process.stdin.isTTY) return undefined;
@@ -31,9 +31,7 @@ async function readJsonFile(path: string): Promise<unknown> {
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return (
-    typeof value === 'object' && value !== null && !Array.isArray(value)
-  );
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function mergeSources(
@@ -49,7 +47,7 @@ function mergeSources(
 export interface ResolveInputOptions {
   flags: Record<string, unknown>;
   inputFile?: string;
-  schema: ZodSchema;
+  schema: ZodType;
   flagNames: Set<string>;
 }
 

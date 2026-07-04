@@ -12,12 +12,14 @@ import {
 import { type ParseError, parseInput } from './http/parser';
 
 
-const optionsSchema = z.object({'x-api-key': z.string(), fetch: fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.'), baseUrl: z.union([z.string(),z.function().returns(z.union([z.string(), z.promise(z.string())])),]).transform(async (baseUrl) => {
-      if (typeof baseUrl === 'function') {
-        return Promise.resolve(baseUrl());
+const optionsSchema = z.object({'x-api-key': z.string(), fetch: fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.'), baseUrl: z.union([z.string(),z.custom<() => string | Promise<string>>((value) => typeof value === 'function'),]).transform(async (baseUrl, ctx) => {
+      const value = typeof baseUrl === 'function' ? await baseUrl() : baseUrl;
+      if (typeof value !== 'string') {
+        ctx.addIssue({ code: 'custom', message: 'baseUrl must resolve to a string' });
+        return z.NEVER;
       }
-      return baseUrl;
-    }).describe('Base URL of the API server. Can be a string or a function that returns a string.'), headers: z.record(z.string()).optional().describe('Default headers to include in all requests.'), skipValidation: z.boolean().optional().describe('Skip request input validation. Client options and TypeScript types still enforce correct usage.')});
+      return value;
+    }).describe('Base URL of the API server. Can be a string or a function that returns a string.'), headers: z.record(z.string(), z.string()).optional().describe('Default headers to include in all requests.'), skipValidation: z.boolean().optional().describe('Skip request input validation. Client options and TypeScript types still enforce correct usage.')});
 
 
 type ApiKeyClientOptions = z.input<typeof optionsSchema>;
@@ -34,7 +36,9 @@ export class ApiKeyClient {
     input: z.input<(typeof schemas)[E]['schema']>,
     options?: { signal?: AbortSignal; headers?: HeadersInit },
   ) {
-    return request(this, endpoint, input, options).then(function unwrap(it) {
+    return request(this, endpoint, input, options).then(function unwrap(
+      it: unknown,
+    ) {
       if (it instanceof APIResponse) {
         return it.data as InferData<E>;
       }

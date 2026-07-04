@@ -139,3 +139,35 @@ describe('TypeScriptEmitter union of string and string literals', () => {
     assert.equal(out, "(string & {}) | 'Director'");
   });
 });
+
+describe('TypeScriptEmitter 64-bit integers', () => {
+  // int64 stops being special: a number on the wire is a number, a string on
+  // the wire is a string. No bigint.
+  test('integer int64 is a plain number', () => {
+    const emitter = new TypeScriptEmitter(emptySpec);
+    assert.equal(
+      emitter.handle({ type: 'integer', format: 'int64' }, true),
+      'number',
+    );
+  });
+
+  test('integer uint64 is a plain number', () => {
+    const emitter = new TypeScriptEmitter(emptySpec);
+    assert.equal(
+      emitter.handle({ type: 'integer', format: 'uint64' }, true),
+      'number',
+    );
+  });
+
+  test('string-encoded int64 and uint64 are plain strings', () => {
+    const emitter = new TypeScriptEmitter(emptySpec);
+    assert.equal(
+      emitter.handle({ type: 'string', format: 'int64' }, true),
+      'string',
+    );
+    assert.equal(
+      emitter.handle({ type: 'string', format: 'uint64' }, true),
+      'string',
+    );
+  });
+});
