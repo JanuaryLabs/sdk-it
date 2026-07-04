@@ -123,11 +123,7 @@ export function toHttpOutput(
   const interfaceName = pascalcase(sanitizeTag(response['x-response-name']));
 
   if (!isEmpty(response.content)) {
-    const contentTypeResult = fromContentType(
-      spec,
-      typeScriptDeserialzer,
-      response,
-    );
+    const contentTypeResult = fromContentType(typeScriptDeserialzer, response);
     if (!contentTypeResult) {
       throw new Error(
         `No recognizable content type for response ${status} in operation ${operationName}`,
@@ -157,10 +153,12 @@ export function toHttpOutput(
 }
 
 function fromContentType(
-  spec: OpenAPIObject,
   typeScriptDeserialzer: TypeScriptEmitter,
   response: ResponseObject,
-) {
+): {
+  parser: Parser;
+  responseSchema: string;
+} {
   if ((response.headers ?? {})['Transfer-Encoding']) {
     return streamedOutput();
   }
@@ -182,10 +180,11 @@ function fromContentType(
       };
     }
     if (parseJsonContentType(type)) {
+      const schema = response.content[type].schema;
       return {
         parser: 'buffered' as const,
-        responseSchema: response.content[type].schema
-          ? typeScriptDeserialzer.handle(response.content[type].schema, true)
+        responseSchema: schema
+          ? typeScriptDeserialzer.handle(schema, true)
           : 'void',
       };
     }
