@@ -5,7 +5,7 @@ import { npmRunPathEnv } from 'npm-run-path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { camelcase, spinalcase } from 'stringcase';
 
-import { methods, pascalcase, toLitObject } from '@sdk-it/core';
+import { pascalcase, toLitObject } from '@sdk-it/core';
 import {
   type WriteContent,
   createWriterProxy,
@@ -17,7 +17,7 @@ import {
   cleanFiles,
   readWriteMetadata,
   sanitizeTag,
-  securityToOptions,
+  security,
   toIR,
 } from '@sdk-it/spec';
 
@@ -43,34 +43,6 @@ import { toReadme } from './readme/readme.ts';
 import type { Operation } from './sdk.ts';
 import { expandServerUrls } from './server-urls.ts';
 import { TypeScriptSnippet } from './typescript-snippet.ts';
-
-function security(spec: IR) {
-  const security = spec.security || [];
-  const components = spec.components || {};
-  const securitySchemes = components.securitySchemes || {};
-  const paths = Object.values(spec.paths ?? {});
-
-  const options = securityToOptions(spec, security, securitySchemes);
-
-  for (const it of paths) {
-    for (const method of methods) {
-      const operation = it[method];
-      if (!operation) {
-        continue;
-      }
-      Object.assign(
-        options,
-        securityToOptions(
-          spec,
-          operation.security || [],
-          securitySchemes,
-          'input',
-        ),
-      );
-    }
-  }
-  return options;
-}
 
 // FIXME: there should not be default here
 // instead export this function from the cli package with

@@ -26,7 +26,10 @@ export function securityToOptions(
   securitySchemes: Record<string, SecuritySchemeObject | ReferenceObject>,
   staticIn?: OIn,
 ) {
-  const parameters: OurParameter[] = [];
+  // Distinct schemes can resolve to the same parameter (e.g. Figma's
+  // PersonalAccessToken and PlanAccessToken both use the X-Figma-Token
+  // header), so key by location + name to avoid duplicate options.
+  const parameters = new Map<string, OurParameter>();
   for (const it of security) {
     const [name] = Object.keys(it);
     if (!name) {
@@ -39,7 +42,7 @@ export function securityToOptions(
       securitySchemes[name],
     );
     if (schema.type === 'http') {
-      parameters.push({
+      parameters.set(`${staticIn ?? 'header'}:authorization`, {
         in: staticIn ?? 'header',
         name: 'authorization',
         required: false,
@@ -59,8 +62,9 @@ export function securityToOptions(
       if (!schema.name) {
         throw new Error(`apiKey security schema must have a "name" field`);
       }
-      parameters.push({
-        in: staticIn ?? (schema.in as ParameterLocation),
+      const paramIn = staticIn ?? (schema.in as ParameterLocation);
+      parameters.set(`${paramIn}:${schema.name}`, {
+        in: paramIn,
         name: schema.name,
         required: false,
         schema: { type: 'string' },
@@ -69,18 +73,24 @@ export function securityToOptions(
       continue;
     }
   }
-  return parameters;
+  return [...parameters.values()];
 }
 
 export function security(spec: IR) {
   const security = spec.security || [];
   const paths = Object.values(spec.paths ?? {});
 
-  const options = securityToOptions(
+  // Same keying as securityToOptions: two parameters may share a name but
+  // differ in location (e.g. header vs query api keys), so name alone drops
+  // credentials.
+  const options = new Map<string, OurParameter>();
+  for (const option of securityToOptions(
     spec,
     security,
     spec.components.securitySchemes,
-  );
+  )) {
+    options.set(`${option.in}:${option.name}`, option);
+  }
 
   for (const it of paths) {
     for (const method of methods) {
@@ -88,16 +98,15 @@ export function security(spec: IR) {
       if (!operation) {
         continue;
       }
-      Object.assign(
-        options,
-        securityToOptions(
-          spec,
-          operation.security || [],
-          spec.components.securitySchemes,
-          'input',
-        ),
-      );
+      for (const option of securityToOptions(
+        spec,
+        operation.security || [],
+        spec.components.securitySchemes,
+        'input',
+      )) {
+        options.set(`${option.in}:${option.name}`, option);
+      }
     }
   }
-  return options;
+  return [...options.values()];
 }
