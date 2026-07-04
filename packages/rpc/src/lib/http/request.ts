@@ -47,6 +47,13 @@ function template(
 }
 
 type Input = Record<string, any>;
+
+// Validated inputs can carry Date (coerce-date) values; String(new Date())
+// yields a local-time RFC 2822 string, so serialize Dates as ISO 8601.
+function toWireValue(value: any): string {
+  return value instanceof Date ? value.toISOString() : String(value);
+}
+
 type Props = {
   inputHeaders: string[];
   inputQuery: string[];
@@ -75,9 +82,12 @@ abstract class Serializer {
     );
     const url = new URL(template(path, params), `local://`);
 
-    const headers = new Headers({});
+    const headers: Record<string, string> = { ...this.getHeaders() };
     for (const header of this.props.inputHeaders) {
-      headers.set(header, this.input[header]);
+      const value = this.input[header];
+      if (value !== undefined) {
+        headers[header] = toWireValue(value);
+      }
     }
 
     for (const key of this.props.inputQuery) {
@@ -85,10 +95,10 @@ abstract class Serializer {
       if (value !== undefined) {
         if (Array.isArray(value)) {
           for (const item of value) {
-            url.searchParams.append(key, String(item));
+            url.searchParams.append(key, toWireValue(item));
           }
         } else {
-          url.searchParams.set(key, String(value));
+          url.searchParams.set(key, toWireValue(value));
         }
       }
     }
@@ -96,7 +106,7 @@ abstract class Serializer {
     return {
       body: this.getBody(),
       url,
-      headers: this.getHeaders(),
+      headers,
     };
   }
 }
@@ -134,7 +144,7 @@ class UrlencodedSerializer extends Serializer {
   getBody(): BodyInit | null {
     const body = new URLSearchParams();
     for (const prop of this.props.inputBody) {
-      body.set(prop, this.input[prop]);
+      body.set(prop, toWireValue(this.input[prop]));
     }
     return body;
   }
