@@ -9,6 +9,7 @@ import dart, { runDart } from './generators/dart.ts';
 import python, { runPython } from './generators/python.ts';
 import readme, { runReadme } from './generators/readme.ts';
 import typescript, { runTypescript } from './generators/typescript.ts';
+import { generateProject, loadProjectConfig } from './project.ts';
 import type { SdkConfig } from './types.ts';
 
 interface Options {
@@ -16,7 +17,25 @@ interface Options {
 }
 
 const generate = new Command('generate')
+  .option('-c, --config <path>', 'Path to an SDK-IT configuration file')
   .action(async (options: Options) => {
+    if (!options.config || options.config.endsWith('.ts')) {
+      try {
+        const config = await loadProjectConfig({ config: options.config });
+        await generateProject(config);
+        console.log('Client generated successfully!');
+        return;
+      } catch (error) {
+        if (
+          options.config ||
+          !(error instanceof Error) ||
+          !error.message.startsWith('Could not find sdk-it.config.ts')
+        ) {
+          throw error;
+        }
+      }
+    }
+
     options.config ??= 'sdk-it.json';
     const config = await readJson<SdkConfig>(options.config);
 

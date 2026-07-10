@@ -1,6 +1,7 @@
 export type InjectImport = {
   import: string;
   from: string;
+  property?: string;
 };
 
 function removeUnsupportedMethods(schema: string) {
@@ -43,7 +44,12 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
         return withReceiverChecks(this, z.union([z.cidrv4(), z.cidrv6()]));
       };
     }`,
-    ...imports.map((imp) => `const ${imp.import} = require('${imp.from}');`),
+    ...imports.map(
+      (imp) =>
+        `const ${imp.import} = require(${JSON.stringify(imp.from)})${
+          imp.property ? `[${JSON.stringify(imp.property)}]` : ''
+        };`,
+    ),
     `let optional = false;`,
     `const WRAPPER_TYPES = new Set([
       'optional',

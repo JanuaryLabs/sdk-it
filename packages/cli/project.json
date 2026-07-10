@@ -5,10 +5,20 @@
   "projectType": "library",
   "tags": [],
   "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
+      "options": {
+        "command": "node --test",
+        "cwd": "{projectRoot}"
+      }
+    },
     "build": {
       "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
-      "options": {}
+      "options": {
+        "additionalEntryPoints": ["packages/cli/src/bin.ts"]
+      }
     }
   }
 }

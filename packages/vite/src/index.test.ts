@@ -1,19 +1,27 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, describe, test } from 'node:test';
 import { type Plugin, build, createServer } from 'vite';
 
+import { generateProject, loadProjectConfig } from '@sdk-it/cli';
 import { writeFiles } from '@sdk-it/core/file-system.js';
-
-import sdkIt from './index.ts';
+import sdkIt from '@sdk-it/vite';
 
 const minimalSpec = {
   openapi: '3.1.0' as const,
   info: { title: 'Test', version: '1.0.0' },
   paths: {},
 };
+const repoRoot = join(import.meta.dirname, '..', '..', '..');
 
 function buildWith(plugin: Plugin, root: string) {
   return build({
@@ -46,6 +54,50 @@ describe('sdkIt', () => {
     writeFileSync(join(dir, 'main.js'), '');
     tempDirs.push(dir);
     return dir;
+  }
+
+  function makeProjectWorkspace(configPath: string, configSource: string) {
+    const root = makeTempDir();
+    symlinkSync(join(repoRoot, 'node_modules'), join(root, 'node_modules'));
+    mkdirSync(join(root, 'backend'));
+    writeFileSync(
+      join(root, 'backend', 'tsconfig.json'),
+      JSON.stringify({
+        compilerOptions: {
+          module: 'esnext',
+          moduleResolution: 'bundler',
+          skipLibCheck: true,
+          target: 'esnext',
+        },
+        include: ['src.ts'],
+      }),
+    );
+    writeFileSync(
+      join(root, 'backend', 'src.ts'),
+      `
+import { Hono } from 'hono';
+import { z } from 'zod';
+import { validate } from '@sdk-it/hono/runtime';
+
+const app = new Hono();
+
+/** @openapi listBooks @tags books */
+app.get(
+  '/books',
+  validate((payload) => ({
+    author: {
+      select: payload.query.author,
+      against: z.string().optional(),
+    },
+  })),
+  (context) => context.json([{ id: 'book-1' }]),
+);
+`,
+    );
+    const absoluteConfigPath = join(root, configPath);
+    mkdirSync(dirname(absoluteConfigPath), { recursive: true });
+    writeFileSync(absoluteConfigPath, configSource);
+    return root;
   }
 
   function trackingWriter() {
@@ -316,5 +368,56 @@ describe('sdkIt', () => {
       generateAttempts > 0,
       'retry after failure should trigger new generation',
     );
+  });
+
+  test('project plugin produces the same client as CLI generation', async () => {
+    const root = makeProjectWorkspace(
+      'sdk-it.config.ts',
+      `
+import { defineConfig } from '@sdk-it/cli';
+
+export default defineConfig({
+  tsconfig: './backend/tsconfig.json',
+});
+`,
+    );
+
+    const config = await loadProjectConfig({ cwd: root });
+    const cliOutput = join(root, '.cli-sdk');
+    await generateProject({ ...config, output: cliOutput });
+    const cliEndpoint = readFileSync(
+      join(cliOutput, 'src', 'api', 'books.ts'),
+      'utf8',
+    );
+
+    await buildWith((sdkIt as unknown as () => Plugin)(), root);
+
+    const viteEndpoint = readFileSync(
+      join(root, '.sdk-it', 'src', 'api', 'books.ts'),
+      'utf8',
+    );
+    assert.equal(viteEndpoint, cliEndpoint);
+  });
+
+  test('project plugin accepts an explicit project config path', async () => {
+    const root = makeProjectWorkspace(
+      'config/project.ts',
+      `
+import { defineConfig } from '@sdk-it/cli';
+
+export default defineConfig({
+  tsconfig: '../backend/tsconfig.json',
+  output: '../explicit-sdk',
+});
+`,
+    );
+
+    await buildWith(sdkIt({ config: 'config/project.ts' }), root);
+
+    const endpoint = readFileSync(
+      join(root, 'explicit-sdk', 'src', 'api', 'books.ts'),
+      'utf8',
+    );
+    assert.match(endpoint, /"GET \/books"/);
   });
 });

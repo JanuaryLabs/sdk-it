@@ -79,6 +79,7 @@ The analyzer infers this route because it uses the validate middleware and has a
 ## Guides
 
 - [Monorepos](./docs/monorepos.md)
+- [Generate a client from a TypeScript backend](./docs/recipes/backend-to-client.md)
 
 ## Examples
 

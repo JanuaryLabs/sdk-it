@@ -5,7 +5,7 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": "./dist/index.js",
+  "bin": "./dist/bin.js",
   "exports": {
     "./package.json": "./package.json",
     ".": {
@@ -25,6 +25,8 @@
     "@sdk-it/spec": "0.44.0",
     "commander": "^13.1.0",
     "@sdk-it/core": "0.44.0",
+    "@sdk-it/generic": "0.44.0",
+    "@sdk-it/hono": "0.44.0",
     "libnpmpublish": "^11.0.0",
     "openapi3-ts": "4.5.0",
     "registry-auth-token": "^5.1.0",
@@ -32,6 +34,9 @@
     "execa": "^9.6.0",
     "@sdk-it/readme": "0.44.0",
     "@inquirer/prompts": "^7.7.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5.8.3"
   },
   "publishConfig": {
     "access": "public"

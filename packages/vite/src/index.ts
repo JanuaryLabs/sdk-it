@@ -9,24 +9,43 @@ import { type Plugin } from 'vite';
 import { loadSpec } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
 
+import { type ProjectPluginOptions, projectPlugin } from './project.ts';
+
 type Settings = Parameters<typeof generate>[1];
 type OpenapiFunction = () =>
   | string
   | OpenAPIObject
   | Promise<string | OpenAPIObject>;
-
+export default function sdkIt(): Plugin;
+export default function sdkIt(options: ProjectPluginOptions): Plugin;
 export default function sdkIt(
   openapi: OpenAPIObject | string | OpenapiFunction,
   settings: Settings,
+): Plugin;
+export default function sdkIt(
+  openapi?: OpenAPIObject | string | OpenapiFunction | ProjectPluginOptions,
+  settings?: Settings,
 ): Plugin {
+  if (openapi === undefined || isProjectPluginOptions(openapi)) {
+    return {
+      name: 'sdk-it',
+      ...projectPlugin(openapi),
+    };
+  }
   return {
     name: 'sdk-it',
     ...(typeof openapi === 'function'
-      ? functionPlugin(openapi, settings)
+      ? functionPlugin(openapi, settings!)
       : typeof openapi === 'string'
-        ? filePlugin(openapi, settings)
-        : specPlugin(openapi, settings)),
+        ? filePlugin(openapi, settings!)
+        : specPlugin(openapi, settings!)),
   };
+}
+
+function isProjectPluginOptions(
+  input: OpenAPIObject | string | OpenapiFunction | ProjectPluginOptions,
+): input is ProjectPluginOptions {
+  return typeof input === 'object' && input !== null && !('openapi' in input);
 }
 
 function functionPlugin(
@@ -137,10 +156,7 @@ function specPlugin(
 
 const generationCache = new Map<string, Promise<void>>();
 
-function cachedGeneration(
-  key: string,
-  fn: () => Promise<void>,
-): Promise<void> {
+function cachedGeneration(key: string, fn: () => Promise<void>): Promise<void> {
   const existing = generationCache.get(key);
   if (existing) return existing;
 

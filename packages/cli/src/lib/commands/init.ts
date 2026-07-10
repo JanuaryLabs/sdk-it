@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 
 import type { PaginationConfig } from '@sdk-it/spec';
 
+import { initializeProject } from '../project.ts';
 import type { SdkConfig, TypeScriptOptions } from '../types.ts';
 import { detectMonorepo } from './find-framework.ts';
 import { findSpecFile } from './find-spec-file.ts';
@@ -192,7 +193,14 @@ const generatorConfigs = {
 
 const init = new Command('init')
   .description('Initialize SDK-IT configuration interactively')
-  .action(async () => {
+  .option('--project <tsconfig>', 'Initialize from a backend tsconfig')
+  .action(async (options: { project?: string }) => {
+    if (options.project) {
+      await initializeProject({ tsconfig: options.project });
+      console.log('SDK-IT project configuration initialized.');
+      return;
+    }
+
     console.log("Welcome to SDK-IT! Let's set up your configuration.\n");
 
     const possibleSpecFile = await findSpecFile();

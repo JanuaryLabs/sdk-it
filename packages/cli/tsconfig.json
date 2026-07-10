@@ -13,6 +13,12 @@
       "path": "../core"
     },
     {
+      "path": "../generic"
+    },
+    {
+      "path": "../hono"
+    },
+    {
       "path": "../spec"
     },
     {
@@ -23,6 +29,9 @@
     },
     {
       "path": "./tsconfig.lib.json"
+    },
+    {
+      "path": "./tsconfig.test.json"
     }
   ]
 }

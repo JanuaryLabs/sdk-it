@@ -40,8 +40,6 @@ nx run <package-name>:build
 
 ### Running Tests
 
-We write tests exclusively using Node.js test runner.
-
 ```sh
 node --test path/to/package/test/file.test.ts
 ```
