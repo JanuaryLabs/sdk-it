@@ -664,6 +664,67 @@ describe('emitted client runtime', () => {
   });
 });
 
+describe('emitted client runtime: attachment responses', () => {
+  test('attachment with a JSON content type resolves to a Blob', async () => {
+    const { module, fetchShim } = await buildSdk({
+      spec: {
+        name: 'AttachmentClient',
+        servers: [],
+        options: [],
+        makeImport: (p) => p,
+      },
+      output: '[Ok<Blob>]',
+      respond: () =>
+        new Response(JSON.stringify({ name: 'Ada' }), {
+          status: 200,
+          headers: {
+            'Content-Disposition': 'attachment; filename="profile.json"',
+            'Content-Type': 'application/json',
+          },
+        }),
+    });
+
+    const client = new module.AttachmentClient({
+      baseUrl: 'https://api.example.com',
+      fetch: fetchShim,
+    });
+
+    const data = await client.request('GET /users', {});
+
+    assert.ok(data instanceof Blob, 'attachment responses must remain binary');
+    assert.strictEqual(await data.text(), '{"name":"Ada"}');
+  });
+
+  test('inline JSON continues to use content-type parsing', async () => {
+    const { module, fetchShim } = await buildSdk({
+      spec: {
+        name: 'InlineClient',
+        servers: [],
+        options: [],
+        makeImport: (p) => p,
+      },
+      output: '[Ok<{ name: string }>]',
+      respond: () =>
+        new Response(JSON.stringify({ name: 'Ada' }), {
+          status: 200,
+          headers: {
+            'Content-Disposition': 'inline; filename="profile.json"',
+            'Content-Type': 'application/json',
+          },
+        }),
+    });
+
+    const client = new module.InlineClient({
+      baseUrl: 'https://api.example.com',
+      fetch: fetchShim,
+    });
+
+    const data = await client.request('GET /users', {});
+
+    assert.deepStrictEqual(data, { name: 'Ada' });
+  });
+});
+
 describe('emitted client runtime: 204 No Content responses', () => {
   test('204 without a Content-Type header (the spec-correct case) resolves to null data', async () => {
     const { module, fetchShim } = await buildSdk({
