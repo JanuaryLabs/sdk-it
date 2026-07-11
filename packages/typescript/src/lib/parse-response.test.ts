@@ -15,6 +15,6 @@ describe('parse-response template', () => {
     const template = await readFile(getTemplatePath(), 'utf-8');
     assert.match(template, /response\.blob\(\)/);
     assert.match(template, /application\/pdf/);
-    assert.match(template, /type\.startsWith\(\"text\/\"\)/);
+    assert.match(template, /type\.startsWith\("text\/"\)/);
   });
 });

@@ -46,7 +46,9 @@ function responseSchemas(
 ): Record<string, SchemaObject | undefined> {
   const out: Record<string, SchemaObject | undefined> = {};
   for (const [status, response] of Object.entries(operation.responses ?? {})) {
-    const content = (response as { content?: Record<string, { schema?: SchemaObject }> }).content;
+    const content = (
+      response as { content?: Record<string, { schema?: SchemaObject }> }
+    ).content;
     out[status] = content ? pickContentSchema(content) : undefined;
   }
   return out;

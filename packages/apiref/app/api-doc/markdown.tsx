@@ -1,5 +1,5 @@
 import { createCodePlugin } from '@streamdown/code';
-import { Streamdown, type PluginConfig } from 'streamdown';
+import { type PluginConfig, Streamdown } from 'streamdown';
 
 const staticPlugins: PluginConfig = {
   code: createCodePlugin({ themes: ['min-light', 'vesper'] }),

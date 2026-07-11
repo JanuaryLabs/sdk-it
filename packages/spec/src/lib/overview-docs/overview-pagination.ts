@@ -1,7 +1,7 @@
 import type { NavItem } from '../sidebar.js';
 import type { IR } from '../types.js';
 
-export function generatePaginationOverview(spec: IR): NavItem {
+export function generatePaginationOverview(_spec: IR): NavItem {
   const markdown: string[] = [];
 
   markdown.push(`# Pagination`);

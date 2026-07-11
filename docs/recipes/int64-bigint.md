@@ -2,16 +2,16 @@
 
 sdk-it does not treat 64-bit integers specially. The `format` is honored as documentation, and the generated type follows the **wire encoding**:
 
-| OpenAPI | Generated TypeScript | Zod (emitted client) |
-| --- | --- | --- |
-| `type: integer, format: int64` | `number` | `z.number().int()` |
-| `type: integer, format: uint64` | `number` | `z.number().int()` |
-| `type: string, format: int64` | `string` | `z.string()` |
-| `type: string, format: uint64` | `string` | `z.string()` |
+| OpenAPI                         | Generated TypeScript | Zod (emitted client) |
+| ------------------------------- | -------------------- | -------------------- |
+| `type: integer, format: int64`  | `number`             | `z.number().int()`   |
+| `type: integer, format: uint64` | `number`             | `z.number().int()`   |
+| `type: string, format: int64`   | `string`             | `z.string()`         |
+| `type: string, format: uint64`  | `string`             | `z.string()`         |
 
 ## Why no bigint
 
-`bigint` is representationally correct for the int64 domain but hostile to consume: it doesn't `JSON.stringify`, `1n + 1` throws, and it's viral through every downstream type. For the overwhelming case — a 64-bit value that's an *identifier you pass around, never do math on* — that's friction for no benefit. So sdk-it surfaces the wire type directly and lets you `BigInt(x)` on the rare occasion you need arithmetic.
+`bigint` is representationally correct for the int64 domain but hostile to consume: it doesn't `JSON.stringify`, `1n + 1` throws, and it's viral through every downstream type. For the overwhelming case — a 64-bit value that's an _identifier you pass around, never do math on_ — that's friction for no benefit. So sdk-it surfaces the wire type directly and lets you `BigInt(x)` on the rare occasion you need arithmetic.
 
 ## Lossless 64-bit: encode as a string
 

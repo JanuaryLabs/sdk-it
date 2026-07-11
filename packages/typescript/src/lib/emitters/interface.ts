@@ -1,9 +1,12 @@
-import type {
-  ReferenceObject,
-  SchemaObject
-} from 'openapi3-ts/oas31';
+import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
-import { followRef, isRef, parseRef, pascalcase, resolveRef } from '@sdk-it/core';
+import {
+  followRef,
+  isRef,
+  parseRef,
+  pascalcase,
+  resolveRef,
+} from '@sdk-it/core';
 import { type IR, isPrimitiveSchema, sanitizeTag } from '@sdk-it/spec';
 
 export class TypeScriptEmitter {
@@ -16,7 +19,7 @@ export class TypeScriptEmitter {
     return `'${value}'`;
   };
 
-  object(schema: SchemaObject, required = false): string {
+  object(schema: SchemaObject, _required = false): string {
     const properties = schema.properties || {};
 
     const propEntries = Object.entries(properties).map(([key, propSchema]) => {
@@ -40,7 +43,7 @@ export class TypeScriptEmitter {
   /**
    * Handle arrays (items could be a single schema or a tuple)
    */
-  #array(schema: SchemaObject, required = false): string {
+  #array(schema: SchemaObject, _required = false): string {
     const { items } = schema;
     if (!items) {
       // No items => any[]

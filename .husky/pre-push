@@ -1,1 +1,1 @@
-NX_DAEMON=false npx nx run-many -t build --prod
+NX_DAEMON=false npx nx affected -t test,build --exclude=@sdk-it/source --base=origin/main --head=HEAD --outputStyle=static

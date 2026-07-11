@@ -132,9 +132,11 @@ async function validateTsconfig(path: string): Promise<void> {
   try {
     if ((await stat(path)).isFile()) return;
   } catch (error) {
-    if (
-      !(error instanceof Error && 'code' in error && error.code === 'ENOENT')
-    ) {
+    if (!(
+      error instanceof Error &&
+      'code' in error &&
+      error.code === 'ENOENT'
+    )) {
       throw error;
     }
   }

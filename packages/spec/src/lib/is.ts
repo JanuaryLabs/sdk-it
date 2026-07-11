@@ -61,9 +61,7 @@ export function isBinaryContentType(
   if (mainType === 'application/x-tar') {
     return true;
   }
-  if (
-    mainType.startsWith('application/vnd.openxmlformats-officedocument.')
-  ) {
+  if (mainType.startsWith('application/vnd.openxmlformats-officedocument.')) {
     return true;
   }
   if (mainType.startsWith('application/vnd.ms-')) {

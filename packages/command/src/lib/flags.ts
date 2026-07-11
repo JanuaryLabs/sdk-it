@@ -4,10 +4,7 @@ import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 import { followRef, isRef } from '@sdk-it/core';
 import type { IR } from '@sdk-it/spec';
 
-function resolve(
-  ir: IR,
-  schema: SchemaObject | ReferenceObject,
-): SchemaObject {
+function resolve(ir: IR, schema: SchemaObject | ReferenceObject): SchemaObject {
   return isRef(schema) ? (followRef(ir, schema.$ref) as SchemaObject) : schema;
 }
 
@@ -30,9 +27,7 @@ function canBeFlag(ir: IR, schema: SchemaObject): boolean {
   }
   if (isPrimitiveType(type)) return true;
   if (type === 'array' && schema.items) {
-    const items = Array.isArray(schema.items)
-      ? schema.items[0]
-      : schema.items;
+    const items = Array.isArray(schema.items) ? schema.items[0] : schema.items;
     if (!items) return false;
     const resolved = resolve(ir, items);
     const itemType = resolved.type;
@@ -59,12 +54,7 @@ function coerceBoolean(value: string): boolean {
   if (lower === 'true' || lower === '1' || lower === 'yes' || lower === 'on') {
     return true;
   }
-  if (
-    lower === 'false' ||
-    lower === '0' ||
-    lower === 'no' ||
-    lower === 'off'
-  ) {
+  if (lower === 'false' || lower === '0' || lower === 'no' || lower === 'off') {
     return false;
   }
   throw new InvalidArgumentError(`"${value}" is not a valid boolean`);

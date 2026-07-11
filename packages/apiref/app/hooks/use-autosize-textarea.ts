@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
 
 interface UseAutosizeTextAreaProps {
-  ref: React.RefObject<HTMLTextAreaElement|null>;
+  ref: React.RefObject<HTMLTextAreaElement | null>;
   maxHeight?: number;
   borderWidth?: number;
   dependencies: React.DependencyList;
@@ -34,6 +34,5 @@ export function useAutosizeTextArea({
     const clampedToMin = Math.max(clampedToMax, originalHeight.current);
 
     currentRef.style.height = `${clampedToMin + borderAdjustment}px`;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxHeight, ref, ...dependencies]);
 }

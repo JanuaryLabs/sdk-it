@@ -228,7 +228,7 @@ describe('client template', () => {
     );
     assert.match(
       result,
-      /let config = route\.toRequest\(parsedInput as never\);\n  if \(requestOptions\?\.signal\) \{\n    config = \{\n      \.\.\.config,\n      init: \{\n        \.\.\.config\.init,\n        signal: requestOptions\.signal,\n      \},\n    \};\n  \}/,
+      /let config = route\.toRequest\(parsedInput as never\);\n {2}if \(requestOptions\?\.signal\) \{\n {4}config = \{\n {6}\.\.\.config,\n {6}init: \{\n {8}\.\.\.config\.init,\n {8}signal: requestOptions\.signal,\n {6}\},\n {4}\};\n {2}\}/,
     );
   });
 

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import ts from 'typescript';
 
-import { $types, TypeDeriver, deriveSymbol } from '@sdk-it/core';
+import { $types, TypeDeriver, deriveSymbol, toSchema } from '@sdk-it/core';
 import { defaultResponseAnalyzer, newResponse, streamSSE } from '@sdk-it/hono';
 
 async function createTestProject(code: string) {
@@ -882,7 +882,6 @@ describe('Response Analyzer', () => {
 
         assert.equal(response.kind, 'intersection');
 
-        const { toSchema } = await import('@sdk-it/core');
         const openApiSchema = toSchema(response as any);
 
         assert.ok(openApiSchema.allOf, 'Should have allOf');

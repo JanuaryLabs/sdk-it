@@ -4,13 +4,11 @@ SDK-IT generates type-safe client SDKs from OpenAPI specifications and creates O
 
 ## Features
 
-1. **Type-safe SDK generation from OpenAPI specs in multiple languages**
-
-Also
-
-2. OpenAPI generation from TypeScript code
-
-3. TypeScript RPC client from OpenAPI specifications (WIP)
+- Type-safe TypeScript, Dart, and Python SDK generation from OpenAPI specs
+- OpenAPI generation from TypeScript code, including Hono integration
+- A command builder and runtime RPC client generated from OpenAPI operations
+- CLI and Vite workflows for generating clients from specs or TypeScript backends
+- API reference and README generation
 
 ## Quick Start
 
@@ -78,7 +76,7 @@ The analyzer infers this route because it uses the validate middleware and has a
 
 ## Guides
 
-- [Monorepos](./docs/monorepos.md)
+- [Monorepo development](./CONTRIBUTING.md#project-structure)
 - [Generate a client from a TypeScript backend](./docs/recipes/backend-to-client.md)
 
 ## Examples
@@ -97,8 +95,8 @@ SDK-IT supports and plans to add:
 ### SDK Generation Languages
 
 - [x] TypeScript/JavaScript
-- [ ] Dart (WIP)
-- [ ] Python
+- [x] Dart
+- [x] Python
 - [ ] Go
 - [ ] Rust
 - ...
@@ -128,9 +126,16 @@ SDK-IT is organized as a monorepo with multiple packages:
 ├── packages/
 │   ├── core/             # Core functionality and utilities
 │   ├── cli/              # Command-line interface
+│   ├── command/          # OpenAPI operation command builder
+│   ├── dart/             # Dart SDK generator
 │   ├── generic/          # Generic OpenAPI generation
 │   ├── hono/             # Hono OpenAPI generation
-│   └── typescript/       # TypeScript code generation
+│   ├── python/           # Python SDK generator
+│   ├── readme/           # README generation
+│   ├── rpc/              # Runtime RPC client and agent tools
+│   ├── spec/             # OpenAPI normalization and IR
+│   ├── typescript/       # TypeScript SDK generator
+│   └── vite/             # Vite generation plugin
 ```
 
 Each package serves a specific purpose:
@@ -140,5 +145,10 @@ Each package serves a specific purpose:
 - **typescript**: Focuses on generating TypeScript code from OpenAPI specifications (primary use case)
 - **generic**: OpenAPI generation using `output` and `validate` constructs.
 - **hono**: OpenAPI generation for the Hono framework
+- **dart** and **python**: Language-specific SDK generators
+- **spec**: Shared OpenAPI loading, normalization, and intermediate representation
+- **command** and **rpc**: Operation command construction and runtime dispatch
+- **readme**: Generated SDK documentation
+- **vite**: Development/build integration backed by the CLI generation engine
 
 For more detailed information about the codebase structure and development process, see the [contributing guide](CONTRIBUTING.md).

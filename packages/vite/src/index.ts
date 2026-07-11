@@ -13,9 +13,7 @@ import { type ProjectPluginOptions, projectPlugin } from './project.ts';
 
 type Settings = Parameters<typeof generate>[1];
 type OpenapiFunction = () =>
-  | string
-  | OpenAPIObject
-  | Promise<string | OpenAPIObject>;
+  string | OpenAPIObject | Promise<string | OpenAPIObject>;
 export default function sdkIt(): Plugin;
 export default function sdkIt(options: ProjectPluginOptions): Plugin;
 export default function sdkIt(
@@ -53,8 +51,7 @@ function functionPlugin(
   settings: Settings,
 ): Omit<Plugin, 'name'> {
   let delegatePlugin!:
-    | ReturnType<typeof specPlugin>
-    | ReturnType<typeof filePlugin>;
+    ReturnType<typeof specPlugin> | ReturnType<typeof filePlugin>;
 
   return {
     async configResolved(config) {

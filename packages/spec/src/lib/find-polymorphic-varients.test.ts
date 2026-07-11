@@ -579,7 +579,7 @@ describe('findPolymorphicVarients', () => {
   });
 
   describe('arrays', () => {
-    it.only('complex', () => {
+    it('complex', () => {
       const spec = createSpec({
         components: {
           schemas: {

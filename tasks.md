@@ -3,18 +3,15 @@
 ## JanuaryLabs list
 
 ### SDK-IT
-- [ ] Changes
-      1. sdk-it now generates high level readme file including general info about the ...
+
+- [ ] Changes 1. sdk-it now generates high level readme file including general info about the ...
 - [ ] Experiance the vibe eureka moments
 - [ ] export preset (prisma), with analysis packages
 - [ ] Add watch option
-- [ ] docs: react query extension: how to include  cockie.
+- [ ] docs: react query extension: how to include cockie.
 - [ ] docs: how to include cockies in server side frameworks
 - [ ] docs: how to programmatically use sdk-it
-- [ ] docs: get started with sdk-it
-      - with monorepos
-      - non monorepos
-      - use completely outside the repo. on a registr...
+- [ ] docs: get started with sdk-it - with monorepos - non monorepos - use completely outside the repo. on a registr...
 - [ ] mcp server
 - [ ] Create config file.
 - [ ] Using with Claude code, cursor and copilot
@@ -28,10 +25,12 @@
 ### GRPC
 
 ### Copilot
+
 - [ ] instead of build stuido like stainless.com we can have studio agent that would update openapi and add metadata to it
       "change the "/products" name to listProducts"
 
 ### Reach
+
 - [ ] website example
       https://remix.run/
 - [ ] Find how large each market segment is
@@ -41,7 +40,7 @@
       check convex database website
       https://cry...
 - [ ] Talk to openapi
-      basically chatbot to ask openapi how to  list all assistants or how to create x,...
+      basically chatbot to ask openapi how to list all assistants or how to create x,...
 - [ ] Building on the market place we can add alerts to notify on selected tools spec changes.
       similar ui - https://fontofweb.com
 - [ ] Create tutorials
@@ -53,6 +52,7 @@
 - [ ] Check Rand LinkedIn message
 
 ### Dart
+
 - [ ] if request body ref is used in multiple places then it should create one with "input" suffix and inherit the common ref
 - [ ] array polymorphisim
       check GetLibraryAnalyticsComponentActionsOutput in figma
@@ -65,6 +65,7 @@
       ImportBenef...
 
 ### Transport
+
 - [ ] Web socket
       https://www.asyncapi.com/
 - [ ] SSE trigger
@@ -72,29 +73,31 @@
       const listen = await client.request('/sse-endpoint'...
 
 ### Typescript
-- [ ] support for request with multiple bodies
-      1. user must specific accept header to serialize the body with that type
-      2. pref...
+
+- [ ] support for request with multiple bodies 1. user must specific accept header to serialize the body with that type 2. pref...
 - [ ] IMPORTANT - properties the ends with square bracket
-- [ ] Schema Augmentaion - convert those to plugins
-      - Move all request bodies and responses to spec base level requestBodies and res...
+- [ ] Schema Augmentaion - convert those to plugins - Move all request bodies and responses to spec base level requestBodies and res...
 
 ### Interceptor
+
 - [ ] Add timing to meta
       sentAt
       receivedAt
       elapsedTime
 
 ### Error
+
 - [ ] Detect NetworkError
 - [ ] Detect Offline
 
 ### RPC
+
 - [ ] 1. infer the type directly (waiting on inference json import github issue)
 - [ ] 2. generate types inffered so you do not use typescript logic that much.
 - [ ] Typescript lsp plugin
 
 ### PROD - Analiser
+
 - [ ] OnOperations should update the path
 - [ ] "as const" when applied on array it should take the type of the array not the literal values
       export const daOutputsIndicators: { id: number; description: string }[] = [
@@ -103,6 +106,7 @@
 - [ ] matrix arrays not inffered
 
 ### New arch
+
 - [ ] We need to slowly move from the tune functions to have processing plugins. For instance first plugin would be to make sure operation is doesn't have dashes.
 - [ ] A plugin to enrich operation with example using ai.
 - [ ] plugin to ensure at least one success response defined.
@@ -110,18 +114,22 @@
 - [ ] A plugin to sort properties.
 
 ### Agent Tools
+
 - [ ] export utility function that can transform all openapi operations grouped by tag to instruction.
       Functions like omit, pick and so on
 
 ### Framework integrations
+
 - [ ] Angular 21 integration
 
 ### Code Snippets
+
 - [ ] Add ask ai button somehow to the code snippets
 - [ ] Generate usecase based on the operation
 
 ### Readme generation
-- [ ] Move request bodies To the end  with toggles
+
+- [ ] Move request bodies To the end with toggles
 - [ ] Move responses to the end with toggles
 
 ### Embedded chatbot
@@ -129,6 +137,7 @@
 ### Generated Mcp
 
 ### On going
+
 - [ ] Hire business development
 - [ ] API ref docs
 - [ ] Generated Mcp
@@ -140,12 +149,14 @@
 ### Detect NetworkError
 
 ### 10 customers
+
 - [ ] https://sonauto.ai/developers
 - [ ] https://github.com/rivet-gg
 - [ ] https://docs.uploadthing.com/api-reference/openapi-spec
 - [ ] https://api.hevyapp.com/docs/
 
 ### github action
+
 - [ ] Auto generate changelog
       Only consider current schema versus what it was. no need for list of version as ...
 - [ ] publish
@@ -170,6 +181,7 @@
 ### Hire business development
 
 ### Can be bragged about
+
 - [ ] Prompt like
       https://developers.cloudflare.com/workers/prompt.txt
 
@@ -188,6 +200,7 @@
 ### Studio to update the docs
 
 ### website example
+
 Notes: https://remix.run/
 
 ### https://github.com/rivet-gg
@@ -197,9 +210,11 @@ Notes: https://remix.run/
 ### PROD - Support variables in server name
 
 ### interactive snippets
+
 Notes: https://sandpack.codesandbox.io/
 
 ### array polymorphisim
+
 Notes: check GetLibraryAnalyticsComponentActionsOutput in figma
 
 ### Generate usecase based on the operation

@@ -98,7 +98,7 @@ describe('schemaToZod — v3→v4 characterization (string formats)', () => {
       required: true,
     });
     assert.equal(schema.safeParse('9007199254740993').success, true);
-    assert.equal(schema.safeParse(9007199254740993).success, false);
+    assert.equal(schema.safeParse(Number('9007199254740993')).success, false);
   });
 
   test('format: time validates ISO time strings', () => {

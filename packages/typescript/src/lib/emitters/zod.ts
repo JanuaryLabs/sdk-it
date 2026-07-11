@@ -392,7 +392,6 @@ function appendOptional(isRequired?: boolean) {
   return isRequired ? '' : '.optional()';
 }
 
-
 function appendDefault(defaultValue?: any) {
   return defaultValue !== undefined || typeof defaultValue !== 'undefined'
     ? `.default(${defaultValue})`

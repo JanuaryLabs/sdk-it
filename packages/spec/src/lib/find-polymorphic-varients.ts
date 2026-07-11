@@ -27,11 +27,9 @@ const groupSchemasByType = (
 ) => {
   const groups = schemas.reduce<
     Partial<{
-      [K in
-        | SchemaObjectType
-        | '$ref'
-        | 'oneOf'
-        | 'anyOf']: K extends SchemaObjectType
+      [
+        K in SchemaObjectType | '$ref' | 'oneOf' | 'anyOf'
+      ]: K extends SchemaObjectType
         ? { schema: SchemaObject; position: number }[]
         : K extends 'oneOf' | 'anyOf'
           ? { schema: (SchemaObject | ReferenceObject)[]; position: number }[]
@@ -316,16 +314,6 @@ export function findVarients(
       throw new Error(
         'No valid objects found. Please check your OpenAPI spec.',
       );
-    }
-    let discriminatorProp: Varient | undefined;
-    const firstRow = matrix[0];
-    for (const prop of firstRow) {
-      // check if this prop is exists across all rows
-      const existsCrossAllRows = matrix.every((row) => row.includes(prop));
-      if (existsCrossAllRows) {
-        discriminatorProp = prop;
-        break;
-      }
     }
   }
 

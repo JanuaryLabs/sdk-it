@@ -145,9 +145,11 @@ function silenceStdout(action: () => Promise<unknown>): Promise<string> {
     buffer += typeof chunk === 'string' ? chunk : String(chunk);
     return true;
   };
-  return action().finally(() => {
-    process.stdout.write = original;
-  }).then(() => buffer);
+  return action()
+    .finally(() => {
+      process.stdout.write = original;
+    })
+    .then(() => buffer);
 }
 
 describe('command()', () => {
@@ -352,13 +354,7 @@ describe('command()', () => {
     program.exitOverride();
 
     await silenceStdout(() =>
-      program.parseAsync([
-        'node',
-        'mycli',
-        '--token',
-        'secret',
-        'listUsers',
-      ]),
+      program.parseAsync(['node', 'mycli', '--token', 'secret', 'listUsers']),
     );
 
     assert.equal(calls[0].headers.get('authorization'), 'Bearer secret');

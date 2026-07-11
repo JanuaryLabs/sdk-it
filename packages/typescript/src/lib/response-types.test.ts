@@ -12,49 +12,50 @@ import { writeFiles } from '@sdk-it/core/file-system.js';
  * Compile a temporary TypeScript project and return diagnostics.
  */
 async function compileProject(files: Record<string, string>) {
-	const dir = join(tmpdir(), 'sdk-it-type-test', crypto.randomUUID());
-	await writeFiles(dir, files);
-	const configPath = join(dir, 'tsconfig.json');
+  const dir = join(tmpdir(), 'sdk-it-type-test', crypto.randomUUID());
+  await writeFiles(dir, files);
+  const configPath = join(dir, 'tsconfig.json');
 
-	const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
-	const parsedConfig = ts.parseJsonConfigFileContent(
-		configFile.config,
-		ts.sys,
-		dir,
-	);
+  const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
+  const parsedConfig = ts.parseJsonConfigFileContent(
+    configFile.config,
+    ts.sys,
+    dir,
+  );
 
-	const program = ts.createProgram(
-		parsedConfig.fileNames,
-		parsedConfig.options,
-	);
-	const diagnostics = ts.getPreEmitDiagnostics(program);
+  const program = ts.createProgram(
+    parsedConfig.fileNames,
+    parsedConfig.options,
+  );
+  const diagnostics = ts.getPreEmitDiagnostics(program);
 
-	await rm(dir, { recursive: true, force: true });
+  await rm(dir, { recursive: true, force: true });
 
-	return diagnostics.map((d) => ({
-		message: ts.flattenDiagnosticMessageText(d.messageText, '\n'),
-		file: d.file?.fileName,
-		line: d.file && d.start !== undefined
-			? d.file.getLineAndCharacterOfPosition(d.start).line + 1
-			: undefined,
-	}));
+  return diagnostics.map((d) => ({
+    message: ts.flattenDiagnosticMessageText(d.messageText, '\n'),
+    file: d.file?.fileName,
+    line:
+      d.file && d.start !== undefined
+        ? d.file.getLineAndCharacterOfPosition(d.start).line + 1
+        : undefined,
+  }));
 }
 
 describe('RebindSuccessPayload type correctness', () => {
-	test('preserves per-status-code generics instead of collapsing to union', async () => {
-		const diagnostics = await compileProject({
-			'tsconfig.json': JSON.stringify({
-				compilerOptions: {
-					target: 'ES2022',
-					module: 'ESNext',
-					moduleResolution: 'bundler',
-					strict: true,
-					skipLibCheck: true,
-					noEmit: true,
-				},
-				include: ['*.ts'],
-			}),
-			'test.ts': `
+  test('preserves per-status-code generics instead of collapsing to union', async () => {
+    const diagnostics = await compileProject({
+      'tsconfig.json': JSON.stringify({
+        compilerOptions: {
+          target: 'ES2022',
+          module: 'ESNext',
+          moduleResolution: 'bundler',
+          strict: true,
+          skipLibCheck: true,
+          noEmit: true,
+        },
+        include: ['*.ts'],
+      }),
+      'test.ts': `
 // Minimal reproduction of the response type system
 class APIResponse<Body = unknown, Status extends number = number> {
   static readonly status: number;
@@ -212,12 +213,12 @@ async function testMapperNarrows() {
   const t: { transformed: true } = result.data;
 }
 `,
-		});
+    });
 
-		assert.strictEqual(
-			diagnostics.length,
-			0,
-			`Expected zero type errors but got ${diagnostics.length}:\n${diagnostics.map((d) => `  line ${d.line}: ${d.message}`).join('\n')}`,
-		);
-	});
+    assert.strictEqual(
+      diagnostics.length,
+      0,
+      `Expected zero type errors but got ${diagnostics.length}:\n${diagnostics.map((d) => `  line ${d.line}: ${d.message}`).join('\n')}`,
+    );
+  });
 });

@@ -10,8 +10,8 @@ Create a script that generates the SDK to `.sdk-it/`:
 
 ```typescript
 // scripts/generate-sdk.ts
-import { generate } from '@sdk-it/typescript';
 import { loadSpec } from '@sdk-it/spec';
+import { generate } from '@sdk-it/typescript';
 
 const spec = await loadSpec('./openapi.json');
 
@@ -85,8 +85,9 @@ The `@sdk-it/vite` plugin automates regeneration. It generates the SDK at dev se
 
 ```typescript
 // vite.config.ts
-import sdkIt from '@sdk-it/vite';
 import { defineConfig } from 'vite';
+
+import sdkIt from '@sdk-it/vite';
 
 export default defineConfig({
   plugins: [

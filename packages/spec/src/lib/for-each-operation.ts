@@ -1,4 +1,3 @@
-
 import { type Method, methods } from '@sdk-it/core/paths.js';
 
 import type { IR, OperationEntry, TunedOperationObject } from './types.js';

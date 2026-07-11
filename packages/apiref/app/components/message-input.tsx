@@ -7,8 +7,7 @@ import { Button } from '@sdk-it/shadcn';
 import { useAutosizeTextArea } from '../hooks/use-autosize-textarea';
 import { cn } from '../shadcn/cn';
 
-interface MessageInputBaseProps
-  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+interface MessageInputBaseProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   value: string;
   submitOnEnter?: boolean;
   stop?: () => void;

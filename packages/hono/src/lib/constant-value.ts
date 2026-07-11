@@ -43,9 +43,7 @@ export function getConstantValue(
 
   const constant = checker.getConstantValue(
     unwrapped as
-      | ts.EnumMember
-      | ts.PropertyAccessExpression
-      | ts.ElementAccessExpression,
+      ts.EnumMember | ts.PropertyAccessExpression | ts.ElementAccessExpression,
   );
   if (constant !== undefined) {
     return constant;

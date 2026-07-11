@@ -15,9 +15,7 @@ export interface CommandOptions extends Partial<ClientOptions> {
   baseUrlEnv?: string;
 }
 
-function coerceSpec(
-  spec: string | OpenAPIObject,
-): Promise<OpenAPIObject> {
+function coerceSpec(spec: string | OpenAPIObject): Promise<OpenAPIObject> {
   if (typeof spec === 'string') return loadSpec(spec);
   return Promise.resolve(spec);
 }
@@ -35,8 +33,7 @@ export async function command(
 
   const envToken = process.env[tokenEnv];
   const envBaseUrl = process.env[baseUrlEnv];
-  const resolvedBaseUrl =
-    options.baseUrl ?? envBaseUrl ?? ir.servers?.[0]?.url;
+  const resolvedBaseUrl = options.baseUrl ?? envBaseUrl ?? ir.servers?.[0]?.url;
 
   if (!resolvedBaseUrl) {
     throw new Error(
@@ -56,22 +53,15 @@ export async function command(
   if (options.version) program.version(options.version);
 
   program.addOption(
-    new Option(
-      '--token <token>',
-      `API bearer token (or set $${tokenEnv})`,
-    ),
+    new Option('--token <token>', `API bearer token (or set $${tokenEnv})`),
   );
   program.addOption(
-    new Option(
-      '--base-url <url>',
-      `API base URL (or set $${baseUrlEnv})`,
-    ),
+    new Option('--base-url <url>', `API base URL (or set $${baseUrlEnv})`),
   );
   program.addOption(
-    new Option('--output <mode>', 'Output format').choices([
-      'json',
-      'raw',
-    ]).default('json'),
+    new Option('--output <mode>', 'Output format')
+      .choices(['json', 'raw'])
+      .default('json'),
   );
 
   program.hook('preAction', (thisCommand) => {

@@ -137,7 +137,6 @@ export const SchemaComponent: React.FC<SchemaProps> = ({
           {schema.enum.map((val) => JSON.stringify(val)).join(', ')}
         </div>
       )}
-      
     </>
   );
 };

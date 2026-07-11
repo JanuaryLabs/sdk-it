@@ -258,7 +258,6 @@ ${toJsonProperties.join(',\n')}
     if (context.noEmit !== true && !context.propName) {
       this.#emit(fixedClassName, content, schema);
     }
-    const nullable = !context.required || context.nullable === true;
     const generatedClassName = context.forJson || className;
     return {
       use: fixedClassName,

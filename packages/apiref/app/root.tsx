@@ -15,7 +15,7 @@ import { cn } from './shadcn/cn';
 import './styles.css';
 import { useRootData } from './use-root-data';
 
-export const meta: MetaFunction = (args) => {
+export const meta: MetaFunction = () => {
   return [
     {
       title: 'API Reference',
@@ -83,16 +83,14 @@ export default function App() {
 
 export async function loader({
   request,
-  params,
 }: {
   request: Request;
   params: { '*'?: string };
 }) {
   const { TypeScriptSnippet } = await import('@sdk-it/typescript');
   const { resolveRef } = await import('@sdk-it/core');
-  const { toIR, toSidebar, forEachOperation, loadSpec } = await import(
-    '@sdk-it/spec'
-  );
+  const { toIR, toSidebar, forEachOperation, loadSpec } =
+    await import('@sdk-it/spec');
   // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
   // 'https://api.openstatus.dev/v1/openapi',
 
@@ -239,6 +237,6 @@ export async function loader({
 //   return redirect('/');
 // }
 
-export function shouldRevalidate(arg: ShouldRevalidateFunctionArgs) {
+export function shouldRevalidate(_arg: ShouldRevalidateFunctionArgs) {
   return false;
 }

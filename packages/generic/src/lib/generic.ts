@@ -13,10 +13,10 @@ import {
   type Selector,
   type SemanticSource,
   TypeDeriver,
-  nodeLocation,
   getProgram,
   isCallExpression,
   isHttpMethod,
+  nodeLocation,
   toSchema,
 } from '@sdk-it/core';
 
@@ -318,7 +318,10 @@ function visit(
         }
 
         if (declaration) {
-          middlewareDeclarations.push({ node: declaration, name: middlewareFnName });
+          middlewareDeclarations.push({
+            node: declaration,
+            name: middlewareFnName,
+          });
         }
       }
 
@@ -402,14 +405,18 @@ function toSelectors(props: ts.PropertyAssignment[]) {
       .filter(ts.isPropertyAssignment)
       .find((prop) => prop.name.getText() === 'select');
     if (!select) {
-      console.warn(`\u26a0 No select found in ${name}\n  at ${nodeLocation(prop) ?? 'unknown'}`);
+      console.warn(
+        `\u26a0 No select found in ${name}\n  at ${nodeLocation(prop) ?? 'unknown'}`,
+      );
       continue;
     }
     const against = prop.initializer.properties
       .filter(ts.isPropertyAssignment)
       .find((prop) => prop.name.getText() === 'against');
     if (!against) {
-      console.warn(`\u26a0 No against found in ${name}\n  at ${nodeLocation(prop) ?? 'unknown'}`);
+      console.warn(
+        `\u26a0 No against found in ${name}\n  at ${nodeLocation(prop) ?? 'unknown'}`,
+      );
       continue;
     }
     const [, source, selectText] = select.initializer.getText().split('.');

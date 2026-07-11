@@ -1,9 +1,5 @@
 import { type UIMessage, type UseChatHelpers, useChat } from '@ai-sdk/react';
-import {
-  DefaultChatTransport,
-  getToolName,
-  isToolUIPart,
-} from 'ai';
+import { DefaultChatTransport, getToolName, isToolUIPart } from 'ai';
 import { Dot } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import React, {
@@ -40,8 +36,9 @@ type ChatHelpers = UseChatHelpers<UIMessage>;
 
 function getMessageText(message: UIMessage): string {
   return message.parts
-    .filter((part): part is Extract<UIMessage['parts'][number], { type: 'text' }> =>
-      part.type === 'text',
+    .filter(
+      (part): part is Extract<UIMessage['parts'][number], { type: 'text' }> =>
+        part.type === 'text',
     )
     .map((part) => part.text)
     .join('');
@@ -78,10 +75,11 @@ export function AskAi(props: { className?: string }) {
   );
   const { messages, sendMessage, status, stop } = useChat({ transport });
   const [elementRef, scrollByHeight] = useElementHeight<HTMLDivElement>();
-  const { scrollRef, contentRef, isAtBottom, scrollToBottom } = useStickToBottom({
-    resize: 'smooth',
-    initial: false,
-  });
+  const { scrollRef, contentRef, isAtBottom, scrollToBottom } =
+    useStickToBottom({
+      resize: 'smooth',
+      initial: false,
+    });
 
   const setScrollRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -110,10 +108,7 @@ export function AskAi(props: { className?: string }) {
         props.className,
       )}
     >
-      <div
-        ref={setScrollRef}
-        className="relative flex flex-col overflow-auto"
-      >
+      <div ref={setScrollRef} className="relative flex flex-col overflow-auto">
         <div ref={contentRef} className="flex h-full flex-col items-start">
           <ChatList
             scrollByHeight={scrollByHeight}

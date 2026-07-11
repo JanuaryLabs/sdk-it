@@ -392,10 +392,7 @@ function requestToOperation(
   const contentTypeIdx = headers.findIndex(
     (h) => h.key.toLowerCase() === 'content-type',
   );
-  const [acceptHeaderValue] =
-    acceptHeaderIdx !== -1
-      ? headers.splice(acceptHeaderIdx, 1).map((h) => h.value)
-      : [];
+  if (acceptHeaderIdx !== -1) headers.splice(acceptHeaderIdx, 1);
   const [contentTypeValue] =
     contentTypeIdx !== -1
       ? headers.splice(contentTypeIdx, 1).map((h) => h.value)
@@ -461,26 +458,6 @@ function requestToOperation(
         : undefined,
     } satisfies OperationObject,
   };
-}
-
-/**
- * Helper function to determine the likely type of a value
- */
-function inferSchemaType(value: string | null): { type: string } {
-  if (!value) return { type: 'string' };
-
-  // Check if value is a number
-  if (!isNaN(Number(value))) {
-    return { type: 'number' };
-  }
-
-  // Check if value is a boolean
-  if (value === 'true' || value === 'false') {
-    return { type: 'boolean' };
-  }
-
-  // Default to string
-  return { type: 'string' };
 }
 
 function requestBodyToOperationBody(

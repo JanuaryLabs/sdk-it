@@ -27,9 +27,6 @@ export interface ResponsesConfig {
 export type PaginationConfig = {
   guess?: boolean;
 };
-function removeHyphensBeforeDigits(text: string): string {
-  return text.replace(/-(?=\d)/g, '');
-}
 export function cleanOperationId(operationId: string) {
   return camelcase(operationId.split('#').pop()!);
 }

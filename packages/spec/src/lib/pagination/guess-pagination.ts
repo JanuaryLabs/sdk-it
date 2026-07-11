@@ -46,9 +46,7 @@ export interface NoPaginationResult extends PaginationResultBase {
 
 export type PaginationGuess =
   | ((
-      | OffsetPaginationResult
-      | PagePaginationResult
-      | CursorPaginationResult
+      OffsetPaginationResult | PagePaginationResult | CursorPaginationResult
     ) & { items: string; hasMore: string })
   | NoPaginationResult;
 

@@ -49,7 +49,6 @@ const reservedWords = new Set([
   'hide',
   'show',
 ]);
-const STARTS_WITH_MINUS_PATTERN = /^-/;
 const STARTS_WITH_DIGITS_PATTERN = /^-?\d/;
 const FIRST_DASH = /^_/;
 const LAST_DASH = /_$/;

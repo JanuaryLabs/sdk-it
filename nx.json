@@ -38,6 +38,7 @@
     },
     {
       "plugin": "@nx/react/router-plugin",
+      "exclude": ["packages/apiref/**"],
       "options": {
         "buildTargetName": "build",
         "devTargetName": "dev",
@@ -49,6 +50,7 @@
     },
     {
       "plugin": "@nx/vite/plugin",
+      "exclude": ["packages/apiref/**"],
       "options": {
         "buildTargetName": "build",
         "serveTargetName": "serve",
@@ -62,6 +64,7 @@
     },
     {
       "plugin": "@nx/vitest",
+      "exclude": ["packages/apiref/**"],
       "options": {
         "testTargetName": "test"
       }
@@ -124,7 +127,7 @@
       }
     },
     "version": {
-      "preVersionCommand": "NX_DAEMON=false npx nx run-many -t build --prod --exclude apiref && npm run test",
+      "preVersionCommand": "NX_DAEMON=false npx nx run-many -t build --prod --exclude apiref && npm run test:e2e",
       "conventionalCommits": true
     },
     "releaseTag": {

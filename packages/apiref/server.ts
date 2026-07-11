@@ -19,7 +19,6 @@ app.use(
 
 app.use(async (c) => {
   return createRequestHandler(
-     
     // @ts-ignore
     await import('./dist/server/index.js'),
   )(c.req.raw);

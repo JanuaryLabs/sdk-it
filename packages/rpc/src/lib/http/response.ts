@@ -61,7 +61,7 @@ export class NoContent extends APIResponse<never, 204> {
   static override create(
     status: number,
     headers: Headers,
-    data?: unknown,
+    _data?: unknown,
   ): NoContent {
     return new this(headers);
   }
@@ -286,10 +286,7 @@ export type ServerError =
 export type ProblematicResponse = ClientError | ServerError;
 
 export type SuccessfulResponse<T = unknown> =
-  | Ok<T>
-  | Created<T>
-  | Accepted<T>
-  | NoContent;
+  Ok<T> | Created<T> | Accepted<T> | NoContent;
 
 export type RebindSuccessPayload<Resp, New> =
   Resp extends Ok<infer _>

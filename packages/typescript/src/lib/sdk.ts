@@ -1,4 +1,4 @@
-import type { OpenAPIObject, ResponseObject } from 'openapi3-ts/oas31';
+import type { ResponseObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
 import { isEmpty, pascalcase } from '@sdk-it/core';

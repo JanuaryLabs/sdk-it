@@ -2,18 +2,14 @@ import { Command, Option } from 'commander';
 import { ZodError } from 'zod';
 
 import type { Client } from '@sdk-it/rpc';
+import { schemaToZod } from '@sdk-it/rpc';
 import type { IR, TunedOperationObject } from '@sdk-it/spec';
 import { buildInput, operationSchema } from '@sdk-it/typescript';
-import { schemaToZod } from '@sdk-it/rpc';
 
 import { addFlagsFromSchema } from './flags.ts';
 import { resolveInput } from './input.ts';
 import { describeOperation } from './introspect.ts';
-import {
-  type OutputMode,
-  writeError,
-  writeOutput,
-} from './output.ts';
+import { type OutputMode, writeError, writeOutput } from './output.ts';
 
 interface BuildOpCommandArgs {
   ir: IR;
@@ -47,10 +43,7 @@ export function buildOpCommand({
     ),
   );
   cmd.addOption(
-    new Option(
-      '--describe',
-      'Print this operation\'s schema as JSON and exit',
-    ),
+    new Option('--describe', "Print this operation's schema as JSON and exit"),
   );
 
   if (flagMap.skipped.length) {

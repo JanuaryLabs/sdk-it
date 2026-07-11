@@ -1,31 +1,15 @@
 type Init = Omit<RequestInit, 'headers'> & { headers: Headers };
 export type RequestConfig = { init: Init; url: URL };
 export type Method =
-  | 'GET'
-  | 'POST'
-  | 'PUT'
-  | 'PATCH'
-  | 'DELETE'
-  | 'HEAD'
-  | 'OPTIONS';
+  'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
 export type ContentType =
-  | 'xml'
-  | 'json'
-  | 'urlencoded'
-  | 'multipart'
-  | 'formdata';
+  'xml' | 'json' | 'urlencoded' | 'multipart' | 'formdata';
 export type HeadersInit = [string, string][] | Record<string, string>;
 export type Endpoint =
-  | `${ContentType} ${Method} ${string}`
-  | `${Method} ${string}`;
+  `${ContentType} ${Method} ${string}` | `${Method} ${string}`;
 
 export type BodyInit =
-  | ArrayBuffer
-  | Blob
-  | FormData
-  | URLSearchParams
-  | null
-  | string;
+  ArrayBuffer | Blob | FormData | URLSearchParams | null | string;
 
 function template(
   templateString: string,

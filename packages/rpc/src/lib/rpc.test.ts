@@ -4,7 +4,6 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, test } from 'node:test';
-import { z } from 'zod';
 
 import { rpc, toAgents } from './rpc.ts';
 

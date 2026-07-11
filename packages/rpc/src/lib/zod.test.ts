@@ -192,7 +192,6 @@ describe('RuntimeZodConverter', () => {
       );
     }
   });
-
 });
 
 describe('RuntimeZodConverter 64-bit integers', () => {

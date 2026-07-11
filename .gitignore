@@ -40,7 +40,6 @@ testem.log
 Thumbs.db
 
 .nx/
-.nx/
 .client
 .client-*
 .yamls
@@ -58,4 +57,5 @@ combined.txt
 # sst
 .sst
 .tasks.json
+registry/verdaccio/storage/
 packages/apiref/app/_generated/

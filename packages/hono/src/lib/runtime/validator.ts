@@ -13,7 +13,7 @@ type ContentType =
 // z.ZodType<any> mirrors zod v3's ZodTypeAny: with the default `unknown`
 // output, concrete middlewares stop being assignable to
 // ValidateMiddleware<ValidatorConfig>.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 type ValidatorConfig = Record<
   string,
   { select: unknown; against: z.ZodType<any> }

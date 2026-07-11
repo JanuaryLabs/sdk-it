@@ -1,4 +1,9 @@
-import { type RefCallback, useCallback, useLayoutEffect, useState } from 'react';
+import {
+  type RefCallback,
+  useCallback,
+  useLayoutEffect,
+  useState,
+} from 'react';
 
 // Define the return type of the hook
 type UseElementHeightReturnType<T extends HTMLElement> = [

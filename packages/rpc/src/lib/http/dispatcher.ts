@@ -42,8 +42,7 @@ export type Parser = (
   response: Response,
 ) => Promise<unknown> | ReadableStream<any> | SSEListener;
 export type OutputType =
-  | Type<APIResponse>
-  | { parser: Parser; type: Type<APIResponse> };
+  Type<APIResponse> | { parser: Parser; type: Type<APIResponse> };
 
 // Bare z.custom (no predicate) on purpose: Request/Response from another
 // realm (undici vs global fetch) fail instanceof checks. The output is

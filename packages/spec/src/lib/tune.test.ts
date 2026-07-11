@@ -138,7 +138,6 @@ describe('merge allof', () => {
     });
 
     // This would cause a stack overflow with the current implementation
-    const schemaA = spec.components.schemas.A as SchemaObject;
     console.dir(spec.components.schemas, { depth: null });
     // The test should not throw RangeError: Maximum call stack size exceeded
   });

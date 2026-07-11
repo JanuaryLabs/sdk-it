@@ -32,15 +32,23 @@ SDK-IT is built as a TypeScript monorepo using Nx for package management and bui
 
 ```
 .
-├── .nx/                  # Nx cache and configuration
+├── .nx/                  # Generated Nx cache and workspace data
 ├── .verdaccio/           # Local npm registry configuration
 ├── .vscode/              # VS Code editor settings
 ├── node_modules/         # Project dependencies
 ├── packages/             # Core packages of the SDK-IT toolkit
 │   ├── core/             # Core functionality and utilities
+│   ├── cli/              # CLI and project generation workflow
+│   ├── command/          # OpenAPI operation command builder
+│   ├── dart/             # Dart SDK generator
 │   ├── generic/          # Generic OpenAPI processing
 │   ├── hono/             # Hono framework integration
-│   └── typescript/       # TypeScript code generation
+│   ├── python/           # Python SDK generator
+│   ├── readme/           # README generation
+│   ├── rpc/              # Runtime RPC client and agent tools
+│   ├── spec/             # OpenAPI normalization and IR
+│   ├── typescript/       # TypeScript SDK generator
+│   └── vite/             # Vite generation plugin
 ├── package.json          # Root package configuration
 ├── nx.json               # Nx workspace configuration
 ├── tsconfig.base.json    # Base TypeScript configuration
@@ -135,12 +143,14 @@ SDK-IT integrates with modern build systems through its Nx-based architecture:
 
 ## Development Workflow
 
-1. **Setup**: Clone the repository and run `npm install` to install dependencies
-2. **Build**: Run `npx nx build` to build all packages
-3. **Test**: Run `npx nx test` to run tests
-4. **Develop**: Make changes to the codebase
-5. **Lint**: Run `npx nx lint` to check for linting issues
-6. **Submit**: Create a pull request with your changes
+1. **Setup**: Clone the repository and run `npm ci` to install the lockfile exactly.
+2. **Format**: Run `npm run format:check`.
+3. **Lint**: Run `npm run lint` to run every package lint target.
+4. **Typecheck**: Run `npm run typecheck`, or `nx run <project>:typecheck` for one package.
+5. **Package tests**: Run `npm run test:packages`, or `nx run <project>:test` for one package. Package test targets build their dependencies first.
+6. **Build**: Run `npm run build` to build every buildable project.
+7. **Network E2E**: Run `npm run test:e2e` only when the external services and remote specs used by the root E2E suite are available. It is intentionally separate from the fast package-test path.
+8. **Submit**: Create a pull request with your changes.
 
 ## Pull Request Process
 

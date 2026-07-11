@@ -20,13 +20,7 @@ export type OperationInfo = {
   tags?: string[];
 };
 export type Method =
-  | 'get'
-  | 'post'
-  | 'put'
-  | 'patch'
-  | 'delete'
-  | 'trace'
-  | 'head';
+  'get' | 'post' | 'put' | 'patch' | 'delete' | 'trace' | 'head';
 
 export const methods = [
   'get',
@@ -38,11 +32,7 @@ export const methods = [
   'head',
 ] as const;
 export type SemanticSource =
-  | 'query'
-  | 'queries'
-  | 'body'
-  | 'params'
-  | 'headers';
+  'query' | 'queries' | 'body' | 'params' | 'headers';
 
 const semanticSourceToOpenAPI = {
   queries: 'query',

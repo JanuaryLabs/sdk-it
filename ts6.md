@@ -175,8 +175,8 @@ TypeScript’s `--moduleResolution bundler` setting was previously only allowed 
 
 Projects will often want to instead plan out a migration towards either
 
-*   `--module preserve` and `--moduleResolution bundler`
-*   `--module nodenext`
+- `--module preserve` and `--moduleResolution bundler`
+- `--module nodenext`
 
 depending on your project type (e.g. bundled web app, Bun app, or Node.js app).
 
@@ -290,8 +290,8 @@ function processOptions(compilerOptions: Map<string, unknown>) {
 
 This pattern can be tedious. [ECMAScript’s "upsert" proposal](https://github.com/tc39/proposal-upsert) recently reached stage 4, and introduces 2 new methods on `Map` and `WeakMap`:
 
-*   `getOrInsert`
-*   `getOrInsertComputed`
+- `getOrInsert`
+- `getOrInsertComputed`
 
 These methods have been added to the `esnext` lib so that you can start using them immediately in TypeScript 6.0.
 
@@ -364,12 +364,12 @@ TypeScript 6.0 arrives as a significant transition release, designed to prepare 
 
 In the two years since TypeScript 5.0, we’ve seen ongoing shifts in how developers write and ship JavaScript:
 
-*   Virtually every runtime environment is now "evergreen". True legacy environments (ES5) are vanishingly rare.
-*   Bundlers and ESM have become the most common module targets for new projects, though CommonJS remains a major target. AMD and other in-browser userland module systems are much rarer than they were in 2012.
-*   Almost all packages can be consumed through some module system. UMD packages still exist, but virtually no new code is available _only_ as a global variable.
-*   `tsconfig.json` is nearly universal as a configuration mechanism.
-*   Appetite for "stricter" typing continues to grow.
-*   TypeScript build performance is top of mind. Despite the gains of TypeScript 7, performance must always remain a key goal, and options which can’t be supported in a performant way need to be more strongly justified.
+- Virtually every runtime environment is now "evergreen". True legacy environments (ES5) are vanishingly rare.
+- Bundlers and ESM have become the most common module targets for new projects, though CommonJS remains a major target. AMD and other in-browser userland module systems are much rarer than they were in 2012.
+- Almost all packages can be consumed through some module system. UMD packages still exist, but virtually no new code is available _only_ as a global variable.
+- `tsconfig.json` is nearly universal as a configuration mechanism.
+- Appetite for "stricter" typing continues to grow.
+- TypeScript build performance is top of mind. Despite the gains of TypeScript 7, performance must always remain a key goal, and options which can’t be supported in a performant way need to be more strongly justified.
 
 So TypeScript 6.0 and 7.0 are designed with these realities in mind. For TypeScript 6.0, these deprecations can be ignored by setting `"ignoreDeprecations": "6.0"` in your tsconfig; however, note that TypeScript 7.0 _will not_ support any of these deprecated options.
 
@@ -379,13 +379,13 @@ Some necessary adjustments can be automatically performed with a codemod or tool
 
 We’ll cover specific adjustments below, but we have to note that some deprecations and behavior changes do not necessarily have an error message that directly points to the underlying issue. So we’ll note up-front that **many projects will need to do at least one of the following**:
 
-*   Set the `"types"` array in tsconfig, typically to `"types": ["node"]`.
+- Set the `"types"` array in tsconfig, typically to `"types": ["node"]`.
 
 `"types": ["*"]` will restore the 5.9 behavior, but we recommend using an explicit array to improve build performance and predictability.
 
 You’ll typically know this is the issue if you see a _lot_ of type errors related to missing identifiers or unresolved built-in modules.
 
-*   Set `"rootDir": "./src"` if you were previously relying on this being inferred
+- Set `"rootDir": "./src"` if you were previously relying on this being inferred
 
 You’ll often know this is the issue if you see files being written to `./dist/src/index.js` instead of `./dist/index.js`.
 
@@ -393,15 +393,15 @@ You’ll often know this is the issue if you see files being written to `./dist/
 
 Several compiler options now have updated default values that better reflect modern development practices.
 
-*   **`strict` is now `true` by default**: The appetite for stricter typing continues to grow, and we’ve found that most new projects want `strict` mode enabled. If you were already using `"strict": true`, nothing changes for you. If you were relying on the previous default of `false`, you’ll need to explicitly set `"strict": false` in your `tsconfig.json`.
+- **`strict` is now `true` by default**: The appetite for stricter typing continues to grow, and we’ve found that most new projects want `strict` mode enabled. If you were already using `"strict": true`, nothing changes for you. If you were relying on the previous default of `false`, you’ll need to explicitly set `"strict": false` in your `tsconfig.json`.
 
-*   **`module` defaults to `esnext`**: Similarly, the new default `module` is `esnext`, acknowledging that ESM is now the dominant module format.
+- **`module` defaults to `esnext`**: Similarly, the new default `module` is `esnext`, acknowledging that ESM is now the dominant module format.
 
-*   **`target` defaults to current-year ES version**: The new default `target` is the most recent supported ECMAScript spec version (effectively a floating target). Right now, that target is `es2025`. This reflects the reality that most developers are shipping to evergreen runtimes and don’t need to transpile down to older ECMAScript versions.
+- **`target` defaults to current-year ES version**: The new default `target` is the most recent supported ECMAScript spec version (effectively a floating target). Right now, that target is `es2025`. This reflects the reality that most developers are shipping to evergreen runtimes and don’t need to transpile down to older ECMAScript versions.
 
-*   **`noUncheckedSideEffectImports` is now `true` by default**: This helps catch issues with typos in side-effect-only imports.
+- **`noUncheckedSideEffectImports` is now `true` by default**: This helps catch issues with typos in side-effect-only imports.
 
-*   **`libReplacement` is now `false` by default**: This flag previously incurred a large number of failed module resolutions for every run, which in turn increased the number of locations we needed to watch under `--watch` and editor scenarios. In a new project, `libReplacement` never does anything until other explicit configuration takes place, so it makes sense to turn this off by default for the sake of better performance by default.
+- **`libReplacement` is now `false` by default**: This flag previously incurred a large number of failed module resolutions for every run, which in turn increased the number of locations we needed to watch under `--watch` and editor scenarios. In a new project, `libReplacement` never does anything until other explicit configuration takes place, so it makes sense to turn this off by default for the sake of better performance by default.
 
 If these new defaults break your project, you can specify the previous values explicitly in your `tsconfig.json`.
 
@@ -510,10 +510,10 @@ See more [at this issue](https://github.com/microsoft/TypeScript/issues/62200) a
 
 The following flag values are no longer supported
 
-*   `--module amd`
-*   `--module umd`
-*   `--module systemjs`
-*   `--module none`
+- `--module amd`
+- `--module umd`
+- `--module systemjs`
+- `--module none`
 
 AMD, UMD, and SystemJS were important during the early days of JavaScript modules when browsers lacked native module support. The semantics of "none" were never well-defined and often led to confusion. Today, ESM is universally supported in browsers and Node.js, and both import maps and bundlers have become favored ways for filling in the gaps. If you’re still targeting these module systems, consider migrating to an appropriate ECMAScript module-emitting target, adopt a bundler or different compiler, or stay on TypeScript 5.x until you can migrate.
 
@@ -601,8 +601,8 @@ See more at [this issue](https://github.com/microsoft/TypeScript/issues/62206) a
 
 The following settings can no longer be set to `false`:
 
-*   `esModuleInterop`
-*   `allowSyntheticDefaultImports`
+- `esModuleInterop`
+- `allowSyntheticDefaultImports`
 
 `esModuleInterop` and `allowSyntheticDefaultImports` were originally opt-in to avoid breaking existing projects. However, the behavior they enable has been the recommended default for years. Setting them to `false` often led to subtle runtime issues when consuming CommonJS modules from ESM. In TypeScript 6.0, the safer interop behavior is always enabled.
 

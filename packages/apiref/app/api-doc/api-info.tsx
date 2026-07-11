@@ -14,10 +14,7 @@ export function ApiInfoSection() {
         </Badge> */}
         <h1 className="mb-2 text-3xl font-bold">{info.title}</h1>
 
-        <MD
-          className="prose dark:prose-invert"
-          content={info.description}
-        />
+        <MD className="prose dark:prose-invert" content={info.description} />
 
         {(info.termsOfService || info.contact || info.license) && (
           <div className="mt-4 flex gap-4 text-sm text-gray-600">

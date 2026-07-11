@@ -26,11 +26,11 @@ You must adhere to the following principles:
 
 Before you begin, you must understand the key packages in the monorepo:
 
-*   `packages/spec`: This package is responsible for loading an OpenAPI specification and augmenting it with `x-` prefixed metadata (e.g., `x-inputname`, `x-response-name`, `x-pagination`). Your generator will consume this augmented spec.
-*   `packages/core`: Contains shared utilities. You will not modify this.
-*   `packages/cli`: The command-line interface. You will add a new command here to invoke your new language generator.
-*   `packages/typescript`: The reference implementation for TypeScript. **Study this closely.** It demonstrates the core logic for file generation, schema emission (Zod for validation, interfaces for models), and HTTP request handling.
-*   `packages/dart`: The reference implementation for Dart. This is your second blueprint, especially for understanding how to adapt the generation logic to a different language ecosystem (e.g., using `.txt` templates, different error handling, `pubspec.yaml`).
+- `packages/spec`: This package is responsible for loading an OpenAPI specification and augmenting it with `x-` prefixed metadata (e.g., `x-inputname`, `x-response-name`, `x-pagination`). Your generator will consume this augmented spec.
+- `packages/core`: Contains shared utilities. You will not modify this.
+- `packages/cli`: The command-line interface. You will add a new command here to invoke your new language generator.
+- `packages/typescript`: The reference implementation for TypeScript. **Study this closely.** It demonstrates the core logic for file generation, schema emission (Zod for validation, interfaces for models), and HTTP request handling.
+- `packages/dart`: The reference implementation for Dart. This is your second blueprint, especially for understanding how to adapt the generation logic to a different language ecosystem (e.g., using `.txt` templates, different error handling, `pubspec.yaml`).
 
 ### **Agent Workflow: A Phased Approach**
 
@@ -43,20 +43,20 @@ You will implement the new language support in the following distinct phases.
 Your first step is to set up the necessary package structure and integrate your new generator into the main CLI tool.
 
 1.  **Create the Language Package:**
-    *   Create a new directory: `packages/<language-name>/`.
-    *   Inside this directory, create a `src/` folder.
-    *   Create a `README.md` file inside the package, following the structure of `packages/dart/README.md` or `packages/typescript/README.md`. It should explain how to generate and use the SDK for the new language.
+    - Create a new directory: `packages/<language-name>/`.
+    - Inside this directory, create a `src/` folder.
+    - Create a `README.md` file inside the package, following the structure of `packages/dart/README.md` or `packages/typescript/README.md`. It should explain how to generate and use the SDK for the new language.
 
 2.  **Integrate with the CLI:**
-    *   Create a new file: `packages/cli/src/lib/langs/<language-name>.ts`.
-    *   Use `packages/cli/src/lib/langs/dart.ts` as a template.
-    *   This file must define a new `commander` command for your language.
-    *   The command's action handler **MUST** perform the following steps:
-        1.  Accept the same core options: `--spec`, `--output`, `--name`.
-        2.  Load the OpenAPI specification using `loadSpec` from `@sdk-it/spec`.
-        3.  Augment the spec using `augmentSpec` from `@sdk-it/spec`. This step is crucial as it prepares the spec with the necessary metadata for your generator.
-        4.  Invoke the main `generate` function from your new language package (which you will create in Phase 2).
-        5.  Implement a post-generation formatting step using the idiomatic formatter for the target language (e.g., `gofmt` for Go, `cargo fmt` for Rust, `black` for Python). This should be executed via `execSync` or `execFile`, similar to the Dart and TypeScript commands.
+    - Create a new file: `packages/cli/src/lib/langs/<language-name>.ts`.
+    - Use `packages/cli/src/lib/langs/dart.ts` as a template.
+    - This file must define a new `commander` command for your language.
+    - The command's action handler **MUST** perform the following steps:
+      1.  Accept the same core options: `--spec`, `--output`, `--name`.
+      2.  Load the OpenAPI specification using `loadSpec` from `@sdk-it/spec`.
+      3.  Augment the spec using `augmentSpec` from `@sdk-it/spec`. This step is crucial as it prepares the spec with the necessary metadata for your generator.
+      4.  Invoke the main `generate` function from your new language package (which you will create in Phase 2).
+      5.  Implement a post-generation formatting step using the idiomatic formatter for the target language (e.g., `gofmt` for Go, `cargo fmt` for Rust, `black` for Python). This should be executed via `execSync` or `execFile`, similar to the Dart and TypeScript commands.
 
 ---
 
@@ -66,18 +66,18 @@ This file is the main entry point for your language's generation logic. It orche
 
 1.  **Create the `generate` function:** This function will accept the augmented OpenAPI spec and generator settings as arguments.
 2.  **Orchestrate File Generation:** The `generate` function is responsible for creating the complete directory structure of the generated SDK. Based on the reference implementations, you **MUST** generate the following structure within the user's specified output directory:
-    *   **Dependency File:** A language-appropriate dependency file (e.g., `pubspec.yaml`, `package.json`, `go.mod`, `Cargo.toml`, `requirements.txt`).
-    *   `api/`: Contains the client classes for each API group (tag).
-    *   `models/`: Contains the data models (interfaces, classes, structs) generated from the OpenAPI schemas.
-    *   `inputs/`: Contains the input models/schemas for each operation.
-    *   `outputs/`: Contains the output models/schemas for each operation's responses.
-    *   `http/`: Contains the core HTTP transport logic, including the dispatcher, request/response objects, and interceptors.
-    *   **Main Client File:** A root file that exports the main client class and other necessary components.
+    - **Dependency File:** A language-appropriate dependency file (e.g., `pubspec.yaml`, `package.json`, `go.mod`, `Cargo.toml`, `requirements.txt`).
+    - `api/`: Contains the client classes for each API group (tag).
+    - `models/`: Contains the data models (interfaces, classes, structs) generated from the OpenAPI schemas.
+    - `inputs/`: Contains the input models/schemas for each operation.
+    - `outputs/`: Contains the output models/schemas for each operation's responses.
+    - `http/`: Contains the core HTTP transport logic, including the dispatcher, request/response objects, and interceptors.
+    - **Main Client File:** A root file that exports the main client class and other necessary components.
 
 3.  **Use Static Template Files:** For boilerplate code that doesn't change based on the spec (like the HTTP dispatcher, interceptors, base response classes), you **MUST** use `.txt` files as templates.
-    *   Create these `.txt` files within your `packages/<language-name>/src/lib/` directory.
-    *   Your `generate` function will read these files and write them into the appropriate location in the generated SDK (e.g., `http/dispatcher.<ext>`).
-    *   Reference `packages/dart/src/lib/generate.ts` and its use of `dispatcherTxt`, `interceptorsTxt`, etc.
+    - Create these `.txt` files within your `packages/<language-name>/src/lib/` directory.
+    - Your `generate` function will read these files and write them into the appropriate location in the generated SDK (e.g., `http/dispatcher.<ext>`).
+    - Reference `packages/dart/src/lib/generate.ts` and its use of `dispatcherTxt`, `interceptorsTxt`, etc.
 
 ---
 
@@ -86,22 +86,22 @@ This file is the main entry point for your language's generation logic. It orche
 This is the most critical component. You will create a class, similar to `DartSerializer` or the TypeScript `ZodEmitter`/`TypeScriptEmitter`, that is responsible for traversing the OpenAPI schema and converting it into the target language's code.
 
 1.  **Create the Emitter Class:**
-    *   Name it appropriately (e.g., `PythonEmitter`, `GoSerializer`).
-    *   It must take the augmented OpenAPI spec in its constructor.
+    - Name it appropriately (e.g., `PythonEmitter`, `GoSerializer`).
+    - It must take the augmented OpenAPI spec in its constructor.
 
 2.  **Implement Schema Traversal Logic:** The emitter's main `handle` method must be able to process any `SchemaObject` or `ReferenceObject`. It must correctly delegate to specialized methods based on the schema's properties.
 
 3.  **Implement Type Handlers:** You must implement logic to handle:
-    *   **Primitive Types:** `string`, `number`, `integer`, `boolean`.
-    *   **Formats:** Correctly map formats like `date-time`, `uuid`, `binary`, `byte`, `int64` to idiomatic types in the target language (e.g., `DateTime`, `UUID`, `File`, `BigInt`).
-    *   **Objects:** Generate classes, structs, or interfaces for `type: 'object'`. This includes handling `properties` and `required` fields.
-    *   **Arrays:** Generate lists or arrays, correctly handling the `items` schema.
-    *   **Enums & Consts:** Generate language-appropriate enums or unions of literal types.
-    *   **Composition:**
-        *   `allOf`: Translate to inheritance or composition (e.g., `extends` in Dart/TS, struct embedding in Go).
-        *   `oneOf` / `anyOf`: Translate to sealed classes, interfaces with implementations, or tagged unions. You **MUST** use the `x-varients` metadata provided by `augmentSpec` to handle this correctly.
-    *   **References (`$ref`):** Correctly resolve references using `followRef` and generate a reference to the corresponding generated model.
-    *   **Nullability:** Correctly handle `nullable: true` or `type: ['string', 'null']` to produce optional or nullable types in the target language.
+    - **Primitive Types:** `string`, `number`, `integer`, `boolean`.
+    - **Formats:** Correctly map formats like `date-time`, `uuid`, `binary`, `byte`, `int64` to idiomatic types in the target language (e.g., `DateTime`, `UUID`, `File`, `BigInt`).
+    - **Objects:** Generate classes, structs, or interfaces for `type: 'object'`. This includes handling `properties` and `required` fields.
+    - **Arrays:** Generate lists or arrays, correctly handling the `items` schema.
+    - **Enums & Consts:** Generate language-appropriate enums or unions of literal types.
+    - **Composition:**
+      - `allOf`: Translate to inheritance or composition (e.g., `extends` in Dart/TS, struct embedding in Go).
+      - `oneOf` / `anyOf`: Translate to sealed classes, interfaces with implementations, or tagged unions. You **MUST** use the `x-varients` metadata provided by `augmentSpec` to handle this correctly.
+    - **References (`$ref`):** Correctly resolve references using `followRef` and generate a reference to the corresponding generated model.
+    - **Nullability:** Correctly handle `nullable: true` or `type: ['string', 'null']` to produce optional or nullable types in the target language.
 
 ---
 
@@ -110,32 +110,32 @@ This is the most critical component. You will create a class, similar to `DartSe
 This phase focuses on generating the code that makes the actual API calls.
 
 1.  **Generate the Main Client Class:**
-    *   Create a main client class (e.g., `MyApiClient`).
-    *   It should be initialized with a base URL and any authentication options derived from the `securitySchemes`.
-    *   It should instantiate and provide access to the API group clients (see below).
+    - Create a main client class (e.g., `MyApiClient`).
+    - It should be initialized with a base URL and any authentication options derived from the `securitySchemes`.
+    - It should instantiate and provide access to the API group clients (see below).
 
 2.  **Generate API Group Clients:**
-    *   For each `tag` in the OpenAPI spec, generate a separate client class (e.g., `UsersApi`, `PetsApi`).
-    *   Each method in this class corresponds to an operation with that tag.
+    - For each `tag` in the OpenAPI spec, generate a separate client class (e.g., `UsersApi`, `PetsApi`).
+    - Each method in this class corresponds to an operation with that tag.
 
 3.  **Generate Operation Methods:**
-    *   For each operation, generate a method with a name derived from its `operationId`.
-    *   The method signature must be strongly typed, accepting a single input object that contains all parameters (`path`, `query`, `header`, `body`).
-    *   The method's return type must also be strongly typed.
+    - For each operation, generate a method with a name derived from its `operationId`.
+    - The method signature must be strongly typed, accepting a single input object that contains all parameters (`path`, `query`, `header`, `body`).
+    - The method's return type must also be strongly typed.
 
 4.  **Implement Request Serialization:**
-    *   The method body must correctly construct the HTTP request.
-    *   This includes:
-        *   Replacing path parameters in the URL (e.g., `/users/{id}`).
-        *   Adding query parameters to the URL.
-        *   Adding headers.
-        *   Serializing the request body based on the `Content-Type` (`application/json`, `multipart/form-data`, etc.).
+    - The method body must correctly construct the HTTP request.
+    - This includes:
+      - Replacing path parameters in the URL (e.g., `/users/{id}`).
+      - Adding query parameters to the URL.
+      - Adding headers.
+      - Serializing the request body based on the `Content-Type` (`application/json`, `multipart/form-data`, etc.).
 
 5.  **Implement Response Deserialization & Error Handling:**
-    *   This is a critical, language-specific decision.
-    *   **Analyze the existing patterns:** TypeScript uses a `[result, error]` tuple. Dart `throws` exceptions.
-    *   You must choose the most idiomatic approach for the new language and implement it consistently.
-    *   Your implementation must handle different success (2xx) and error (4xx, 5xx) status codes, deserializing the response body into the correct success or error model.
+    - This is a critical, language-specific decision.
+    - **Analyze the existing patterns:** TypeScript uses a `[result, error]` tuple. Dart `throws` exceptions.
+    - You must choose the most idiomatic approach for the new language and implement it consistently.
+    - Your implementation must handle different success (2xx) and error (4xx, 5xx) status codes, deserializing the response body into the correct success or error model.
 
 ---
 
@@ -145,38 +145,43 @@ Your final output should be a set of new and modified files that integrate the n
 
 **Example Structure of Deliverable:**
 
-*   **New File:** `packages/cli/src/lib/langs/python.ts`
-    ```typescript
-    // ... full content of the new CLI command for Python ...
-    ```
-*   **New File:** `packages/python/src/lib/generate.ts`
-    ```typescript
-    // ... full content of the main Python generator orchestrator ...
-    ```
-*   **New File:** `packages/python/src/lib/python_emitter.ts`
-    ```typescript
-    // ... full content of the Python schema emitter ...
-    ```
-*   **New File:** `packages/python/src/lib/http/dispatcher.txt`
-    ```python
-    # ... full content of the static Python dispatcher ...
-    ```
-*   ... and so on for all other new files.
-*   **Modified File:** `packages/cli/src/lib/cli.ts`
-    ```diff
-    --- a/packages/cli/src/lib/cli.ts
-    +++ b/packages/cli/src/lib/cli.ts
-    @@ -1,8 +1,10 @@
-     #!/usr/bin/env node
-     import { Command, program } from 'commander';
+- **New File:** `packages/cli/src/lib/langs/python.ts`
+  ```typescript
+  // ... full content of the new CLI command for Python ...
+  ```
+- **New File:** `packages/python/src/lib/generate.ts`
+  ```typescript
+  // ... full content of the main Python generator orchestrator ...
+  ```
+- **New File:** `packages/python/src/lib/python_emitter.ts`
+  ```typescript
+  // ... full content of the Python schema emitter ...
+  ```
+- **New File:** `packages/python/src/lib/http/dispatcher.txt`
+  ```python
+  # ... full content of the static Python dispatcher ...
+  ```
+- ... and so on for all other new files.
+- **Modified File:** `packages/cli/src/lib/cli.ts`
+  ```diff
+  --- a/packages/cli/src/lib/cli.ts
+  +++ b/packages/cli/src/lib/cli.ts
+  @@ -1,8 +1,10 @@
+   #!/usr/bin/env node
+   import { Command, program } from 'commander';
 
-     import dart from './langs/dart.ts';
-+    import python from './langs/python.ts';
-     import typescript from './langs/typescript.ts';
+   import dart from './langs/dart.ts';
+  ```
 
-     const generate = new Command('generate')
-       .addCommand(typescript)
-+      .addCommand(python)
+* import python from './langs/python.ts';
+  import typescript from './langs/typescript.ts';
+
+  const generate = new Command('generate')
+  .addCommand(typescript)
+
+*      .addCommand(python)
        .addCommand(dart);
-    ...
-    ```
+  ...
+  ```
+
+  ```

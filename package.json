@@ -5,9 +5,19 @@
   "type": "module",
   "scripts": {
     "prepare": "husky",
-    "test": "bun ./e2e/index.ts",
-    "dart": "bun ./e2e/dart.ts",
-    "client": "node apps/api/sdk.ts"
+    "format:check": "prettier --check .",
+    "lint": "nx run-many -t lint --exclude=@sdk-it/source",
+    "typecheck": "nx run-many -t typecheck --exclude=@sdk-it/source",
+    "test": "npm run test:packages",
+    "test:packages": "nx run-many -t test --exclude=@sdk-it/source",
+    "test:e2e": "bun ./e2e/index.ts",
+    "test:e2e:dart": "bun ./e2e/dart.ts",
+    "build": "nx run-many -t build --exclude=@sdk-it/source",
+    "check:data": "node tools/check-data-files.mjs",
+    "check:links": "node tools/check-markdown-links.mjs"
+  },
+  "engines": {
+    "node": ">=24 <26"
   },
   "repository": "https://github.com/JanuaryLabs/sdk-it",
   "private": true,

@@ -9,8 +9,6 @@ const templatesDir = join(
   dirname(new URL(import.meta.url).pathname),
   'paginations',
 );
-const sourceDir = dirname(new URL(import.meta.url).pathname);
-
 async function loadPaginationModule(templateName: string) {
   const source = await readFile(join(templatesDir, templateName), 'utf-8');
   const tempDir = await mkdtemp(join(tmpdir(), 'sdk-it-pagination-'));

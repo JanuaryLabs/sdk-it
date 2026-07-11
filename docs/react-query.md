@@ -38,9 +38,9 @@ type DataEndpoints = {
 }[keyof Endpoints];
 
 type MutationEndpoints = {
-  [K in keyof Endpoints]: K extends `${'POST' | 'PUT' | 'PATCH' | 'DELETE'} ${string}`
-    ? K
-    : never;
+  [
+    K in keyof Endpoints
+  ]: K extends `${'POST' | 'PUT' | 'PATCH' | 'DELETE'} ${string}` ? K : never;
 }[keyof Endpoints];
 
 /**

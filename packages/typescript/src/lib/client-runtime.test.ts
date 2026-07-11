@@ -440,7 +440,7 @@ describe('emitted client runtime', () => {
   });
 
   test('input option: organizationId in options is merged into request input', async () => {
-    const { module, fetchCalls, fetchShim } = await buildSdk({
+    const { module, fetchShim } = await buildSdk({
       spec: {
         name: 'InputClient',
         servers: [],
