@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { rm, symlink } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
@@ -11,17 +12,22 @@ import { analyze } from './generic.ts';
 import { responseAnalyzer } from './response-analyzer.ts';
 
 const tsconfig = {
-	compilerOptions: {
-		target: 'ES2022',
-		module: 'ESNext',
-		moduleResolution: 'bundler',
-		strict: true,
-		esModuleInterop: true,
-		skipLibCheck: true,
-		forceConsistentCasingInFileNames: true,
-	},
-	include: ['src/**/*'],
+  compilerOptions: {
+    target: 'ES2022',
+    module: 'ESNext',
+    moduleResolution: 'bundler',
+    strict: true,
+    esModuleInterop: true,
+    skipLibCheck: true,
+    forceConsistentCasingInFileNames: true,
+  },
+  include: ['src/**/*'],
 };
+
+const require = createRequire(import.meta.url);
+const workspaceNodeModules = dirname(
+  dirname(require.resolve('zod/package.json')),
+);
 
 async function tsworkspace(
   config: Record<string, unknown>,
@@ -53,10 +59,8 @@ function getNonNullBranch(schema: any) {
 describe('analyze function tests', () => {
   it('should parse basic validation middleware with selectors', async () => {
     // Test Case 1: Basic validation middleware with query and body selectors
-    await using workspace = await tsworkspace(
-      tsconfig,
-      {
-        'test1.ts': `
+    await using workspace = await tsworkspace(tsconfig, {
+      'test1.ts': `
 import { validate } from 'hono';
 import { z } from 'zod';
 
@@ -77,8 +81,7 @@ app.post('/users/:id/profile', validate(({ query, body, params }) => ({
   return output.json({ success: true, user: c.get('input') });
 });
 `,
-      },
-    );
+    });
 
     const result1 = await analyze(workspace.tsconfig, {
       responseAnalyzer: responseAnalyzer,
@@ -103,10 +106,8 @@ app.post('/users/:id/profile', validate(({ query, body, params }) => ({
 
   it('should handle error responses with ProblemDetailsException', async () => {
     // Test Case 2: Error response handling with ProblemDetailsException
-    await using workspace = await tsworkspace(
-      tsconfig,
-      {
-        'test2.ts': `
+    await using workspace = await tsworkspace(tsconfig, {
+      'test2.ts': `
 import { validate } from 'hono';
 import { z } from 'zod';
 
@@ -134,8 +135,7 @@ app.get('/resource/:id', validate(({ params }) => ({
   return output.json({ id, data: 'some data' });
 });
 `,
-      },
-    );
+    });
 
     const result2 = await analyze(workspace.tsconfig, {
       responseAnalyzer: responseAnalyzer,
@@ -157,10 +157,8 @@ app.get('/resource/:id', validate(({ params }) => ({
   });
 
   it('should handle multiple HTTP methods and content types', async () => {
-    await using workspace = await tsworkspace(
-tsconfig,
-      {
-        'index.ts': `
+    await using workspace = await tsworkspace(tsconfig, {
+      'index.ts': `
 import { validate } from 'hono';
 import { z } from 'zod';
 
@@ -195,13 +193,11 @@ app.get('/items', validate((payload) => ({
 });
 
 `,
-      },
-    );
+    });
 
     const result = await analyze(workspace.tsconfig, {
       responseAnalyzer: responseAnalyzer,
-		});
-
+    });
 
     assert.strictEqual(
       Object.keys(result.paths).length,
@@ -212,10 +208,8 @@ app.get('/items', validate((payload) => ({
 
   it('should analyze responses from all middlewares', async () => {
     // Test Case 4: Middleware analysis with authenticate and ratelimit
-    await using workspace = await tsworkspace(
-      tsconfig,
-      {
-        'test4.ts': `
+    await using workspace = await tsworkspace(tsconfig, {
+      'test4.ts': `
 import { validate } from 'hono';
 import { z } from 'zod';
 
@@ -268,8 +262,7 @@ app.post(
   }
 );
 `,
-      },
-    );
+    });
 
     const result = await analyze(workspace.tsconfig, {
       responseAnalyzer: responseAnalyzer,
@@ -296,10 +289,8 @@ app.post(
 
   it('should follow call expressions into helper functions', async () => {
     // Test Case 5: Recursive call expression following
-    await using workspace = await tsworkspace(
-      tsconfig,
-      {
-        'test5.ts': `
+    await using workspace = await tsworkspace(tsconfig, {
+      'test5.ts': `
 import { validate } from 'hono';
 import { z } from 'zod';
 
@@ -347,8 +338,7 @@ app.post(
   }
 );
 `,
-      },
-    );
+    });
 
     const result = await analyze(workspace.tsconfig, {
       responseAnalyzer: responseAnalyzer,
@@ -371,10 +361,8 @@ app.post(
   });
 
   it('should handle zod date and datetime validators', async () => {
-    await using workspace = await tsworkspace(
-      tsconfig,
-      {
-        'index.ts': `
+    await using workspace = await tsworkspace(tsconfig, {
+      'index.ts': `
 import { validate } from 'hono';
 import { z } from 'zod';
 
@@ -407,8 +395,7 @@ app.post('/events', validate((payload) => ({
   return c.json({ success: true });
 });
 `,
-      },
-    );
+    });
 
     const result = await analyze(workspace.tsconfig, {
       responseAnalyzer: responseAnalyzer,
@@ -461,10 +448,8 @@ app.post('/events', validate((payload) => ({
   });
 
   it('should handle optional date validators', async () => {
-    await using workspace = await tsworkspace(
-      tsconfig,
-      {
-        'index.ts': `
+    await using workspace = await tsworkspace(tsconfig, {
+      'index.ts': `
 import { validate } from 'hono';
 import { z } from 'zod';
 
@@ -490,8 +475,7 @@ app.post('/events/:id', validate((payload) => ({
   return c.json({ success: true });
 });
 `,
-      },
-    );
+    });
 
     const result = await analyze(workspace.tsconfig, {
       responseAnalyzer: responseAnalyzer,
@@ -533,10 +517,8 @@ app.post('/events/:id', validate((payload) => ({
   });
 
   it('should handle date validators in query params', async () => {
-    await using workspace = await tsworkspace(
-      tsconfig,
-      {
-        'index.ts': `
+    await using workspace = await tsworkspace(tsconfig, {
+      'index.ts': `
 import { validate } from 'hono';
 import { z } from 'zod';
 
@@ -561,8 +543,7 @@ app.get('/events', validate((payload) => ({
   return c.json({ items: [] });
 });
 `,
-      },
-    );
+    });
 
     const result = await analyze(workspace.tsconfig, {
       responseAnalyzer: responseAnalyzer,
@@ -595,10 +576,8 @@ app.get('/events', validate((payload) => ({
 
   it('should respect depth limits when following call expressions', async () => {
     // Test Case 6: Depth limiting
-    await using workspace = await tsworkspace(
-      tsconfig,
-      {
-        'test6.ts': `
+    await using workspace = await tsworkspace(tsconfig, {
+      'test6.ts': `
 import { validate } from 'hono';
 import { z } from 'zod';
 
@@ -642,8 +621,7 @@ app.get(
   }
 );
 `,
-      },
-    );
+    });
 
     const result = await analyze(workspace.tsconfig, {
       responseAnalyzer: responseAnalyzer,
@@ -700,16 +678,26 @@ app.post('/users', authenticate(), validate((p) => ({
 
     // Shared middleware schema should exist once in components
     const sharedKey = 'authenticate401_application_problem+json';
-    assert.ok(result.components.schemas?.[sharedKey],
-      'Should have shared schema for authenticate 401');
+    assert.ok(
+      result.components.schemas?.[sharedKey],
+      'Should have shared schema for authenticate 401',
+    );
 
     // Both operations should reference the shared schema via $ref
     const listUsers = result.paths['/users']?.get;
     const createUser = result.paths['/users']?.post;
-    const listRef = listUsers?.responses?.['401']?.content?.['application/problem+json']?.schema;
-    const createRef = createUser?.responses?.['401']?.content?.['application/problem+json']?.schema;
-    assert.deepStrictEqual(listRef, { $ref: `#/components/schemas/${sharedKey}` });
-    assert.deepStrictEqual(createRef, { $ref: `#/components/schemas/${sharedKey}` });
+    const listRef =
+      listUsers?.responses?.['401']?.content?.['application/problem+json']
+        ?.schema;
+    const createRef =
+      createUser?.responses?.['401']?.content?.['application/problem+json']
+        ?.schema;
+    assert.deepStrictEqual(listRef, {
+      $ref: `#/components/schemas/${sharedKey}`,
+    });
+    assert.deepStrictEqual(createRef, {
+      $ref: `#/components/schemas/${sharedKey}`,
+    });
   });
 
   it('should not deduplicate anonymous middleware responses', async () => {
@@ -757,8 +745,12 @@ app.get('/items',
 
     // Responses should be inlined, not $ref
     const getItem = result.paths['/items/{id}']?.get;
-    const schema200 = getItem?.responses?.['200']?.content?.['application/json']?.schema;
-    assert.ok(schema200 && !('$ref' in schema200), '200 response should be inlined');
+    const schema200 =
+      getItem?.responses?.['200']?.content?.['application/json']?.schema;
+    assert.ok(
+      schema200 && !('$ref' in schema200),
+      '200 response should be inlined',
+    );
   });
 
   it('should preserve integer type for z.number().int() in query and path params', async () => {
@@ -996,17 +988,8 @@ app.get('/users/:userId', validate((payload) => ({
     });
 
     // Symlink node_modules so the imported inputs.ts can resolve 'zod'
-    const projectRoot = join(workspace.tsconfig, '..', '..');
-    const nodeModulesPath = join(projectRoot, 'node_modules');
-    try {
-      await symlink(
-        join(process.cwd(), 'node_modules'),
-        nodeModulesPath,
-        'dir',
-      );
-    } catch {
-      // symlink may already exist
-    }
+    const nodeModulesPath = join(dirname(workspace.tsconfig), 'node_modules');
+    await symlink(workspaceNodeModules, nodeModulesPath, 'dir');
 
     const inputsPath = join(workspace.tsconfig, '..', 'src', 'inputs.ts');
     const result = await analyze(workspace.tsconfig, {
@@ -1401,9 +1384,7 @@ describe('zod v3 → v4 migration characterization: primitives', () => {
   });
 
   it('z.enum([...]) emits string with enum members', async () => {
-    const body = await analyzeRequestBody(
-      bodySource(`z.enum(['a','b','c'])`),
-    );
+    const body = await analyzeRequestBody(bodySource(`z.enum(['a','b','c'])`));
     assert.deepStrictEqual(body.properties.field, {
       type: 'string',
       enum: ['a', 'b', 'c'],
@@ -1580,9 +1561,7 @@ describe('zod v3 → v4 migration characterization: composition', () => {
 
 describe('zod v3 → v4 migration characterization: modifiers', () => {
   it('.optional() marks the field as not required', async () => {
-    const body = await analyzeRequestBody(
-      bodySource('z.string().optional()'),
-    );
+    const body = await analyzeRequestBody(bodySource('z.string().optional()'));
     assert.deepStrictEqual(body.properties.field, { type: 'string' });
     assert.ok(
       !(body.required ?? []).includes('field'),
@@ -1591,9 +1570,7 @@ describe('zod v3 → v4 migration characterization: modifiers', () => {
   });
 
   it('.nullable() emits anyOf with null branch', async () => {
-    const body = await analyzeRequestBody(
-      bodySource('z.string().nullable()'),
-    );
+    const body = await analyzeRequestBody(bodySource('z.string().nullable()'));
     const field = body.properties.field;
     const hasNull =
       (Array.isArray(field.anyOf) &&
@@ -1605,9 +1582,7 @@ describe('zod v3 → v4 migration characterization: modifiers', () => {
   });
 
   it('.nullish() makes field optional with null branch', async () => {
-    const body = await analyzeRequestBody(
-      bodySource('z.string().nullish()'),
-    );
+    const body = await analyzeRequestBody(bodySource('z.string().nullish()'));
     const field = body.properties.field;
     assert.ok(
       !(body.required ?? []).includes('field'),
@@ -1658,8 +1633,7 @@ describe('zod v3 → v4 migration characterization: modifiers', () => {
     );
     const field = body.properties.field;
     const isAllOf = Array.isArray(field.allOf);
-    const isMergedString =
-      field.type === 'string' && field.minLength === 1;
+    const isMergedString = field.type === 'string' && field.minLength === 1;
     assert.ok(
       isAllOf || isMergedString,
       `pipe should emit allOf or a merged string schema, got ${JSON.stringify(field)}`,
@@ -1678,28 +1652,19 @@ describe('zod v3 → v4 migration characterization: coerce variants', () => {
   it('z.coerce.string() carries x-zod-type=coerce-string', async () => {
     const body = await analyzeRequestBody(bodySource('z.coerce.string()'));
     assert.strictEqual(body.properties.field.type, 'string');
-    assert.strictEqual(
-      body.properties.field['x-zod-type'],
-      'coerce-string',
-    );
+    assert.strictEqual(body.properties.field['x-zod-type'], 'coerce-string');
   });
 
   it('z.coerce.boolean() carries x-zod-type=coerce-boolean', async () => {
     const body = await analyzeRequestBody(bodySource('z.coerce.boolean()'));
     assert.strictEqual(body.properties.field.type, 'boolean');
-    assert.strictEqual(
-      body.properties.field['x-zod-type'],
-      'coerce-boolean',
-    );
+    assert.strictEqual(body.properties.field['x-zod-type'], 'coerce-boolean');
   });
 
   it('z.coerce.bigint() carries x-zod-type=coerce-bigint', async () => {
     const body = await analyzeRequestBody(bodySource('z.coerce.bigint()'));
     assert.strictEqual(body.properties.field.type, 'integer');
-    assert.strictEqual(
-      body.properties.field['x-zod-type'],
-      'coerce-bigint',
-    );
+    assert.strictEqual(body.properties.field['x-zod-type'], 'coerce-bigint');
   });
 });
 

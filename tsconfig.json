@@ -2,9 +2,6 @@
   "extends": "./tsconfig.base.json",
   "compileOnSave": false,
   "files": [],
-  "compilerOptions": {
-    "target": "ESNext"
-  },
   "references": [
     {
       "path": "./packages/core"

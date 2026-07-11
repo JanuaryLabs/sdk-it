@@ -32,7 +32,7 @@
     "lodash-es": "^4.17.21"
   },
   "peerDependencies": {
-    "typescript": "^5.8.3",
+    "typescript": "^6.0.3",
     "openapi3-ts": "^4.4.0",
     "zod": "^4.3.0"
   },

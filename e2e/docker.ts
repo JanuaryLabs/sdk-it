@@ -148,14 +148,11 @@ async function testSpec(spec: TestSpec): Promise<void> {
     ),
   );
 
-  await runStep(
-    spec.name,
-    `Type checking with DOM lib: ${spec.name}`,
-    () =>
-      runInContainer(
-        `Type checking with DOM lib: ${spec.name}`,
-        `tsc -p ${outputDir}/tsconfig.json --lib ES2024,DOM,DOM.Iterable,DOM.AsyncIterable --skipLibCheck`,
-      ),
+  await runStep(spec.name, `Type checking with DOM lib: ${spec.name}`, () =>
+    runInContainer(
+      `Type checking with DOM lib: ${spec.name}`,
+      `tsc -p ${outputDir}/tsconfig.json --lib ES2024,DOM --skipLibCheck`,
+    ),
   );
 }
 await setupContainer();

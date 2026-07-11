@@ -4,15 +4,6 @@
   "include": [],
   "references": [
     {
-      "path": "../readme"
-    },
-    {
-      "path": "../spec"
-    },
-    {
-      "path": "../core"
-    },
-    {
       "path": "./tsconfig.lib.json"
     },
     {

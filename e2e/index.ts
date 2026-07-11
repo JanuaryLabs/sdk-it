@@ -43,9 +43,7 @@ function runCommand(
         NODE_NO_WARNINGS: '1',
       },
     });
-    console.log(
-      '\n' + chalk.green(`✓ ${title} completed successfully`) + '\n',
-    );
+    console.log('\n' + chalk.green(`✓ ${title} completed successfully`) + '\n');
   } catch {
     console.log('\n' + chalk.red(`✗ ${title} failed`) + '\n');
     failures.push({ spec, step: title });
@@ -122,14 +120,14 @@ const filtered = filterName
 
 if (filterName && filtered.length === 0) {
   console.log(chalk.red(`No spec found matching "${filterName}"`));
-  console.log(
-    chalk.dim(`Available: ${specs.map((s) => s.name).join(', ')}`),
-  );
+  console.log(chalk.dim(`Available: ${specs.map((s) => s.name).join(', ')}`));
   process.exit(1);
 }
 
 if (filterName) {
-  console.log(chalk.cyan(`Running only: ${filtered.map((s) => s.name).join(', ')}\n`));
+  console.log(
+    chalk.cyan(`Running only: ${filtered.map((s) => s.name).join(', ')}\n`),
+  );
 }
 
 for (const { spec, name, flags } of filtered) {
@@ -177,7 +175,7 @@ for (const { spec, name, flags } of filtered) {
   runCommand(
     name,
     `TYPE CHECKING WITH DOM LIB: ${name}`,
-    `${tsc} --lib ES2024,DOM,DOM.Iterable,DOM.AsyncIterable --skipLibCheck`,
+    `${tsc} --lib ES2024,DOM --skipLibCheck`,
     8096,
   );
 }

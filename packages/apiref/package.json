@@ -26,8 +26,8 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-tooltip": "^1.2.7",
-    "@react-router/node": "^7.6.2",
-    "@react-router/serve": "^7.6.2",
+    "@react-router/node": "^7.18.1",
+    "@react-router/serve": "^7.18.1",
     "@streamdown/code": "^1.1.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -35,7 +35,7 @@
     "lucide-react": "^0.523.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "react-router": "^7.6.2",
+    "react-router": "^7.18.1",
     "rehype-expressive-code": "^0.41.2",
     "streamdown": "^2.5.0",
     "tailwind-merge": "^3.3.1",
@@ -44,7 +44,7 @@
     "usehooks-ts": "^3.1.1"
   },
   "devDependencies": {
-    "@react-router/dev": "^7.6.2",
+    "@react-router/dev": "^7.18.1",
     "@swc/cli": "~0.7.7",
     "@tailwindcss/vite": "^4.1.10",
     "@types/node": "^24.0.4",

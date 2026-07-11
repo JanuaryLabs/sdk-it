@@ -3,18 +3,6 @@
   "include": [],
   "references": [
     {
-      "path": "../typescript"
-    },
-    {
-      "path": "../core"
-    },
-    {
-      "path": "../shadcn"
-    },
-    {
-      "path": "../spec"
-    },
-    {
       "path": "./tsconfig.app.json"
     }
   ],

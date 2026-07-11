@@ -12,8 +12,9 @@
     ],
     "sharedGlobals": []
   },
-
-  "tui": { "enabled": false },
+  "tui": {
+    "enabled": false
+  },
   "plugins": [
     {
       "plugin": "@nx/eslint/plugin",
@@ -50,7 +51,6 @@
       "plugin": "@nx/vite/plugin",
       "options": {
         "buildTargetName": "build",
-        "testTargetName": "test",
         "serveTargetName": "serve",
         "devTargetName": "dev",
         "previewTargetName": "preview",
@@ -58,6 +58,12 @@
         "typecheckTargetName": "typecheck",
         "buildDepsTargetName": "build-deps",
         "watchDepsTargetName": "watch-deps"
+      }
+    },
+    {
+      "plugin": "@nx/vitest",
+      "options": {
+        "testTargetName": "test"
       }
     }
   ],
@@ -117,10 +123,12 @@
         "file": false
       }
     },
-    "releaseTagPattern": "release/{version}",
     "version": {
       "preVersionCommand": "NX_DAEMON=false npx nx run-many -t build --prod --exclude apiref && npm run test",
       "conventionalCommits": true
+    },
+    "releaseTag": {
+      "pattern": "release/{version}"
     }
   },
   "sync": {

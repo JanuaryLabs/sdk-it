@@ -4,15 +4,6 @@
   "include": [],
   "references": [
     {
-      "path": "../typescript"
-    },
-    {
-      "path": "../spec"
-    },
-    {
-      "path": "../core"
-    },
-    {
       "path": "./tsconfig.lib.json"
     },
     {

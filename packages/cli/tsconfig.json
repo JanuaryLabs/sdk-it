@@ -4,30 +4,6 @@
   "include": [],
   "references": [
     {
-      "path": "../readme"
-    },
-    {
-      "path": "../python"
-    },
-    {
-      "path": "../core"
-    },
-    {
-      "path": "../generic"
-    },
-    {
-      "path": "../hono"
-    },
-    {
-      "path": "../spec"
-    },
-    {
-      "path": "../dart"
-    },
-    {
-      "path": "../typescript"
-    },
-    {
       "path": "./tsconfig.lib.json"
     },
     {
