@@ -579,7 +579,7 @@ describe('findPolymorphicVarients', () => {
   });
 
   describe('arrays', () => {
-    it('complex', () => {
+    it('treats object-valued dictionaries as object variants', () => {
       const spec = createSpec({
         components: {
           schemas: {
@@ -650,10 +650,7 @@ describe('findPolymorphicVarients', () => {
           position: 0,
         },
         {
-          static: true,
-          subtype: 'string',
-          source: 'public-read',
-          name: 'public-read',
+          name: 'object',
           type: 'object',
           position: 1,
         },

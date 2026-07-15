@@ -129,14 +129,13 @@ export function fixSpec(
       notRef(schema.additionalProperties) &&
       !isEmpty(schema.additionalProperties.properties)
     ) {
-      // additionalProperties is of type object and properties is empty
+      // Tune the dictionary value's properties without replacing the
+      // dictionary container with its value schema.
       fixSpec(
         spec,
         Object.values(schema.additionalProperties.properties),
         visited,
       );
-      Object.assign(schema, schema.additionalProperties);
-      delete schema.additionalProperties;
     }
 
     for (const kind of ['oneOf', 'anyOf'] as const) {
@@ -370,6 +369,7 @@ function expandOneOf(
     );
 
     if (varientSchema.type === 'object') {
+      spec.components.schemas[refName] = varientSchema;
       expandSpec(spec, { [refName]: varientSchema }, refs);
       schema[kind]![varient.position] = {
         $ref: `#/components/schemas/${refName}`,

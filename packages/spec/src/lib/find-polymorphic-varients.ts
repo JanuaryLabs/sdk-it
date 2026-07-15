@@ -273,10 +273,11 @@ export function findVarients(
   const matrix: Varient[][] = [];
 
   for (const { schema, position } of schemasByType.object ?? []) {
-    if (
-      schema.additionalProperties ||
-      isEmpty({ ...schema.properties, ...schema['x-properties'] })
-    ) {
+    if (schema.additionalProperties) {
+      varients.push({ name: 'object', type: 'object', position });
+      continue;
+    }
+    if (isEmpty({ ...schema.properties, ...schema['x-properties'] })) {
       continue;
     }
 

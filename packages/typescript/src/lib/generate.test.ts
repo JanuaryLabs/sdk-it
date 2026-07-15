@@ -86,6 +86,134 @@ function figmaShapedSpec(): OpenAPIObject {
   };
 }
 
+function dictionaryRequestSpec(): OpenAPIObject {
+  return {
+    openapi: '3.1.0',
+    info: { title: 'Dictionaries', version: '1.0.0' },
+    paths: {
+      '/settings': {
+        post: {
+          operationId: 'updateSettings',
+          tags: ['settings'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    skills: {
+                      type: 'object',
+                      additionalProperties: {
+                        type: 'object',
+                        properties: {
+                          enabled: { type: 'boolean' },
+                        },
+                        required: ['enabled'],
+                        additionalProperties: false,
+                      },
+                    },
+                    labels: {
+                      type: 'object',
+                      additionalProperties: { type: 'string' },
+                    },
+                    profile: {
+                      type: 'object',
+                      properties: {
+                        enabled: { type: 'boolean' },
+                      },
+                      required: ['enabled'],
+                      additionalProperties: false,
+                    },
+                  },
+                  required: ['skills', 'labels', 'profile'],
+                  additionalProperties: false,
+                },
+              },
+            },
+          },
+          responses: {
+            '204': { description: 'Updated' },
+          },
+        },
+      },
+    },
+  };
+}
+
+describe('generate — dictionary inputs', () => {
+  test('preserves dictionary value schemas through tuning and Zod generation', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-dictionary-'));
+    try {
+      await generate(dictionaryRequestSpec(), {
+        output: dir,
+        name: 'Dictionaries',
+        readme: false,
+      });
+
+      const bundlePath = join(dir, 'settings-schema.cjs');
+      await esbuild({
+        entryPoints: [join(dir, 'inputs', 'settings.ts')],
+        bundle: true,
+        outfile: bundlePath,
+        format: 'cjs',
+        platform: 'node',
+        target: 'node20',
+        absWorkingDir: dir,
+        nodePaths: [join(repoRoot, 'node_modules')],
+        logLevel: 'silent',
+      });
+      const generated = createRequire(import.meta.url)(bundlePath) as {
+        updateSettingsSchema: {
+          safeParse(value: unknown): { success: boolean };
+        };
+      };
+
+      assert.equal(
+        generated.updateSettingsSchema.safeParse({
+          skills: {
+            calendar: { enabled: true },
+            search: { enabled: false },
+          },
+          labels: { source: 'manual' },
+          profile: { enabled: true },
+        }).success,
+        true,
+        'arbitrary dictionary keys should accept object values',
+      );
+      assert.equal(
+        generated.updateSettingsSchema.safeParse({
+          skills: { search: {} },
+          labels: { source: 'manual' },
+          profile: { enabled: true },
+        }).success,
+        false,
+        'each object dictionary value should require enabled',
+      );
+      assert.equal(
+        generated.updateSettingsSchema.safeParse({
+          skills: { search: { enabled: true } },
+          labels: { source: 1 },
+          profile: { enabled: true },
+        }).success,
+        false,
+        'primitive dictionary values should keep their value schema',
+      );
+      assert.equal(
+        generated.updateSettingsSchema.safeParse({
+          skills: { search: { enabled: true } },
+          labels: { source: 'manual' },
+          profile: { named: { enabled: true } },
+        }).success,
+        false,
+        'an ordinary object should not become a dictionary',
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('generate — security options assembly', () => {
   test('per-operation security merged with global security never emits duplicate option keys', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'generate-security-'));
