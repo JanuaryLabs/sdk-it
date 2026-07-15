@@ -25,6 +25,20 @@ const PRIMARY_OTHER_KEYWORDS: string[] = [
 ];
 const SECONDARY_KEYWORDS: string[] = ['entries', 'rows', 'elements'];
 
+function lastWord(propName: string) {
+  return (
+    propName
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean)
+      .at(-1) ?? ''
+  );
+}
+
+function hasKeyword(propName: string, keywords: string[]) {
+  return keywords.includes(lastWord(propName));
+}
+
 const PLURAL_DEPRIORITIZE_LIST: string[] = [
   'status',
   'success',
@@ -49,6 +63,7 @@ const PLURAL_DEPRIORITIZE_LIST: string[] = [
   'actions',
   'attributes',
   'categories',
+  'configurations',
   'features',
   'includes',
   'tags',
@@ -158,21 +173,26 @@ export function getItemsName(
 
   for (const propName of arrayPropertyNames) {
     const lowerPropName = propName.toLowerCase();
+    const finalWord = lastWord(propName);
+    const isDeprioritized = PLURAL_DEPRIORITIZE_LIST.includes(lowerPropName);
+    const isCompoundMetadata =
+      finalWord !== lowerPropName &&
+      PLURAL_DEPRIORITIZE_LIST.includes(finalWord);
 
     // Heuristic 2: Top-tier primary keywords (e.g., "data", "items")
-    if (PRIMARY_TOP_TIER_KEYWORDS.includes(lowerPropName)) {
+    if (hasKeyword(propName, PRIMARY_TOP_TIER_KEYWORDS)) {
       updateCandidate(propName, 2);
       continue; // Move to next property, this is a strong match for this prop
     }
 
     // Heuristic 3: Other primary keywords
-    if (candidateRank > 3 && PRIMARY_OTHER_KEYWORDS.includes(lowerPropName)) {
+    if (candidateRank > 3 && hasKeyword(propName, PRIMARY_OTHER_KEYWORDS)) {
       updateCandidate(propName, 3);
       continue;
     }
 
     // Heuristic 4: Secondary keywords
-    if (candidateRank > 4 && SECONDARY_KEYWORDS.includes(lowerPropName)) {
+    if (candidateRank > 4 && hasKeyword(propName, SECONDARY_KEYWORDS)) {
       updateCandidate(propName, 4);
       continue;
     }
@@ -181,18 +201,15 @@ export function getItemsName(
     if (
       candidateRank > 5 &&
       pluralize.isPlural(propName) &&
-      !PLURAL_DEPRIORITIZE_LIST.includes(lowerPropName)
+      !isDeprioritized &&
+      !isCompoundMetadata
     ) {
       updateCandidate(propName, 5);
       continue;
     }
 
     // Heuristic 6: Pluralized name, IS on the deprioritize list (less preferred plural)
-    if (
-      candidateRank > 6 &&
-      pluralize.isPlural(propName) &&
-      PLURAL_DEPRIORITIZE_LIST.includes(lowerPropName)
-    ) {
+    if (candidateRank > 6 && pluralize.isPlural(propName) && isDeprioritized) {
       updateCandidate(propName, 6);
       continue;
     }

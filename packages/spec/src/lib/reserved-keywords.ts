@@ -51,6 +51,23 @@ export const reservedKeywords = new Set([
   // 'arguments' is not technically a reserved word, but it's a special identifier within functions
   // and assigning to it or declaring it can cause issues or unexpected behavior.
   'arguments',
+  // Common operation verbs are ambiguous group identifiers in generated SDKs.
+  'get',
+  'list',
+  'create',
+  'update',
+  'post',
+  'put',
+  'patch',
+  'do',
+  'send',
+  'add',
+  'remove',
+  'set',
+  'find',
+  'search',
+  'check',
+  'make',
 ]);
 
 export const reservedSdkKeywords = new Set([

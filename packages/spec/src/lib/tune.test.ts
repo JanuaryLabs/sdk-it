@@ -1,6 +1,7 @@
 import { merge } from 'lodash-es';
+import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
+import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { toIR } from '@sdk-it/spec/ir.js';
 import type { IR } from '@sdk-it/spec/types.js';
@@ -108,38 +109,42 @@ describe('merge allof', () => {
   // });
 
   it('should handle circular allOf references without stack overflow', () => {
-    const spec = createSpec({
-      components: {
-        schemas: {
-          A: {
-            allOf: [
-              { $ref: '#/components/schemas/B' },
-              {
-                type: 'object',
-                properties: {
-                  nameA: { type: 'string' },
-                },
+    assert.throws(
+      () =>
+        createSpec({
+          components: {
+            schemas: {
+              A: {
+                allOf: [
+                  { $ref: '#/components/schemas/B' },
+                  {
+                    type: 'object',
+                    properties: {
+                      nameA: { type: 'string' },
+                    },
+                  },
+                ],
               },
-            ],
-          },
-          B: {
-            allOf: [
-              { $ref: '#/components/schemas/A' },
-              {
-                type: 'object',
-                properties: {
-                  nameB: { type: 'string' },
-                },
+              B: {
+                allOf: [
+                  { $ref: '#/components/schemas/A' },
+                  {
+                    type: 'object',
+                    properties: {
+                      nameB: { type: 'string' },
+                    },
+                  },
+                ],
               },
-            ],
+            },
           },
-        },
+        }),
+      {
+        name: 'Error',
+        message:
+          'Circular allOf reference detected: #/components/schemas/B -> #/components/schemas/A -> #/components/schemas/B',
       },
-    });
-
-    // This would cause a stack overflow with the current implementation
-    console.dir(spec.components.schemas, { depth: null });
-    // The test should not throw RangeError: Maximum call stack size exceeded
+    );
   });
 
   // it('should handle circular allOf references without stack overflow', () => {

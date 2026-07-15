@@ -18,7 +18,7 @@ export function sanitizeTag(tag: string): string {
 
   // Append underscore if it's a reserved keyword
   if (reservedKeywords.has(tag) || reservedSdkKeywords.has(tag)) {
-    return `$${tag}`;
+    return `${tag}_`;
   }
   return tag;
 }
@@ -34,7 +34,7 @@ export function sanitizeImportName(tag: string): string {
 
   // Append underscore if it's a reserved keyword
   if (reservedKeywords.has(tag) || reservedSdkKeywords.has(tag)) {
-    return `$${tag}`;
+    return `${tag}_`;
   }
   return tag;
 }

@@ -111,9 +111,26 @@ export function fixSpec(
       }
       merge(
         schema,
-        ...resolved.map((it) => {
-          fixSpec(spec, [it], visited);
-          return it;
+        ...resolved.map((resolvedSchema, index) => {
+          const sourceSchema = schemas[index];
+          if (isRef(sourceSchema)) {
+            if (visited.has(sourceSchema.$ref)) {
+              throw new Error(
+                `Circular allOf reference detected: ${[
+                  ...visited,
+                  sourceSchema.$ref,
+                ].join(' -> ')}`,
+              );
+            }
+            fixSpec(
+              spec,
+              [resolvedSchema],
+              new Set(visited).add(sourceSchema.$ref),
+            );
+          } else {
+            fixSpec(spec, [resolvedSchema], visited);
+          }
+          return resolvedSchema;
         }),
       );
       delete schema.allOf;
