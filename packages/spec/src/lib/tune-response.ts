@@ -30,17 +30,13 @@ export function resolveResponses(
   operation.responses ??= {};
   let foundSuccessResponse = false;
   for (const status in responses) {
-    if (status === 'default') {
-      delete responses[status]; // Skip default response
-      continue;
-    }
     // use structuredClone to avoid mutating a response object
     // that is referenced by multiple operations
     operation.responses[status] = structuredClone(
       resolveRef<ResponseObject>(spec, responses[status]),
     );
 
-    if (isSuccessStatusCode(status)) {
+    if (status !== 'default' && isSuccessStatusCode(status)) {
       foundSuccessResponse = true;
     }
   }
@@ -60,15 +56,6 @@ export function resolveResponses(
     const response = operation.responses[status] as ResponseObject;
     const statusCode = +status;
 
-    const outputName =
-      statusCode !== 200
-        ? pascalcase(operationId) + status
-        : findUniqueSchemaName(spec, operationId, [
-            'output',
-            'payload',
-            'result',
-          ]);
-
     if (!responsesConfig?.flattenErrorResponses) {
       if (!isSuccessStatusCode(status)) {
         continue;
@@ -80,8 +67,6 @@ export function resolveResponses(
         'application/octet-stream': {},
       };
     }
-
-    response['x-response-name'] = outputName;
 
     // if (isErrorStatusCode(status)) {
     //   const mediaType = response.content?.['application/json'];
@@ -98,6 +83,7 @@ export function resolveResponses(
     //   continue;
     // }
 
+    let responseName: string | undefined;
     for (const [contentType, mediaType] of Object.entries(
       response.content as Record<string, MediaTypeObject>,
     )) {
@@ -109,9 +95,22 @@ export function resolveResponses(
           // because they are supposed to be in a separate file only inlined
           // schemas are grouped by operationId
         });
-        response['x-response-name'] = model;
+        responseName ??= model;
         continue;
       }
+      const outputName =
+        statusCode !== 200
+          ? findUniqueSchemaName(spec, `${pascalcase(operationId)}${status}`, [
+              'output',
+              'payload',
+              'result',
+            ])
+          : findUniqueSchemaName(spec, operationId, [
+              'output',
+              'payload',
+              'result',
+            ]);
+      responseName ??= outputName;
       const isSse = isSseContentType(contentType);
       const normalizedContentType = normalizeContentType(contentType);
       const hasContentDisposition = hasHeader(
@@ -155,6 +154,9 @@ export function resolveResponses(
       operation.responses[status].content[contentType].schema = {
         $ref: `#/components/schemas/${outputName}`,
       };
+    }
+    if (responseName) {
+      response['x-response-name'] = responseName;
     }
   }
 

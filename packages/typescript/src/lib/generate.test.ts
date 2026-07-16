@@ -14,6 +14,7 @@ import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { createContext, runInContext } from 'node:vm';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
+import ts from 'typescript';
 
 import { generate } from '@sdk-it/typescript';
 
@@ -24,6 +25,29 @@ const repoRoot = join(
   '..',
   '..',
 );
+
+function compileGeneratedProject(dir: string) {
+  const configPath = join(dir, 'tsconfig.json');
+  const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
+  const parsedConfig = ts.parseJsonConfigFileContent(
+    configFile.config,
+    ts.sys,
+    dir,
+  );
+  const program = ts.createProgram(
+    parsedConfig.fileNames,
+    parsedConfig.options,
+  );
+  return ts.getPreEmitDiagnostics(program).map((diagnostic) => ({
+    file: diagnostic.file?.fileName,
+    line:
+      diagnostic.file && diagnostic.start !== undefined
+        ? diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start).line +
+          1
+        : undefined,
+    message: ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
+  }));
+}
 
 function figmaShapedSpec(): OpenAPIObject {
   return {
@@ -141,6 +165,39 @@ function dictionaryRequestSpec(): OpenAPIObject {
   };
 }
 
+function agentToolSpec(): OpenAPIObject {
+  return {
+    openapi: '3.1.0',
+    info: { title: 'Agent tools', version: '1.0.0' },
+    tags: [
+      {
+        name: 'users',
+        'x-name': 'Users',
+        'x-instructions': 'Manage users',
+      },
+    ],
+    paths: {
+      '/users': {
+        get: {
+          operationId: 'list-users',
+          tags: ['users'],
+          description: 'List users',
+          responses: {
+            '200': {
+              description: 'OK',
+              content: {
+                'application/json': {
+                  schema: { type: 'array', items: { type: 'string' } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
 describe('generate — dictionary inputs', () => {
   test('preserves dictionary value schemas through tuning and Zod generation', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'generate-dictionary-'));
@@ -208,6 +265,86 @@ describe('generate — dictionary inputs', () => {
         false,
         'an ordinary object should not become a dictionary',
       );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('generate — AI SDK 7 agent tools', () => {
+  test('emits type-correct projects for every agent runtime', async () => {
+    for (const agentTools of ['ai-sdk', 'openai-agents'] as const) {
+      const dir = mkdtempSync(join(repoRoot, '.generate-agent-typecheck-'));
+      try {
+        await generate(agentToolSpec(), {
+          output: dir,
+          name: 'AgentTools',
+          readme: false,
+          agentTools,
+          mode: 'full',
+        });
+
+        const diagnostics = compileGeneratedProject(dir);
+        assert.deepStrictEqual(
+          diagnostics,
+          [],
+          `${agentTools} generated ${diagnostics.length} diagnostics:\n${diagnostics
+            .map(
+              (diagnostic) =>
+                `${diagnostic.file}:${diagnostic.line} ${diagnostic.message}`,
+            )
+            .join('\n')}`,
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test('reads the tool-specific context from execution options', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-ai-sdk-tools-'));
+    try {
+      await generate(agentToolSpec(), {
+        output: dir,
+        name: 'AgentTools',
+        readme: false,
+        agentTools: 'ai-sdk',
+        mode: 'full',
+      });
+
+      const source = readFileSync(join(dir, 'src/agents.ts'), 'utf8');
+      const packageJson = JSON.parse(
+        readFileSync(join(dir, 'package.json'), 'utf8'),
+      ) as {
+        dependencies: Record<string, string>;
+        engines?: { node?: string };
+      };
+      assert.match(source, /coerceContext\(options\.context\)/);
+      assert.doesNotMatch(source, /experimental_context/);
+      assert.equal(packageJson.dependencies.ai, '^7.0.29');
+      assert.equal(packageJson.engines?.node, '>=22');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('declares the current OpenAI Agents SDK for generated tools', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-openai-tools-'));
+    try {
+      await generate(agentToolSpec(), {
+        output: dir,
+        name: 'OpenAIAgentTools',
+        readme: false,
+        agentTools: 'openai-agents',
+        mode: 'full',
+      });
+
+      const source = readFileSync(join(dir, 'src/agents.ts'), 'utf8');
+      const packageJson = JSON.parse(
+        readFileSync(join(dir, 'package.json'), 'utf8'),
+      ) as { dependencies: Record<string, string> };
+      assert.match(source, /maybeContext\?\.context/);
+      assert.equal(packageJson.dependencies['@openai/agents'], '^0.13.4');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

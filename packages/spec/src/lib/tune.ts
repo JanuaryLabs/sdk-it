@@ -253,7 +253,11 @@ export function expandSpec(
         //   ['Property', 'Field', 'Attribute'],
         //   pascalcase(joinSkipDigits([name, fixedPropName], ' ')),
         // );
-        const refName = pascalcase(joinSkipDigits([name, fixedPropName], ' '));
+        const refName = findUniqueSchemaName(
+          spec,
+          pascalcase(joinSkipDigits([name, fixedPropName], ' ')),
+          ['Property', 'Field', 'Attribute'],
+        );
 
         if (!isEmpty(value.properties)) {
           // refs.push({ name: refName, value: value });
@@ -298,7 +302,11 @@ export function expandSpec(
         //   ['Property', 'Field', 'Attribute'],
         //   pascalcase(joinSkipDigits([name, fixedPropName], ' ')),
         // );
-        const refName = pascalcase(joinSkipDigits([name, fixedPropName], ' '));
+        const refName = findUniqueSchemaName(
+          spec,
+          pascalcase(joinSkipDigits([name, fixedPropName], ' ')),
+          ['Property', 'Field', 'Attribute'],
+        );
 
         if (!isEmpty(value.properties)) {
           // refs.push({ name: refName, value: value });

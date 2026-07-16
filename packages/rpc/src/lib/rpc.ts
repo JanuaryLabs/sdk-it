@@ -227,7 +227,10 @@ export async function rpc(
   options?: Partial<ClientOptions>,
 ): Promise<Client> {
   const spec = await loadSpec(openapi);
-  const ir = toIR({ spec, responses: { flattenErrorResponses: true } });
+  const ir = await toIR({
+    spec,
+    responses: { flattenErrorResponses: true },
+  });
   return createRpc(ir, options);
 }
 
@@ -238,7 +241,10 @@ export async function toAgents(
   },
 ) {
   const spec = await loadSpec(openapi);
-  const ir = toIR({ spec, responses: { flattenErrorResponses: true } });
+  const ir = await toIR({
+    spec,
+    responses: { flattenErrorResponses: true },
+  });
   const client = createRpc(ir, options);
   const groups: Record<
     string,

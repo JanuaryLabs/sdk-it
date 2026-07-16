@@ -47,7 +47,7 @@ function buildSpec(options: {
 }
 
 function getResponseArtifacts(
-  spec: ReturnType<typeof toIR>,
+  spec: Awaited<ReturnType<typeof toIR>>,
   contentType: string,
 ) {
   const response = spec.paths['/text'].get?.responses?.[
@@ -60,8 +60,8 @@ function getResponseArtifacts(
 }
 
 describe('resolveResponses text output', () => {
-  test('defaults empty text schema to string', () => {
-    const spec = toIR(
+  test('defaults empty text schema to string', async () => {
+    const spec = await toIR(
       { spec: buildSpec({ contentType: 'text/plain' }) },
       false,
     );
@@ -85,9 +85,9 @@ describe('resolveResponses text output', () => {
     );
   });
 
-  test('defaults text schema when content-type has parameters', () => {
+  test('defaults text schema when content-type has parameters', async () => {
     const contentType = 'text/html; charset=utf-8';
-    const spec = toIR({ spec: buildSpec({ contentType }) }, false);
+    const spec = await toIR({ spec: buildSpec({ contentType }) }, false);
     const { schemaRef, schema, outputName } = getResponseArtifacts(
       spec,
       contentType,
@@ -108,8 +108,8 @@ describe('resolveResponses text output', () => {
     );
   });
 
-  test('keeps explicit text schema fields', () => {
-    const spec = toIR(
+  test('keeps explicit text schema fields', async () => {
+    const spec = await toIR(
       {
         spec: buildSpec({
           contentType: 'text/plain',
@@ -137,8 +137,8 @@ describe('resolveResponses text output', () => {
     );
   });
 
-  test('does not override explicit object schema for text content', () => {
-    const spec = toIR(
+  test('does not override explicit object schema for text content', async () => {
+    const spec = await toIR(
       {
         spec: buildSpec({
           contentType: 'text/plain',
@@ -171,9 +171,9 @@ describe('resolveResponses text output', () => {
 });
 
 describe('resolveResponses binary output', () => {
-  test('octet-stream with content-disposition becomes binary and buffered', () => {
+  test('octet-stream with content-disposition becomes binary and buffered', async () => {
     const contentType = 'application/octet-stream; charset=binary';
-    const spec = toIR(
+    const spec = await toIR(
       {
         spec: buildSpec({
           contentType,
@@ -202,9 +202,9 @@ describe('resolveResponses binary output', () => {
     );
   });
 
-  test('octet-stream without content-disposition stays streamed', () => {
+  test('octet-stream without content-disposition stays streamed', async () => {
     const contentType = 'application/octet-stream';
-    const spec = toIR({ spec: buildSpec({ contentType }) }, false);
+    const spec = await toIR({ spec: buildSpec({ contentType }) }, false);
     const { schema } = getResponseArtifacts(spec, contentType);
 
     assert.deepStrictEqual(

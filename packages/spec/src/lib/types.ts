@@ -19,7 +19,10 @@ import type { SidebarData, TagGroups } from './sidebar.js';
 
 export interface IR extends OpenAPIObject {
   servers: ServerObject[];
-  'x-sdk-augmented'?: boolean;
+  'x-sdk-processing'?: {
+    plugins: string[];
+    configuration: string;
+  };
   'x-docs': SidebarData;
   'x-tagGroups': TagGroups[];
   components: Omit<ComponentsObject, 'schemas'> & {

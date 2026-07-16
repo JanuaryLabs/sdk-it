@@ -25,7 +25,10 @@ export async function command(
   options: CommandOptions,
 ): Promise<Command> {
   const raw = await coerceSpec(spec);
-  const ir = toIR({ spec: raw, responses: { flattenErrorResponses: true } });
+  const ir = await toIR({
+    spec: raw,
+    responses: { flattenErrorResponses: true },
+  });
 
   const envPrefix = options.name.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
   const tokenEnv = options.tokenEnv ?? `${envPrefix}_TOKEN`;

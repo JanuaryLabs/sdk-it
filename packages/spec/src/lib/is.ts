@@ -76,9 +76,7 @@ export function isBinaryContentType(
 
 export function isSuccessStatusCode(statusCode: number | string): boolean {
   if (typeof statusCode === 'string') {
-    const statusGroup = +statusCode.slice(0, 1);
-    const status = Number(statusCode);
-    return (status >= 200 && status < 300) || (status >= 2 && statusGroup <= 3);
+    return /^2(?:\d{2}|xx)$/i.test(statusCode.trim());
   }
   statusCode = Number(statusCode);
   return statusCode >= 200 && statusCode < 300;

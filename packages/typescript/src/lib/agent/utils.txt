@@ -19,10 +19,10 @@ function makeOptionalPropsNullable<T extends z.ZodRawShape>(
   const shape = schema.shape;
   const newShape = {} as Record<string, z.ZodType>;
 
-  for (const [key, value] of Object.entries(shape)) {
+  for (const [key, value] of Object.entries(shape) as [string, z.ZodType][]) {
     if (value instanceof z.ZodOptional) {
       // Make optional properties also nullable
-      newShape[key] = value.unwrap().nullable().optional();
+      newShape[key] = value.nullable();
     } else {
       // Keep non-optional properties as they are
       newShape[key] = value;

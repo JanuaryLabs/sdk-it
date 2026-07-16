@@ -6,6 +6,7 @@ import type {
 
 import { followRef, isRef } from '@sdk-it/core/ref.js';
 
+import { isSuccessStatusCode } from '../is.js';
 import type { IR, TunedOperationObject } from '../types.js';
 import { guessPagination } from './guess-pagination.js';
 
@@ -13,11 +14,14 @@ export function toPagination(spec: IR, tunedOperation: TunedOperationObject) {
   if (tunedOperation['x-pagination']) {
     return tunedOperation['x-pagination'];
   }
-  const schema = getResponseContentSchema(
-    spec,
-    tunedOperation.responses['200'],
-    'application/json',
+  const successResponse = Object.entries(tunedOperation.responses).find(
+    ([status]) =>
+      isSuccessStatusCode(status) && Number.isInteger(Number(status)),
   );
+  const statusCode = successResponse ? Number(successResponse[0]) : undefined;
+  const schema = successResponse
+    ? getResponseContentSchema(spec, successResponse[1], 'application/json')
+    : undefined;
   const pagination = guessPagination(
     tunedOperation,
     tunedOperation.requestBody
@@ -29,8 +33,13 @@ export function toPagination(spec: IR, tunedOperation: TunedOperationObject) {
       : undefined,
     schema,
   );
-  if (pagination && pagination.type !== 'none' && schema) {
-    return { ...pagination, statusCode: 200 };
+  if (
+    pagination &&
+    pagination.type !== 'none' &&
+    schema &&
+    statusCode !== undefined
+  ) {
+    return { ...pagination, statusCode };
   }
   return undefined;
 }

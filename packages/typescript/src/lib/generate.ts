@@ -51,7 +51,7 @@ export async function generate(
   openapi: OpenAPIObject,
   settings: TypeScriptGeneratorOptions,
 ): Promise<{ packageName: string }> {
-  const spec = toIR(
+  const spec = await toIR(
     {
       spec: openapi,
       responses: { flattenErrorResponses: true },
@@ -237,6 +237,9 @@ ${template(dispatcherTxt, {})()}`,
             name: packageName,
             version: '0.0.1',
             type: 'module',
+            ...(settings.agentTools === 'ai-sdk'
+              ? { engines: { node: '>=22' } }
+              : {}),
             main: './src/index.ts',
             module: './src/index.ts',
             types: './src/index.ts',
@@ -254,6 +257,10 @@ ${template(dispatcherTxt, {})()}`,
             dependencies: {
               'fast-content-type-parse': '^3.0.0',
               zod: '^4.3.0',
+              ...(settings.agentTools === 'ai-sdk' ? { ai: '^7.0.29' } : {}),
+              ...(settings.agentTools === 'openai-agents'
+                ? { '@openai/agents': '^0.13.4' }
+                : {}),
             },
           },
           null,

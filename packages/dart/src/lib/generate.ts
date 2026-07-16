@@ -60,7 +60,7 @@ export async function generate(
     formatCode?: (options: { output: string }) => void | Promise<void>;
   },
 ) {
-  const spec = toIR(
+  const spec = await toIR(
     {
       spec: openapi,
       pagination: settings.pagination ?? false,

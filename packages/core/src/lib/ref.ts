@@ -3,6 +3,7 @@ import type {
   HeaderObject,
   OpenAPIObject,
   ParameterObject,
+  PathItemObject,
   ReferenceObject,
   RequestBodyObject,
   SchemaObject,
@@ -45,6 +46,7 @@ export function resolveRef<
     | SchemaObject
     | HeaderObject
     | ParameterObject
+    | PathItemObject
     | ReferenceObject
     | RequestBodyObject = SchemaObject,
 >(
@@ -53,6 +55,7 @@ export function resolveRef<
     | SchemaObject
     | ReferenceObject
     | ParameterObject
+    | PathItemObject
     | SecuritySchemeObject
     | HeaderObject,
 ): T {
@@ -67,6 +70,7 @@ export function followRef<
     | SchemaObject
     | HeaderObject
     | ParameterObject
+    | PathItemObject
     | ReferenceObject
     | RequestBodyObject = SchemaObject,
 >(spec: OpenAPIObject, ref: string): T {

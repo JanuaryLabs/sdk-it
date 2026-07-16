@@ -11,7 +11,7 @@ import {
 import { toIR } from '@sdk-it/spec/ir.js';
 import type { IR } from '@sdk-it/spec/types.js';
 
-function createSpec(openapi?: Partial<OpenAPIObject>): IR {
+async function createSpec(openapi?: Partial<OpenAPIObject>): Promise<IR> {
   return toIR(
     {
       spec: merge(
@@ -35,8 +35,8 @@ function createSpec(openapi?: Partial<OpenAPIObject>): IR {
 }
 describe('findVarients', () => {
   describe('strings', () => {
-    it('names string type as text', () => {
-      const spec = createSpec();
+    it('names string type as text', async () => {
+      const spec = await createSpec();
       const result = findVarients(spec, [{ type: 'string' }]);
 
       assert.deepStrictEqual(result, [
@@ -47,8 +47,8 @@ describe('findVarients', () => {
         },
       ] satisfies Varient[]);
     });
-    it('names string based on format', () => {
-      const spec = createSpec();
+    it('names string based on format', async () => {
+      const spec = await createSpec();
       const result = findVarients(spec, [
         {
           type: 'string',
@@ -72,8 +72,8 @@ describe('findVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it('names string based on const value', () => {
-      const spec = createSpec();
+    it('names string based on const value', async () => {
+      const spec = await createSpec();
       const result = findVarients(spec, [
         { type: 'string', const: 'active' },
         { type: 'string', const: '' },
@@ -95,8 +95,8 @@ describe('findVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it.skip('names string based on enum values', () => {
-      const spec = createSpec();
+    it.skip('names string based on enum values', async () => {
+      const spec = await createSpec();
       const result = findVarients(spec, [
         { type: 'string', enum: ['pending', 'completed', ''] },
       ]);
@@ -123,8 +123,8 @@ describe('findVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it.skip('prioritizes const first', () => {
-      const spec = createSpec();
+    it.skip('prioritizes const first', async () => {
+      const spec = await createSpec();
       const result = findVarients(spec, [
         { type: 'string', format: 'email' },
         { type: 'string', const: 'fixed' },
@@ -165,8 +165,8 @@ describe('findVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it('handles format priority over enum', () => {
-      const spec = createSpec();
+    it('handles format priority over enum', async () => {
+      const spec = await createSpec();
       const result = findVarients(spec, [
         { type: 'string', format: 'email', enum: ['user@example.com'] },
       ]);
@@ -181,8 +181,8 @@ describe('findVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it('handles const priority over enum', () => {
-      const spec = createSpec();
+    it('handles const priority over enum', async () => {
+      const spec = await createSpec();
       const result = findVarients(spec, [
         { type: 'string', const: 'fixed', enum: ['option1', 'option2'] },
       ]);
@@ -197,8 +197,8 @@ describe('findVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it('handles complex format names with camelCase conversion', () => {
-      const spec = createSpec();
+    it('handles complex format names with camelCase conversion', async () => {
+      const spec = await createSpec();
       const result = findVarients(spec, [
         { type: 'string', format: 'date-time' },
         { type: 'string', format: 'iso-8601' },
@@ -229,8 +229,8 @@ describe('findVarients', () => {
   });
 
   describe('numbers', () => {
-    it('names number type as number', () => {
-      const spec = createSpec();
+    it('names number type as number', async () => {
+      const spec = await createSpec();
       const result = findVarients(spec, [{ type: 'number' }]);
 
       assert.deepStrictEqual(result, [
@@ -242,8 +242,8 @@ describe('findVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it('names integer type as integer', () => {
-      const spec = createSpec();
+    it('names integer type as integer', async () => {
+      const spec = await createSpec();
       const result = findVarients(spec, [{ type: 'integer' }]);
 
       assert.deepStrictEqual(result, [
@@ -255,8 +255,8 @@ describe('findVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it('names number based on format', () => {
-      const spec = createSpec();
+    it('names number based on format', async () => {
+      const spec = await createSpec();
       const result = findVarients(spec, [
         {
           type: 'number',
@@ -302,8 +302,8 @@ describe('findVarients', () => {
   });
 
   describe('mixed types', () => {
-    it('handles mixed string and number types', () => {
-      const spec = createSpec();
+    it('handles mixed string and number types', async () => {
+      const spec = await createSpec();
       const result = findVarients(spec, [
         { type: 'number' },
         { type: 'string' },
@@ -326,8 +326,8 @@ describe('findVarients', () => {
 
 describe('findPolymorphicVarients', () => {
   describe('strings', () => {
-    it('returns single variant per position for multiple strings', () => {
-      const spec = createSpec();
+    it('returns single variant per position for multiple strings', async () => {
+      const spec = await createSpec();
       const result = findPolymorphicVarients(spec, [
         { type: 'string', format: 'date-time' },
         { type: 'string' },
@@ -355,8 +355,8 @@ describe('findPolymorphicVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it.skip('returns first variant when multiple enums at same position', () => {
-      const spec = createSpec();
+    it.skip('returns first variant when multiple enums at same position', async () => {
+      const spec = await createSpec();
       const result = findPolymorphicVarients(spec, [
         { type: 'string', enum: ['first', 'second', 'third'] },
       ]);
@@ -371,8 +371,8 @@ describe('findPolymorphicVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it.skip('selects first variant from multiple at same position', () => {
-      const spec = createSpec();
+    it.skip('selects first variant from multiple at same position', async () => {
+      const spec = await createSpec();
       const result = findPolymorphicVarients(spec, [
         { type: 'string', enum: ['option1', 'option2'] },
         { type: 'string', format: 'email' },
@@ -394,8 +394,8 @@ describe('findPolymorphicVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it.skip('handles mixed types selecting one per position', () => {
-      const spec = createSpec();
+    it.skip('handles mixed types selecting one per position', async () => {
+      const spec = await createSpec();
       const result = findPolymorphicVarients(spec, [
         { type: 'string', enum: ['a', 'b'] },
         { type: 'number' },
@@ -423,8 +423,8 @@ describe('findPolymorphicVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it('handles plain strings mixed with formatted strings', () => {
-      const spec = createSpec();
+    it('handles plain strings mixed with formatted strings', async () => {
+      const spec = await createSpec();
       const result = findPolymorphicVarients(spec, [
         { type: 'string' },
         { type: 'string', format: 'password' },
@@ -444,8 +444,8 @@ describe('findPolymorphicVarients', () => {
         },
       ] satisfies Varient[]);
     });
-    it('ignore duplicates', () => {
-      const spec = createSpec();
+    it('ignore duplicates', async () => {
+      const spec = await createSpec();
       const result = findPolymorphicVarients(spec, [
         { type: 'string' },
         { type: 'string', format: 'password' },
@@ -469,8 +469,8 @@ describe('findPolymorphicVarients', () => {
   });
 
   describe('numbers', () => {
-    it('returns single variant per position for multiple numbers', () => {
-      const spec = createSpec();
+    it('returns single variant per position for multiple numbers', async () => {
+      const spec = await createSpec();
       const result = findPolymorphicVarients(spec, [
         { type: 'number', format: 'float' },
         { type: 'integer' },
@@ -498,8 +498,8 @@ describe('findPolymorphicVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it('returns first variant when multiple number formats at same position', () => {
-      const spec = createSpec();
+    it('returns first variant when multiple number formats at same position', async () => {
+      const spec = await createSpec();
       const result = findPolymorphicVarients(spec, [
         { type: 'number', format: 'float' },
         { type: 'number', format: 'double' },
@@ -521,8 +521,8 @@ describe('findPolymorphicVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it('handles mixed number and integer types', () => {
-      const spec = createSpec();
+    it('handles mixed number and integer types', async () => {
+      const spec = await createSpec();
       const result = findPolymorphicVarients(spec, [
         { type: 'integer', format: 'int64' },
         { type: 'number' },
@@ -549,8 +549,8 @@ describe('findPolymorphicVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it('handles plain numbers mixed with formatted numbers', () => {
-      const spec = createSpec();
+    it('handles plain numbers mixed with formatted numbers', async () => {
+      const spec = await createSpec();
       const result = findPolymorphicVarients(spec, [
         { type: 'number' },
         { type: 'number', format: 'float' },
@@ -579,8 +579,8 @@ describe('findPolymorphicVarients', () => {
   });
 
   describe('arrays', () => {
-    it('treats object-valued dictionaries as object variants', () => {
-      const spec = createSpec({
+    it('treats object-valued dictionaries as object variants', async () => {
+      const spec = await createSpec({
         components: {
           schemas: {
             RouteConfig: {

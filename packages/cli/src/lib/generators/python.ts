@@ -19,7 +19,7 @@ export default new Command('python')
   });
 
 export async function runPython(options: PythonOptions) {
-  const spec = toIR({ spec: await loadSpec(options.spec) }, true);
+  const spec = await toIR({ spec: await loadSpec(options.spec) }, true);
   await generate(spec, {
     output: options.output,
     mode: options.mode || 'full',

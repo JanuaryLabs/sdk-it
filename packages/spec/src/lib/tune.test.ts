@@ -6,7 +6,7 @@ import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { toIR } from '@sdk-it/spec/ir.js';
 import type { IR } from '@sdk-it/spec/types.js';
 
-function createSpec(openapi?: Partial<OpenAPIObject>): IR {
+async function createSpec(openapi?: Partial<OpenAPIObject>): Promise<IR> {
   return toIR(
     {
       spec: merge(
@@ -108,8 +108,8 @@ describe('merge allof', () => {
   //   });
   // });
 
-  it('should handle circular allOf references without stack overflow', () => {
-    assert.throws(
+  it('should handle circular allOf references without stack overflow', async () => {
+    await assert.rejects(
       () =>
         createSpec({
           components: {

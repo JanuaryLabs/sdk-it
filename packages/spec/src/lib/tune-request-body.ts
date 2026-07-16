@@ -25,11 +25,13 @@ export function patchParameters(
     spec.components.securitySchemes,
   );
 
-  let required = Array.isArray(schema.required) ? schema.required : [];
+  const required = new Set(
+    Array.isArray(schema.required) ? schema.required : [],
+  );
   schema['x-properties'] ??= {};
   for (const param of parameters) {
     if (param.required) {
-      required.push(param.name);
+      required.add(param.name);
     }
     schema['x-properties'][param.name] = {
       'x-in': param.in,
@@ -39,7 +41,7 @@ export function patchParameters(
     };
   }
   for (const param of securityOptions) {
-    required = required.filter((name) => name !== param.name);
+    required.delete(param.name);
     schema['x-properties'][param.name] = {
       'x-in': 'header',
       ...(isRef(param.schema)
@@ -47,7 +49,7 @@ export function patchParameters(
         : (param.schema ?? { type: 'string' })),
     };
   }
-  schema['x-required'] = required;
+  schema['x-required'] = [...required];
 }
 
 export function tuneRequestBody(
@@ -57,18 +59,19 @@ export function tuneRequestBody(
   parameters: ParameterObject[],
   security: SecurityRequirementObject[],
 ): OurRequestBodyObject {
-  const inputName = findUniqueSchemaName(spec, operationId, [
-    'input',
-    'payload',
-    'request',
-  ]);
-  const requestBody = isRef(operation.requestBody)
+  const requestBodySource = isRef(operation.requestBody)
     ? followRef<RequestBodyObject>(spec, operation.requestBody.$ref)
     : (operation.requestBody ?? {
         content: {},
         required: false,
       });
+  const requestBody = structuredClone(requestBodySource);
   if (isEmpty(requestBody.content)) {
+    const inputName = findUniqueSchemaName(spec, operationId, [
+      'input',
+      'payload',
+      'request',
+    ]);
     const schema: SchemaObject = {
       'x-inputname': inputName,
       'x-requestbody': true,
@@ -88,11 +91,18 @@ export function tuneRequestBody(
   }
   for (const contentType in requestBody.content) {
     const mediaType = requestBody.content[contentType];
+    const inputName = findUniqueSchemaName(spec, operationId, [
+      'input',
+      'payload',
+      'request',
+    ]);
     let schema: SchemaObject | undefined;
 
     switch (true) {
       case isRef(mediaType.schema):
-        schema = followRef<SchemaObject>(spec, mediaType.schema.$ref);
+        schema = structuredClone(
+          followRef<SchemaObject>(spec, mediaType.schema.$ref),
+        );
         // we cannot use the model name as inputName as it might be used in other places that are not request bodies
         // inputName = parseRef(mediaType.schema.$ref).model;
         break;
@@ -103,7 +113,7 @@ export function tuneRequestBody(
         );
         break;
       default:
-        schema = mediaType.schema;
+        schema = structuredClone(mediaType.schema);
         break;
     }
 

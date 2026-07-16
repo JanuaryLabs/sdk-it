@@ -61,7 +61,7 @@ function createTool(entry: OperationEntry, operation: TunedOperationObject) {
       inputSchema: schemas.${schemaName},
 			execute: async (input, options) => {
 				console.log('Executing ${operation.operationId} tool with input:', input);
-        const context = coerceContext(options.experimental_context);
+        const context = coerceContext(options.context);
         const response = await context.client.request(
           '${entry.method.toUpperCase()} ${entry.path}' ,
           input,

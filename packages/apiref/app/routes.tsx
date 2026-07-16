@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { writeFiles } from '@sdk-it/core/file-system.js';
 import { loadSpec, toIR } from '@sdk-it/spec';
 
-const spec = toIR({
+const spec = await toIR({
   spec: await loadSpec(
     process.env.VITE_SPEC || 'https://api.openstatus.dev/v1/openapi',
   ),

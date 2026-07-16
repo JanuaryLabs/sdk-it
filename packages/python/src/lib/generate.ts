@@ -46,7 +46,7 @@ export async function generate(
     formatCode?: (options: { output: string }) => void | Promise<void>;
   },
 ) {
-  const spec = toIR({ spec: openapi }, true);
+  const spec = await toIR({ spec: openapi }, true);
 
   const clientName = settings.name || 'Client';
   const output = settings.output;

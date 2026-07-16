@@ -5,15 +5,14 @@
   "type": "module",
   "scripts": {},
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "sideEffects": false,
   "nx": {
     "name": "apiref"
   },
   "dependencies": {
-    "@ai-sdk/react": "^3.0.171",
-    "ai": "^6.0.169",
+    "@ai-sdk/react": "^4.0.32",
     "@fontsource-variable/open-sans": "^5.2.6",
     "@fontsource-variable/roboto-flex": "^5.2.6",
     "@fontsource/geist-sans": "^5.2.5",
@@ -29,6 +28,7 @@
     "@react-router/node": "^7.18.1",
     "@react-router/serve": "^7.18.1",
     "@streamdown/code": "^1.1.1",
+    "ai": "^7.0.29",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "isbot": "^5.1.28",

@@ -6,6 +6,7 @@ import type {
 
 import { camelcase, resolveRef } from '@sdk-it/core';
 
+import type { ProcessingDiagnostic, ProcessingPlugin } from './processing.js';
 import { determineGenericTag, sanitizeTag } from './tag.js';
 import type { IR } from './types.js';
 
@@ -19,6 +20,9 @@ export interface GenerateSdkConfig {
     method: string,
   ) => string;
   tag?: (operation: OperationObject, path: string) => string;
+  plugins?: readonly ProcessingPlugin[];
+  signal?: AbortSignal;
+  onDiagnostic?: (diagnostic: ProcessingDiagnostic) => void;
 }
 export interface ResponsesConfig {
   flattenErrorResponses?: boolean;
@@ -53,34 +57,36 @@ export const defaults: Partial<GenerateSdkConfig> &
 };
 
 export function coeraceConfig(config: GenerateSdkConfig) {
+  const spec: IR = {
+    ...config.spec,
+    components: {
+      ...config.spec.components,
+      schemas: config.spec.components?.schemas ?? {},
+      securitySchemes: Object.fromEntries(
+        Object.entries(config.spec.components?.securitySchemes ?? {}).map(
+          ([name, schema]) => [
+            name,
+            resolveRef<SecuritySchemeObject>(config.spec, schema),
+          ],
+        ),
+      ),
+    },
+    paths: config.spec.paths ?? {},
+    'x-docs': [],
+    'x-tagGroups': config.spec['x-tagGroups'] ?? [
+      {
+        name: 'API',
+        tags: config.spec.tags?.map((tag) => tag.name) ?? [],
+      },
+    ],
+    servers: config.spec.servers ?? [],
+    tags: config.spec.tags ?? [],
+  };
+
   return {
     pagination: coercePaginationConfig(config.pagination),
     responses: config.responses ?? {},
-    spec: {
-      ...config.spec,
-      components: {
-        ...config.spec.components,
-        schemas: config.spec.components?.schemas ?? {},
-        securitySchemes: Object.fromEntries(
-          Object.entries(config.spec.components?.securitySchemes ?? {}).map(
-            ([name, schema]) => [
-              name,
-              resolveRef<SecuritySchemeObject>(config.spec, schema),
-            ],
-          ),
-        ),
-      },
-      paths: config.spec.paths ?? {},
-      'x-docs': [],
-      'x-tagGroups': config.spec['x-tagGroups'] ?? [
-        {
-          name: 'API',
-          tags: config.spec.tags?.map((tag) => tag.name) ?? [],
-        },
-      ],
-      servers: config.spec.servers ?? [],
-      tags: config.spec.tags ?? [],
-    } satisfies IR,
+    spec,
     operationId: config.operationId ?? defaults.operationId,
     tag: config.tag ?? defaults.tag,
   };

@@ -875,7 +875,7 @@ app.get('/users/:userId', validate((payload) => ({
       components: result.components,
     };
 
-    const ir = toIR(
+    const ir = await toIR(
       { spec, responses: { flattenErrorResponses: true }, pagination: false },
       false,
     );
@@ -1072,7 +1072,7 @@ app.get('/users/:userId', validate((payload) => ({
       components: result.components,
     };
 
-    const ir = toIR(
+    const ir = await toIR(
       { spec, responses: { flattenErrorResponses: true }, pagination: false },
       false,
     );
