@@ -1,2 +1,0 @@
-[shell_environment_policy]
-set = { AGENT_BACKLOG_DIR = "." }
