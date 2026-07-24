@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/rpc",
-  "version": "0.45.0",
+  "version": "0.44.0",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -25,9 +25,9 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.45.0",
-    "@sdk-it/spec": "0.45.0",
-    "@sdk-it/typescript": "0.45.0",
+    "@sdk-it/core": "0.44.0",
+    "@sdk-it/spec": "0.44.0",
+    "@sdk-it/typescript": "0.44.0",
     "ai": "^7.0.29",
     "fast-content-type-parse": "^3.0.0",
     "openapi3-ts": "4.5.0",
