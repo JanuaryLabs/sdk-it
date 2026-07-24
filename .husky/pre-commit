@@ -1,2 +1,1 @@
-npm run format:check
-NX_DAEMON=false npx nx affected -t lint,typecheck --exclude=@sdk-it/source --outputStyle=static
+npx lint-staged

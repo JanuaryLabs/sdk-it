@@ -62,6 +62,38 @@ async function deriveTypeFromCode(code: string, targetName: string) {
   }
 }
 
+async function deriveExpressionFromCode(code: string, targetName: string) {
+  const { checker, sourceFile, cleanup } = await createTestProject(code);
+  try {
+    const deriver = new TypeDeriver(checker);
+    let targetNode: ts.Expression | undefined;
+
+    function visit(node: ts.Node) {
+      if (
+        ts.isVariableDeclaration(node) &&
+        ts.isIdentifier(node.name) &&
+        node.name.text === targetName &&
+        node.initializer
+      ) {
+        targetNode = node.initializer;
+      } else {
+        ts.forEachChild(node, visit);
+      }
+    }
+    visit(sourceFile);
+
+    if (!targetNode) {
+      throw new Error(
+        `Initializer for '${targetName}' not found in test code.`,
+      );
+    }
+
+    return deriver.serializeNode(targetNode);
+  } finally {
+    await cleanup();
+  }
+}
+
 describe('Type Derivation', () => {
   describe('Primitives & Literals', () => {
     test('identifies basic primitives', async () => {
@@ -314,5 +346,32 @@ describe('Type Derivation', () => {
   describe('AST Node Serialization', () => {
     test.todo('handles typeof expressions');
     test.todo('handles const assertions');
+
+    test('derives satisfies expressions from the annotation', async () => {
+      // `satisfies` checks without widening, so the expression type here is
+      // `never[]`. Deriving that yields no schema; the annotation is the
+      // contract the endpoint actually publishes.
+      const code = `
+        export interface ChatShare { id: string; token: string; }
+        export const empty = [] satisfies ChatShare[];
+      `;
+
+      const result = await deriveExpressionFromCode(code, 'empty');
+
+      assert.equal(result?.kind, 'array');
+      assert.notDeepStrictEqual(result?.[$types], ['any']);
+    });
+
+    test('keeps the narrowed type when satisfies has a real operand', async () => {
+      const code = `
+        export interface Flags { enabled: boolean; }
+        export const flags = { enabled: true } satisfies Flags;
+      `;
+
+      const result = await deriveExpressionFromCode(code, 'flags');
+
+      assert.ok(result, 'expected a derived schema for the satisfies operand');
+      assert.notEqual(result?.kind, 'array');
+    });
   });
 });

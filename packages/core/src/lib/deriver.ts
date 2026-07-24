@@ -491,6 +491,14 @@ export class TypeDeriver {
       const type = this.checker.getTypeAtLocation(node);
       return this.serializeType(type);
     }
+    if (ts.isSatisfiesExpression(node)) {
+      // Unlike `as`, `satisfies` checks the operand without widening it, so the
+      // node's own type is the narrow inferred one -- `[] satisfies Share[]` is
+      // `never[]`, which carries no schema. The annotation is the declared
+      // contract callers code against, so derive from that instead.
+      const type = this.checker.getTypeFromTypeNode(node.type);
+      return this.serializeType(type);
+    }
     if (ts.isTypeLiteralNode(node)) {
       const symbolType = this.checker.getTypeAtLocation(node);
       const props: Record<string, unknown> = {};
