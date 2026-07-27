@@ -59,7 +59,7 @@ function getResponseArtifacts(
   return { response, outputName, schemaRef, schema };
 }
 
-describe('resolveResponses text output', () => {
+describe('response normalization text output', () => {
   test('defaults empty text schema to string', async () => {
     const spec = await toIR(
       { spec: buildSpec({ contentType: 'text/plain' }) },
@@ -170,7 +170,7 @@ describe('resolveResponses text output', () => {
   });
 });
 
-describe('resolveResponses binary output', () => {
+describe('response normalization binary output', () => {
   test('octet-stream with content-disposition becomes binary and buffered', async () => {
     const contentType = 'application/octet-stream; charset=binary';
     const spec = await toIR(

@@ -5,7 +5,7 @@ import React, { Fragment } from 'react';
 import { isRef, parseRef } from '@sdk-it/core/ref.js';
 import { isEmpty } from '@sdk-it/core/utils.js';
 import { isPrimitiveSchema } from '@sdk-it/spec/is-primitive-schema.js';
-import { coerceTypes } from '@sdk-it/spec/tune.js';
+import { coerceTypes } from '@sdk-it/spec/is.js';
 
 import { Separator } from '../shadcn/separator.tsx';
 import { Description } from './description';

@@ -132,3 +132,59 @@ test('referenced request bodies are isolated per operation', async () => {
     ['second'],
   );
 });
+
+test('operations without bodies receive one input schema for parameters and security', async () => {
+  const { spec } = await processSpec({
+    spec: {
+      openapi: '3.1.0',
+      info: { title: 'Requests', version: '1.0.0' },
+      components: {
+        securitySchemes: {
+          ApiKey: {
+            type: 'apiKey',
+            in: 'header',
+            name: 'X-API-Key',
+          },
+        },
+      },
+      paths: {
+        '/users/{id}': {
+          post: {
+            operationId: 'updateUser',
+            parameters: [
+              {
+                in: 'path',
+                name: 'id',
+                required: true,
+                schema: { type: 'string' },
+              },
+              {
+                in: 'query',
+                name: 'expand',
+                schema: { type: 'boolean' },
+              },
+            ],
+            security: [{ ApiKey: [] }],
+            responses: {},
+          },
+        },
+      },
+    },
+    plugins: [normalizeRequestBodies()],
+  });
+
+  const requestBody = spec.paths['/users/{id}'].post?.requestBody;
+  assert.ok(requestBody && !('$ref' in requestBody));
+  const schemaRef = requestBody.content['application/empty'].schema;
+  assert.ok(schemaRef && '$ref' in schemaRef);
+  assert.deepStrictEqual(schemaForRef(spec, schemaRef.$ref), {
+    'x-inputname': 'UpdateUser',
+    'x-requestbody': true,
+    'x-properties': {
+      id: { 'x-in': 'path', type: 'string' },
+      expand: { 'x-in': 'query', type: 'boolean' },
+      'X-API-Key': { 'x-in': 'header', type: 'string' },
+    },
+    'x-required': ['id'],
+  });
+});

@@ -7,7 +7,7 @@ import type {
 import { isRef } from '@sdk-it/core/ref.js';
 import { isEmpty } from '@sdk-it/core/utils.js';
 
-import { coerceTypes } from '../tune.js';
+import { coerceTypes } from '../is.js';
 import type { TunedOperationObject } from '../types.js';
 import { getHasMoreName, getItemsName } from './pagination-result.js';
 

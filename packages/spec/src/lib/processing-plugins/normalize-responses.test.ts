@@ -80,3 +80,47 @@ test('success response ranges and default responses are preserved', async () => 
   assert.deepStrictEqual(Object.keys(responses), ['2XX', 'default']);
   assert.strictEqual(diagnostics.length, 0);
 });
+
+test('flattenErrorResponses normalizes error payloads through the plugin options', async () => {
+  const { spec } = await processSpec({
+    spec: {
+      openapi: '3.1.0',
+      info: { title: 'Responses', version: '1.0.0' },
+      paths: {
+        '/jobs': {
+          post: {
+            operationId: 'createJob',
+            responses: {
+              '201': { description: 'Created' },
+              '400': {
+                description: 'Invalid job',
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: { message: { type: 'string' } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    responses: { flattenErrorResponses: true },
+    plugins: [normalizeResponses()],
+  });
+
+  const response = spec.paths['/jobs'].post?.responses?.[
+    '400'
+  ] as ResponseObject;
+  const schemaRef = response.content?.['application/json'].schema;
+  assert.ok(schemaRef && '$ref' in schemaRef);
+  assert.deepStrictEqual(schemaForRef(spec, schemaRef.$ref), {
+    type: 'object',
+    properties: { message: { type: 'string' } },
+    'x-responsebody': true,
+    'x-response-group': 'createJob',
+  });
+});

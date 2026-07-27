@@ -19,7 +19,5 @@ export * from './lib/reserved-keywords.js';
 export * from './lib/security.js';
 export * from './lib/sidebar.js';
 export * from './lib/tag.js';
-export { patchParameters } from './lib/tune-request-body.js';
-export { coerceTypes } from './lib/tune.js';
 export * from './lib/types.js';
 export * from './lib/walk-schemas.js';

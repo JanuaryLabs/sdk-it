@@ -1,3 +1,17 @@
+import type { SchemaObject, SchemaObjectType } from 'openapi3-ts/oas31';
+
+export function coerceTypes(
+  schema: SchemaObject,
+  excludeNull = true,
+): SchemaObjectType[] {
+  const types = Array.isArray(schema.type)
+    ? schema.type
+    : schema.type
+      ? [schema.type]
+      : [];
+  return excludeNull ? types.filter((type) => type !== 'null') : types;
+}
+
 export function isStreamingContentType(
   contentType: string | null | undefined,
 ): boolean {

@@ -7,7 +7,7 @@ import type {
 
 import { camelcase, isEmpty, isRef, resolveRef } from '@sdk-it/core';
 
-import { coerceTypes } from './tune.js';
+import { coerceTypes } from './is.js';
 import type { IR } from './types.js';
 
 export type Varient = {
