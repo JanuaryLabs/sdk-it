@@ -1,6 +1,6 @@
 ## Integrate with Angular
 
-Use Angular's [`resource`](https://angular.dev/guide/signals/resource) function to fetch data and a thin wrapper to submit mutations.
+Use Angular 22's [`resource`](https://angular.dev/guide/signals/resource) function to fetch data and a thin wrapper to submit mutations.
 
 > [!IMPORTANT]
 > When generating the TypeScript client SDK within your Angular project or workspace, ensure you include the `--useTsExtension=false` flag.
@@ -18,10 +18,8 @@ Copy the following code into your project.
 import {
   type PromiseResourceOptions,
   type Signal,
-  isSignal,
   resource,
 } from '@angular/core';
-import { FormGroup } from '@angular/forms';
 
 import { Client, type Endpoints } from '../client/src';
 
@@ -39,45 +37,40 @@ type MutationEndpoints = {
   ]: K extends `${'POST' | 'PUT' | 'PATCH' | 'DELETE'} ${string}` ? K : never;
 }[keyof Endpoints];
 
+type RequestOptions = NonNullable<Parameters<Client['request']>[2]>;
+
 export function useData<E extends DataEndpoints>(
   endpoint: E,
   input?: Endpoints[E]['input'] | Signal<Endpoints[E]['input'] | undefined>,
   options?: Omit<
     PromiseResourceOptions<
-      readonly [Endpoints[E]['output'], Endpoints[E]['error'] | null],
-      typeof input
+      Endpoints[E]['output'],
+      Endpoints[E]['input'] | undefined
     >,
-    'request' | 'loader' | 'stream'
-  > & { headers?: HeadersInit },
+    'loader' | 'params' | 'stream'
+  > &
+    Pick<RequestOptions, 'headers'>,
 ) {
-  return resource({
-    ...options,
-    request: isSignal(input) ? () => input() : () => input,
-    loader: async ({ abortSignal, previous, request }) => {
-      const input = isSignal(request) ? request() : (request ?? ({} as never));
-      return client.request(endpoint, input ?? ({} as never), {
+  const { headers, ...resourceOptions } = options ?? {};
+  const params: () => Endpoints[E]['input'] | undefined =
+    typeof input === 'function'
+      ? input
+      : () => input ?? ({} as Endpoints[E]['input']);
+
+  return resource<Endpoints[E]['output'], Endpoints[E]['input'] | undefined>({
+    ...resourceOptions,
+    params,
+    loader: ({ abortSignal, params }) =>
+      client.request(endpoint, params, {
         signal: abortSignal,
-        headers: options?.headers,
-      });
-    },
+        headers,
+      }),
   });
 }
 
 export function useAction<E extends MutationEndpoints>(endpoint: E) {
   return {
-    mutate: (
-      input:
-        | Endpoints[E]['input']
-        | Signal<Endpoints[E]['input']>
-        | { value: Endpoints[E]['input'] },
-    ) => {
-      const payload = isSignal(input)
-        ? input()
-        : input instanceof FormGroup
-          ? input.value
-          : input;
-      return client.request(endpoint, payload);
-    },
+    mutate: (input: Endpoints[E]['input']) => client.request(endpoint, input),
   };
 }
 ```
@@ -98,9 +91,9 @@ import { useData } from './api';
 @Component({
   selector: 'payments-list',
   template: `
-    @if (paymentsResource.value()?.[0]; as result) {
+    @if (paymentsResource.value(); as payments) {
       <ul>
-        @for (payment of result; track payment.id) {
+        @for (payment of payments; track payment.id) {
           ...
         }
       </ul>
@@ -157,7 +150,10 @@ export class FilteredPaymentsComponent {
 
   paymentsResource = useData(
     'GET /payments/{id}',
-    computed(() => (this.id() ? { id: this.id() } : undefined)),
+    computed(() => {
+      const id = this.id();
+      return id ? { id } : undefined;
+    }),
     // return undefined if id is not available so the request is not sent
   );
 
@@ -172,8 +168,8 @@ export class FilteredPaymentsComponent {
 - Simple form submission
 
 ```ts
-import { Component } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Component, inject, signal } from '@angular/core';
+import { FormBuilder, Validators } from '@angular/forms';
 
 import { useAction } from './api';
 
@@ -182,19 +178,17 @@ import { useAction } from './api';
   template: `<form [formGroup]="form" (ngSubmit)="submit()">...</form>`,
 })
 export class PaymentFormComponent {
-  form: FormGroup;
+  private formBuilder = inject(FormBuilder);
+
+  form = this.formBuilder.nonNullable.group({
+    amount: [0, [Validators.required, Validators.min(1)]],
+    date: ['', Validators.required],
+    description: [''],
+  });
   isSubmitting = signal(false);
 
   // Simple action for creating a payment
   createPayment = useAction('POST /payments');
-
-  constructor(private fb: FormBuilder) {
-    this.form = this.fb.group({
-      amount: [null, [Validators.required, Validators.min(1)]],
-      date: [null, Validators.required],
-      description: [''],
-    });
-  }
 
   async submit() {
     if (this.form.invalid) return;
@@ -202,15 +196,10 @@ export class PaymentFormComponent {
     this.isSubmitting.set(true);
 
     try {
-      const result = await this.createPayment.mutate(this.form);
-
-      if (error) {
-        // Handle error
-        console.error('Failed to create payment:', error);
-      } else {
-        // Handle success
-        this.form.reset();
-      }
+      await this.createPayment.mutate(this.form.getRawValue());
+      this.form.reset();
+    } catch (error) {
+      console.error('Failed to create payment:', error);
     } finally {
       this.isSubmitting.set(false);
     }
@@ -221,7 +210,7 @@ export class PaymentFormComponent {
 #### Update with Optimistic UI
 
 ```ts
-import { Component, input } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 
 import { useAction, useData } from './api';
 
@@ -236,46 +225,38 @@ export class PaymentStatusComponent {
   paymentId = input.required<string>();
 
   // Fetch the payment data
-  paymentResource = useData('GET /payments/{id}', () => ({
-    id: this.paymentId(),
-  }));
+  paymentResource = useData(
+    'GET /payments/{id}',
+    computed(() => ({ id: this.paymentId() })),
+  );
 
   // Action for updating payment status
   updatePaymentStatus = useAction('PATCH /payments/{id}/status');
 
   async updateStatus(newStatus: string) {
     // Get the current payment
-    const currentPayment = this.paymentResource.value?.[0];
+    const currentPayment = this.paymentResource.value();
     if (!currentPayment) return;
 
-    // Store original status for rollback
-    const originalStatus = currentPayment.status;
-
     // Optimistically update the UI
-    this.paymentResource.set(([payment, error]) => {
-      if (!payment) return [payment, error];
+    this.paymentResource.update((payment) =>
+      payment
+        ? {
+            ...payment,
+            status: newStatus,
+          }
+        : payment,
+    );
 
-      const updatedPayment = {
-        ...payment,
+    try {
+      await this.updatePaymentStatus.mutate({
+        id: this.paymentId(),
         status: newStatus,
-      };
-
-      return [updatedPayment, error];
-    });
-
-    // Send the actual update to the server
-    const [result, error] = await this.updatePaymentStatus.mutate({
-      id: this.paymentId(),
-      status: newStatus,
-    });
-
-    // If there was an error, roll back the optimistic update
-    if (error) {
-      this.paymentResource.mutate(([payment, _]) => {
-        if (!payment) return [payment, error];
-
-        return [{ ...payment, status: originalStatus }, error];
       });
+    } catch (error) {
+      // The SDK throws on failed responses, so restore the previous value.
+      this.paymentResource.set(currentPayment);
+      console.error('Failed to update payment:', error);
     }
   }
 }

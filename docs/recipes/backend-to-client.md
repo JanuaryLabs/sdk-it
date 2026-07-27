@@ -5,7 +5,7 @@ SDK-IT can analyze a Hono backend and generate an importable TypeScript client w
 ## Install
 
 ```bash
-npm install --save-dev @sdk-it/cli typescript@^5.8.3
+npm install --save-dev @sdk-it/cli typescript@^6.0.3
 ```
 
 Install the Vite integration only when the consuming application uses Vite:

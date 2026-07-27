@@ -1,14 +1,25 @@
-# Python SDK Generator
+# @sdk-it/python
 
-This package generates Python SDKs from OpenAPI specifications. The generated SDKs are type-safe, use Pydantic for data validation, and follow Python best practices.
+Generate asynchronous Python SDKs from OpenAPI specifications.
 
 ## Generated SDK Features
 
-- **Type Safety**: Full type hints using Python's typing system
-- **Data Validation**: Pydantic models for request/response validation
-- **Async Support**: Fully async HTTP client using `httpx`
-- **Error Handling**: Proper exception hierarchy for API errors
-- **Documentation**: Auto-generated docstrings from OpenAPI descriptions
+- Pydantic request and response models
+- Async HTTP transport using `httpx`
+- API groups derived from OpenAPI tags
+- Error classes for HTTP failures
+- Docstrings derived from operation summaries and descriptions
+
+## Generate an SDK
+
+```bash
+npx @sdk-it/cli@latest generate python \
+  --spec ./openapi.json \
+  --output ./your_sdk \
+  --name Client
+```
+
+The CLI writes a complete Python package to `./your_sdk` and formats it with Black or Ruff when either formatter is available.
 
 ## Generated SDK Structure
 
@@ -36,27 +47,19 @@ This package generates Python SDKs from OpenAPI specifications. The generated SD
     └── responses.py
 ```
 
-## Usage
+## Install Generated Dependencies
 
-```python
-import asyncio
-from your_sdk import Client
-
-async def main():
-    client = Client(base_url="https://api.example.com")
-
-    # Make API calls
-    users = await client.users.list_users()
-    user = await client.users.get_user(user_id="123")
-
-if __name__ == "__main__":
-    asyncio.run(main())
+```bash
+python -m pip install -r ./your_sdk/requirements.txt
 ```
+
+Operation methods live in the generated `api/` modules and use snake_case `operationId` names. Follow those emitted signatures instead of flattening request inputs into keyword arguments.
 
 ## Dependencies
 
-The generated SDK has minimal dependencies:
+The generated `requirements.txt` includes:
 
 - `httpx` - Modern async HTTP client
 - `pydantic` - Data validation and serialization
 - `typing-extensions` - Enhanced type hints support
+- `python-dateutil` - Date and time handling

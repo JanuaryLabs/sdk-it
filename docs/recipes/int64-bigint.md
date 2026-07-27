@@ -1,6 +1,7 @@
-# 64-bit Integers (int64/uint64)
+# 64-bit integers (`int64`/`uint64`)
 
-sdk-it does not treat 64-bit integers specially. The `format` is honored as documentation, and the generated type follows the **wire encoding**:
+SDK-IT does not treat 64-bit integers specially. The `format` is documentation,
+and every generated type follows the **wire encoding**:
 
 | OpenAPI                         | Generated TypeScript | Zod (emitted client) |
 | ------------------------------- | -------------------- | -------------------- |
@@ -9,15 +10,24 @@ sdk-it does not treat 64-bit integers specially. The `format` is honored as docu
 | `type: string, format: int64`   | `string`             | `z.string()`         |
 | `type: string, format: uint64`  | `string`             | `z.string()`         |
 
+The same rule applies to the other generators: Dart emits `int` or `String`,
+and Python emits `int` or `str`, according to the OpenAPI `type`.
+
 ## Why no bigint
 
-`bigint` is representationally correct for the int64 domain but hostile to consume: it doesn't `JSON.stringify`, `1n + 1` throws, and it's viral through every downstream type. For the overwhelming case — a 64-bit value that's an _identifier you pass around, never do math on_ — that's friction for no benefit. So sdk-it surfaces the wire type directly and lets you `BigInt(x)` on the rare occasion you need arithmetic.
+`bigint` is representationally correct for the int64 domain but awkward for
+consumers: it does not `JSON.stringify`, `1n + 1` throws, and it spreads through
+every downstream type. For the common case—a 64-bit identifier that is passed
+around without arithmetic—that is friction for no benefit. SDK-IT surfaces the
+wire type directly. Convert a lossless string with `BigInt(value)` only where
+arithmetic is required; converting an already-rounded `number` cannot recover
+lost precision.
 
 ## Lossless 64-bit: encode as a string
 
 A JS `number` (and every IEEE-754-based JSON parser) is exact only within ±2⁵³. A `type: integer` value larger than that is rounded by `JSON.parse` — there is no client-side rescue that isn't guesswork.
 
-**If you need values beyond 2⁵³ to survive, encode them as strings** — `type: string, format: int64`. This is the standard cross-language convention (Google's protobuf→JSON mapping, Stripe, Discord, Twitter all do it), a string survives `JSON.parse` untouched, and sdk-it hands it to you as a clean `string`.
+**If you need values beyond 2⁵³ to survive, encode them as strings** — `type: string, format: int64`. This is the standard cross-language convention (Google's protobuf→JSON mapping, Stripe, Discord, Twitter all do it), a string survives `JSON.parse` untouched, and SDK-IT hands it to you as a clean `string`.
 
 ```ts
 // Recommended for snowflakes / DB bigint PKs / anything > 2^53

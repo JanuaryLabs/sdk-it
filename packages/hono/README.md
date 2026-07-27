@@ -1,134 +1,99 @@
 # @sdk-it/hono
 
-Hono framework integration for SDK-IT that provides type-safe request validation and semantic response handling.
+Hono runtime middleware and response analysis for SDK-IT.
 
-To learn more about SDK code generation, see the [TypeScript Doc](../typescript/readme.md)
+See [`@sdk-it/typescript`](../typescript/README.md) for OpenAPI-to-TypeScript
+client generation.
 
 ## Installation
 
 ```bash
-npm install @sdk-it/{hono,generic}
+npm install @sdk-it/hono hono zod
+npm install --save-dev @sdk-it/generic @sdk-it/typescript typescript@^6.0.3
 ```
 
-## Runtime Primitives
+## Runtime primitives
 
-You can use these functions without the SDK-IT code generation tools -- they're completely separate and functional on their own.
+The runtime exports work without generating an SDK.
 
-### Validator Middleware
+### Validate requests
 
-The validator middleware validates requests against [Zod](https://github.com/colinhacks/zod) schemas and provides typed inputs to your handlers.
-
-> [!IMPORTANT]
-> For openapi generation to work correctly, you must use the `validate` middleware for each route.
-
-> [!TIP]
-> You can copy paste the middleware to your project if you want customize it further.
-
-**Basic Usage:**
+Every route included in OpenAPI generation must use `validate`. The middleware
+validates the selected values and exposes the parsed result as `c.var.input`.
 
 ```typescript
+import { Hono } from 'hono';
 import { z } from 'zod';
 
 import { validate } from '@sdk-it/hono/runtime';
 
+const app = new Hono();
+
 app.post(
-  '/books',
-  // No content type specified - validation runs regardless of content type
-  validate((payload) => ({
-    // Query parameter validation
-    page: {
-      select: payload.query.page,
-      against: z.number().min(1).default(1),
-    },
-
-    // Multiple query parameters (array)
-    categories: {
-      select: payload.queries.category,
-      against: z.array(z.string()),
-    },
-
-    // Body property validation
-    title: {
-      select: payload.body.title,
-      against: z.string().min(1),
-    },
-
-    author: {
-      select: payload.body.author,
-      against: z.string().min(1),
-    },
-
-    // For nested objects in body
-    metadata: {
-      select: payload.body.metadata,
-      against: z.object({
-        isbn: z.string(),
-        publishedYear: z.number(),
-      }),
-    },
-
-    // URL parameter validation
+  '/users/:userId/books',
+  validate('application/json', (payload) => ({
     userId: {
       select: payload.params.userId,
       against: z.uuid(),
     },
-
-    // Header validation
+    page: {
+      select: payload.query.page,
+      against: z.coerce.number().int().min(1).default(1),
+    },
+    categories: {
+      select: payload.queries.category,
+      against: z.array(z.string()),
+    },
     apiKey: {
       select: payload.headers['x-api-key'],
       against: z.string().min(32),
     },
-  })),
-  (c) => {
-    // TypeScript knows the shape of all inputs
-    const { page, categories, title, author, metadata, userId, apiKey } =
-      c.var.input;
-    return c.json({ success: true });
-  },
-);
-```
-
-**Enforcing Content Type:**
-
-Pass a content type as the first argument to enforce it before validation:
-
-```typescript
-import { z } from 'zod';
-
-import { validate } from '@sdk-it/hono/runtime';
-
-app.post(
-  '/users',
-  validate('application/json', (payload) => ({
-    // <-- Enforces 'application/json'
-    name: {
-      select: payload.body.name,
-      against: z.string(),
+    title: {
+      select: payload.body.title,
+      against: z.string().min(1),
+    },
+    metadata: {
+      select: payload.body.metadata,
+      against: z.object({
+        isbn: z.string(),
+        publishedYear: z.number().int(),
+      }),
     },
   })),
   (c) => {
-    // Handle request with guaranteed JSON content
-    const { name } = c.var.input;
-    return c.json({ success: true });
+    const { userId, page, categories, apiKey, title, metadata } = c.var.input;
+    return c.json({ userId, page, categories, apiKey, title, metadata }, 201);
   },
 );
 ```
 
-**Handling File Uploads (`multipart/form-data`):**
-
-Use `z.instanceof(File)` to validate file uploads when enforcing `multipart/form-data`.
+The optional first argument enforces the request content type before
+validation:
 
 ```typescript
-import { z } from 'zod';
+validate('application/json', (payload) => ({
+  name: {
+    select: payload.body.name,
+    against: z.string(),
+  },
+}));
+```
 
-import { validate } from '@sdk-it/hono/runtime';
+Supported enforced content types are:
 
-// import { writeFile } from 'node:fs/promises'; // Example for saving file
+- `application/json`
+- `application/x-www-form-urlencoded`
+- `multipart/form-data`
+- `text/plain`
 
-/**
- * @openapi uploadProfilePicture
- * @tags users
- */
+Query and path values arrive as strings. Use Zod coercion when the parsed value
+should be a number, boolean, or another non-string type.
+
+### Validate file uploads
+
+Use `z.instanceof(File)` with `multipart/form-data`:
+
+```typescript
 app.post(
   '/users/:userId/avatar',
   validate('multipart/form-data', (payload) => ({
@@ -136,104 +101,71 @@ app.post(
       select: payload.params.userId,
       against: z.uuid(),
     },
-    // File validation
     avatar: {
-      select: payload.body.avatar, // 'avatar' is the field name in the form data
-      against: z.instanceof(File), // <-- Validate that 'avatar' is a File object
+      select: payload.body.avatar,
+      against: z.instanceof(File),
     },
-    // Other form fields can also be validated
     caption: {
       select: payload.body.caption,
-      against: z.string().optional(), // Example: optional caption field
+      against: z.string().optional(),
     },
   })),
-  async (c) => {
+  (c) => {
     const { userId, avatar, caption } = c.var.input;
-
-    // Example: Process the uploaded file
-    // const fileBuffer = Buffer.from(await avatar.arrayBuffer());
-    // await writeFile(`./uploads/${userId}_${avatar.name}`, fileBuffer);
-
-    console.log(
-      `Received avatar for user ${userId}: ${avatar.name}, size: ${avatar.size}`,
-    );
-    if (caption) {
-      console.log(`Caption: ${caption}`);
-    }
     return c.json({
-      message: `Avatar for user ${userId} uploaded successfully.`,
+      userId,
+      filename: avatar.name,
+      size: avatar.size,
+      caption,
     });
   },
 );
 ```
 
-### Content Type Consumption
+### Enforce a content type without validation
 
-If you only need to enforce a content type without performing validation, use the `consume` middleware:
+Use `consume` when a route only needs content-type enforcement:
 
 ```typescript
 import { consume } from '@sdk-it/hono/runtime';
 
-app.post(
-  '/upload',
-  consume('multipart/form-data'), // <-- Enforces 'multipart/form-data'
-  async (c) => {
-    // Process raw multipart form data from the request body
-    const body = await c.req.parseBody();
-    const file = body['file']; // Access file data
-    // ... process file ...
-    return c.json({ success: true });
-  },
-);
+app.post('/upload', consume('multipart/form-data'), async (c) => {
+  const body = await c.req.parseBody();
+  const file = body.file;
+  return c.json({ uploaded: file instanceof File });
+});
 ```
 
-### Response Helper
+### Send semantic responses
 
-The output function sends HTTP responses with typed status codes and content types.
-
-The `output` utility builds on hono's `context.body`.
-
-> [!NOTE]
-> You don't necessarily need to use this function for OpenAPI generation, but it provides a clean and consistent way to send responses.
+`createOutput` wraps Hono's response methods:
 
 ```typescript
 import { createOutput } from '@sdk-it/hono/runtime';
 
 app.post('/users', (c) => {
   const output = createOutput(() => c);
-
-  // Success responses
-  return output.ok({ data: 'success' });
-  return output.accepted({ status: 'processing' });
-
-  // Error responses
-  return output.badRequest({ error: 'Invalid input' });
-  return output.unauthorized({ error: 'Not authenticated' });
-  return output.forbidden({ error: 'Not authorized' });
-  return output.notImplemented({ error: 'Coming soon' });
-
-  // Redirects
-  return output.redirect('/new-location');
-
-  // Custom headers
-  return output.ok({ data: 'success' }, { 'Cache-Control': 'max-age=3600' });
+  return output.created('/users/123', { id: '123' });
 });
 ```
 
-## OpenAPI Generation
+The helper provides methods for common success and error statuses, redirects,
+attachments, and custom headers. It is a runtime utility; use Hono response
+methods such as `c.json` on analyzed routes so `responseAnalyzer` can infer
+their response bodies and status codes.
 
-SDK-IT relies on the `validator` middleware and JSDoc to correctly infer each route specification.
+## Generate OpenAPI and a client
 
-Consider the following example:
-
-- Create hono routes with the `@openapi` tag and validate middleware.
+Create an analyzed route:
 
 ```typescript
+// src/app.ts
+import { Hono } from 'hono';
 import { z } from 'zod';
 
 import { validate } from '@sdk-it/hono/runtime';
 
-const app = new Hono();
+export const app = new Hono();
 
 /**
  * @openapi listBooks
@@ -247,90 +179,59 @@ app.get(
       against: z.string(),
     },
   })),
-  async (c) => {
-    const { author } = c.var.input; // <-- Access validated input
-    const books = [{ name: `Books by ${author}` }];
-    return c.json(books);
+  (c) => {
+    const { author } = c.var.input;
+    return c.json([{ title: 'Example', author }]);
   },
 );
 ```
 
-> [!TIP]
-> Instead of using `createOutput` fn, you can use [context-storage](https://hono.dev/docs/middleware/builtin/context-storage) middleware and then import the global `output` object from `@sdk-it/hono/runtime`.
-
-- Use the generate fn to create an OpenAPI spec from your routes.
-
-<b><small>filename: openapi.ts</small></b>
+Analyze the backend and generate the client:
 
 ```typescript
+// openapi.ts
 import { writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { resolve } from 'node:path';
 
 import { analyze } from '@sdk-it/generic';
-// Use responseAnalyzer from `@sdk-it/hono`
-// only if you use hono context object to send response
-// e.g. c.json({ data: 'success' });
 import { responseAnalyzer } from '@sdk-it/hono';
-// Use responseAnalyzer from `@sdk-it/generic`
-// only if you use the output function to send response
-// e.g. output.ok({ data: 'success' });
-// import { responseAnalyzer } from '@sdk-it/generic';
-
 import { generate } from '@sdk-it/typescript';
 
-const { paths, components } = await analyze('apps/backend/tsconfig.app.json', {
-  responseAnalyzer,
-});
+const { paths, components, tags } = await analyze(
+  './apps/backend/tsconfig.app.json',
+  {
+    responseAnalyzer,
+  },
+);
 
-// Now you can use the generated specification to create an SDK or save it to a file
 const spec = {
+  openapi: '3.1.0' as const,
   info: {
     title: 'My API',
     version: '1.0.0',
   },
   paths,
   components,
+  tags: tags.map((name) => ({ name })),
 };
 
-// Save the spec to a file
 await writeFile('openapi.json', JSON.stringify(spec, null, 2));
-// OR
-
-// Continue to generate an SDK
 await generate(spec, {
-  output: join(process.cwd(), './client'),
+  output: resolve('client'),
+  name: 'Client',
 });
 ```
 
-- Run the script
+Run the script with Node.js 24 or newer:
 
 ```bash
-# using recent versions of node
-node ./openapi.ts
-
-# using node < 22
-npx tsx ./openapi.ts
-
-# using bun
-bun ./openapi.ts
+node openapi.ts
 ```
 
-<details>
-<summary> Run in watch mode </summary>
-
-```bash
-node --watch-path ./apps/backend/src --watch ./openapi.ts
-```
-
-</details>
-
-> [!TIP]
-> See [the typescript package](../typescript/README.md) for more info.
-
-- Use the client
+The generated client returns response data and throws typed errors:
 
 ```typescript
-import { Client, UnauthorizedError } from './client';
+import { Client, Unauthorized } from './client/index.ts';
 
 const client = new Client({
   baseUrl: 'http://localhost:3000',
@@ -340,12 +241,12 @@ try {
   const books = await client.request('GET /books', {
     author: 'John Doe',
   });
-  console.log('Books retrieved:', books);
+  console.log(books);
 } catch (error) {
-  if (error instanceof UnauthorizedError) {
-    console.error('Unauthorized access - perhaps you need to log in?');
+  if (error instanceof Unauthorized) {
+    console.error('Authentication is required', error.data);
   } else {
-    console.error('Error fetching books:', error);
+    throw error;
   }
 }
 ```

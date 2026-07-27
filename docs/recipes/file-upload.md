@@ -1,14 +1,17 @@
-## Handling File Uploads with SDK-IT, Hono, and React Query
+# File uploads with SDK-IT, Hono, and React Query
 
-Type-safe `multipart/form-data` file uploads with Hono (backend) and React Query (frontend).
+Type-safe `multipart/form-data` file uploads with Hono (backend) and React Query
+(frontend).
 
-The backend validates with `@sdk-it/hono/runtime`'s `validate` middleware. The frontend uses the generated SDK through the `useAction` hook ([React Query recipe](../react-query.md)).
+The backend validates with `@sdk-it/hono/runtime`'s `validate` middleware. The
+frontend uses the generated SDK through the `useAction` hook
+([React Query recipe](../react-query.md)).
 
-### Backend: Hono Route with Validation
+## Backend: Hono route with validation
 
 - Define a Hono route accepting `multipart/form-data`.
 - Use the `validate` middleware from `@sdk-it/hono/runtime`, specifying `'multipart/form-data'` as the content type and `z.instanceof(File)` for file validation.
-- The `@openapi` tag enables SDK generation.
+- The optional `@openapi` tag gives the operation an explicit ID.
 
 ```typescript
 // upload.ts
@@ -38,7 +41,7 @@ app.post(
       against: z.string().optional(),
     },
   })),
-  async (c) => {
+  (c) => {
     // Access validated input, including the File object
     const { file, description } = c.var.input;
 
@@ -64,10 +67,11 @@ app.post(
 export default app;
 ```
 
-### SDK Generation
+## SDK generation
 
 > [!NOTE]
-> This step analyzes your backend code (specifically the route using `validate` and `@openapi`) to generate the type-safe client SDK used by the frontend.
+> This step analyzes your backend code, including routes using `validate`, to
+> generate the type-safe client SDK used by the frontend.
 
 <details>
 <summary>View SDK Generation Script and Execution</summary>
@@ -77,8 +81,7 @@ Create a script to analyze the backend code and generate the TypeScript client S
 **`sdk.ts` (example script):**
 
 ```typescript
-import { writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { resolve } from 'node:path';
 
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
@@ -92,7 +95,7 @@ const { paths, components } = await analyze('./tsconfig.json', {
 });
 
 const spec = {
-  openapi: '3.1.0',
+  openapi: '3.1.0' as const,
   info: {
     title: 'My API',
     version: '1.0.0',
@@ -101,14 +104,10 @@ const spec = {
   components,
 };
 
-// Optional: Save the intermediate OpenAPI spec
-// await writeFile('openapi.json', JSON.stringify(spec, null, 2));
-
 console.log('Generating TypeScript SDK...');
-// Generate the client SDK into the frontend source
 await generate(spec, {
-  output: join(process.cwd(), './client'),
-  name: 'Client', // Optional client class name
+  output: resolve('client'),
+  name: 'Client',
 });
 
 console.log('SDK generated successfully!');
@@ -117,17 +116,10 @@ console.log('SDK generated successfully!');
 **Run the generation script:**
 
 ```bash
-# Using tsx
-npx tsx ./generate-sdk.ts
-
-# Using Node.js >= 22
-# node ./generate-sdk.ts
-
-# Using Bun
-# bun ./generate-sdk.ts
+node ./sdk.ts
 ```
 
-This process generates a type-safe function for the `/upload` endpoint in your frontend SDK directory (`./path/to/your/frontend/src/sdk` in this example).
+This process generates a typed `POST /upload` endpoint in `./client`.
 
 **Further Reading:**
 
@@ -137,15 +129,19 @@ This process generates a type-safe function for the `/upload` endpoint in your f
 
 </details>
 
-### Frontend: React Component with `useAction`
+## Frontend: React component with `useAction`
 
-Use the generated SDK in a React component via the `useAction` hook (from the `api.tsx` recipe). Pass an object to `mutateAsync` where keys match the backend's expected form field names (`file`, `description`). The underlying `fetch` handles `FormData` creation when a `File` object is detected.
+Use the generated SDK in a React component via the `useAction` hook from the
+[React Query recipe](../react-query.md). Pass an object whose keys match the
+backend's form fields (`file`, `description`). Because the endpoint consumes
+`multipart/form-data`, the generated request serializer builds `FormData`
+without setting the `Content-Type` header itself.
 
 ```tsx
 // src/components/FileUpload.tsx
-import React from 'react';
+import type { ChangeEvent } from 'react';
 
-import { useAction } from '../use-client.tsx';
+import { useAction } from '../use-client.ts';
 
 function FileUpload() {
   const uploadMutation = useAction('POST /upload', {
@@ -155,23 +151,20 @@ function FileUpload() {
     },
     onError: (error) => {
       console.error('Upload failed:', error);
-      alert(`Upload failed: ${error.message || 'Unknown error'}`);
+      alert('Upload failed');
     },
   });
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fileInput = e.target;
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const fileInput = event.currentTarget;
     const file = fileInput.files?.[0];
 
     if (!file) return;
 
-    // Trigger mutation, passing the File object directly.
-    // Keys 'file' and 'description' match the backend validator.
-    await uploadMutation.mutateAsync({
-      file: file,
+    uploadMutation.mutate({
+      file,
       description: `Uploaded via React on ${new Date().toLocaleDateString()}`,
     });
-    // Reset input for subsequent uploads
     fileInput.value = '';
   };
 
@@ -185,11 +178,7 @@ function FileUpload() {
         disabled={uploadMutation.isPending} // Disable while uploading
       />
       {uploadMutation.isPending && <p>Uploading...</p>}
-      {uploadMutation.isError && (
-        <p style={{ color: 'red' }}>
-          Error: {uploadMutation.error?.message || 'Upload failed'}
-        </p>
-      )}
+      {uploadMutation.isError && <p role="alert">Upload failed.</p>}
     </div>
   );
 }
@@ -197,17 +186,32 @@ function FileUpload() {
 export default FileUpload;
 ```
 
-### Notes
+## Notes
 
-- The combination of `validate('multipart/form-data', ...)` and `z.instanceof(File)` on the backend is key for correct validation and SDK generation.
-- The `@openapi` tag on the Hono route is essential for the analyzer to discover the endpoint.
-- The `useAction` hook ([React Query recipe](../react-query.md)) creates the `FormData` object automatically when it detects a `File` in the mutation payload.
+- The combination of `validate('multipart/form-data', ...)` and
+  `z.instanceof(File)` on the backend is key for correct validation and SDK
+  generation.
+- The optional `@openapi` tag gives the operation an explicit ID. Routes using
+  `validate` are discovered without it.
+- The generated endpoint selects its `FormData` serializer from the declared
+  `multipart/form-data` request content type; it does not inspect values to
+  detect a `File`.
 - Types stay safe from backend validation through frontend usage.
 
-### Binary fields in generated SDKs
+## Binary fields in generated SDKs
 
-Backend routes use `z.instanceof(File)` because Node has `File` as a global. Generated client SDKs cannot assume the same — they ship to browsers, workers, and older Node versions where `Blob`, `File`, `Request`, or `Response` may not exist as globals.
+Backend routes use `z.instanceof(File)` because Node has `File` as a global.
+Generated client SDKs cannot assume the same—they ship to browsers, workers,
+and older Node versions where `Blob`, `File`, `Request`, or `Response` may not
+exist as globals.
 
-To stay portable, the generator emits `z.custom<Blob>()` (and similar) for binary fields instead of `z.instanceof(Blob)`. The static type stays `Blob`; only the runtime `instanceof` check is dropped, since referencing `Blob` as a value would throw `ReferenceError` in environments without it.
+To stay portable, the generator emits `z.custom<Blob>()` (and similar) for
+binary fields instead of `z.instanceof(Blob)`. The static type stays `Blob`;
+only the runtime `instanceof` check is dropped, since referencing `Blob` as a
+value would throw `ReferenceError` in environments without it.
 
-Trade-off: the SDK no longer rejects a non-Blob value at the validation step. Bad inputs surface later in `fetch`/`FormData` instead. If you need strict runtime checks in your own server code, keep using `z.instanceof(File)` — this only affects emitted client code.
+Trade-off: the SDK does not reject a non-Blob value at the validation step, and
+`FormData` may coerce it instead. If strict client-side runtime validation is
+required, validate before calling the SDK. Keep `z.instanceof(File)` on the
+server trust boundary; this portability choice only affects emitted client
+code.

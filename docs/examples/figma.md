@@ -1,114 +1,96 @@
-## Build Figma SDK
+# Build a Figma SDK
 
-### Generate SDK
+## Generate the SDK
+
+Inside an existing TypeScript project:
 
 ```bash
-npx @sdk-it/cli@latest typescript \
+npm install zod fast-content-type-parse
+
+npx @sdk-it/cli@latest generate typescript \
   --spec https://raw.githubusercontent.com/figma/rest-api-spec/refs/heads/main/openapi/openapi.yaml \
-  --output ./figma \
+  --output ./src/generated/figma \
   --name Figma \
-  --mode full
+  --mode minimal
 ```
 
-### Create and configure Client
+## Create the client
 
-```ts
-import { Figma } from './figma';
+```typescript
+import { Figma } from './src/generated/figma/index.ts';
 
 const figma = new Figma({
-  baseUrl: 'https://api.figma.com/v1',
-  token: process.env.FIGMA_ACCESS_TOKEN,
+  'X-Figma-Token': process.env.FIGMA_ACCESS_TOKEN,
 });
 ```
 
-### Get File Information
+The generated endpoints include the `/v1` path prefix and use the
+specification's default `https://api.figma.com` server.
 
-```ts
-const [result, error] = await figma.request('GET /files/{file_key}', {
+## Get file information
+
+```typescript
+const file = await figma.request('GET /v1/files/{file_key}', {
   file_key: 'your-file-key',
 });
 
-if (!error) {
-  console.log(`File name: ${result.name}`);
-  console.log(`Last modified: ${result.lastModified}`);
-  console.log(`Version: ${result.version}`);
-  console.log(`Document: ${result.document.name}`);
-} else {
-  console.error(error);
-}
+console.log(`File name: ${file.name}`);
+console.log(`Last modified: ${file.lastModified}`);
+console.log(`Version: ${file.version}`);
+console.log(`Document: ${file.document.name}`);
 ```
 
-### Get File Comments
+## Get file comments
 
-```ts
-const [result, error] = await figma.request('GET /files/{file_key}/comments', {
+```typescript
+const result = await figma.request('GET /v1/files/{file_key}/comments', {
   file_key: 'your-file-key',
 });
 
-if (!error) {
-  console.log(`Total comments: ${result.comments.length}`);
-  for (const comment of result.comments) {
-    console.log(`- ${comment.user.handle}: ${comment.message}`);
-  }
-} else {
-  console.error(error);
+console.log(`Total comments: ${result.comments.length}`);
+for (const comment of result.comments) {
+  console.log(`- ${comment.user.handle}: ${comment.message}`);
 }
 ```
 
-### Get Component Sets
+## Get component sets
 
-```ts
-const [result, error] = await figma.request(
-  'GET /files/{file_key}/component_sets',
-  {
-    file_key: 'your-file-key',
-  },
-);
-
-if (!error) {
-  for (const [id, componentSet] of Object.entries(result.meta.component_sets)) {
-    console.log(`Component set: ${componentSet.name} (${id})`);
-    console.log(`- Description: ${componentSet.description}`);
-    console.log(`- Contains ${componentSet.components.length} components`);
-  }
-} else {
-  console.error(error);
-}
-```
-
-### Get Style References
-
-```ts
-const [result, error] = await figma.request('GET /files/{file_key}/styles', {
+```typescript
+const result = await figma.request('GET /v1/files/{file_key}/component_sets', {
   file_key: 'your-file-key',
 });
 
-if (!error) {
-  for (const style of Object.values(result.meta.styles)) {
-    console.log(`Style: ${style.name} (${style.key})`);
-    console.log(`- Type: ${style.style_type}`);
-    console.log(`- Description: ${style.description || 'No description'}`);
-  }
-} else {
-  console.error(error);
+for (const componentSet of result.meta.component_sets) {
+  console.log(`Component set: ${componentSet.name} (${componentSet.key})`);
+  console.log(`- Description: ${componentSet.description}`);
 }
 ```
 
-### Post a Comment
+## Get style references
 
-```ts
-const [result, error] = await figma.request('POST /files/{file_key}/comments', {
+```typescript
+const result = await figma.request('GET /v1/files/{file_key}/styles', {
   file_key: 'your-file-key',
-  message: 'This is a new comment added via the API',
+});
+
+for (const style of result.meta.styles) {
+  console.log(`Style: ${style.name} (${style.key})`);
+  console.log(`- Type: ${style.style_type}`);
+  console.log(`- Description: ${style.description || 'No description'}`);
+}
+```
+
+## Post a comment
+
+```typescript
+const comment = await figma.request('POST /v1/files/{file_key}/comments', {
+  file_key: 'your-file-key',
+  message: 'This is a new comment added through the API',
   client_meta: {
     x: 100,
     y: 200,
   },
 });
 
-if (!error) {
-  console.log(`Comment posted successfully! Comment ID: ${result.id}`);
-} else {
-  console.error(error);
-}
+console.log(`Comment posted: ${comment.id}`);
 ```

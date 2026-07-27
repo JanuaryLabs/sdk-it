@@ -17,22 +17,14 @@ Add the generated SDK to your Dart or Flutter project. The generator will create
 
 ## Usage
 
-<details>
-<summary>Generate a Dart SDK (OpenStatus Example)</summary>
-
-> **Note:** This uses the [OpenStatus](https://www.openstatus.dev/) public OpenAPI spec as an example.
-
 ```bash
-npx @sdk-it/cli@latest dart \
-  --spec https://api.openstatus.dev/v1/openapi \
-  --output ./openstatus \
-  --name OpenStatus \
-  --mode full
+npx @sdk-it/cli@latest generate dart \
+  --spec ./openapi.json \
+  --output ./client_sdk \
+  --name Client
 ```
 
-This command creates a Dart package in the `./openstatus` directory.
-
-</details>
+This creates a Dart package in `./client_sdk`. The CLI runs `dart format`, so the Dart SDK must be installed.
 
 ### Add the SDK to Your Project
 
@@ -40,8 +32,8 @@ Add the generated SDK as a dependency in your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  openstatus_sdk:
-    path: ./openstatus
+  client_sdk:
+    path: ./client_sdk
 ```
 
 Run `dart pub get` or `flutter pub get` to install dependencies.
@@ -49,28 +41,21 @@ Run `dart pub get` or `flutter pub get` to install dependencies.
 ### Create and Configure the Client
 
 ```dart
-import 'package:openstatus_sdk/package.dart';
+import 'package:client_sdk/package.dart';
 
-final openstatus = OpenStatus(Options(baseUrl: 'https://api.openstatus.dev/v1/'));
+final client = Client(Options(baseUrl: 'https://api.example.com'));
 ```
 
 ### Make an API Request
 
-```dart
-final status = await openstatus.statusReport.getStatusReport();
-if (status != null) {
-  print('Status: \\${status.summary}');
-} else {
-  print('Request failed');
-}
-```
+Generated operations are grouped by their first OpenAPI tag and named from their `operationId`. Use the emitted signatures in `lib/api/`; methods return their generated `Future<T>` type and throw `ApiError` subclasses for non-successful responses.
 
 ### Format Generated Code
 
 The generator can format the output using `dart format` automatically. You can also run it manually:
 
 ```bash
-dart format ./openstatus
+dart format ./client_sdk
 ```
 
 ## Notes

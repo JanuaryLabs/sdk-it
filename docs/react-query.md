@@ -217,6 +217,7 @@ export function useAction<E extends MutationEndpoints>(
   >({
     ...options,
     mutationKey: [endpoint],
+    meta: { ...options?.meta, endpoint },
     mutationFn: async (input, context) => {
       if (options && 'mutationFn' in options && options.mutationFn) {
         return options.mutationFn(
@@ -230,7 +231,7 @@ export function useAction<E extends MutationEndpoints>(
       for (const endpoint of options?.invalidate ?? []) {
         await invalidateData(endpoint);
       }
-      return options?.onSuccess?.(data, variables, data, context);
+      return options?.onSuccess?.(data, variables, onMutateResult, context);
     },
   });
 }
@@ -466,3 +467,7 @@ export const client = new Client({
 ```
 
 This sets [`credentials: 'include'`](https://developer.mozilla.org/en-US/docs/Web/API/RequestInit/credentials) on every outgoing request, so cookies travel cross-origin. For same-origin APIs, use `credentials: 'same-origin'` instead.
+
+React Query does not need a separate cookie option. For cross-origin CORS
+requirements and server-side cookie forwarding, see the
+[cookie authentication recipe](./recipes/cookies.md).

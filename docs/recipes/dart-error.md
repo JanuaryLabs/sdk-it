@@ -29,16 +29,17 @@ void main() async {
   final client = YourApiClient(Options(baseUrl: 'https://your.api.com'));
 
   try {
-    // Example: Fetching a resource that might not exist, with a timeout
-    final data = await client.resource.getResourceById('some-id')
+    // Example: Updating a resource that might not exist, with a timeout
+    final data = await client.resources.updateResource(
+      const UpdateResourceInput(id: 'some-id', name: 'Updated resource'),
+    )
         .timeout(const Duration(seconds: 10)); // Add timeout
 
-    print('Resource fetched successfully: $data');
+    print('Resource updated successfully: $data');
 
   // Handle API Errors - Not Found (404)
   } on NotFoundError catch (e) {
     print('API Error - Not Found (Status ${e.statusCode}): ${e.message}');
-    // Optionally inspect e.data if the API provides details
 
   // Handle API Errors - Bad Request (400)
   } on BadRequestError catch (e) {
@@ -169,9 +170,11 @@ void main() async {
   final client = YourApiClient(Options(baseUrl: 'https://your.api.com'));
 
   try {
-    final data = await client.resource.getResourceById('some-id')
+    final data = await client.resources.updateResource(
+      const UpdateResourceInput(id: 'some-id', name: 'Updated resource'),
+    )
         .timeout(const Duration(seconds: 10));
-    print('Resource fetched successfully: $data');
+    print('Resource updated successfully: $data');
   } catch (e) {
     switch (e) {
       case ApiError(statusCode: var code, message: var msg):

@@ -7,7 +7,7 @@
 
 Three error categories:
 
-1.  **Parse Errors (`ParseError`)**: Thrown before the HTTP request when input fails Zod schema validation. The `data` property contains flattened validation errors.
+1.  **Parse Errors (`ParseError`)**: Thrown before the HTTP request when input fails Zod schema validation. The `data` property contains flattened Zod issue objects.
 
 2.  **HTTP Errors (`APIError` subclasses)**: Thrown when the server responds with 4xx or 5xx. Each status code maps to a specific subclass (`NotFound` for 404, `BadRequest` for 400). Each error has `status` and `data` (parsed response body). The possible error types for each endpoint come from your OpenAPI specification.
 
@@ -57,7 +57,7 @@ try {
     if (error.data.fieldErrors.name) {
       console.error(
         'Error for name field:',
-        error.data.fieldErrors.name.join(', '),
+        error.data.fieldErrors.name.map((issue) => issue.message).join(', '),
       );
     }
     // Handle the validation error (e.g., show message to user)

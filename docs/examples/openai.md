@@ -1,108 +1,68 @@
-## Build OpenAI SDK
+# Build an OpenAI SDK
 
-### Generate SDK
+## Generate the SDK
+
+Inside an existing TypeScript project:
 
 ```bash
-npx @sdk-it/cli@latest typescript \
-  --spec https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml \
-  --output ./openai \
+npm install zod fast-content-type-parse
+
+npx @sdk-it/cli@latest generate typescript \
+  --spec https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/main/openapi.yaml \
+  --output ./src/generated/openai \
   --name OpenAI \
-  --mode full
+  --mode minimal
 ```
 
-### Create and configure Client
+## Create the client
 
-```ts
-import { OpenAI } from './openai';
+```typescript
+import { APIError, OpenAI, ParseError } from './src/generated/openai/index.ts';
 
 const openai = new OpenAI({
-  baseUrl: 'https://api.openai.com/v1',
   token: process.env.OPENAI_API_KEY,
 });
 ```
 
-### Create ai response with web search tool
+## Create a response
 
-```ts
-const [result, error] = await openai.request('POST /responses', {
-  model: 'gpt-4o',
-  instructions: `You are an expert business developer`,
-  input: 'How is the market for sdk generation products?',
-  tool_choice: 'required',
-  parallel_tool_calls: true,
-  tools: [
-    {
-      type: 'web_search_preview',
-      user_location: {
-        type: 'approximate',
-      },
-      search_context_size: 'high',
-    },
-  ],
-});
+```typescript
+try {
+  const result = await openai.request('POST /responses', {
+    model: 'gpt-5.4-mini',
+    instructions: 'You are an expert business developer.',
+    input: 'How is the market for SDK generation products?',
+  });
 
-if (!error) {
-  console.log(
-    result.output
-      .filter((it) => it.type === 'message')
-      .flatMap((it) =>
-        it.content.filter((c) => c?.type === 'output_text').map((c) => c.text),
-      ),
-  );
-} else {
+  console.log(result.output_text);
+} catch (error) {
   if (error instanceof ParseError) {
-    console.log('Parse Error'); // you sent invalid or non-compliant data
-    console.error(error);
+    console.error('Invalid request input:', error.data);
+  } else if (error instanceof APIError) {
+    console.error(`OpenAI returned ${error.status}:`, error.data);
   } else {
-    console.log('HTTP Error');
-    console.error(error);
+    throw error;
   }
 }
 ```
 
-### Create a Chat Completion
+## Create an embedding
 
-```ts
-const [result, error] = await openai.request('POST /chat/completions', {
-  model: 'gpt-4',
-  messages: [
-    { role: 'system', content: 'You are a helpful assistant.' },
-    { role: 'user', content: 'Hello, who are you?' },
-  ],
-});
-
-if (!error) {
-  console.log(result.choices[0].message.content);
-} else {
-  console.error(error);
-}
-```
-
-### Create an Embedding
-
-```ts
-const [result, error] = await openai.request('POST /embeddings', {
-  model: 'text-embedding-ada-002',
+```typescript
+const result = await openai.request('POST /embeddings', {
+  model: 'text-embedding-3-small',
   input: 'The quick brown fox jumps over the lazy dog',
 });
 
-if (!error) {
-  console.log(result.data[0].embedding);
-} else {
-  console.error(error);
-}
+console.log(result.data[0].embedding);
 ```
 
-### List Available Models
+## List available models
 
-```ts
-const [result, error] = await openai.request('GET /models', {});
+```typescript
+const result = await openai.request('GET /models', {});
 
-if (!error) {
-  for (const model of result.data) {
-    console.log(`${model.id}: ${model.owned_by}`);
-  }
-} else {
-  console.error(error);
+for (const model of result.data) {
+  console.log(`${model.id}: ${model.owned_by}`);
 }
 ```

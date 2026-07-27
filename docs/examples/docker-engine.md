@@ -1,29 +1,38 @@
-## Build Docker Engine SDK
+# Build a Docker Engine SDK
 
-### Generate SDK
+## Generate the SDK
+
+Inside an existing TypeScript project:
 
 ```bash
-npx @sdk-it/cli@latest typescript \
+npm install zod fast-content-type-parse docker-modem
+npm install --save-dev @types/docker-modem
+
+npx @sdk-it/cli@latest generate typescript \
   --spec https://docs.docker.com/reference/api/engine/version/v1.48.yaml \
-  --output ./dockerengine \
+  --output ./src/generated/docker-engine \
   --name DockerEngine \
-  --mode full
+  --mode minimal
 ```
 
-### Create and configure Client
+## Connect through the Docker socket
 
-```ts
+The generated client accepts a custom `fetch` implementation. This adapter
+passes requests to `docker-modem`, which handles the local Docker socket:
+
+```typescript
 import Modem from 'docker-modem';
 import { IncomingMessage } from 'node:http';
 import { Readable } from 'node:stream';
 
-import { DockerEngine } from './dockerengine';
+import { DockerEngine } from './src/generated/docker-engine/index.ts';
 
 const modem = new Modem();
 const docker = new DockerEngine({
   baseUrl: 'http://localhost',
   fetch: (request) => {
     const url = new URL(request.url);
+
     return new Promise((resolve, reject) => {
       modem.dial(
         {
@@ -36,20 +45,20 @@ const docker = new DockerEngine({
           isStream: true,
           headers: { ...request.headers } as any,
         },
-        (err, data) => {
-          if (err) {
-            return reject(err);
-          }
-          if (data instanceof IncomingMessage) {
-            return resolve(
+        (error, data) => {
+          if (error) {
+            reject(error);
+          } else if (data instanceof IncomingMessage) {
+            resolve(
               new Response(Readable.toWeb(data) as ReadableStream<Uint8Array>, {
                 status: data.statusCode,
                 statusText: data.statusMessage,
                 headers: new Headers(data.headers as any),
               }),
             );
+          } else {
+            reject(new Error('Unexpected Docker response'));
           }
-          throw new Error('Unexpected response');
         },
       );
     });
@@ -57,52 +66,50 @@ const docker = new DockerEngine({
 });
 ```
 
-### Get Version
+## Get the Docker version
 
-```ts
-const [result, error] = await docker.request('GET /version', {});
-if (!error) {
-  console.log(result);
-} else {
-  console.error(error);
-}
+Docker's specification marks this response as a stream, so read the returned
+body before using its JSON:
+
+```typescript
+const stream = await docker.request('GET /version', {});
+const version = await new Response(stream).json();
+
+console.log(version);
 ```
 
-### Stream logs from a container
+## Stream container logs
 
-```ts
-const [result, error] = await docker.request('GET /containers/{id}/logs', {
+The Docker specification encodes query booleans as strings:
+
+```typescript
+const stream = await docker.request('GET /containers/{id}/logs', {
   id: '1daf90ceeee2',
-  follow: true,
-  stdout: true,
-  stderr: true,
+  follow: 'true',
+  stdout: 'true',
+  stderr: 'true',
 });
-if (!error) {
-  const decoder = new TextDecoder();
-  for await (const chunk of result) {
-    console.log(decoder.decode(chunk as Uint8Array));
-  }
+
+const decoder = new TextDecoder();
+for await (const chunk of stream) {
+  console.log(decoder.decode(chunk as Uint8Array));
 }
 ```
 
-### Demux container logs
+## Demultiplex container logs
 
-```ts
-const [result, error] = await docker.request('GET /containers/{id}/logs', {
+```typescript
+const stream = await docker.request('GET /containers/{id}/logs', {
   id: '3b85714a4095',
-  follow: true,
-  stdout: true,
-  stderr: true,
-  timestamps: false,
+  follow: 'true',
+  stdout: 'true',
+  stderr: 'true',
+  timestamps: 'false',
 });
 
-if (!error) {
-  modem.demuxStream(
-    Readable.fromWeb(result as any),
-    process.stdout,
-    process.stderr,
-  );
-} else {
-  console.error(error);
-}
+modem.demuxStream(
+  Readable.fromWeb(stream as any),
+  process.stdout,
+  process.stderr,
+);
 ```

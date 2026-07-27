@@ -1,31 +1,36 @@
 # @sdk-it/generic
 
-<p align="center">A TypeScript analysis tool for generating OpenAPI specifications from TypeScript code</p>
+<p align="center">Analyze TypeScript routes and produce an OpenAPI document</p>
 
-Analyzes TypeScript code to generate OpenAPI specifications. Extracts route information, parameter types, and response schemas from your codebase.
+`@sdk-it/generic` extracts routes, validation schemas, and responses from a
+TypeScript project. Framework packages provide the runtime middleware and
+response analyzer.
 
-## Frameworks specific integrations
+## Framework integrations
 
-- [hono](../hono/README.md)
+- [Hono](../hono/README.md)
 
 ## Installation
 
+For a Hono project:
+
 ```bash
-npm install @sdk-it/generic
+npm install @sdk-it/hono hono zod
+npm install --save-dev @sdk-it/core @sdk-it/generic typescript@^6.0.3
 ```
 
-## Usage
+## Analyze a Hono project
 
-Consider the following example:
-
-- Create a route using your API framework of choice with the `@openapi` tag and validate middleware.
+Define routes with `validate` and an `@openapi` JSDoc tag:
 
 ```typescript
-import z from 'zod';
+// src/app.ts
+import { Hono } from 'hono';
+import { z } from 'zod';
 
-import { validate } from '@sdk-it/express/runtime';
+import { validate } from '@sdk-it/hono/runtime';
 
-const app = express();
+export const app = new Hono();
 
 /**
  * @openapi getAuthor
@@ -35,114 +40,28 @@ app.get(
   '/authors/:id',
   validate((payload) => ({
     id: {
-      select: payload.param.id,
+      select: payload.params.id,
       against: z.string(),
     },
   })),
-  async (req, res) => {
-    const author = [{ name: 'John Doe' }];
-    return res.json(author);
+  (c) => {
+    const { id } = c.var.input;
+    return c.json({ id, name: 'John Doe' });
   },
 );
 ```
 
-- Use the generate fn to create an OpenAPI spec from your routes.
+Analyze the TypeScript project and write the resulting OpenAPI document:
 
 ```typescript
-import { join } from 'node:path';
-
-import { analyze, responseAnalyzer } from '@sdk-it/generic';
-import { generate } from '@sdk-it/typescript';
-
-const { paths, components } = await analyze('path/to/tsconfig.json', {
-  responseAnalyzer,
-});
-
-const spec = {
-  info: {
-    title: 'My API',
-    version: '1.0.0',
-  },
-  paths,
-  components,
-};
-
-await writeFile(
-  join(process.cwd(), 'openapi.json'),
-  JSON.stringify(spec, null, 2),
-);
-```
-
-> [!TIP]
-> See [typescript](../typescript/README.md) to create fully functional SDKs from the generated OpenAPI specification.
-
-### Customizing Operations
-
-You can customize the operations as well as add more through the `onOperation` fn.
-
-**Use file name as tag**
-
-Assuming your project is structured like the following, where routes are grouped by representative file names:
-
-```
-apps/
-  backend/
-    tsconfig.app.json
-    src/
-      routes/
-        authors.ts
-```
-
-The file name becomes the default tag for each operation. Specify a tag in JSDoc only to override this default.
-
-```typescript
-import { basename } from 'node:path';
-import { camelcase } from 'stringcase';
-
-import { analyze, responseAnalyzer } from '@sdk-it/generic';
-
-const { paths, components } = await analyze('apps/backend/tsconfig.app.json', {
-  responseAnalyzer,
-  onOperation(sourceFile, method, path, operation) {
-    const fileName = basename(sourceFile.split('/').at(-1), '.ts');
-    return {
-      [method]: {
-        [path]: {
-          ...operation,
-          tags: [fileName],
-        },
-      },
-    };
-  },
-});
-```
-
-### Customizing Type Mappings
-
-Custom type mappings handle non-standard TypeScript types like Prisma's `Decimal`. Use the `typesMap` option in `analyze` to define your mappings.
-
-The example below maps `Decimal` to `string`.
-
-```typescript
+// openapi.ts
 import { writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { cwd } from 'node:process';
 
-import { defaultTypesMap } from '@sdk-it/core';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 
-// Define custom type mappings
-const customTypeMappings = {
-  Decimal: 'string',
-};
-
-const { paths, components } = await analyze('path/to/tsconfig.json', {
+const { paths, components, tags } = await analyze('./tsconfig.json', {
   responseAnalyzer,
-  typesMap: {
-    ...defaultTypesMap,
-    Decimal: 'string',
-  },
 });
 
 const spec = {
@@ -153,43 +72,77 @@ const spec = {
   },
   paths,
   components,
+  tags: tags.map((name) => ({ name })),
 };
 
 await writeFile('openapi.json', JSON.stringify(spec, null, 2));
 ```
 
-With this, the generator maps `Decimal` properties to `string` in the OpenAPI specification.
+Run the script with Node.js 24 or newer:
 
-### Referencing external schemas
+```bash
+node openapi.ts
+```
 
-By default, the analyzer only sees schemas defined inline in the validate middleware.
+See [`@sdk-it/typescript`](../typescript/README.md) to generate a client from
+the OpenAPI document.
 
-For instance the following route handler is perfectly valid and will be analyzed correctly.
+## Customize operations
+
+`onOperation` receives every derived operation. This example uses the route
+file name as its tag:
 
 ```typescript
-/**
- * @openapi getAuthor
- * @tags authors
- */
-app.get(
-  '/authors/:id',
-  validate((payload) => ({
-    id: {
-      select: payload.param.id,
-      against: z.string(),
+import { basename } from 'node:path';
+
+import { analyze } from '@sdk-it/generic';
+import { responseAnalyzer } from '@sdk-it/hono';
+
+const { paths, components } = await analyze(
+  './apps/backend/tsconfig.app.json',
+  {
+    responseAnalyzer,
+    onOperation(sourceFile, _method, _path, operation) {
+      operation.tags = [basename(sourceFile, '.ts')];
+      return {};
     },
-  })),
-  async (req, res) => {
-    const { id } = req.input;
-    return res.json({ id, name: 'John Doe' });
   },
 );
 ```
 
-However, if you want to reference external schemas as shown below, you need to provide a way for the analyzer to resolve the schema.
+## Customize type mappings
 
-```ts
-// filename: schemas.ts
+Use `typesMap` for TypeScript types without a direct OpenAPI representation.
+For example, map Prisma's `Decimal` to a string so it keeps its precision on
+the wire:
+
+```typescript
+import { defaultTypesMap } from '@sdk-it/core';
+import { analyze } from '@sdk-it/generic';
+import { responseAnalyzer } from '@sdk-it/hono';
+
+const { paths, components } = await analyze('./tsconfig.json', {
+  responseAnalyzer,
+  typesMap: {
+    ...defaultTypesMap,
+    Decimal: 'string',
+  },
+});
+```
+
+## Reference external schemas
+
+The analyzer can evaluate inline Zod schemas directly:
+
+```typescript
+against: z.string().min(2).max(100);
+```
+
+When a validator references a schema from another file, use a namespace import
+in the route:
+
+```typescript
+// src/schemas.ts
 import { z } from 'zod';
 
 export const authorSchema = z.object({
@@ -198,69 +151,21 @@ export const authorSchema = z.object({
 });
 ```
 
-```ts
+```typescript
+// src/app.ts
+import { Hono } from 'hono';
 import crypto from 'node:crypto';
 import { z } from 'zod';
 
-import { validate } from '@sdk-it/express/runtime';
+import { validate } from '@sdk-it/hono/runtime';
 
-import { authorSchema } from './schemas';
+import * as schemas from './schemas.ts';
 
-/**
- * @openapi createBook
- * @tags books
- */
+const app = new Hono();
+
 app.post(
   '/books',
-  validate((payload) => ({
-    title: {
-      select: payload.body.title,
-      against: z.string().min(2).max(100),
-    },
-    author: {
-      select: payload.body.author,
-      against: authorSchema, // <-- Referencing external schema
-    },
-  })),
-  async (req, res) => {
-    const { title, author } = req.input;
-    return res.json({ id: crypto.randomUUID(), title, author });
-  },
-);
-```
-
-The analyzer must resolve the `authorSchema` reference to generate the correct OpenAPI schema. Otherwise it will fail.
-
-The analyzer's `imports` option lets you include additional files in the analysis.
-
-```ts
-import { join } from 'node:path';
-
-import { analyze } from '@sdk-it/generic';
-
-const { paths, components } = await analyze('path/to/tsconfig.json', {
-  responseAnalyzer,
-  imports: [
-    {
-      import: 'schemas',
-      from: join(process.cwd(), 'path/to/schemas.ts'), // <-- Path to the file containing the external schema
-    },
-  ],
-});
-```
-
-Now you need to update the import to namespace imports in the route handler where the `schemas` variable is used.
-
-```ts
-import * as schemas from './schemas';
-
-/**
- * @openapi createBook
- * @tags books
- */
-app.post(
-  '/books',
-  validate((payload) => ({
+  validate('application/json', (payload) => ({
     title: {
       select: payload.body.title,
       against: z.string().min(2).max(100),
@@ -270,16 +175,38 @@ app.post(
       against: schemas.authorSchema,
     },
   })),
-  async (req, res) => {
-    const { title, author } = req.input;
-    return res.json({ id: crypto.randomUUID(), title, author });
+  (c) => {
+    const { title, author } = c.var.input;
+    return c.json({ id: crypto.randomUUID(), title, author }, 201);
   },
 );
 ```
 
-### Control endpoint/operation visibility
+Then inject that namespace when analyzing the project:
 
-Control endpoint visibility with the `@access` tag in JSDoc comments. For now, only `private` is supported.
+```typescript
+import { fileURLToPath } from 'node:url';
+
+import { analyze } from '@sdk-it/generic';
+import { responseAnalyzer } from '@sdk-it/hono';
+
+const { paths, components } = await analyze('./tsconfig.json', {
+  responseAnalyzer,
+  imports: [
+    {
+      import: 'schemas',
+      from: fileURLToPath(new URL('./src/schemas.ts', import.meta.url)),
+    },
+  ],
+});
+```
+
+The injected file must be loadable by the Node.js process running the
+analyzer.
+
+## Hide an operation
+
+Add `@access private` to exclude a route from the generated OpenAPI document:
 
 ```typescript
 /**
@@ -287,10 +214,14 @@ Control endpoint visibility with the `@access` tag in JSDoc comments. For now, o
  * @tags authors
  * @access private
  */
-app.get('/authors/:id', async (req, res) => {
-  const author = [{ name: 'John Doe' }];
-  return res.json(author);
-});
+app.get(
+  '/authors/:id',
+  validate((payload) => ({
+    id: {
+      select: payload.params.id,
+      against: z.string(),
+    },
+  })),
+  (c) => c.json({ id: c.var.input.id, name: 'John Doe' }),
+);
 ```
-
-In this example, the `getAuthor` operation will be hidden from the generated OpenAPI specification.

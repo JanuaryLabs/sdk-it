@@ -1,103 +1,121 @@
 # @sdk-it/typescript
 
-<p align="center">A type-safe SDK generator that converts OpenAPI specifications into TypeScript client.</p>
+Generate a fully typed TypeScript client from an OpenAPI document. Generated
+clients work in Node.js, browsers, and other JavaScript runtimes with `fetch`.
 
-## Description
-
-This package transforms OpenAPI specifications into
-
-- a fully-typed TypeScript client
-- that works in Node.js, browsers, and any JavaScript runtime
-- with the ability to control the structure, style, and formatting of generated code
-
-## Installation
+## Install
 
 ```bash
-npm install @sdk-it/typescript
+npm install --save-dev @sdk-it/typescript
+npm install zod fast-content-type-parse
 ```
 
-## Usage
+`zod` and `fast-content-type-parse` are runtime dependencies of clients
+generated in `minimal` mode.
 
-### Basic SDK Generation
+## Generate from an OpenAPI document
 
 ```typescript
 import { generate } from '@sdk-it/typescript';
 
-import spec from './openapi.json';
-
-await generate(spec, {
-  output: './client',
-  name: 'MyAPI',
-});
-```
-
-### Remote Spec Example
-
-```typescript
-import { generate } from '@sdk-it/typescript';
-
-// Fetch remote OpenAPI specification
-const spec = await fetch('https://api.openstatus.dev/v1/openapi').then((res) =>
-  res.json(),
+const spec = await fetch('https://api.openstatus.dev/v1/openapi').then(
+  (response) => response.json(),
 );
 
-// Generate client SDK
 await generate(spec, {
-  output: './client',
+  output: './src/generated/openstatus',
+  mode: 'minimal',
   name: 'OpenStatus',
 });
 ```
 
-### Format Generated Code
+`name` controls the generated client class name. `minimal` mode writes client
+source files directly to `output`.
 
-You can format the generated code using the `formatCode` option. Useful when committing generated code to source control.
+## Use the generated client
 
 ```typescript
+import { OpenStatus } from './src/generated/openstatus/index.ts';
+
+const client = new OpenStatus({
+  baseUrl: 'https://api.openstatus.dev/v1',
+  'x-openstatus-key': process.env.OPENSTATUS_API_KEY,
+});
+
+const reports = await client.request('GET /status_report', {});
+console.log(reports);
+```
+
+`request` returns unwrapped response data. It throws `ParseError` when input
+validation fails and an `APIError` subclass when the server returns a
+non-successful response:
+
+```typescript
+import {
+  APIError,
+  OpenStatus,
+  ParseError,
+} from './src/generated/openstatus/index.ts';
+
+const client = new OpenStatus({
+  baseUrl: 'https://api.openstatus.dev/v1',
+  'x-openstatus-key': process.env.OPENSTATUS_API_KEY,
+});
+
+try {
+  const report = await client.request('GET /status_report/{id}', { id: '42' });
+  console.log(report);
+} catch (error) {
+  if (error instanceof ParseError) {
+    console.error(error.data);
+  } else if (error instanceof APIError) {
+    console.error(error.status, error.data);
+  } else {
+    throw error;
+  }
+}
+```
+
+## Format generated code
+
+`formatCode` runs after generation and receives the actual source directory plus
+an environment with local package executables on `PATH`:
+
+```typescript
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
 import { generate } from '@sdk-it/typescript';
 
+const execFileAsync = promisify(execFile);
 const spec = await fetch('https://petstore.swagger.io/v2/swagger.json').then(
-  (res) => res.json(),
+  (response) => response.json(),
 );
 
-// Format generated code using Prettier
 await generate(spec, {
-  output: join(process.cwd(), 'node_modules/.sdk-it/client'),
-  formatCode: ({ output, env }) => {
-    execFile('prettier', [output, '--write'], { env: env });
+  output: './src/generated/petstore',
+  name: 'PetStore',
+  formatCode: async ({ output, env }) => {
+    await execFileAsync('prettier', [output, '--write'], { env });
   },
 });
 ```
 
-### Run the script
+## Generate a standalone project
 
-```bash
-# using recent versions of node
-node ./openapi.ts
-
-# using node < 22
-npx tsx ./openapi.ts
-
-# using bun
-bun ./openapi.ts
-```
-
-- Use the generated SDK
+`full` mode adds `package.json` and `tsconfig.json`, places generated source
+under `<output>/src`, and records the generated client's runtime dependencies:
 
 ```typescript
-import { OpenStatus } from './client';
-
-const client = new OpenStatus({
-  baseUrl: 'https://api.openstatus.dev/v1/',
+await generate(spec, {
+  output: './generated/petstore',
+  mode: 'full',
+  name: 'PetStore',
+  packageName: '@acme/petstore',
 });
-
-const [result, error] = await client.request('GET /status_report', {});
 ```
 
-## Using with Your Favorite Frameworks
-
-The SDK works on its own, but you might want native integration with your frameworks:
+## Framework integrations
 
 - [React Query](../../docs/react-query.md)
 - [Angular](../../docs/angular.md)
-
-Let us know what you're using, and we'll help you integrate it.

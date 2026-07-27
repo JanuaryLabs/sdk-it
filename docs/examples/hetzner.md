@@ -1,89 +1,75 @@
-## Build Hetzner Cloud SDK
+# Build a Hetzner Cloud SDK
 
-### Generate SDK
+## Generate the SDK
+
+Inside an existing TypeScript project:
 
 ```bash
-npx @sdk-it/cli@latest typescript \
+npm install zod fast-content-type-parse
+
+npx @sdk-it/cli@latest generate typescript \
   --spec https://raw.githubusercontent.com/MaximilianKoestler/hcloud-openapi/refs/heads/main/openapi/hcloud.json \
-  --output ./hetzner \
+  --output ./src/generated/hetzner \
   --name Hetzner \
-  --mode full
+  --mode minimal
 ```
 
-### Create and configure Client
+## Create the client
 
-```ts
-import { Hetzner } from './hetzner';
+```typescript
+import { Hetzner } from './src/generated/hetzner/index.ts';
 
 const hetzner = new Hetzner({
-  baseUrl: 'https://api.hetzner.cloud/v1',
   token: process.env.HETZNER_API_TOKEN,
 });
 ```
 
-### Get All Servers
+## Get all servers
 
-```ts
-const [result, error] = await hetzner.request('GET /servers', {});
+```typescript
+const result = await hetzner.request('GET /servers', {});
 
-if (!error) {
-  console.log(`Total servers: ${result.meta.pagination.total_entries}`);
-  for (const server of result.servers) {
-    console.log(`Server: ${server.name} (ID: ${server.id})`);
-    console.log(`- Status: ${server.status}`);
-    console.log(`- Type: ${server.server_type.name}`);
-    console.log(`- IP: ${server.public_net.ipv4.ip}`);
-  }
-} else {
-  console.error(error);
+console.log(`Total servers: ${result.meta.pagination.total_entries}`);
+for (const server of result.servers) {
+  console.log(`Server: ${server.name} (ID: ${server.id})`);
+  console.log(`- Status: ${server.status}`);
+  console.log(`- Type: ${server.server_type.name}`);
+  console.log(`- IP: ${server.public_net.ipv4.ip}`);
 }
 ```
 
-### Create a New Server
+## Create a server
 
-```ts
-const [result, error] = await hetzner.request('POST /servers', {
+```typescript
+const result = await hetzner.request('POST /servers', {
   name: 'my-server-name',
-  server_type: 'cx11',
-  image: 'ubuntu-22.04',
+  server_type: 'cx23',
+  image: 'ubuntu-24.04',
   location: 'nbg1',
   ssh_keys: ['12345'],
   start_after_create: true,
 });
 
-if (!error) {
-  console.log(`Server created successfully!`);
-  console.log(`- ID: ${result.server.id}`);
-  console.log(`- Status: ${result.server.status}`);
-  console.log(`- Root password: ${result.root_password}`); // Only provided on creation
-} else {
-  console.error(error);
-}
+console.log(`Server created: ${result.server.id}`);
+console.log(`Status: ${result.server.status}`);
+console.log(`Root password: ${result.root_password}`);
 ```
 
-### Power On/Off Server
+## Power on a server
 
-```ts
-const [result, error] = await hetzner.request(
-  'POST /servers/{id}/actions/poweron',
-  {
-    id: 42,
-  },
-);
+```typescript
+const result = await hetzner.request('POST /servers/{id}/actions/poweron', {
+  id: 42,
+});
 
-if (!error) {
-  console.log(`Power on action initiated successfully`);
-  console.log(`- Action ID: ${result.action.id}`);
-  console.log(`- Status: ${result.action.status}`);
-} else {
-  console.error(error);
-}
+console.log(`Action: ${result.action.id}`);
+console.log(`Status: ${result.action.status}`);
 ```
 
-### Create a Snapshot
+## Create a snapshot
 
-```ts
-const [result, error] = await hetzner.request(
+```typescript
+const result = await hetzner.request(
   'POST /servers/{id}/actions/create_image',
   {
     id: 42,
@@ -92,29 +78,24 @@ const [result, error] = await hetzner.request(
   },
 );
 
-if (!error) {
-  console.log(`Snapshot creation initiated`);
-  console.log(`- Image ID: ${result.image.id}`);
-  console.log(`- Image name: ${result.image.description}`);
-  console.log(`- Action status: ${result.action.status}`);
-} else {
-  console.error(error);
+if (!result.image || !result.action) {
+  throw new Error('Hetzner did not return the created image and action');
 }
+
+console.log(`Image: ${result.image.id}`);
+console.log(`Description: ${result.image.description}`);
+console.log(`Action status: ${result.action.status}`);
 ```
 
-### List Volumes
+## List volumes
 
-```ts
-const [result, error] = await hetzner.request('GET /volumes', {});
+```typescript
+const result = await hetzner.request('GET /volumes', {});
 
-if (!error) {
-  console.log(`Total volumes: ${result.meta.pagination.total_entries}`);
-  for (const volume of result.volumes) {
-    console.log(`Volume: ${volume.name} (ID: ${volume.id})`);
-    console.log(`- Size: ${volume.size} GB`);
-    console.log(`- Server: ${volume.server || 'Not attached'}`);
-  }
-} else {
-  console.error(error);
+console.log(`Total volumes: ${result.meta.pagination.total_entries}`);
+for (const volume of result.volumes) {
+  console.log(`Volume: ${volume.name} (ID: ${volume.id})`);
+  console.log(`- Size: ${volume.size} GB`);
+  console.log(`- Server: ${volume.server ?? 'Not attached'}`);
 }
 ```

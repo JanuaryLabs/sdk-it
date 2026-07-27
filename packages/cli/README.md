@@ -1,110 +1,115 @@
 # @sdk-it/cli
 
-<p align="center">Command-line interface for SDK-IT that generates type-safe client SDKs from OpenAPI specifications</p>
+Generate type-safe client SDKs from OpenAPI specifications.
 
-## Installation
+## Run the CLI
 
-```bash
-# Install globally
-npm install -g @sdk-it/cli
-
-# Or use with npx without installing
-npx @sdk-it/cli
-```
-
-## Usage
-
-Generate SDKs from OpenAPI specifications:
-
-### Basic Command Structure
+Use the latest CLI without installing it globally:
 
 ```bash
-npx @sdk-it/cli <language> --spec <path-to-spec> --output <output-directory> [options]
+npx @sdk-it/cli@latest --help
 ```
 
-### Options
-
-| Option        | Alias | Description                                              | Default    |
-| ------------- | ----- | -------------------------------------------------------- | ---------- |
-| `--spec`      | `-s`  | Path to OpenAPI specification file (local or remote URL) | _Required_ |
-| `--output`    | `-o`  | Output directory for the generated SDK                   | _Required_ |
-| `--name`      | `-n`  | Name of the generated client                             | `Client`   |
-| `--mode`      | `-m`  | Generation mode: `full` or `minimal`                     | `minimal`  |
-| `--formatter` |       | Formatter command to run on generated code               |            |
-
-#### Mode Options
-
-- `minimal`: Generates only the client SDK files (default)
-- `full`: Generates a complete project including package.json and tsconfig.json (useful for monorepo/workspaces)
-
-#### Formatter
-
-You can specify a command to format the generated code. The special variable `$SDK_IT_OUTPUT` will be replaced with the output directory path.
-
-Examples:
-
-- `--formatter "prettier $SDK_IT_OUTPUT --write"`
-- `--formatter "biome check $SDK_IT_OUTPUT --write"`
-
-### Supported Specification Formats
-
-- JSON (`.json`)
-- YAML (`.yaml`, `.yml`)
-
-## Examples
-
-### Generate SDK from a Remote OpenAPI Specification
+To pin the CLI in a project:
 
 ```bash
-npx sdk-it -s https://petstore.swagger.io/v2/swagger.json -o ./client
+npm install --save-dev @sdk-it/cli
 ```
 
-### Generate SDK with Custom Client Name
+## Generate a TypeScript SDK
+
+Inside an existing TypeScript project, install the generated client's runtime
+dependencies:
 
 ```bash
-npx sdk-it -s ./openapi.json -o ./client -n PetStore
+npm install zod fast-content-type-parse
 ```
 
-### Generate Full Project with Formatting
+Generate the client:
 
 ```bash
-npx sdk-it -s ./openapi.yaml -o ./client -m full --formatter "prettier $SDK_IT_OUTPUT --write"
+npx @sdk-it/cli@latest generate typescript \
+  --spec ./openapi.json \
+  --output ./src/generated/api \
+  --name MyApi \
+  --mode minimal
 ```
 
-## Complete Example
-
-Let's generate a client SDK for the Hetzner Cloud API with automatic formatting:
-
-```bash
-# Generate SDK from Hetzner Cloud API spec with Prettier formatting
-npx sdk-it -s https://raw.githubusercontent.com/MaximilianKoestler/hcloud-openapi/refs/heads/main/openapi/hcloud.json -o ./client --formatter "prettier $SDK_IT_OUTPUT --write"
-```
-
-This command:
-
-1. Downloads the OpenAPI specification from the Hetzner Cloud documentation
-2. Generates a type-safe TypeScript SDK in the `./client` directory
-3. Runs Prettier on the generated code for consistent formatting
-
-Use the generated SDK:
+Use it:
 
 ```typescript
-import { Client } from './client';
+import { MyApi } from './src/generated/api/index.ts';
 
-// Create a client instance with your API token
-const client = new Client({
-  baseUrl: 'https://api.hetzner.cloud/v1',
-  headers: {
-    Authorization: 'Bearer your_api_token',
-  },
+const client = new MyApi({
+  baseUrl: 'https://api.example.com',
 });
 
-// Call API methods with type safety
-const [servers, error] = await client.request('GET /servers', {});
+const users = await client.request('GET /users', {});
+console.log(users);
+```
 
-if (error) {
-  console.error('Error fetching servers:', error);
-} else {
-  console.log('Servers:', servers);
-}
+`request` returns the unwrapped response data. Invalid inputs and non-successful
+HTTP responses throw typed errors exported by the generated SDK.
+
+## TypeScript options
+
+```text
+npx @sdk-it/cli@latest generate typescript [options]
+```
+
+| Option                     | Description                                                  | Default   |
+| -------------------------- | ------------------------------------------------------------ | --------- |
+| `--spec`, `-s`             | Local path or remote URL to an OpenAPI JSON or YAML document | Required  |
+| `--output`, `-o`           | Output directory                                             | Required  |
+| `--name`, `-n`             | Generated client class name                                  | `Client`  |
+| `--mode`, `-m`             | `minimal` source files or a `full` standalone project        | `minimal` |
+| `--useTsExtension [value]` | Include `.ts` in generated imports                           | `true`    |
+| `--formatter <command>`    | Command used to format the generated source directory        |           |
+| `--no-default-formatter`   | Skip the default Prettier formatter                          |           |
+| `--readme false`           | Skip the generated API README                                |           |
+| `--pagination <config>`    | Configure pagination, such as `false` or `guess=false`       | `true`    |
+| `--no-install`             | Skip dependency installation in `full` mode                  |           |
+| `--verbose`, `-v`          | Show generator and installation output                       | `false`   |
+
+`minimal` mode writes client source files directly to `--output`. `full` mode
+writes source files under `<output>/src`, adds `package.json` and `tsconfig.json`,
+and installs its runtime dependencies unless `--no-install` is passed.
+
+For a custom formatter, include the generated path explicitly:
+
+```bash
+npx @sdk-it/cli@latest generate typescript \
+  --spec ./openapi.json \
+  --output ./src/generated/api \
+  --formatter "prettier ./src/generated/api --write"
+```
+
+## Remote specification example
+
+```bash
+npx @sdk-it/cli@latest generate typescript \
+  --spec https://raw.githubusercontent.com/MaximilianKoestler/hcloud-openapi/refs/heads/main/openapi/hcloud.json \
+  --output ./src/generated/hetzner \
+  --name Hetzner \
+  --mode minimal
+```
+
+```typescript
+import { Hetzner } from './src/generated/hetzner/index.ts';
+
+const hetzner = new Hetzner({
+  token: process.env.HETZNER_API_TOKEN,
+});
+
+const result = await hetzner.request('GET /servers', {});
+console.log(result.servers);
+```
+
+## Other generators
+
+The same `generate` command also exposes the Dart, Python, API reference, and
+README generators:
+
+```bash
+npx @sdk-it/cli@latest generate --help
 ```

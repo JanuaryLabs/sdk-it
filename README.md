@@ -10,35 +10,53 @@ SDK-IT generates type-safe client SDKs from OpenAPI specifications and creates O
 - CLI and Vite workflows for generating clients from specs or TypeScript backends
 - API reference and README generation
 
-## Quick Start
+## Get Started
 
-- Generate an SDK from an OpenAPI specification
+Choose the workflow that matches your API source:
+
+| Starting point                                    | Guide                                                                                        |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| OpenAPI JSON, YAML, or a remote specification URL | [Generate your first client](#generate-your-first-client)                                    |
+| A Hono TypeScript backend                         | [Generate from a backend](./docs/recipes/backend-to-client.md)                               |
+| A build script or custom generation workflow      | [Use SDK-IT programmatically](./docs/recipes/workspace-sdk.md)                               |
+| A client consumed from another repository         | [Publish a generated client](./docs/recipes/workspace-sdk.md#publish-for-another-repository) |
+
+### Generate your first client
+
+Inside an existing TypeScript project, install the generated client's runtime
+dependencies:
 
 ```bash
-npx @sdk-it/cli@latest typescript \
-  --spec https://api.openstatus.dev/v1/openapi \
-  --output ./client \
-  --name OpenStatus \
-  --mode full
+npm install zod fast-content-type-parse
 ```
 
-- Use the generated SDK
+Generate an SDK from an OpenAPI specification:
+
+```bash
+npx @sdk-it/cli@latest generate typescript \
+  --spec https://api.openstatus.dev/v1/openapi \
+  --output ./src/openstatus \
+  --name OpenStatus \
+  --mode minimal
+```
+
+Use the generated SDK:
 
 ```typescript
-import { OpenStatus } from './client';
+import { OpenStatus } from './src/openstatus/index.ts';
 
 const client = new OpenStatus({
   baseUrl: 'https://api.openstatus.dev/v1/',
+  'x-openstatus-key': process.env.OPENSTATUS_API_KEY!,
 });
 
-const [result, error] = await client.request('GET /status_report', {});
+const reports = await client.request('GET /status_report', {});
+console.log(reports);
 ```
-
-Voilà!
 
 ![demo](./demo.png)
 
-### 2. OpenAPI Generation from TypeScript
+### Generate OpenAPI from TypeScript
 
 SDK-IT statically examines your codebase and generates OpenAPI specifications from it.
 
@@ -74,10 +92,19 @@ The analyzer infers this route because it uses the validate middleware and has a
 
 [Supported frameworks](#OpenAPI-Generation-Framework-Support)
 
+## Tutorials
+
+- [Generate your first client from OpenAPI](#generate-your-first-client)
+- [Generate a client from a TypeScript backend](./docs/recipes/backend-to-client.md)
+- [Generate a workspace SDK programmatically](./docs/recipes/workspace-sdk.md)
+- [Upload files with Hono and React Query](./docs/recipes/file-upload.md)
+
 ## Guides
 
+- [Cookie authentication in browsers and server-side frameworks](./docs/recipes/cookies.md)
+- [React Query integration](./docs/react-query.md)
+- [Angular integration](./docs/angular.md)
 - [Monorepo development](./CONTRIBUTING.md#project-structure)
-- [Generate a client from a TypeScript backend](./docs/recipes/backend-to-client.md)
 
 ## Examples
 
@@ -124,6 +151,7 @@ SDK-IT is organized as a monorepo with multiple packages:
 ```
 .
 ├── packages/
+│   ├── apiref/           # API reference web application (private)
 │   ├── core/             # Core functionality and utilities
 │   ├── cli/              # Command-line interface
 │   ├── command/          # OpenAPI operation command builder
@@ -133,6 +161,7 @@ SDK-IT is organized as a monorepo with multiple packages:
 │   ├── python/           # Python SDK generator
 │   ├── readme/           # README generation
 │   ├── rpc/              # Runtime RPC client and agent tools
+│   ├── shadcn/           # Shared UI component library (private)
 │   ├── spec/             # OpenAPI normalization and IR
 │   ├── typescript/       # TypeScript SDK generator
 │   └── vite/             # Vite generation plugin
@@ -140,6 +169,7 @@ SDK-IT is organized as a monorepo with multiple packages:
 
 Each package serves a specific purpose:
 
+- **apiref**: Private API reference web application
 - **core**: Shared utilities used by all packages
 - **cli**: Command-line interface for SDK-IT
 - **typescript**: Focuses on generating TypeScript code from OpenAPI specifications (primary use case)
@@ -149,6 +179,7 @@ Each package serves a specific purpose:
 - **spec**: Shared OpenAPI loading, normalization, and intermediate representation
 - **command** and **rpc**: Operation command construction and runtime dispatch
 - **readme**: Generated SDK documentation
+- **shadcn**: Private shared UI component library for API reference surfaces
 - **vite**: Development/build integration backed by the CLI generation engine
 
 For more detailed information about the codebase structure and development process, see the [contributing guide](CONTRIBUTING.md).

@@ -1,5 +1,22 @@
 # sdk-it Google Tasks (verbatim)
 
+## Documentation refresh — 2026-07-27
+
+- [x] Update the CLI and TypeScript package READMEs.
+- [x] Migrate all six API examples to the current generated-client contract.
+- [x] Repair the Angular and React Query integrations.
+- [x] Repair the TypeScript and Dart error-handling recipes.
+- [x] Update the Generic and Hono package READMEs.
+- [x] Replace the stale Prisma recipe with the current preset workflow.
+- [x] Update the spec-processing architecture document to implemented status.
+- [x] Refresh the Dart and Python package guides.
+- [x] Verify the remaining public recipes against current runtime behavior.
+- [x] Add READMEs for every undocumented public package.
+- [x] Complete the root and contributing package inventories.
+- [x] Run Markdown, generation, and relevant package verification.
+  - Hono retains one failure caused by the concurrent Core array-serialization
+    change; documentation checks and the other relevant package targets pass.
+
 ## JanuaryLabs list
 
 ### SDK-IT
@@ -8,10 +25,10 @@
 - [ ] Experiance the vibe eureka moments
 - [ ] export preset (prisma), with analysis packages
 - [ ] Add watch option
-- [ ] docs: react query extension: how to include cockie.
-- [ ] docs: how to include cockies in server side frameworks
-- [ ] docs: how to programmatically use sdk-it
-- [ ] docs: get started with sdk-it - with monorepos - non monorepos - use completely outside the repo. on a registr...
+- [x] docs: react query extension: how to include cockie.
+- [x] docs: how to include cockies in server side frameworks
+- [x] docs: how to programmatically use sdk-it
+- [x] docs: get started with sdk-it - with monorepos - non monorepos - use completely outside the repo. on a registr...
 - [ ] mcp server
 - [ ] Create config file.
 - [ ] Using with Claude code, cursor and copilot
@@ -43,7 +60,7 @@
       basically chatbot to ask openapi how to list all assistants or how to create x,...
 - [ ] Building on the market place we can add alerts to notify on selected tools spec changes.
       similar ui - https://fontofweb.com
-- [ ] Create tutorials
+- [x] Create tutorials
 - [ ] Marketplace of popular tools that can be accessed programmatically
       look in postman demos
 - [ ] Reach for opensource projects that uses hono and ask them if they would like to use it.

@@ -1,113 +1,94 @@
-# OpenStatus API Example
+# Build an OpenStatus SDK
 
-This example demonstrates how to use the SDK-IT generated client for [OpenStatus](https://www.openstatus.dev/), an open-source synthetic monitoring tool.
+This example uses the generated client for
+[OpenStatus](https://www.openstatus.dev/), an open-source synthetic monitoring
+service.
 
-## Setup
+## Generate the SDK
 
-### Generate the SDK
-
-First, generate the SDK using the CLI:
+Inside an existing TypeScript project:
 
 ```bash
-npx @sdk-it/cli@latest typescript \
+npm install zod fast-content-type-parse
+
+npx @sdk-it/cli@latest generate typescript \
   --spec https://api.openstatus.dev/v1/openapi \
-  --output ./openstatus \
+  --output ./src/generated/openstatus \
   --name OpenStatus \
-  --mode full
+  --mode minimal
 ```
 
-### Create and configure Client
+## Create the client
 
 ```typescript
-import { OpenStatus } from './openstatus';
+import { OpenStatus } from './src/generated/openstatus/index.ts';
 
-// Initialize the client with your API key
 const openstatus = new OpenStatus({
   baseUrl: 'https://api.openstatus.dev/v1',
   'x-openstatus-key': process.env.OPENSTATUS_API_KEY,
 });
 ```
 
-### Create Monitor
+## Create an HTTP monitor
 
 ```typescript
-const [monitor, error] = await openstatus.request('POST /monitor', {
-  body: {
-    name: 'My Website Monitor',
-    url: 'https://example.com',
-    periodicity: '5m',
-    regions: ['ams', 'nyc'],
+const monitor = await openstatus.request('POST /monitor/http', {
+  name: 'My Website Monitor',
+  frequency: '5m',
+  regions: ['ams', 'ewr'],
+  request: {
     method: 'GET',
-    assertions: [
-      {
-        type: 'status',
-        compare: 'eq',
-        target: 200,
-      },
-    ],
-    active: true,
+    url: 'https://example.com',
   },
+  assertions: [
+    {
+      kind: 'statusCode',
+      compare: 'eq',
+      target: 200,
+    },
+  ],
+  active: true,
 });
 
-if (error) {
-  console.error('Failed to create monitor:', error);
-} else {
-  console.log('Monitor created:', monitor);
-}
+console.log('Monitor created:', monitor);
 ```
 
-### Get Monitor Status
-
-```ts
-const [status, error] = await openstatus.request('GET /monitor/{monitorId}', {
-  params: {
-    monitorId,
-  },
-});
-
-if (error) {
-  console.error('Failed to get monitor status:', error);
-} else {
-  console.log('Monitor status:', status);
-}
-```
-
-### Create Status Page
+## Get a monitor
 
 ```typescript
-const [page, error] = await openstatus.request('POST /page', {
-  body: {
-    name: 'My Service Status',
-    description: 'Current status of our services',
-    slug: 'my-service-status',
-    subdomain: 'status',
-    isPublic: true,
-  },
+const monitor = await openstatus.request('GET /monitor/{id}', {
+  id: '42',
 });
 
-if (error) {
-  console.error('Failed to create status page:', error);
-} else {
-  console.log('Status page created:', page);
-}
+console.log('Monitor:', monitor);
 ```
 
-### Report Incident
+## Create a status page
 
 ```typescript
-const [incident, error] = await openstatus.request('POST /incident', {
-  body: {
-    title: 'Service Degradation',
-    status: 'investigating',
-    impact: 'minor',
-    message: 'We are investigating reports of increased latency',
-    pageId: 123, // Your status page ID
-  },
+const page = await openstatus.request('POST /page', {
+  title: 'My Service Status',
+  description: 'Current status of our services',
+  slug: 'my-service-status',
+  monitors: [42],
+  accessType: 'public',
 });
 
-if (error) {
-  console.error('Failed to report incident:', error);
-} else {
-  console.log('Incident reported:', incident);
-}
+console.log('Status page created:', page);
+```
+
+## Report an incident
+
+OpenStatus represents incidents announced on a status page as status reports:
+
+```typescript
+const report = await openstatus.request('POST /status_report', {
+  title: 'Service degradation',
+  message: 'We are investigating reports of increased latency.',
+  status: 'investigating',
+  pageId: 123,
+  monitorIds: [42],
+});
+
+console.log('Status report created:', report);
 ```

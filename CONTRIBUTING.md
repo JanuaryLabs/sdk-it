@@ -37,6 +37,7 @@ SDK-IT is built as a TypeScript monorepo using Nx for package management and bui
 ├── .vscode/              # VS Code editor settings
 ├── node_modules/         # Project dependencies
 ├── packages/             # Core packages of the SDK-IT toolkit
+│   ├── apiref/           # API reference web application (private)
 │   ├── core/             # Core functionality and utilities
 │   ├── cli/              # CLI and project generation workflow
 │   ├── command/          # OpenAPI operation command builder
@@ -46,6 +47,7 @@ SDK-IT is built as a TypeScript monorepo using Nx for package management and bui
 │   ├── python/           # Python SDK generator
 │   ├── readme/           # README generation
 │   ├── rpc/              # Runtime RPC client and agent tools
+│   ├── shadcn/           # Shared UI component library (private)
 │   ├── spec/             # OpenAPI normalization and IR
 │   ├── typescript/       # TypeScript SDK generator
 │   └── vite/             # Vite generation plugin
@@ -59,6 +61,26 @@ SDK-IT is built as a TypeScript monorepo using Nx for package management and bui
 ```
 
 ## Package Details
+
+The workspace contains twelve public packages and two private application/UI
+packages:
+
+| Package              | Role                                                            |
+| -------------------- | --------------------------------------------------------------- |
+| `@sdk-it/apiref`     | Private API reference web application                           |
+| `@sdk-it/cli`        | CLI and TypeScript-backend project workflow                     |
+| `@sdk-it/command`    | OpenAPI operation command builder                               |
+| `@sdk-it/core`       | TypeScript analysis and shared low-level utilities              |
+| `@sdk-it/dart`       | Dart SDK generator                                              |
+| `@sdk-it/generic`    | Framework-agnostic TypeScript route analyzer                    |
+| `@sdk-it/hono`       | Hono runtime and analyzer integration                           |
+| `@sdk-it/python`     | Python SDK generator                                            |
+| `@sdk-it/readme`     | Generated SDK documentation utilities                           |
+| `@sdk-it/rpc`        | Runtime OpenAPI client and AI SDK tool builder                  |
+| `@sdk-it/shadcn`     | Private shared UI component library                             |
+| `@sdk-it/spec`       | OpenAPI loading, normalization, and intermediate representation |
+| `@sdk-it/typescript` | TypeScript SDK generator                                        |
+| `@sdk-it/vite`       | Vite integration for project or direct OpenAPI generation       |
 
 ### Core Package (`@sdk-it/core`)
 
