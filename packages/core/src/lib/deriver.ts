@@ -69,6 +69,10 @@ export class TypeDeriver {
   }
 
   serializeType(type: ts.Type): any {
+    return this.serialize(type, false);
+  }
+
+  private serialize(type: ts.Type, widenLiteralValues: boolean): unknown {
     if (this.typesMap[type.aliasSymbol?.getName() || type.symbol?.getName()]) {
       return {
         [deriveSymbol]: true,
@@ -84,7 +88,7 @@ export class TypeDeriver {
         [deriveSymbol]: true,
         kind: 'record',
         optional: false,
-        [$types]: [this.serializeType(indexType)],
+        [$types]: [this.serialize(indexType, widenLiteralValues)],
       };
     }
     if (type.flags & TypeFlags.Any) {
@@ -113,8 +117,7 @@ export class TypeDeriver {
       return {
         [deriveSymbol]: true,
         optional: false,
-        kind: 'literal',
-        value: type.value,
+        ...(widenLiteralValues ? {} : { kind: 'literal', value: type.value }),
         [$types]: ['string'],
       };
     }
@@ -122,8 +125,7 @@ export class TypeDeriver {
       return {
         [deriveSymbol]: true,
         optional: false,
-        kind: 'literal',
-        value: type.value,
+        ...(widenLiteralValues ? {} : { kind: 'literal', value: type.value }),
         [$types]: ['number'],
       };
     }
@@ -131,8 +133,12 @@ export class TypeDeriver {
       return {
         [deriveSymbol]: true,
         optional: false,
-        kind: 'literal',
-        value: this.checker.typeToString(type) === 'true',
+        ...(widenLiteralValues
+          ? {}
+          : {
+              kind: 'literal',
+              value: this.checker.typeToString(type) === 'true',
+            }),
         [$types]: ['boolean'],
       };
     }
@@ -182,7 +188,7 @@ export class TypeDeriver {
           }
         }
 
-        types.push(this.serializeType(intersectionType));
+        types.push(this.serialize(intersectionType, widenLiteralValues));
       }
       return {
         [deriveSymbol]: true,
@@ -203,7 +209,7 @@ export class TypeDeriver {
           }
         }
 
-        types.push(this.serializeType(unionType));
+        types.push(this.serialize(unionType, widenLiteralValues));
       }
       return {
         [deriveSymbol]: true,
@@ -213,12 +219,13 @@ export class TypeDeriver {
       };
     }
     if (this.checker.isArrayLikeType(type)) {
-      const [argType] = this.checker.getTypeArguments(type as ts.TypeReference);
-      if (!argType) {
+      const elementType = this.checker.getIndexTypeOfType(
+        type,
+        ts.IndexKind.Number,
+      );
+      if (!elementType) {
         const typeName = type.symbol?.getName() || '<unknown>';
-        this.warn(
-          `Could not find generic type argument for array type ${typeName}`,
-        );
+        this.warn(`Could not find element type for array type ${typeName}`);
         return {
           [deriveSymbol]: true,
           optional: false,
@@ -226,54 +233,22 @@ export class TypeDeriver {
           [$types]: ['any'],
         };
       }
-      const typeSymbol = argType.getSymbol();
-      if (!typeSymbol) {
-        return {
-          [deriveSymbol]: true,
-          optional: false,
-          kind: 'array',
-          [$types]: [this.serializeType(argType)],
-        };
-      }
-
-      if (typeSymbol.valueDeclaration) {
-        return {
-          kind: 'array',
-          [deriveSymbol]: true,
-          [$types]: [this.serializeNode(typeSymbol.valueDeclaration)],
-        };
-      }
-      const maybeDeclaration = typeSymbol.declarations?.[0];
-      if (maybeDeclaration) {
-        if (ts.isMappedTypeNode(maybeDeclaration)) {
-          const resolvedType = sortObjectKeys(
-            this.checker
-              .getPropertiesOfType(argType)
-              .reduce<Record<string, unknown>>((acc, prop) => {
-                const propType = this.checker.getTypeOfSymbol(prop);
-                acc[prop.name] = this.serializeType(propType);
-                return acc;
-              }, {}),
-          );
-          return {
-            kind: 'array',
-            optional: false,
-            [deriveSymbol]: true,
-            [$types]: [resolvedType],
-          };
-        } else {
-          return {
-            kind: 'array',
-            ...this.serializeNode(maybeDeclaration),
-          };
-        }
-      }
-
+      const mappedElementType =
+        this.typesMap[
+          elementType.aliasSymbol?.getName() || elementType.symbol?.getName()
+        ];
       return {
         kind: 'array',
         optional: false,
         [deriveSymbol]: true,
-        [$types]: ['any'],
+        [$types]: mappedElementType
+          ? [mappedElementType]
+          : [
+              this.serialize(
+                elementType,
+                widenLiteralValues || this.checker.isTupleType(type),
+              ),
+            ],
       };
     }
     if (type.isClass()) {
@@ -323,14 +298,15 @@ export class TypeDeriver {
             : undefined;
           // get literal properties values if any
           if (propAssingment) {
-            serializedProps[prop.name] = this.serializeType(
+            serializedProps[prop.name] = this.serialize(
               this.typeOfExpression(propAssingment.initializer),
+              widenLiteralValues,
             );
           } else if (shorthandType) {
-            serializedProps[prop.name] = this.serializeType(shorthandType);
-          } else if (declarations.find((it) => ts.isPropertySignature(it))) {
-            const propType = this.checker.getTypeOfSymbol(prop);
-            serializedProps[prop.name] = this.serializeType(propType);
+            serializedProps[prop.name] = this.serialize(
+              shorthandType,
+              widenLiteralValues,
+            );
           } else {
             const propType = this.checker.getTypeOfSymbol(prop);
             serializedProps[prop.name] = this.serializeType(propType);

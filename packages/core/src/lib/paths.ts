@@ -332,7 +332,13 @@ export function toSchema(data: DateType | string | null | undefined): any {
     const items = data[$types].map(toSchema);
     return { type: 'array', items: data[$types].length ? items[0] : {} };
   } else if (data.kind === 'union') {
-    return { anyOf: data[$types].map(toSchema) };
+    const schemas = data[$types].map(toSchema);
+    const unique = [
+      ...new Map(
+        schemas.map((schema) => [JSON.stringify(schema), schema]),
+      ).values(),
+    ];
+    return unique.length === 1 ? unique[0] : { anyOf: unique };
   } else if (data.kind === 'intersection') {
     // TS gives anonymous/empty object types the synthetic symbol name "__type".
     // Members like `& {}` (the autocomplete-trick wrapper) contribute no schema

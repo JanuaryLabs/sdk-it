@@ -275,6 +275,56 @@ describe('Type Derivation', () => {
     test.todo('handles arrays of primitives');
     test.todo('handles arrays of objects');
     test.todo('handles tuples');
+
+    test('widens const-asserted array values to their item type', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `
+            export const indicators = [
+              { id: 1, description: 'first' },
+              { id: 2, description: 'second' },
+            ] as const;
+          `,
+          'indicators',
+        ),
+      );
+
+      assert.deepStrictEqual(result, {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            description: { type: 'string' },
+            id: { type: 'number' },
+          },
+          required: ['description', 'id'],
+          additionalProperties: false,
+        },
+      });
+    });
+
+    test('infers nested const-asserted arrays as matrices', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `
+            export const matrix = [
+              [1, 2],
+              [3, 4],
+            ] as const;
+          `,
+          'matrix',
+        ),
+      );
+
+      assert.deepStrictEqual(result, {
+        type: 'array',
+        items: {
+          type: 'array',
+          items: { type: 'number' },
+        },
+      });
+    });
+
     test('handles Record type', async () => {
       const result = await deriveTypeFromCode(
         `export type Payload = Record<string, unknown>;`,
