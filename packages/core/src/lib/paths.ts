@@ -319,6 +319,8 @@ export function toSchema(data: DateType | string | null | undefined): any {
       return { $ref: data };
     }
     return { type: data };
+  } else if (data.kind === 'never') {
+    return { not: {} };
   } else if (data.kind === 'literal') {
     return { enum: [data.value], type: data[$types][0] };
   } else if (data.kind === 'record') {

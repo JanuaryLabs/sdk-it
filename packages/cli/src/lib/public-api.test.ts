@@ -8,6 +8,7 @@ import {
   rmSync,
   statSync,
   symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -227,7 +228,10 @@ test('generated project client is directly importable by Node.js', async () => {
     default: './dist/index.js',
   });
 
-  rmSync(join(workspace, 'node_modules'));
+  // `node_modules` is the symlink createHonoWorkspace planted, and this test
+  // needs a real directory there instead. `rmSync` without options resolves the
+  // symlink and throws ERR_FS_EISDIR on Node 24; unlink drops the link itself.
+  unlinkSync(join(workspace, 'node_modules'));
   mkdirSync(join(workspace, 'node_modules', '@sdk-it'), { recursive: true });
   symlinkSync(output, join(workspace, 'node_modules', '@sdk-it', 'client'));
   for (const dependency of ['fast-content-type-parse', 'zod']) {

@@ -2,6 +2,7 @@ import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
 import {
   followRef,
+  isEmpty,
   isRef,
   parseRef,
   pascalcase,
@@ -187,6 +188,10 @@ export class TypeScriptEmitter {
   handle(schema: SchemaObject | ReferenceObject, required: boolean): string {
     if (isRef(schema)) {
       return this.#ref(schema.$ref, required);
+    }
+
+    if (schema.not && isEmpty(schema.not)) {
+      return appendOptional('never', required);
     }
 
     // Handle allOf (intersection in TypeScript)

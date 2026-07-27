@@ -8,7 +8,7 @@ import type {
 } from 'openapi3-ts/oas31';
 import { snakecase } from 'stringcase';
 
-import { isEmpty, isRef, pascalcase } from '@sdk-it/core';
+import { followRef, isEmpty, isRef, pascalcase } from '@sdk-it/core';
 import {
   type ReadFolderFn,
   type Writer,
@@ -119,7 +119,8 @@ ${docstring}
     (acc, [name, { className, methods }]) => {
       const fileName = `api/${snakecase(name)}_api.py`;
       const imports = [
-        'from typing import Optional',
+        'from typing import Any, Dict, List, Literal, Optional, Union',
+        'from typing_extensions import Never',
         'import httpx',
         '',
         'from ..http.dispatcher import Dispatcher, RequestConfig',
@@ -268,7 +269,7 @@ httpx>=0.24.0,<1.0.0
 pydantic>=2.0.0,<3.0.0
 
 # Enhanced type hints
-typing-extensions>=4.0.0
+typing-extensions>=4.1.0
 
 # Optional: For better datetime handling
 python-dateutil>=2.8.0
@@ -429,19 +430,46 @@ function toOutput(spec: IR, operation: OperationObject) {
   const schema = (mediaType as { schema?: SchemaObject | ReferenceObject })
     .schema;
 
-  if (!schema || isRef(schema)) {
+  if (!schema) {
     return { returnType: 'Any', successModel: null, errorModel: null };
+  }
+
+  let outputSchema = schema;
+  if (isRef(schema)) {
+    const resolvedSchema = followRef<SchemaObject>(spec, schema.$ref);
+    const isBottomResponse =
+      isBottomSchema(spec, resolvedSchema) ||
+      (resolvedSchema.type === 'array' &&
+        isBottomSchema(spec, resolvedSchema.items));
+
+    if (!isBottomResponse) {
+      return { returnType: 'Any', successModel: null, errorModel: null };
+    }
+    outputSchema = resolvedSchema;
   }
 
   // Generate return type based on schema
   const emitter = new PythonEmitter(spec);
-  const result = emitter.handle(schema, {});
+  const result = emitter.handle(outputSchema, {});
 
   return {
     returnType: result.type || 'Any',
-    successModel: result.type,
+    successModel: result.simple ? null : result.type,
     errorModel: null, // TODO: Handle error models
   };
+}
+
+function isBottomSchema(
+  spec: IR,
+  schema: SchemaObject | ReferenceObject | undefined,
+): boolean {
+  if (!schema) {
+    return false;
+  }
+  const resolved = isRef(schema)
+    ? followRef<SchemaObject>(spec, schema.$ref)
+    : schema;
+  return !!resolved.not && isEmpty(resolved.not);
 }
 
 async function serializeModels(
@@ -453,10 +481,16 @@ async function serializeModels(
   // Standard imports for all Python model files
   const standardImports = [
     'from typing import Any, Dict, List, Optional, Union, Literal',
-    'from pydantic import BaseModel, Field',
+    'from typing_extensions import Annotated, Never',
+    'from pydantic import BaseModel, BeforeValidator, Field',
     'from datetime import datetime, date',
     'from uuid import UUID',
     'from enum import Enum',
+    '',
+    'def _reject_never(value: Any) -> Never:',
+    "    raise ValueError('Value is forbidden by the schema')",
+    '',
+    '_NeverValue = Annotated[Any, BeforeValidator(_reject_never)]',
   ].join('\n');
 
   // Emit all schemas
@@ -481,7 +515,7 @@ ${content}`;
   if (spec.components?.schemas) {
     for (const [name, schema] of Object.entries(spec.components.schemas)) {
       if (!isRef(schema)) {
-        emitter.handle(schema, { name });
+        emitter.handle(schema, { name, pydantic: true });
       }
     }
   }

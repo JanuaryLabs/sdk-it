@@ -6,6 +6,16 @@ import { schemaToZod } from '@sdk-it/rpc';
 
 const ir = {} as never;
 
+describe('schemaToZod — impossible schemas', () => {
+  test('empty not rejects every value', () => {
+    const schema = schemaToZod({ not: {} }, ir, { required: true });
+
+    for (const value of [undefined, null, false, 0, '', {}, []]) {
+      assert.equal(schema.safeParse(value).success, false);
+    }
+  });
+});
+
 describe('schemaToZod — v3→v4 characterization (string formats)', () => {
   test('format: ipv4 accepts valid IPv4 and rejects invalid', () => {
     const schema = schemaToZod({ type: 'string', format: 'ipv4' }, ir, {

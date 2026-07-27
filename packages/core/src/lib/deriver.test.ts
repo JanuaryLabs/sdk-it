@@ -5,9 +5,12 @@ import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import ts from 'typescript';
 
-import { $types, TypeDeriver, deriveSymbol } from '@sdk-it/core';
+import { $types, TypeDeriver, deriveSymbol, toSchema } from '@sdk-it/core';
 
-async function createTestProject(code: string) {
+async function createTestProject(
+  code: string,
+  compilerOptions: ts.CompilerOptions = {},
+) {
   const testDir = await mkdtemp(join(tmpdir(), 'ts-deriver-test-'));
   const filePath = join(testDir, 'main.ts');
 
@@ -17,6 +20,7 @@ async function createTestProject(code: string) {
     target: ts.ScriptTarget.ESNext,
     module: ts.ModuleKind.ESNext,
     strict: true,
+    ...compilerOptions,
   });
 
   const checker = program.getTypeChecker();
@@ -62,10 +66,18 @@ async function deriveTypeFromCode(code: string, targetName: string) {
   }
 }
 
-async function deriveExpressionFromCode(code: string, targetName: string) {
-  const { checker, sourceFile, cleanup } = await createTestProject(code);
+async function deriveExpressionFromCode(
+  code: string,
+  targetName: string,
+  typesMap?: Record<string, string>,
+  compilerOptions?: ts.CompilerOptions,
+) {
+  const { checker, sourceFile, cleanup } = await createTestProject(
+    code,
+    compilerOptions,
+  );
   try {
-    const deriver = new TypeDeriver(checker);
+    const deriver = new TypeDeriver(checker, typesMap);
     let targetNode: ts.Expression | undefined;
 
     function visit(node: ts.Node) {
@@ -216,6 +228,29 @@ describe('Type Derivation', () => {
       });
     });
 
+    test('emits an impossible schema for never', async () => {
+      const result = toSchema(
+        await deriveTypeFromCode(
+          `export type Impossible = never;`,
+          'Impossible',
+        ),
+      );
+      assert.deepStrictEqual(result, { not: {} });
+    });
+
+    test('emits impossible array items for never arrays', async () => {
+      const result = toSchema(
+        await deriveTypeFromCode(
+          `export type ImpossibleList = never[];`,
+          'ImpossibleList',
+        ),
+      );
+      assert.deepStrictEqual(result, {
+        type: 'array',
+        items: { not: {} },
+      });
+    });
+
     test('identifies unknown type', async () => {
       const result = await deriveTypeFromCode(
         `export type Mystery = unknown;`,
@@ -348,18 +383,276 @@ describe('Type Derivation', () => {
     test.todo('handles const assertions');
 
     test('derives satisfies expressions from the annotation', async () => {
-      // `satisfies` checks without widening, so the expression type here is
-      // `never[]`. Deriving that yields no schema; the annotation is the
-      // contract the endpoint actually publishes.
       const code = `
         export interface ChatShare { id: string; token: string; }
         export const empty = [] satisfies ChatShare[];
       `;
 
-      const result = await deriveExpressionFromCode(code, 'empty');
+      const result = toSchema(
+        await deriveExpressionFromCode(code, 'empty', {
+          ChatShare: '#/components/schemas/ChatShare',
+        }),
+      );
 
-      assert.equal(result?.kind, 'array');
-      assert.notDeepStrictEqual(result?.[$types], ['any']);
+      assert.deepStrictEqual(result, {
+        type: 'array',
+        items: { $ref: '#/components/schemas/ChatShare' },
+      });
+    });
+
+    test('derives satisfies expressions used as object literal properties', async () => {
+      // The object literal branch read property initializers as
+      // `serializeType(getTypeAtLocation(init))`, which bypasses the satisfies
+      // handling below and yields `never[]`. That is the shape endpoints
+      // actually return -- `c.json({ messages: [] satisfies UIMessage[] })` --
+      // so the mapped name never reached typesMap and the property emitted a
+      // nested `{type:'any'}` array instead.
+      const code = `
+        export interface UIMessage { id: string; parts: UIMessage[]; }
+        export const payload = { messages: [] satisfies UIMessage[] };
+      `;
+
+      const result = await deriveExpressionFromCode(code, 'payload', {
+        UIMessage: '#/components/schemas/JsonObject',
+      });
+
+      assert.deepStrictEqual(result.messages, {
+        [deriveSymbol]: true,
+        kind: 'array',
+        optional: false,
+        [$types]: ['#/components/schemas/JsonObject'],
+      });
+    });
+
+    test('preserves literal response properties checked with satisfies', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `export const payload = { status: 'ok' satisfies string };`,
+          'payload',
+        ),
+      );
+
+      assert.deepStrictEqual(result, {
+        type: 'object',
+        properties: {
+          status: { enum: ['ok'], type: 'string' },
+        },
+        required: ['status'],
+        additionalProperties: false,
+      });
+    });
+
+    test('recovers empty-array satisfies annotations without strict null checks', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `
+            export interface UIMessage { id: string; }
+            export const payload = {
+              messages: [] satisfies UIMessage[],
+            };
+          `,
+          'payload',
+          { UIMessage: '#/components/schemas/JsonObject' },
+          { strictNullChecks: false },
+        ),
+      );
+
+      assert.deepStrictEqual(result.properties.messages, {
+        type: 'array',
+        items: { $ref: '#/components/schemas/JsonObject' },
+      });
+    });
+
+    test('keeps the inferred empty-array type for non-array satisfies targets', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `export const payload = [] satisfies unknown;`,
+          'payload',
+        ),
+      );
+
+      assert.deepStrictEqual(result, {
+        type: 'array',
+        items: { not: {} },
+      });
+    });
+
+    test('recovers satisfies annotations in nested response properties', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `
+            export interface UIMessage { id: string; }
+            export const payload = {
+              data: { messages: [] satisfies UIMessage[] },
+            };
+          `,
+          'payload',
+          { UIMessage: '#/components/schemas/JsonObject' },
+        ),
+      );
+
+      assert.deepStrictEqual(result, {
+        type: 'object',
+        properties: {
+          data: {
+            type: 'object',
+            properties: {
+              messages: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/JsonObject' },
+              },
+            },
+            required: ['messages'],
+            additionalProperties: false,
+          },
+        },
+        required: ['data'],
+        additionalProperties: false,
+      });
+    });
+
+    test('recovers satisfies annotations from shorthand response properties', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `
+            export interface UIMessage { id: string; }
+            const messages = [] satisfies UIMessage[];
+            export const payload = { messages };
+          `,
+          'payload',
+          { UIMessage: '#/components/schemas/JsonObject' },
+        ),
+      );
+
+      assert.deepStrictEqual(result, {
+        type: 'object',
+        properties: {
+          messages: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/JsonObject' },
+          },
+        },
+        required: ['messages'],
+        additionalProperties: false,
+      });
+    });
+
+    test('recovers shorthand satisfies annotations inside nested objects', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `
+            export interface UIMessage { id: string; }
+            const messages = [] satisfies UIMessage[];
+            export const payload = { data: { messages } };
+          `,
+          'payload',
+          { UIMessage: '#/components/schemas/JsonObject' },
+        ),
+      );
+
+      assert.deepStrictEqual(result.properties.data.properties.messages, {
+        type: 'array',
+        items: { $ref: '#/components/schemas/JsonObject' },
+      });
+    });
+
+    test('keeps explicit types for shorthand empty arrays', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `
+            export interface UIMessage { id: string; }
+            const messages: UIMessage[] = [];
+            export const payload = { messages };
+          `,
+          'payload',
+          { UIMessage: '#/components/schemas/JsonObject' },
+        ),
+      );
+
+      assert.deepStrictEqual(result.properties.messages, {
+        type: 'array',
+        items: { $ref: '#/components/schemas/JsonObject' },
+      });
+    });
+
+    test('uses the current type of mutable shorthand variables', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `
+            let status = 'ok';
+            status = 'error';
+            export const payload = { status };
+          `,
+          'payload',
+        ),
+      );
+
+      assert.deepStrictEqual(result.properties.status, { type: 'string' });
+    });
+
+    test('uses the current type of mutable shorthand satisfies variables', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `
+            let status = 'ok' satisfies string;
+            status = 'error';
+            export const payload = { status };
+          `,
+          'payload',
+        ),
+      );
+
+      assert.deepStrictEqual(result.properties.status, { type: 'string' });
+    });
+
+    test('keeps explicit types on shorthand satisfies variables', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `
+            const status: string = 'ok' satisfies string;
+            export const payload = { status };
+          `,
+          'payload',
+        ),
+      );
+
+      assert.deepStrictEqual(result.properties.status, { type: 'string' });
+    });
+
+    test('derives satisfies expressions through parentheses', async () => {
+      const code = `
+        export interface ChatShare { id: string; token: string; }
+        export const payload = { shares: ([] satisfies ChatShare[]) };
+      `;
+
+      const result = await deriveExpressionFromCode(code, 'payload', {
+        ChatShare: '#/components/schemas/ChatShare',
+      });
+
+      assert.deepStrictEqual(result.shares, {
+        [deriveSymbol]: true,
+        kind: 'array',
+        optional: false,
+        [$types]: ['#/components/schemas/ChatShare'],
+      });
+    });
+
+    test('derives parenthesized satisfies expressions returned directly', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `
+            export interface ChatShare { id: string; token: string; }
+            export const payload = ([] satisfies ChatShare[]);
+          `,
+          'payload',
+          { ChatShare: '#/components/schemas/ChatShare' },
+        ),
+      );
+
+      assert.deepStrictEqual(result, {
+        type: 'array',
+        items: { $ref: '#/components/schemas/ChatShare' },
+      });
     });
 
     test('keeps the narrowed type when satisfies has a real operand', async () => {
@@ -368,10 +661,16 @@ describe('Type Derivation', () => {
         export const flags = { enabled: true } satisfies Flags;
       `;
 
-      const result = await deriveExpressionFromCode(code, 'flags');
+      const result = toSchema(await deriveExpressionFromCode(code, 'flags'));
 
-      assert.ok(result, 'expected a derived schema for the satisfies operand');
-      assert.notEqual(result?.kind, 'array');
+      assert.deepStrictEqual(result, {
+        type: 'object',
+        properties: {
+          enabled: { enum: [true], type: 'boolean' },
+        },
+        required: ['enabled'],
+        additionalProperties: false,
+      });
     });
   });
 });

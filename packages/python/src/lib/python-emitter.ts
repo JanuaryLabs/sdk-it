@@ -1,7 +1,14 @@
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 import { snakecase } from 'stringcase';
 
-import { isRef, notRef, parseRef, pascalcase } from '@sdk-it/core';
+import {
+  followRef,
+  isEmpty,
+  isRef,
+  notRef,
+  parseRef,
+  pascalcase,
+} from '@sdk-it/core';
 import { type IR, isPrimitiveSchema } from '@sdk-it/spec';
 
 export function coerceObject(schema: SchemaObject): SchemaObject {
@@ -35,6 +42,7 @@ type Serialized = {
   literal?: unknown;
   content: string;
   simple?: boolean;
+  impossible?: boolean;
 };
 type Emit = (name: string, content: string, schema: SchemaObject) => void;
 
@@ -108,7 +116,25 @@ export class PythonEmitter {
     return fieldName;
   }
 
-  #ref(ref: ReferenceObject): Serialized {
+  #isBottom(schema: SchemaObject | ReferenceObject | undefined): boolean {
+    if (!schema) {
+      return false;
+    }
+    const resolved = isRef(schema)
+      ? followRef<SchemaObject>(this.#spec, schema.$ref)
+      : schema;
+    return !!resolved.not && isEmpty(resolved.not);
+  }
+
+  #ref(ref: ReferenceObject, context: Context = {}): Serialized {
+    const schema = followRef<SchemaObject>(this.#spec, ref.$ref);
+    if (
+      this.#isBottom(schema) ||
+      (schema.type === 'array' && this.#isBottom(schema.items))
+    ) {
+      return this.handle(schema, context);
+    }
+
     const cacheKey = ref.$ref;
     const cached = this.#typeCache.get(cacheKey);
     if (cached) {
@@ -196,15 +222,20 @@ export class PythonEmitter {
     // Process properties
     for (const [propName, propSchema] of Object.entries(properties)) {
       if (isRef(propSchema)) {
-        this.#ref(propSchema);
-        const refInfo = parseRef(propSchema.$ref);
-        const refName = refInfo.model;
-        const pythonType = pascalcase(refName);
+        const result = this.#ref(propSchema, context);
+        const pythonType = result.type || 'Any';
 
         const fieldName = this.#formatFieldName(propName);
         const isRequired = required.includes(propName);
-        const fieldType = isRequired ? pythonType : `Optional[${pythonType}]`;
-        const defaultValue = isRequired ? '' : ' = None';
+        const fieldType =
+          isRequired || result.impossible
+            ? pythonType
+            : `Optional[${pythonType}]`;
+        const defaultValue = isRequired
+          ? ''
+          : result.impossible
+            ? ' = Field(default=None, exclude=True)'
+            : ' = None';
 
         fields.push(`    ${fieldName}: ${fieldType}${defaultValue}`);
       } else {
@@ -213,16 +244,20 @@ export class PythonEmitter {
         const isRequired = required.includes(propName);
 
         let fieldType = result.type || 'Any';
-        if (!isRequired) {
+        if (!isRequired && !result.impossible) {
           fieldType = `Optional[${fieldType}]`;
         }
 
-        const defaultValue = isRequired ? '' : ' = None';
+        const defaultValue = isRequired
+          ? ''
+          : result.impossible
+            ? ' = Field(default=None, exclude=True)'
+            : ' = None';
         let fieldDef = `    ${fieldName}: ${fieldType}${defaultValue}`;
 
         // Add Field() for alias or validation if needed
         if (fieldName !== propName) {
-          fieldDef = `    ${fieldName}: ${fieldType} = Field(alias='${propName}'${defaultValue ? ', default=None' : ''})`;
+          fieldDef = `    ${fieldName}: ${fieldType} = Field(alias='${propName}'${isRequired ? '' : ', default=None'}${!isRequired && result.impossible ? ', exclude=True' : ''})`;
         }
 
         // Add description as comment if available
@@ -443,7 +478,19 @@ ${enumItems.join('\n')}
     context: Context = {},
   ): Serialized {
     if (isRef(schema)) {
-      return this.#ref(schema);
+      return this.#ref(schema, context);
+    }
+
+    if (schema.not && isEmpty(schema.not)) {
+      const type = context.pydantic === true ? '_NeverValue' : 'Never';
+      return {
+        type,
+        content: '',
+        use: type,
+        fromJson: type,
+        simple: true,
+        impossible: true,
+      };
     }
 
     // Handle const values

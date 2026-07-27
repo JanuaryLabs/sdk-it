@@ -1,7 +1,7 @@
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 import { type ZodType, z } from 'zod';
 
-import { followRef, isRef } from '@sdk-it/core';
+import { followRef, isEmpty, isRef } from '@sdk-it/core';
 import type { IR } from '@sdk-it/spec';
 
 // z.iso.time() rejects RFC 3339 zone suffixes ('10:30:00Z', '10:30:00+02:00'),
@@ -326,8 +326,12 @@ export class RuntimeZodConverter {
 
     let result: ZodType = z.unknown();
 
+    if (schema.not && isEmpty(schema.not)) {
+      result = required ? z.never() : z.never().optional();
+    }
+
     // Handle allOf → intersection
-    if (schema.allOf && Array.isArray(schema.allOf)) {
+    else if (schema.allOf && Array.isArray(schema.allOf)) {
       result = this.allOf(schema.allOf);
       if (!required) {
         result = result.optional();

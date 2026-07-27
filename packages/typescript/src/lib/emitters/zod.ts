@@ -4,7 +4,7 @@ import type {
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { followRef, isRef, parseRef, pascalcase } from '@sdk-it/core';
+import { followRef, isEmpty, isRef, parseRef, pascalcase } from '@sdk-it/core';
 import { isPrimitiveSchema, sanitizeTag } from '@sdk-it/spec';
 
 type OnRefCallback = (ref: string, content: string) => void;
@@ -324,6 +324,10 @@ export class ZodEmitter {
   handle(schema: SchemaObject | ReferenceObject, required: boolean): string {
     if (isRef(schema)) {
       return `${this.#ref(schema.$ref, true)}${appendOptional(required)}`;
+    }
+
+    if (schema.not && isEmpty(schema.not)) {
+      return `z.never()${appendOptional(required)}`;
     }
 
     // Handle allOf → intersection

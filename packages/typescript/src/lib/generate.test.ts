@@ -271,6 +271,101 @@ describe('generate — dictionary inputs', () => {
   });
 });
 
+describe('generate — impossible schemas', () => {
+  test('emits never arrays for schemas that reject every item', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-never-response-'));
+    try {
+      await generate(
+        {
+          openapi: '3.1.0',
+          info: { title: 'Impossible response', version: '1.0.0' },
+          paths: {
+            '/impossible': {
+              get: {
+                operationId: 'listImpossible',
+                tags: ['impossible'],
+                responses: {
+                  '200': {
+                    description: 'OK',
+                    content: {
+                      'application/json': {
+                        schema: {
+                          type: 'array',
+                          items: { not: {} },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          output: dir,
+          name: 'Impossible',
+          readme: false,
+        },
+      );
+
+      const source = readFileSync(
+        join(dir, 'outputs', 'list-impossible.ts'),
+        'utf8',
+      );
+      assert.match(source, /export type ListImpossible = \(never\)\[\];/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('emits z.never for request schemas that reject every value', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-never-input-'));
+    try {
+      await generate(
+        {
+          openapi: '3.1.0',
+          info: { title: 'Impossible input', version: '1.0.0' },
+          paths: {
+            '/impossible': {
+              post: {
+                operationId: 'createImpossible',
+                tags: ['impossible'],
+                requestBody: {
+                  required: true,
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'object',
+                        properties: {
+                          value: { not: {} },
+                        },
+                        required: ['value'],
+                      },
+                    },
+                  },
+                },
+                responses: {
+                  '204': { description: 'Created' },
+                },
+              },
+            },
+          },
+        },
+        {
+          output: dir,
+          name: 'Impossible',
+          readme: false,
+        },
+      );
+
+      const source = readFileSync(join(dir, 'inputs', 'impossible.ts'), 'utf8');
+      assert.match(source, /'value': z\.never\(\)/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('generate — AI SDK 7 agent tools', () => {
   test('emits type-correct projects for every agent runtime', async () => {
     for (const agentTools of ['ai-sdk', 'openai-agents'] as const) {

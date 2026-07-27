@@ -58,6 +58,7 @@ type Serialized = {
   literal?: unknown;
   content: string;
   simple?: boolean;
+  impossible?: boolean;
 };
 type Emit = (name: string, content: string, schema: SchemaObject) => void;
 /**
@@ -161,6 +162,10 @@ export class DartSerializer {
       const nullable = serializedType.nullable || !requiredProp;
       const nullableSuffix =
         serializedType.use === 'dynamic' ? '' : nullable ? '?' : ''; // dynamic types requires no suffix
+      const omitWhenNull = serializedType.impossible && !requiredProp;
+      const includeIfPresent = omitWhenNull
+        ? `if (${safePropName} != null) `
+        : '';
       const withValue =
         serializedType.literal !== undefined
           ? ` = ${serializedType.literal}`
@@ -169,15 +174,25 @@ export class DartSerializer {
         `final ${serializedType.use}${nullableSuffix} ${safePropName} ${withValue};`,
       );
       toJsonProperties.push(
-        `'${jsonKey}': ${safePropName}${serializedType.encodeV2}`,
+        `${includeIfPresent}'${jsonKey}': ${safePropName}${serializedType.encodeV2}`,
       );
       if (!withValue) {
-        fromJsonParams.push(`${safePropName}: ${serializedType.fromJson}`);
+        fromJsonParams.push(
+          `${safePropName}: ${
+            omitWhenNull
+              ? `json.containsKey('${jsonKey}') ? ${serializedType.fromJson} : null`
+              : serializedType.fromJson
+          }`,
+        );
         constructorParams.push(
           `${requiredProp ? 'required ' : ''}this.${safePropName},`,
         );
       }
-      if (requiredProp) {
+      if (serializedType.impossible) {
+        matches.push(
+          requiredProp ? 'false' : `!json.containsKey('${jsonKey}')`,
+        );
+      } else if (requiredProp) {
         matches.push(`(
   json.containsKey('${jsonKey}')
   ? ${nullable ? `json['${jsonKey}'] == null` : `json['${jsonKey}'] != null`} ${serializedType.matches ? `&& ${serializedType.matches}` : ''}
@@ -194,23 +209,25 @@ export class DartSerializer {
       if (source) {
         switch (source) {
           case 'header':
-            headers.push(`'${jsonKey}': ${safePropName}`);
+            headers.push(`${includeIfPresent}'${jsonKey}': ${safePropName}`);
             break;
           case 'path':
-            params.push(`'${jsonKey}': ${safePropName}`);
+            params.push(`${includeIfPresent}'${jsonKey}': ${safePropName}`);
             break;
           case 'query':
-            queryParams.push(`'${jsonKey}': ${safePropName}`);
+            queryParams.push(
+              `${includeIfPresent}'${jsonKey}': ${safePropName}`,
+            );
             break;
           default:
-            bodyParams.push(`'${jsonKey}': ${safePropName}`);
+            bodyParams.push(`${includeIfPresent}'${jsonKey}': ${safePropName}`);
         }
       } else {
         if (special) {
           bodyParams.push(`$body${serializedType.encodeV2!}`);
         } else {
           bodyParams.push(
-            `'${jsonKey}': ${safePropName}${serializedType.encodeV2}`,
+            `${includeIfPresent}'${jsonKey}': ${safePropName}${serializedType.encodeV2}`,
           );
         }
       }
@@ -420,7 +437,10 @@ ${toJsonProperties.join(',\n')}
   ): Serialized {
     const schemaName = pascalcase(sanitizeTag(parseRef($ref).model));
     const schema = followRef(this.#spec, $ref);
-    if (isPrimitiveSchema(schema)) {
+    if (
+      isPrimitiveSchema(schema) ||
+      (schema.not !== undefined && isEmpty(schema.not))
+    ) {
       return this.handle(schemaName, schema, required, {
         ...context,
         propName: schemaName,
@@ -865,6 +885,19 @@ return false;
   ): Serialized {
     if (isRef(schema)) {
       return this.#ref(className, schema.$ref, required, context);
+    }
+
+    if (schema.not && isEmpty(schema.not)) {
+      return {
+        content: '',
+        use: 'Never',
+        encodeV2: '',
+        simple: true,
+        fromJson: `${context.parsable || 'json'} as Never`,
+        matches: 'false',
+        nullable: false,
+        impossible: true,
+      };
     }
 
     if (schema.const !== undefined) {

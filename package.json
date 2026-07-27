@@ -6,13 +6,13 @@
   "scripts": {
     "prepare": "husky",
     "format:check": "prettier --check .",
-    "lint": "nx run-many -t lint --exclude=@sdk-it/source",
-    "typecheck": "nx run-many -t typecheck --exclude=@sdk-it/source",
+    "lint": "nx run-many -t lint",
+    "typecheck": "nx run-many -t typecheck",
     "test": "npm run test:packages",
-    "test:packages": "nx run-many -t test --exclude=@sdk-it/source",
+    "test:packages": "nx run-many -t test",
     "test:e2e": "bun ./e2e/index.ts",
     "test:e2e:dart": "bun ./e2e/dart.ts",
-    "build": "nx run-many -t build --exclude=@sdk-it/source",
+    "build": "nx run-many -t build",
     "check:data": "node tools/check-data-files.mjs",
     "check:links": "node tools/check-markdown-links.mjs"
   },
@@ -85,6 +85,7 @@
     "*.{json,jsonc,md,yml,yaml,css,html}": "prettier --write"
   },
   "nx": {
+    "includedScripts": [],
     "targets": {
       "local-registry": {
         "executor": "@nx/js:verdaccio",

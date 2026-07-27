@@ -101,6 +101,14 @@ export class TypeDeriver {
         [$types]: [],
       };
     }
+    if (type.flags & TypeFlags.Never) {
+      return {
+        [deriveSymbol]: true,
+        kind: 'never',
+        optional: false,
+        [$types]: [],
+      };
+    }
     if (type.isStringLiteral()) {
       return {
         [deriveSymbol]: true,
@@ -303,20 +311,24 @@ export class TypeDeriver {
       if (properties.length > 0) {
         const serializedProps: Record<string, any> = {};
         for (const prop of properties) {
-          const propAssingment = (prop.getDeclarations() ?? []).find((it) =>
+          const declarations = prop.getDeclarations() ?? [];
+          const propAssingment = declarations.find((it) =>
             ts.isPropertyAssignment(it),
           );
+          const shorthand = declarations.find((it) =>
+            ts.isShorthandPropertyAssignment(it),
+          );
+          const shorthandType = shorthand
+            ? this.typeOfShorthand(shorthand)
+            : undefined;
           // get literal properties values if any
           if (propAssingment) {
-            const type = this.checker.getTypeAtLocation(
-              propAssingment.initializer,
+            serializedProps[prop.name] = this.serializeType(
+              this.typeOfExpression(propAssingment.initializer),
             );
-            serializedProps[prop.name] = this.serializeType(type);
-          } else if (
-            (prop.getDeclarations() ?? []).find((it) =>
-              ts.isPropertySignature(it),
-            )
-          ) {
+          } else if (shorthandType) {
+            serializedProps[prop.name] = this.serializeType(shorthandType);
+          } else if (declarations.find((it) => ts.isPropertySignature(it))) {
             const propType = this.checker.getTypeOfSymbol(prop);
             serializedProps[prop.name] = this.serializeType(propType);
           } else {
@@ -358,6 +370,60 @@ export class TypeDeriver {
     };
   }
 
+  /**
+   * Preserve the inferred type of `satisfies` expressions unless the operand is
+   * an empty array; only then recover its declared element type.
+   */
+  private typeOfExpression(node: ts.Expression): ts.Type {
+    const satisfies = this.emptyArraySatisfies(node);
+    if (satisfies) {
+      return this.checker.getTypeFromTypeNode(satisfies.type);
+    }
+    let expression = node;
+    while (ts.isParenthesizedExpression(expression)) {
+      expression = expression.expression;
+    }
+    return this.checker.getTypeAtLocation(expression);
+  }
+
+  private emptyArraySatisfies(
+    node: ts.Expression,
+  ): ts.SatisfiesExpression | undefined {
+    let expression = node;
+    while (ts.isParenthesizedExpression(expression)) {
+      expression = expression.expression;
+    }
+    if (!ts.isSatisfiesExpression(expression)) {
+      return undefined;
+    }
+    let operand = expression.expression;
+    while (ts.isParenthesizedExpression(operand)) {
+      operand = operand.expression;
+    }
+    if (!ts.isArrayLiteralExpression(operand) || operand.elements.length > 0) {
+      return undefined;
+    }
+    const annotation = this.checker.getTypeFromTypeNode(expression.type);
+    return this.checker.isArrayLikeType(annotation) ? expression : undefined;
+  }
+
+  private typeOfShorthand(
+    node: ts.ShorthandPropertyAssignment,
+  ): ts.Type | undefined {
+    const symbol = this.checker.getShorthandAssignmentValueSymbol(node);
+    const declaration = symbol?.valueDeclaration ?? symbol?.declarations?.[0];
+    if (
+      !declaration ||
+      !ts.isVariableDeclaration(declaration) ||
+      !declaration.initializer
+    ) {
+      return undefined;
+    }
+    return this.emptyArraySatisfies(declaration.initializer)
+      ? this.typeOfExpression(declaration.initializer)
+      : this.checker.getTypeAtLocation(node.name);
+  }
+
   serializeNode(node: ts.Node): any {
     this.currentNode = node;
     if (ts.isObjectLiteralExpression(node)) {
@@ -371,8 +437,14 @@ export class TypeDeriver {
       // get literal properties values if any
       for (const prop of node.properties) {
         if (ts.isPropertyAssignment(prop)) {
-          const type = this.checker.getTypeAtLocation(prop.initializer);
-          props[prop.name.getText()] = this.serializeType(type);
+          props[prop.name.getText()] = this.serializeType(
+            this.typeOfExpression(prop.initializer),
+          );
+        } else if (ts.isShorthandPropertyAssignment(prop)) {
+          const type = this.typeOfShorthand(prop);
+          if (type) {
+            props[prop.name.text] = this.serializeType(type);
+          }
         }
       }
 
@@ -492,12 +564,7 @@ export class TypeDeriver {
       return this.serializeType(type);
     }
     if (ts.isSatisfiesExpression(node)) {
-      // Unlike `as`, `satisfies` checks the operand without widening it, so the
-      // node's own type is the narrow inferred one -- `[] satisfies Share[]` is
-      // `never[]`, which carries no schema. The annotation is the declared
-      // contract callers code against, so derive from that instead.
-      const type = this.checker.getTypeFromTypeNode(node.type);
-      return this.serializeType(type);
+      return this.serializeType(this.typeOfExpression(node));
     }
     if (ts.isTypeLiteralNode(node)) {
       const symbolType = this.checker.getTypeAtLocation(node);
@@ -609,8 +676,7 @@ export class TypeDeriver {
 
     // Handle parenthesized expressions ((value))
     if (ts.isParenthesizedExpression(node)) {
-      const type = this.checker.getTypeAtLocation(node);
-      return this.serializeType(type);
+      return this.serializeType(this.typeOfExpression(node));
     }
 
     // Handle non-null assertions (value!)
