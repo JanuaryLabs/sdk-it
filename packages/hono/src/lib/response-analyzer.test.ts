@@ -135,22 +135,30 @@ describe('Response Analyzer', () => {
                 [deriveSymbol]: true,
                 [$types]: [
                   {
-                    id: {
-                      [deriveSymbol]: true,
-                      [$types]: ['number'],
-                      optional: false,
-                      kind: 'literal',
-                      value: 1,
-                    },
-                    name: {
-                      [deriveSymbol]: true,
-                      [$types]: ['string'],
-                      optional: false,
-                      kind: 'literal',
-                      value: 'test',
-                    },
+                    [deriveSymbol]: true,
+                    [$types]: [
+                      {
+                        id: {
+                          [deriveSymbol]: true,
+                          [$types]: ['number'],
+                          optional: false,
+                          kind: 'literal',
+                          value: 1,
+                        },
+                        name: {
+                          [deriveSymbol]: true,
+                          [$types]: ['string'],
+                          optional: false,
+                          kind: 'literal',
+                          value: 'test',
+                        },
+                      },
+                    ],
+                    optional: false,
+                    kind: 'object',
                   },
                 ],
+                optional: false,
                 kind: 'array',
               },
             },
