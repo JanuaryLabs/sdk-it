@@ -271,6 +271,96 @@ describe('generate — dictionary inputs', () => {
   });
 });
 
+describe('generate — discriminated input unions', () => {
+  test('client.prepare accepts objects matching one discriminator branch', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-discriminated-input-'));
+    try {
+      await generate(
+        {
+          openapi: '3.1.0',
+          info: { title: 'Messages', version: '1.0.0' },
+          paths: {
+            '/messages': {
+              post: {
+                operationId: 'createMessage',
+                requestBody: {
+                  required: true,
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'object',
+                        properties: {
+                          messages: {
+                            type: 'array',
+                            items: {
+                              oneOf: [
+                                {
+                                  $ref: '#/components/schemas/SystemMessage',
+                                },
+                                { $ref: '#/components/schemas/UserMessage' },
+                              ],
+                              discriminator: { propertyName: 'role' },
+                            },
+                          },
+                        },
+                        required: ['messages'],
+                      },
+                    },
+                  },
+                },
+                responses: { '204': { description: 'Created' } },
+              },
+            },
+          },
+          components: {
+            schemas: Object.fromEntries(
+              ['system', 'user'].map((role) => [
+                `${role[0].toUpperCase()}${role.slice(1)}Message`,
+                {
+                  type: 'object',
+                  properties: {
+                    role: { type: 'string', enum: [role] },
+                    content: { type: 'string' },
+                  },
+                  required: ['role', 'content'],
+                },
+              ]),
+            ),
+          },
+        },
+        { output: dir, name: 'Messages', readme: false },
+      );
+
+      const bundlePath = join(dir, 'client.cjs');
+      await esbuild({
+        entryPoints: [join(dir, 'index.ts')],
+        bundle: true,
+        outfile: bundlePath,
+        format: 'cjs',
+        platform: 'node',
+        target: 'node20',
+        absWorkingDir: dir,
+        nodePaths: [join(repoRoot, 'node_modules')],
+        logLevel: 'silent',
+      });
+      const { Messages } = createRequire(import.meta.url)(bundlePath) as {
+        Messages: new (options: { baseUrl: string }) => {
+          prepare(endpoint: string, input: unknown): Promise<unknown>;
+        };
+      };
+      const client = new Messages({ baseUrl: 'https://api.example.com' });
+
+      for (const role of ['system', 'user']) {
+        await client.prepare('POST /messages', {
+          messages: [{ role, content: 'hello' }],
+        });
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('generate — impossible schemas', () => {
   test('emits never arrays for schemas that reject every item', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'generate-never-response-'));

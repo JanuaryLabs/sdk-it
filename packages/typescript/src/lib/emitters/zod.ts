@@ -345,6 +345,10 @@ export class ZodEmitter {
       return this.oneOf(schema.oneOf ?? [], required);
     }
 
+    if (schema.const !== undefined) {
+      return `z.literal(${JSON.stringify(schema.const)})${this.#suffixes(JSON.stringify(schema.default), required, false)}`;
+    }
+
     // enum
     if (schema.enum && Array.isArray(schema.enum)) {
       const enumVals = schema.enum.map((val) => JSON.stringify(val));
