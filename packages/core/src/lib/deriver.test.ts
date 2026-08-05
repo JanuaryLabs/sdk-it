@@ -492,7 +492,8 @@ describe('Type Derivation', () => {
       });
     });
 
-    test('recovers empty-array satisfies annotations without strict null checks', async () => {
+    test('recovers empty-array satisfies annotations without transient warnings', async (t) => {
+      const warn = t.mock.method(console, 'warn', () => undefined);
       const result = toSchema(
         await deriveExpressionFromCode(
           `
@@ -511,6 +512,31 @@ describe('Type Derivation', () => {
         type: 'array',
         items: { $ref: '#/components/schemas/JsonObject' },
       });
+      assert.equal(warn.mock.callCount(), 0);
+    });
+
+    test('recovers empty-array satisfies annotations through identifier responses', async () => {
+      const variants = ['messages', 'alias', '[...messages]'];
+
+      for (const response of variants) {
+        const result = toSchema(
+          await deriveExpressionFromCode(
+            `
+              export interface UIMessage { id: string; }
+              const messages = [] satisfies UIMessage[];
+              const alias = messages;
+              export const payload = ${response};
+            `,
+            'payload',
+            { UIMessage: '#/components/schemas/JsonObject' },
+          ),
+        );
+
+        assert.deepStrictEqual(result, {
+          type: 'array',
+          items: { $ref: '#/components/schemas/JsonObject' },
+        });
+      }
     });
 
     test('keeps the inferred empty-array type for non-array satisfies targets', async () => {

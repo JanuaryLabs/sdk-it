@@ -350,7 +350,10 @@ export class TypeDeriver {
    * Preserve the inferred type of `satisfies` expressions unless the operand is
    * an empty array; only then recover its declared element type.
    */
-  private typeOfExpression(node: ts.Expression): ts.Type {
+  private typeOfExpression(
+    node: ts.Expression,
+    seen = new Set<ts.Symbol>(),
+  ): ts.Type {
     const satisfies = this.emptyArraySatisfies(node);
     if (satisfies) {
       return this.checker.getTypeFromTypeNode(satisfies.type);
@@ -359,6 +362,36 @@ export class TypeDeriver {
     while (ts.isParenthesizedExpression(expression)) {
       expression = expression.expression;
     }
+
+    if (ts.isIdentifier(expression)) {
+      const symbol = this.checker.getSymbolAtLocation(expression);
+      const declaration = symbol?.valueDeclaration ?? symbol?.declarations?.[0];
+      if (
+        symbol &&
+        !seen.has(symbol) &&
+        declaration &&
+        ts.isVariableDeclaration(declaration) &&
+        ts.isVariableDeclarationList(declaration.parent) &&
+        declaration.parent.flags & ts.NodeFlags.Const
+      ) {
+        seen.add(symbol);
+        if (declaration.type) {
+          return this.checker.getTypeFromTypeNode(declaration.type);
+        }
+        if (declaration.initializer) {
+          return this.typeOfExpression(declaration.initializer, seen);
+        }
+      }
+    }
+
+    if (
+      ts.isArrayLiteralExpression(expression) &&
+      expression.elements.length === 1 &&
+      ts.isSpreadElement(expression.elements[0])
+    ) {
+      return this.typeOfExpression(expression.elements[0].expression, seen);
+    }
+
     return this.checker.getTypeAtLocation(expression);
   }
 
@@ -405,12 +438,7 @@ export class TypeDeriver {
     if (ts.isObjectLiteralExpression(node)) {
       const symbolType = this.checker.getTypeAtLocation(node);
       const props: Record<string, any> = {};
-      for (const symbol of symbolType.getProperties()) {
-        const type = this.checker.getTypeOfSymbol(symbol);
-        props[symbol.name] = this.serializeType(type);
-      }
 
-      // get literal properties values if any
       for (const prop of node.properties) {
         if (ts.isPropertyAssignment(prop)) {
           props[prop.name.getText()] = this.serializeType(
@@ -421,6 +449,13 @@ export class TypeDeriver {
           if (type) {
             props[prop.name.text] = this.serializeType(type);
           }
+        }
+      }
+
+      for (const symbol of symbolType.getProperties()) {
+        if (!Object.hasOwn(props, symbol.name)) {
+          const type = this.checker.getTypeOfSymbol(symbol);
+          props[symbol.name] = this.serializeType(type);
         }
       }
 
@@ -524,7 +559,7 @@ export class TypeDeriver {
         this.warn(`No symbol found for identifier ${node.getText()}`, node);
         return null;
       }
-      const type = this.checker.getTypeAtLocation(node);
+      const type = this.typeOfExpression(node);
       return this.serializeType(type);
     }
     if (ts.isAwaitExpression(node)) {
@@ -618,7 +653,7 @@ export class TypeDeriver {
       };
     }
     if (ts.isArrayLiteralExpression(node)) {
-      const type = this.checker.getTypeAtLocation(node);
+      const type = this.typeOfExpression(node);
       return this.serializeType(type);
     }
     if (ts.isStringLiteral(node) || ts.isNumericLiteral(node)) {
