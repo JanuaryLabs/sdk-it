@@ -748,5 +748,29 @@ describe('Type Derivation', () => {
         additionalProperties: false,
       });
     });
+
+    test('emits component references for recursive message parts', async () => {
+      const { checker, sourceFile, cleanup } = await createTestProject(`
+        type UIMessagePart<D, T> =
+          | { type: 'text'; text: string }
+          | { type: 'step'; parts: UIMessagePart<D, T>[] };
+      `);
+
+      try {
+        const declaration = sourceFile.statements.find(
+          ts.isTypeAliasDeclaration,
+        );
+        assert.ok(declaration);
+
+        const deriver = new TypeDeriver(checker, {});
+        deriver.serializeType(checker.getTypeAtLocation(declaration));
+        const messagePart = toSchema(deriver.collector.UIMessagePart);
+        assert.deepStrictEqual(messagePart.anyOf[1].properties.parts.items, {
+          $ref: '#/components/schemas/UIMessagePart',
+        });
+      } finally {
+        await cleanup();
+      }
+    });
   });
 });

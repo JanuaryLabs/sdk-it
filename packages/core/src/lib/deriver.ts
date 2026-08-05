@@ -41,6 +41,7 @@ export class TypeDeriver {
   public readonly typesMap: Record<string, string>;
   private trace: TraceContext = {};
   private currentNode?: ts.Node;
+  private readonly activeAliases = new Map<ts.Type, boolean>();
   constructor(
     checker: ts.TypeChecker,
     typeMappings: Record<string, string> = defaultTypesMap,
@@ -73,6 +74,35 @@ export class TypeDeriver {
   }
 
   private serialize(type: ts.Type, widenLiteralValues: boolean): unknown {
+    const alias = type.aliasSymbol?.getName();
+    if (!alias) {
+      return this.serializeResolved(type, widenLiteralValues);
+    }
+    if (this.activeAliases.has(type)) {
+      this.activeAliases.set(type, true);
+      return {
+        [deriveSymbol]: true,
+        optional: false,
+        [$types]: [`#/components/schemas/${alias}`],
+      };
+    }
+
+    this.activeAliases.set(type, false);
+    try {
+      const result = this.serializeResolved(type, widenLiteralValues);
+      if (this.activeAliases.get(type)) {
+        this.collector[alias] = result;
+      }
+      return result;
+    } finally {
+      this.activeAliases.delete(type);
+    }
+  }
+
+  private serializeResolved(
+    type: ts.Type,
+    widenLiteralValues: boolean,
+  ): unknown {
     if (this.typesMap[type.aliasSymbol?.getName() || type.symbol?.getName()]) {
       return {
         [deriveSymbol]: true,
