@@ -41,6 +41,34 @@ afterEach(() => {
   }
 });
 
+test('package exposes the sdk-it executable', () => {
+  const manifest = JSON.parse(
+    readFileSync(join(repoRoot, 'packages', 'cli', 'package.json'), 'utf8'),
+  );
+
+  assert.deepEqual(manifest.bin, { 'sdk-it': './dist/bin.js' });
+});
+
+test('help identifies sdk-it and exposes the nested generators', () => {
+  const rootHelp = runCli(repoRoot, '--help');
+
+  assert.equal(rootHelp.status, 0, rootHelp.stderr);
+  assert.match(rootHelp.stdout, /^Usage: sdk-it /);
+  assert.match(
+    rootHelp.stdout,
+    /generate \[options\]\s+Generate SDKs from configuration or OpenAPI/,
+  );
+
+  const typescriptHelp = runCli(repoRoot, 'generate', 'typescript', '--help');
+
+  assert.equal(typescriptHelp.status, 0, typescriptHelp.stderr);
+  assert.match(
+    typescriptHelp.stdout,
+    /^Usage: sdk-it generate typescript\|ts \[options\]/,
+  );
+  assert.match(typescriptHelp.stdout, /--spec <spec>/);
+});
+
 function createHonoWorkspace() {
   const workspace = mkdtempSync(join(tmpdir(), 'sdk-it-project-'));
   tempDirectories.push(workspace);

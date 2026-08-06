@@ -17,6 +17,7 @@ interface Options {
 }
 
 const generate = new Command('generate')
+  .description('Generate SDKs from configuration or OpenAPI')
   .option('-c, --config <path>', 'Path to an SDK-IT configuration file')
   .action(async (options: Options) => {
     if (!options.config || options.config.endsWith('.ts')) {
@@ -102,6 +103,7 @@ const generate = new Command('generate')
   .addCommand(readme);
 
 const cli = program
+  .name('sdk-it')
   .description(`CLI tool to interact with SDK-IT.`)
   .addCommand(generate, { isDefault: true })
   .addCommand(init)

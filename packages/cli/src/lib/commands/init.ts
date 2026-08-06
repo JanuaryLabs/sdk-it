@@ -408,13 +408,13 @@ const init = new Command('init')
       '   npx @sdk-it/cli          # Regenerate SDKs after API changes',
     );
     console.log(
-      '   npx @sdk-it/cli typescript --help # See TypeScript-specific options',
+      '   npx @sdk-it/cli generate typescript --help # See TypeScript-specific options',
     );
     console.log(
-      '   npx @sdk-it/cli python --help     # See Python-specific options',
+      '   npx @sdk-it/cli generate python --help     # See Python-specific options',
     );
     console.log(
-      '   npx @sdk-it/cli dart --help       # See Dart-specific options',
+      '   npx @sdk-it/cli generate dart --help       # See Dart-specific options',
     );
 
     console.log('\n💡 Tips:');
