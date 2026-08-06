@@ -16,18 +16,23 @@ function extractInlineSchemaComponents(
 
     if (!isEmpty(schema.properties)) {
       if (!isEmpty(schema.oneOf)) {
-        for (const oneOfIndex in schema.oneOf) {
-          const oneOf = schema.oneOf[oneOfIndex];
+        for (const [oneOfIndex, oneOf] of schema.oneOf.entries()) {
           if (isRef(oneOf)) continue;
-          for (const key of ['properties', 'x-properties'] as const) {
-            if (!isEmpty(oneOf.required) && schema[key]) {
-              schema.oneOf[oneOfIndex] = schema[key][oneOf.required[0]];
-            }
+
+          const requiredProperty = oneOf.required?.[0];
+          if (
+            requiredProperty &&
+            isEmpty(oneOf.properties) &&
+            isEmpty(oneOf['x-properties'])
+          ) {
+            schema.oneOf[oneOfIndex] =
+              schema.properties?.[requiredProperty] ??
+              schema['x-properties']?.[requiredProperty] ??
+              oneOf;
           }
         }
         delete schema.type;
-        extractInlineSchemaComponents(spec, schemas);
-        continue;
+        extractInlineUnion(spec, name, schema, 'oneOf');
       }
       if (schema.additionalProperties) {
         continue;

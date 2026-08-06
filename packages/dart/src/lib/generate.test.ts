@@ -86,3 +86,64 @@ test('generates Never for impossible response schemas', async () => {
     rmSync(output, { recursive: true, force: true });
   }
 });
+
+test('generates schemas with common properties and inline oneOf variants', async () => {
+  const output = mkdtempSync(join(tmpdir(), 'dart-generate-inline-one-of-'));
+  try {
+    const spec: OpenAPIObject = {
+      openapi: '3.1.0',
+      info: { title: 'Subscriptions', version: '1.0.0' },
+      components: {
+        schemas: {
+          SubscriptionRequest: {
+            type: 'object',
+            allOf: [
+              {
+                properties: {
+                  pageId: { type: 'string' },
+                },
+              },
+              {
+                oneOf: [
+                  {
+                    type: 'object',
+                    properties: { email: { type: 'string' } },
+                    required: ['email'],
+                  },
+                  {
+                    type: 'object',
+                    properties: { webhook: { type: 'string' } },
+                    required: ['webhook'],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+      paths: {
+        '/subscriptions': {
+          post: {
+            operationId: 'createSubscription',
+            tags: ['subscriptions'],
+            requestBody: {
+              required: true,
+              content: {
+                'application/json': {
+                  schema: {
+                    $ref: '#/components/schemas/SubscriptionRequest',
+                  },
+                },
+              },
+            },
+            responses: { '204': { description: 'Created' } },
+          },
+        },
+      },
+    };
+
+    await generate(spec, { output, name: 'Subscriptions' });
+  } finally {
+    rmSync(output, { recursive: true, force: true });
+  }
+});
