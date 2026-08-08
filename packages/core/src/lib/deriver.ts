@@ -1,6 +1,5 @@
 import ts, { TypeFlags, symbolName } from 'typescript';
 
-import { isInterfaceType } from './program.js';
 import { sortObjectKeys } from './utils.js';
 
 type Collector = Record<string, any>;
@@ -135,11 +134,11 @@ export class TypeDeriver {
         [$types]: [],
       };
     }
-    if (type.flags & TypeFlags.Never) {
+    if (type.flags & (TypeFlags.Never | TypeFlags.Undefined)) {
       return {
         [deriveSymbol]: true,
         kind: 'never',
-        optional: false,
+        optional: (type.flags & TypeFlags.Undefined) !== 0,
         [$types]: [],
       };
     }
@@ -292,17 +291,23 @@ export class TypeDeriver {
       }
       return this.serializeNode(declaration);
     }
-    if (isInterfaceType(type)) {
-      const valueDeclaration =
-        type.symbol.valueDeclaration ?? type.symbol.declarations?.[0];
-      if (!valueDeclaration) {
-        return {
-          [deriveSymbol]: true,
-          optional: false,
-          [$types]: [type.symbol.getName()],
-        };
+    if (type.symbol?.flags & ts.SymbolFlags.Interface) {
+      const name = type.symbol.getName();
+      if (!this.collector[name]) {
+        this.collector[name] = {};
+        const properties: Record<string, unknown> = {};
+        for (const property of this.checker.getPropertiesOfType(type)) {
+          properties[property.name] = this.serializeType(
+            this.checker.getTypeOfSymbol(property),
+          );
+        }
+        this.collector[name] = sortObjectKeys(properties);
       }
-      return this.serializeNode(valueDeclaration);
+      return {
+        [deriveSymbol]: true,
+        optional: false,
+        [$types]: [`#/components/schemas/${name}`],
+      };
     }
     if (type.flags & TypeFlags.Object) {
       if (this.typesMap[symbolName(type.symbol)]) {

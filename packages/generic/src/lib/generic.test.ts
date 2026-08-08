@@ -56,6 +56,38 @@ function getNonNullBranch(schema: any) {
   return schema;
 }
 
+const uiMessageSource = `
+import type { UIMessage } from 'ai';
+
+const app = { get: (..._args: unknown[]) => undefined };
+const output = { json: (value: unknown) => value };
+const validate = (selector: unknown) => selector;
+
+const emptyMessages: UIMessage[] = [];
+
+/** @openapi firstMessages */
+app.get('/first', validate(() => ({})), () => {
+  return output.json({ messages: emptyMessages, usage: null });
+});
+
+/** @openapi secondMessages */
+app.get('/second', validate(() => ({})), () => {
+  return output.json({ messages: emptyMessages, usage: null });
+});
+`;
+
+async function analyzeUIMessage() {
+  await using workspace = await tsworkspace(tsconfig, {
+    'index.ts': uiMessageSource,
+  });
+  await symlink(
+    workspaceNodeModules,
+    join(dirname(workspace.tsconfig), 'node_modules'),
+    'dir',
+  );
+  return analyze(workspace.tsconfig, { responseAnalyzer });
+}
+
 describe('analyze function tests', () => {
   it('should parse basic validation middleware with selectors', async () => {
     // Test Case 1: Basic validation middleware with query and body selectors
@@ -1224,6 +1256,28 @@ app.get('/employee', validate(() => ({})), (c) => {
       ],
       'should preserve all 7 string literals',
     );
+  });
+
+  it('reuses UIMessage through an OpenAPI component', async () => {
+    const result = await analyzeUIMessage();
+    const reference = { $ref: '#/components/schemas/UIMessage' };
+    const responseItems = ['/first', '/second'].map(
+      (path) =>
+        (
+          result.paths[path]?.get?.responses?.['200']?.content?.[
+            'application/json'
+          ]?.schema as any
+        )?.properties?.messages?.items,
+    );
+
+    assert.ok(result.components.schemas?.UIMessage);
+    assert.deepStrictEqual(responseItems, [reference, reference]);
+  });
+
+  it('does not emit undefined as an OpenAPI type for UIMessage', async () => {
+    const result = await analyzeUIMessage();
+
+    assert.doesNotMatch(JSON.stringify(result), /"type":"undefined"/);
   });
 });
 
