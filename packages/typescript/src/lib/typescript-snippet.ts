@@ -1,7 +1,12 @@
 import type { ResponseObject, SchemaObject } from 'openapi3-ts/oas31';
 import { camelcase, spinalcase } from 'stringcase';
 
-import { isEmpty, pascalcase, resolveRef } from '@sdk-it/core';
+import {
+  type OpenAPISecuritySchemeObject,
+  isEmpty,
+  pascalcase,
+  resolveRef,
+} from '@sdk-it/core';
 import { type Generator } from '@sdk-it/readme';
 import {
   type IR,
@@ -10,7 +15,6 @@ import {
   type TunedOperationObject,
   forEachOperation,
   patchParameters,
-  securityToOptions,
 } from '@sdk-it/spec';
 
 import { SnippetEmitter } from './emitters/snippet.ts';
@@ -68,12 +72,7 @@ export class TypeScriptSnippet implements Generator {
       payload = examplePayload as any;
     } else {
       const requestBody: SchemaObject = { type: 'object', properties: {} };
-      patchParameters(
-        this.#spec,
-        requestBody,
-        operation.parameters,
-        operation.security ?? [],
-      );
+      patchParameters(this.#spec, requestBody, operation.parameters);
       const examplePayload = this.#snippetEmitter.handle(requestBody);
       // merge explicit values into the example payload
       Object.assign(
@@ -193,25 +192,56 @@ export class TypeScriptSnippet implements Generator {
   }
 
   #authentication() {
-    return securityToOptions(
-      this.#spec,
-      this.#spec.security ?? [],
-      this.#spec.components?.securitySchemes ?? {},
-    );
+    const names = new Set<string>();
+    for (const requirement of this.#spec.security ?? []) {
+      for (const name of Object.keys(requirement)) names.add(name);
+    }
+    forEachOperation(this.#spec, (_entry, operation) => {
+      for (const requirement of operation.security ?? []) {
+        for (const name of Object.keys(requirement)) names.add(name);
+      }
+    });
+    return [...names].flatMap((name) => {
+      // Requirement names may be external URI references with no local scheme.
+      const scheme = this.#spec.components.securitySchemes[name];
+      return scheme
+        ? [
+            {
+              name,
+              scheme: resolveRef<OpenAPISecuritySchemeObject>(
+                this.#spec,
+                scheme,
+              ),
+            },
+          ]
+        : [];
+    });
+  }
+
+  #credentialExample(
+    scheme: OpenAPISecuritySchemeObject,
+  ): string | boolean | { username: string; password: string } {
+    if (scheme.type === 'mutualTLS') return true;
+    if (scheme.type === 'http' && scheme.scheme?.toLowerCase() === 'basic') {
+      return { username: 'user', password: 'password' };
+    }
+    if (scheme.type === 'apiKey') return 'test_api_key_1234567890abcdef';
+    return 'test_access_token_1234567890abcdef';
   }
 
   client() {
-    const options: Record<string, unknown> = {
-      baseUrl:
-        expandServerUrls(this.#spec.servers ?? [])[0] ??
-        'http://localhost:3000',
-    };
+    const servers = expandServerUrls(this.#spec.servers ?? []);
+    const options: Record<string, unknown> = {};
+    if (servers.length !== 1) {
+      options.baseUrl = servers[0] ?? 'http://localhost:3000';
+    }
 
     const authOptions = this.#authentication();
     if (!isEmpty(authOptions)) {
       const [firstAuth] = authOptions;
-      const optionName = firstAuth['x-optionName'] ?? firstAuth.name;
-      options[optionName] = firstAuth.example;
+      options.credentials = {
+        [firstAuth.name]: this.#credentialExample(firstAuth.scheme),
+      };
     }
 
     const client = this.#constructClient(options);
@@ -260,7 +290,6 @@ export class TypeScriptSnippet implements Generator {
       expandServerUrls(this.#spec.servers ?? [])[0] ||
       'https://api.example.com';
 
-    // Use the existing authentication method to get auth options
     const authOptions = this.#authentication();
     const hasApiKey = !isEmpty(authOptions);
 
@@ -280,15 +309,10 @@ export class TypeScriptSnippet implements Generator {
       );
     }
 
-    // Add auth options using the existing authentication structure
-    for (const authOption of authOptions) {
-      const optionName = authOption['x-optionName'] ?? authOption.name;
-      const description =
-        authOption.in === 'header' && authOption.name === 'authorization'
-          ? 'Bearer token for authentication'
-          : `API key for authentication (${authOption.in}: ${authOption.name})`;
-
-      sections.push(`| \`${optionName}\` | \`string\` | No | ${description} |`);
+    if (hasApiKey) {
+      sections.push(
+        '| `credentials` | `Record<string, SecurityCredential>` | No | Credentials keyed by the exact OpenAPI security scheme name |',
+      );
     }
 
     return { sections, hasServers, baseUrl, hasApiKey };
@@ -701,95 +725,36 @@ export class TypeScriptSnippet implements Generator {
   }
 
   authenticationDocs(): string {
-    // Use the existing authentication method
     const authOptions = this.#authentication();
 
     if (isEmpty(authOptions)) {
       return '';
     }
 
-    const sections: string[] = [];
+    const only = authOptions.length === 1;
+    const sections: string[] = [
+      '## Authentication',
+      '',
+      only
+        ? 'The SDK requires authentication to access the API. Configure your client with the required credentials:'
+        : 'The SDK supports the following authentication methods:',
+      '',
+    ];
 
-    sections.push('## Authentication');
-    sections.push('');
-
-    // Adapt introduction based on number of auth methods
-    if (authOptions.length === 1) {
-      sections.push(
-        'The SDK requires authentication to access the API. Configure your client with the required credentials:',
-      );
-    } else {
-      sections.push('The SDK supports the following authentication methods:');
-    }
-    sections.push('');
-
-    for (const authOption of authOptions) {
-      const optionName = authOption['x-optionName'] ?? authOption.name;
-      const isBearer =
-        authOption.in === 'header' && authOption.name === 'authorization';
-      const isApiKey =
-        authOption.in === 'header' && authOption.name !== 'authorization';
-      const isQueryParam = authOption.in === 'query';
-
-      // Determine heading level based on number of auth methods
-      const headingLevel = authOptions.length === 1 ? '###' : '###';
-
-      if (isBearer) {
-        const authenticationHeading =
-          authOptions.length === 1
-            ? 'Bearer Token'
-            : 'Bearer Token Authentication';
-        sections.push(`${headingLevel} ${authenticationHeading}`);
-        sections.push('');
+    for (const { name, scheme } of authOptions) {
+      sections.push(`### ${authenticationHeading(name, scheme, only)}`);
+      sections.push('');
+      if (isBearer(scheme)) {
         sections.push(
           'Pass your bearer token directly - the "Bearer" prefix is automatically added:',
         );
         sections.push('');
-        const bearerAuthClient = this.#constructClient({
-          [optionName]: 'test_51234567890abcdef1234567890abcdef',
-        });
-        sections.push(createCodeBlock('typescript', [bearerAuthClient.use]));
-        sections.push('');
-      } else if (isApiKey) {
-        const apiKeyHeading =
-          authOptions.length === 1
-            ? 'API Key (Header)'
-            : 'API Key Authentication (Header)';
-        sections.push(`${headingLevel} ${apiKeyHeading}`);
-        sections.push('');
-        const apiKeyAuthClient = this.#constructClient({
-          [optionName]: 'test_api_key_1234567890abcdef1234567890abcdef',
-        });
-        sections.push(createCodeBlock('typescript', [apiKeyAuthClient.use]));
-        sections.push('');
-      } else if (isQueryParam) {
-        const queryParamHeading =
-          authOptions.length === 1
-            ? 'API Key (Query Parameter)'
-            : 'API Key Authentication (Query Parameter)';
-        sections.push(`${headingLevel} ${queryParamHeading}`);
-        sections.push('');
-        const queryParamAuthClient = this.#constructClient({
-          [optionName]: 'test_qp_key_1234567890abcdef1234567890abcdef',
-        });
-        sections.push(
-          createCodeBlock('typescript', [queryParamAuthClient.use]),
-        );
-        sections.push('');
-      } else {
-        // Generic fallback
-        const genericAuthHeading =
-          authOptions.length === 1
-            ? authOption.name
-            : `${authOption.name} Authentication`;
-        sections.push(`${headingLevel} ${genericAuthHeading}`);
-        sections.push('');
-        const genericAuthClient = this.#constructClient({
-          [optionName]: 'test_auth_token_1234567890abcdef1234567890abcdef',
-        });
-        sections.push(createCodeBlock('typescript', [genericAuthClient.use]));
-        sections.push('');
       }
+      const client = this.#constructClient({
+        credentials: { [name]: this.#credentialExample(scheme) },
+      });
+      sections.push(createCodeBlock('typescript', [client.use]));
+      sections.push('');
     }
 
     return sections.join('\n');
@@ -818,8 +783,9 @@ export class TypeScriptSnippet implements Generator {
 
     if (!isEmpty(authOptions)) {
       const [primaryAuth] = authOptions;
-      const authOptionName = primaryAuth['x-optionName'] ?? primaryAuth.name;
-      initialClientOptions[authOptionName] = 'YOUR_PRODUCTION_TOKEN';
+      initialClientOptions.credentials = {
+        [primaryAuth.name]: this.#credentialExample(primaryAuth.scheme),
+      };
     }
 
     const initialClientSetup = this.#constructClient(initialClientOptions);
@@ -835,8 +801,11 @@ export class TypeScriptSnippet implements Generator {
 
     if (!isEmpty(authOptions)) {
       const [primaryAuth] = authOptions;
-      const authOptionName = primaryAuth['x-optionName'] ?? primaryAuth.name;
-      configurationUpdateCode.push(`  ${authOptionName}: 'YOUR_STAGING_TOKEN'`);
+      configurationUpdateCode.push(
+        `  credentials: ${JSON.stringify({
+          [primaryAuth.name]: this.#credentialExample(primaryAuth.scheme),
+        })}`,
+      );
     }
 
     configurationUpdateCode.push('});');
@@ -849,6 +818,29 @@ export class TypeScriptSnippet implements Generator {
 
     return sections.join('\n');
   }
+}
+
+function isBearer(scheme: OpenAPISecuritySchemeObject) {
+  return scheme.type === 'http' && scheme.scheme?.toLowerCase() === 'bearer';
+}
+
+function authenticationHeading(
+  name: string,
+  scheme: OpenAPISecuritySchemeObject,
+  only: boolean,
+) {
+  if (isBearer(scheme)) {
+    return only ? 'Bearer Token' : 'Bearer Token Authentication';
+  }
+  if (scheme.type === 'apiKey' && scheme.in === 'header') {
+    return only ? 'API Key (Header)' : 'API Key Authentication (Header)';
+  }
+  if (scheme.type === 'apiKey' && scheme.in === 'query') {
+    return only
+      ? 'API Key (Query Parameter)'
+      : 'API Key Authentication (Query Parameter)';
+  }
+  return only ? name : `${name} Authentication`;
 }
 
 function createCodeBlock(language: string, content: string[]) {

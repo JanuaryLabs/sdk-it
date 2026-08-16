@@ -40,7 +40,8 @@ interface BuiltClient {
 }
 
 interface BuildOptions {
-  spec: Omit<Spec, 'operations'>;
+  spec: Omit<Spec, 'operations' | 'securitySchemes'> &
+    Partial<Pick<Spec, 'securitySchemes'>>;
   respond?: (req: Request) => Response | Promise<Response>;
   extraSchema?: string;
   /** Output type tuple expression for the operations, e.g. `[NoContent]`. Defaults to `[Ok<unknown>]`. */
@@ -70,7 +71,7 @@ function compileSdk(options: BuildOptions): Promise<any> {
 async function bundleSdk(options: BuildOptions): Promise<any> {
   const dir = await mkdtemp(join(tmpdir(), 'sdk-it-client-runtime-'));
   try {
-    const clientSrc = backend(options.spec);
+    const clientSrc = backend({ securitySchemes: {}, ...options.spec });
 
     const httpDir = join(dir, 'http');
     const apiDir = join(dir, 'api');
@@ -230,7 +231,6 @@ describe('emitted client runtime', () => {
       spec: {
         name: 'TestClient',
         servers: [],
-        options: [],
         makeImport: (p) => p,
       },
     });
@@ -249,134 +249,11 @@ describe('emitted client runtime', () => {
     assert.deepStrictEqual(data, { ok: true });
   });
 
-  test('with-token client: string token is wrapped as Bearer Authorization header', async () => {
-    const { module, fetchCalls, fetchShim } = await buildSdk({
-      spec: {
-        name: 'AuthClient',
-        servers: [],
-        options: [
-          {
-            name: 'Authorization',
-            in: 'header',
-            'x-optionName': 'token',
-            schema: { type: 'string' },
-            required: false,
-          },
-        ],
-        makeImport: (p) => p,
-      },
-    });
-
-    const client = new module.AuthClient({
-      baseUrl: 'https://api.example.com',
-      fetch: fetchShim,
-      token: 'abc123',
-    });
-
-    await client.request('GET /users', {});
-
-    const req = fetchCalls[0];
-    assert.strictEqual(req.headers.get('Authorization'), 'Bearer abc123');
-  });
-
-  test('with-token client: function token is resolved (sync) and sent as Bearer header', async () => {
-    const { module, fetchCalls, fetchShim } = await buildSdk({
-      spec: {
-        name: 'AuthClient',
-        servers: [],
-        options: [
-          {
-            name: 'Authorization',
-            in: 'header',
-            'x-optionName': 'token',
-            schema: { type: 'string' },
-            required: false,
-          },
-        ],
-        makeImport: (p) => p,
-      },
-    });
-
-    const client = new module.AuthClient({
-      baseUrl: 'https://api.example.com',
-      fetch: fetchShim,
-      token: () => 'fn-token',
-    });
-
-    await client.request('GET /users', {});
-
-    assert.strictEqual(
-      fetchCalls[0].headers.get('Authorization'),
-      'Bearer fn-token',
-    );
-  });
-
-  test('with-token client: async-function token is awaited and sent as Bearer header', async () => {
-    const { module, fetchCalls, fetchShim } = await buildSdk({
-      spec: {
-        name: 'AuthClient',
-        servers: [],
-        options: [
-          {
-            name: 'Authorization',
-            in: 'header',
-            'x-optionName': 'token',
-            schema: { type: 'string' },
-            required: false,
-          },
-        ],
-        makeImport: (p) => p,
-      },
-    });
-
-    const client = new module.AuthClient({
-      baseUrl: 'https://api.example.com',
-      fetch: fetchShim,
-      token: async () => 'async-token',
-    });
-
-    await client.request('GET /users', {});
-
-    assert.strictEqual(
-      fetchCalls[0].headers.get('Authorization'),
-      'Bearer async-token',
-    );
-  });
-
-  test('with-api-key client: x-api-key header from options is sent on every request', async () => {
-    const { module, fetchCalls, fetchShim } = await buildSdk({
-      spec: {
-        name: 'ApiKeyClient',
-        servers: [],
-        options: [
-          {
-            name: 'x-api-key',
-            in: 'header',
-            schema: { type: 'string' },
-            required: true,
-          },
-        ],
-        makeImport: (p) => p,
-      },
-    });
-
-    const client = new module.ApiKeyClient({
-      baseUrl: 'https://api.example.com',
-      fetch: fetchShim,
-      'x-api-key': 'secret-key',
-    });
-
-    await client.request('GET /users', {});
-
-    assert.strictEqual(fetchCalls[0].headers.get('x-api-key'), 'secret-key');
-  });
-
-  test('with-servers client: omitting baseUrl falls back to the first declared server', async () => {
+  test('with one server: omitting baseUrl uses the declared server', async () => {
     const { module, fetchCalls, fetchShim } = await buildSdk({
       spec: {
         name: 'ApiClient',
-        servers: ['https://api.example.com', 'https://staging.example.com'],
-        options: [],
+        servers: ['https://api.example.com'],
         makeImport: (p) => p,
       },
     });
@@ -388,12 +265,26 @@ describe('emitted client runtime', () => {
     assert.strictEqual(fetchCalls[0].url, 'https://api.example.com/users');
   });
 
+  test('with multiple servers: omitting baseUrl requires an explicit choice', async () => {
+    const { module, fetchCalls, fetchShim } = await buildSdk({
+      spec: {
+        name: 'ApiClient',
+        servers: ['https://api.example.com', 'https://staging.example.com'],
+        makeImport: (p) => p,
+      },
+    });
+
+    const client = new module.ApiClient({ fetch: fetchShim });
+
+    await assert.rejects(client.request('GET /users', {}), /baseUrl/);
+    assert.strictEqual(fetchCalls.length, 0);
+  });
+
   test('with-servers client: explicit baseUrl overrides the default server', async () => {
     const { module, fetchCalls, fetchShim } = await buildSdk({
       spec: {
         name: 'ApiClient',
         servers: ['https://api.example.com', 'https://staging.example.com'],
-        options: [],
         makeImport: (p) => p,
       },
     });
@@ -408,7 +299,7 @@ describe('emitted client runtime', () => {
     assert.strictEqual(fetchCalls[0].url, 'https://staging.example.com/users');
   });
 
-  test('with-server-variables client: expanded enum URLs become the default server list', async () => {
+  test('with server variables: expanded URLs remain available for explicit selection', async () => {
     const { module, fetchCalls, fetchShim } = await buildSdk({
       spec: {
         name: 'ApiClient',
@@ -418,12 +309,14 @@ describe('emitted client runtime', () => {
           'https://staging.api.example.com/v1',
           'https://staging.api.example.com/v2',
         ],
-        options: [],
         makeImport: (p) => p,
       },
     });
 
-    const client = new module.ApiClient({ fetch: fetchShim });
+    const client = new module.ApiClient({
+      baseUrl: 'https://production.api.example.com/v1',
+      fetch: fetchShim,
+    });
     await client.request('GET /users', {});
 
     assert.strictEqual(
@@ -439,78 +332,11 @@ describe('emitted client runtime', () => {
     ]);
   });
 
-  test('input option: organizationId in options is merged into request input', async () => {
-    const { module, fetchShim } = await buildSdk({
-      spec: {
-        name: 'InputClient',
-        servers: [],
-        options: [
-          {
-            name: 'organizationId',
-            in: 'input',
-            schema: { type: 'string' },
-            required: false,
-          },
-        ],
-        makeImport: (p) => p,
-      },
-      extraSchema: `z.object({ organizationId: z.string().optional(), limit: z.number().optional() })`,
-    });
-
-    const client = new module.InputClient({
-      baseUrl: 'https://api.example.com',
-      fetch: fetchShim,
-      organizationId: 'org-42',
-    });
-
-    const inputs = await client.defaultInputs();
-    assert.deepStrictEqual(inputs, { organizationId: 'org-42' });
-  });
-
-  test('with-multiple-options client: token and api-key are both attached as headers', async () => {
-    const { module, fetchCalls, fetchShim } = await buildSdk({
-      spec: {
-        name: 'FullClient',
-        servers: ['https://api.example.com'],
-        options: [
-          {
-            name: 'Authorization',
-            in: 'header',
-            'x-optionName': 'token',
-            schema: { type: 'string' },
-            required: false,
-          },
-          {
-            name: 'x-api-key',
-            in: 'header',
-            schema: { type: 'string' },
-            required: true,
-          },
-        ],
-        makeImport: (p) => p,
-      },
-    });
-
-    const client = new module.FullClient({
-      fetch: fetchShim,
-      token: 'tok',
-      'x-api-key': 'key',
-    });
-
-    await client.request('GET /users', {});
-
-    const req = fetchCalls[0];
-    assert.strictEqual(req.headers.get('Authorization'), 'Bearer tok');
-    assert.strictEqual(req.headers.get('x-api-key'), 'key');
-    assert.strictEqual(req.url, 'https://api.example.com/users');
-  });
-
   test('headers option: default headers from options.headers are sent', async () => {
     const { module, fetchCalls, fetchShim } = await buildSdk({
       spec: {
         name: 'TestClient',
         servers: [],
-        options: [],
         makeImport: (p) => p,
       },
     });
@@ -531,7 +357,6 @@ describe('emitted client runtime', () => {
       spec: {
         name: 'TestClient',
         servers: [],
-        options: [],
         makeImport: (p) => p,
       },
     });
@@ -556,7 +381,6 @@ describe('emitted client runtime', () => {
       spec: {
         name: 'TestClient',
         servers: [],
-        options: [],
         makeImport: (p) => p,
       },
     });
@@ -580,7 +404,6 @@ describe('emitted client runtime', () => {
       spec: {
         name: 'TestClient',
         servers: [],
-        options: [],
         makeImport: (p) => p,
       },
     });
@@ -606,7 +429,6 @@ describe('emitted client runtime', () => {
       spec: {
         name: 'TestClient',
         servers: [],
-        options: [],
         makeImport: (p) => p,
       },
     });
@@ -626,7 +448,6 @@ describe('emitted client runtime', () => {
       spec: {
         name: 'TestClient',
         servers: [],
-        options: [],
         makeImport: (p) => p,
       },
     });
@@ -646,7 +467,6 @@ describe('emitted client runtime', () => {
       spec: {
         name: 'TestClient',
         servers: [],
-        options: [],
         makeImport: (p) => p,
       },
       extraSchema: `z.object({ limit: z.number() })`,
@@ -670,7 +490,6 @@ describe('emitted client runtime: attachment responses', () => {
       spec: {
         name: 'AttachmentClient',
         servers: [],
-        options: [],
         makeImport: (p) => p,
       },
       output: '[Ok<Blob>]',
@@ -700,7 +519,6 @@ describe('emitted client runtime: attachment responses', () => {
       spec: {
         name: 'InlineClient',
         servers: [],
-        options: [],
         makeImport: (p) => p,
       },
       output: '[Ok<{ name: string }>]',
@@ -731,7 +549,6 @@ describe('emitted client runtime: 204 No Content responses', () => {
       spec: {
         name: 'NoContentClient',
         servers: [],
-        options: [],
         makeImport: (p) => p,
       },
       respond: () => new Response(null, { status: 204 }),
@@ -752,7 +569,6 @@ describe('emitted client runtime: 204 No Content responses', () => {
       spec: {
         name: 'NoContentClient',
         servers: [],
-        options: [],
         makeImport: (p) => p,
       },
       respond: () =>
@@ -777,7 +593,6 @@ describe('emitted client runtime: 204 No Content responses', () => {
       spec: {
         name: 'NoContentClient',
         servers: [],
-        options: [],
         makeImport: (p) => p,
       },
       respond: () => new Response(null, { status: 205 }),
@@ -798,7 +613,6 @@ describe('emitted client runtime: 204 No Content responses', () => {
       spec: {
         name: 'NoContentClient',
         servers: [],
-        options: [],
         makeImport: (p) => p,
       },
       respond: () => new Response(null, { status: 200 }),
@@ -820,7 +634,6 @@ describe('emitted client runtime: 204 No Content responses', () => {
       spec: {
         name: 'NoContentClient',
         servers: [],
-        options: [],
         makeImport: (p) => p,
       },
       respond: () => new Response(null, { status: 304 }),
@@ -847,7 +660,6 @@ describe('emitted client runtime: 204 No Content responses', () => {
       spec: {
         name: 'NoContentClient',
         servers: [],
-        options: [],
         makeImport: (p) => p,
       },
       output: '[NoContent]',

@@ -1,14 +1,20 @@
 import { merge, template } from 'lodash-es';
 import { join } from 'node:path';
 import type {
-  OpenAPIObject,
   ParameterObject,
   ReferenceObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
 import { camelcase, spinalcase } from 'stringcase';
 
-import { followRef, isEmpty, isRef, resolveRef, sortArray } from '@sdk-it/core';
+import {
+  type OpenAPIDocument,
+  followRef,
+  isEmpty,
+  isRef,
+  resolveRef,
+  sortArray,
+} from '@sdk-it/core';
 import {
   type IR,
   type TunedOperationObject,
@@ -192,7 +198,7 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
 }
 
 function toProps(
-  spec: OpenAPIObject,
+  spec: OpenAPIDocument,
   schemaOrRef: SchemaObject | ReferenceObject,
   aggregator: string[] = [],
 ) {

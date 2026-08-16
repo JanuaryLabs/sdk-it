@@ -9,7 +9,7 @@ import {
 } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { createContext, runInContext } from 'node:vm';
@@ -536,8 +536,160 @@ describe('generate — AI SDK 7 agent tools', () => {
   });
 });
 
+describe('generate — client initialization', () => {
+  test('README omits a sole server URL but shows an explicit choice for multiple URLs', async () => {
+    const directories = [
+      mkdtempSync(join(tmpdir(), 'generate-one-server-readme-')),
+      mkdtempSync(join(tmpdir(), 'generate-multiple-server-readme-')),
+    ];
+    try {
+      const serverSets = [
+        [{ url: 'https://api.example.com' }],
+        [
+          { url: 'https://api.example.com' },
+          { url: 'https://staging.example.com' },
+        ],
+      ];
+      const clientBlocks: Array<string | undefined> = [];
+
+      for (const [index, servers] of serverSets.entries()) {
+        await generate(
+          {
+            openapi: '3.1.0',
+            info: { title: 'Demo', version: '1.0.0' },
+            servers,
+            paths: {},
+          },
+          {
+            output: directories[index],
+            name: 'Demo',
+            readme: true,
+          },
+        );
+        const readme = readFileSync(
+          join(directories[index], 'README.md'),
+          'utf8',
+        );
+        clientBlocks.push(
+          readme.match(/const demo = new Demo\([\s\S]*?\);/)?.[0],
+        );
+      }
+
+      assert.deepStrictEqual(
+        clientBlocks.map((block) => ({
+          found: block !== undefined,
+          includesBaseUrl: block?.includes('baseUrl') ?? false,
+        })),
+        [
+          { found: true, includesBaseUrl: false },
+          { found: true, includesBaseUrl: true },
+        ],
+      );
+    } finally {
+      for (const directory of directories) {
+        rmSync(directory, { recursive: true, force: true });
+      }
+    }
+  });
+});
+
 describe('generate — security options assembly', () => {
-  test('per-operation security merged with global security never emits duplicate option keys', async () => {
+  test('rejects unresolved external security schemes instead of generating an unauthenticated client', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-external-security-'));
+    try {
+      await assert.rejects(
+        generate(
+          {
+            openapi: '3.2.0',
+            info: { title: 'External security', version: '1.0.0' },
+            paths: {
+              '/records': {
+                get: {
+                  operationId: 'getRecords',
+                  security: [
+                    { 'https://auth.example.com/security-scheme': [] },
+                  ],
+                  responses: { '204': { description: 'OK' } },
+                },
+              },
+            },
+          },
+          { output: dir, name: 'ExternalSecurity', readme: false },
+        ),
+        /Security scheme https:\/\/auth\.example\.com\/security-scheme must be resolved/,
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('emits a type-correct client for the complete security scheme surface', async () => {
+    const dir = mkdtempSync(join(repoRoot, '.generate-security-typecheck-'));
+    try {
+      await generate(
+        {
+          openapi: '3.2.0',
+          info: { title: 'Security types', version: '1.0.0' },
+          components: {
+            securitySchemes: {
+              headerKey: { type: 'apiKey', in: 'header', name: 'X-API-Key' },
+              queryKey: { type: 'apiKey', in: 'query', name: 'api_key' },
+              cookieKey: { type: 'apiKey', in: 'cookie', name: 'session' },
+              bearer: { type: 'http', scheme: 'bearer' },
+              basic: { type: 'http', scheme: 'basic' },
+              digest: { type: 'http', scheme: 'digest' },
+              oauth: {
+                type: 'oauth2',
+                oauth2MetadataUrl:
+                  'https://auth.example.com/.well-known/oauth-authorization-server',
+                flows: {
+                  deviceAuthorization: {
+                    deviceAuthorizationUrl: 'https://auth.example.com/device',
+                    tokenUrl: 'https://auth.example.com/token',
+                    scopes: { 'records:read': 'Read records' },
+                  },
+                },
+              },
+              oidc: {
+                type: 'openIdConnect',
+                openIdConnectUrl:
+                  'https://auth.example.com/.well-known/openid-configuration',
+              },
+              mtls: { type: 'mutualTLS' },
+            },
+          },
+          paths: {
+            '/records': {
+              get: {
+                operationId: 'getRecords',
+                security: [
+                  { headerKey: [], queryKey: [], cookieKey: [], mtls: [] },
+                  { bearer: ['doctor'] },
+                  { basic: [] },
+                  { digest: [] },
+                  { oauth: ['records:read'] },
+                  { oidc: ['openid'] },
+                ],
+                responses: { '204': { description: 'OK' } },
+              },
+            },
+          },
+        },
+        {
+          output: dir,
+          name: 'SecurityTypes',
+          readme: false,
+          mode: 'full',
+        },
+      );
+
+      assert.deepStrictEqual(compileGeneratedProject(dir), []);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('preserves each security alternative under its exact scheme name', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'generate-security-'));
     try {
       await generate(figmaShapedSpec(), {
@@ -546,16 +698,411 @@ describe('generate — security options assembly', () => {
         readme: false,
       });
 
-      const source = readFileSync(join(dir, 'client.ts'), 'utf8');
-      const inputsBlock = source.slice(source.indexOf('async defaultInputs'));
-      const keysInInputs =
-        inputsBlock
-          .slice(0, inputsBlock.indexOf('}'))
-          .match(/'X-Figma-Token':/g) ?? [];
-      assert.equal(
-        keysInInputs.length,
-        1,
-        `defaultInputs must contain the option exactly once, found ${keysInInputs.length}`,
+      const clientSource = readFileSync(join(dir, 'client.ts'), 'utf8');
+      const httpIndexSource = readFileSync(join(dir, 'http/index.ts'), 'utf8');
+      const source = readFileSync(join(dir, 'http/security.ts'), 'utf8');
+      const credentialsBlock = source.slice(
+        source.indexOf('const credentialsSchema'),
+        source.indexOf('const securitySchemes'),
+      );
+      assert.deepStrictEqual(
+        ['oauth2', 'personalToken', 'planToken'].map(
+          (name) =>
+            credentialsBlock.match(new RegExp(`"${name}":`, 'g'))?.length ?? 0,
+        ),
+        [1, 1, 1],
+      );
+      assert.match(clientSource, /from '.\/http\/security\.ts'/);
+      assert.doesNotMatch(clientSource, /function applyCredential/);
+      assert.doesNotMatch(httpIndexSource, /security/);
+      assert.doesNotMatch(clientSource, /async defaultInputs/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('selects a satisfiable security alternative and suppresses credentials on public operations', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-security-runtime-'));
+    try {
+      await generate(
+        {
+          openapi: '3.1.0',
+          info: { title: 'Security runtime', version: '1.0.0' },
+          components: {
+            securitySchemes: {
+              bearer: { type: 'http', scheme: 'bearer' },
+              basic: { type: 'http', scheme: 'basic' },
+              apiKey: { type: 'apiKey', in: 'header', name: 'X-API-Key' },
+            },
+          },
+          paths: {
+            '/records': {
+              get: {
+                operationId: 'getRecords',
+                security: [{ bearer: ['doctor'] }, { apiKey: [] }],
+                responses: { '204': { description: 'OK' } },
+              },
+            },
+            '/status': {
+              get: {
+                operationId: 'getStatus',
+                security: [],
+                responses: { '204': { description: 'OK' } },
+              },
+            },
+            '/basic': {
+              get: {
+                operationId: 'getBasic',
+                security: [{ basic: [] }],
+                responses: { '204': { description: 'OK' } },
+              },
+            },
+          },
+        },
+        { output: dir, name: 'Security', readme: false },
+      );
+
+      const bundlePath = join(dir, 'client.cjs');
+      await esbuild({
+        entryPoints: [join(dir, 'index.ts')],
+        bundle: true,
+        outfile: bundlePath,
+        format: 'cjs',
+        platform: 'node',
+        target: 'node20',
+        absWorkingDir: dir,
+        nodePaths: [join(repoRoot, 'node_modules')],
+        logLevel: 'silent',
+      });
+      const { Security } = createRequire(import.meta.url)(bundlePath) as {
+        Security: new (options: unknown) => {
+          prepare(
+            endpoint: string,
+            input: unknown,
+          ): Promise<{
+            init: { headers: Headers };
+          }>;
+        };
+      };
+      const client = new Security({
+        baseUrl: 'https://api.example.com',
+        credentials: {
+          apiKey: 'secret',
+          basic: { username: 'doctor', password: 'secret' },
+        },
+      });
+
+      const secured = await client.prepare('GET /records', {});
+      const publicRequest = await client.prepare('GET /status', {});
+      const basicRequest = await client.prepare('GET /basic', {});
+
+      assert.deepStrictEqual(
+        [
+          secured.init.headers.get('X-API-Key'),
+          secured.init.headers.get('Authorization'),
+          publicRequest.init.headers.get('X-API-Key'),
+          publicRequest.init.headers.get('Authorization'),
+          basicRequest.init.headers.get('Authorization'),
+        ],
+        ['secret', null, null, null, 'Basic ZG9jdG9yOnNlY3JldA=='],
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('sends the registered Authorization prefix whatever case the scheme uses', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-http-scheme-'));
+    try {
+      await generate(
+        {
+          openapi: '3.2.0',
+          info: { title: 'Http scheme', version: '1.0.0' },
+          components: {
+            securitySchemes: {
+              lower: { type: 'http', scheme: 'bearer' },
+              titled: { type: 'http', scheme: 'Bearer' },
+            },
+          },
+          paths: {
+            '/lower': {
+              get: {
+                operationId: 'getLower',
+                security: [{ lower: [] }],
+                responses: { '204': { description: 'OK' } },
+              },
+            },
+            '/titled': {
+              get: {
+                operationId: 'getTitled',
+                security: [{ titled: [] }],
+                responses: { '204': { description: 'OK' } },
+              },
+            },
+          },
+        },
+        { output: dir, name: 'HttpScheme', readme: false },
+      );
+
+      const bundlePath = join(dir, 'client.cjs');
+      await esbuild({
+        entryPoints: [join(dir, 'index.ts')],
+        bundle: true,
+        outfile: bundlePath,
+        format: 'cjs',
+        platform: 'node',
+        target: 'node20',
+        absWorkingDir: dir,
+        nodePaths: [join(repoRoot, 'node_modules')],
+        logLevel: 'silent',
+      });
+      const { HttpScheme } = createRequire(import.meta.url)(bundlePath) as {
+        HttpScheme: new (options: unknown) => {
+          prepare(
+            endpoint: string,
+            input: unknown,
+          ): Promise<{ init: { headers: Headers } }>;
+        };
+      };
+      const client = new HttpScheme({
+        baseUrl: 'https://api.example.com',
+        credentials: { lower: 'token-a', titled: 'token-b' },
+      });
+
+      const lower = await client.prepare('GET /lower', {});
+      const titled = await client.prepare('GET /titled', {});
+
+      assert.deepStrictEqual(
+        [
+          lower.init.headers.get('Authorization'),
+          titled.init.headers.get('Authorization'),
+        ],
+        ['Bearer token-a', 'Bearer token-b'],
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('prefers configured authentication over anonymous access and passes OAuth scopes', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-optional-security-'));
+    try {
+      await generate(
+        {
+          openapi: '3.1.0',
+          info: { title: 'Optional security', version: '1.0.0' },
+          components: {
+            securitySchemes: {
+              oauth: {
+                type: 'oauth2',
+                flows: {
+                  clientCredentials: {
+                    tokenUrl: 'https://auth.example.com/token',
+                    scopes: { 'records:read': 'Read records' },
+                  },
+                },
+              },
+            },
+          },
+          paths: {
+            '/records': {
+              get: {
+                operationId: 'getRecords',
+                security: [{}, { oauth: ['records:read'] }],
+                responses: { '204': { description: 'OK' } },
+              },
+            },
+          },
+        },
+        { output: dir, name: 'OptionalSecurity', readme: false },
+      );
+
+      const bundlePath = join(dir, 'client.cjs');
+      await esbuild({
+        entryPoints: [join(dir, 'index.ts')],
+        bundle: true,
+        outfile: bundlePath,
+        format: 'cjs',
+        platform: 'node',
+        target: 'node20',
+        absWorkingDir: dir,
+        nodePaths: [join(repoRoot, 'node_modules')],
+        logLevel: 'silent',
+      });
+      const { OptionalSecurity } = createRequire(import.meta.url)(
+        bundlePath,
+      ) as {
+        OptionalSecurity: new (options: unknown) => {
+          prepare(
+            endpoint: string,
+            input: unknown,
+          ): Promise<{
+            init: { headers: Headers };
+          }>;
+        };
+      };
+      const contexts: unknown[] = [];
+      const client = new OptionalSecurity({
+        baseUrl: 'https://api.example.com',
+        credentials: {
+          oauth: (context: unknown) => {
+            contexts.push(context);
+            return 'access-token';
+          },
+        },
+      });
+
+      const request = await client.prepare('GET /records', {});
+
+      assert.deepStrictEqual(
+        {
+          authorization: request.init.headers.get('Authorization'),
+          contexts,
+        },
+        {
+          authorization: 'Bearer access-token',
+          contexts: [
+            {
+              scheme: 'oauth',
+              scopes: ['records:read'],
+              roles: [],
+            },
+          ],
+        },
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('applies every scheme in an AND requirement across query, cookie, and mutual TLS', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-and-security-'));
+    try {
+      await generate(
+        {
+          openapi: '3.2.0',
+          info: { title: 'AND security', version: '1.0.0' },
+          components: {
+            securitySchemes: {
+              queryKey: { type: 'apiKey', in: 'query', name: 'api_key' },
+              cookieKey: { type: 'apiKey', in: 'cookie', name: 'session' },
+              mtls: { type: 'mutualTLS' },
+            },
+          },
+          paths: {
+            '/records': {
+              get: {
+                operationId: 'getRecords',
+                security: [{ queryKey: [], cookieKey: [], mtls: [] }],
+                responses: { '204': { description: 'OK' } },
+              },
+            },
+          },
+        },
+        { output: dir, name: 'AndSecurity', readme: false },
+      );
+
+      const bundlePath = join(dir, 'client.cjs');
+      await esbuild({
+        entryPoints: [join(dir, 'index.ts')],
+        bundle: true,
+        outfile: bundlePath,
+        format: 'cjs',
+        platform: 'node',
+        target: 'node20',
+        absWorkingDir: dir,
+        nodePaths: [join(repoRoot, 'node_modules')],
+        logLevel: 'silent',
+      });
+      const { AndSecurity } = createRequire(import.meta.url)(bundlePath) as {
+        AndSecurity: new (options: unknown) => {
+          prepare(
+            endpoint: string,
+            input: unknown,
+          ): Promise<{
+            url: URL;
+            init: { headers: Headers };
+          }>;
+        };
+      };
+      const client = new AndSecurity({
+        baseUrl: 'https://api.example.com',
+        credentials: {
+          queryKey: 'query-secret',
+          cookieKey: 'cookie-secret',
+          mtls: true,
+        },
+      });
+
+      const request = await client.prepare('GET /records', {});
+      assert.equal(request.url.searchParams.get('api_key'), 'query-secret');
+      assert.equal(request.init.headers.get('Cookie'), 'session=cookie-secret');
+
+      const incomplete = new AndSecurity({
+        baseUrl: 'https://api.example.com',
+        credentials: { queryKey: 'query-secret' },
+      });
+      await assert.rejects(
+        incomplete.prepare('GET /records', {}),
+        /queryKey \+ cookieKey \+ mtls/,
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('types credential values and providers for each security scheme', async () => {
+    const dir = mkdtempSync(join(repoRoot, '.generate-mtls-typecheck-'));
+    try {
+      await generate(
+        {
+          openapi: '3.2.0',
+          info: { title: 'mTLS', version: '1.0.0' },
+          components: {
+            securitySchemes: {
+              mtls: { type: 'mutualTLS' },
+              bearer: { type: 'http', scheme: 'bearer' },
+              basic: { type: 'http', scheme: 'basic' },
+            },
+          },
+          paths: {
+            '/records': {
+              get: {
+                operationId: 'getRecords',
+                security: [{ mtls: [] }],
+                responses: { '204': { description: 'OK' } },
+              },
+            },
+          },
+        },
+        { output: dir, name: 'MutualTls', readme: false, mode: 'full' },
+      );
+      writeFileSync(
+        join(dir, 'src/invalid-mtls.ts'),
+        `import { MutualTls } from './index.ts';
+new MutualTls({ baseUrl: '', credentials: { mtls: false } });
+new MutualTls({ baseUrl: '', credentials: { mtls: 'certificate' } });
+new MutualTls({ baseUrl: '', credentials: { mtls: () => 'certificate' } });
+new MutualTls({ baseUrl: '', credentials: { bearer: true } });
+new MutualTls({ baseUrl: '', credentials: { bearer: () => true } });
+new MutualTls({ baseUrl: '', credentials: { basic: 'user:password' } });
+new MutualTls({ baseUrl: '', credentials: { basic: () => 'user:password' } });
+`,
+      );
+
+      const diagnostics = compileGeneratedProject(dir);
+      assert.deepStrictEqual(
+        diagnostics.map(({ file, line }) => ({
+          file: file ? relative(dir, file) : undefined,
+          line,
+        })),
+        [2, 3, 4, 5, 6, 7, 8].map((line) => ({
+          file: join('src', 'invalid-mtls.ts'),
+          line,
+        })),
+        `unexpected diagnostics:\n${diagnostics
+          .map(({ file, line, message }) => `${file}:${line} ${message}`)
+          .join('\n')}`,
       );
     } finally {
       rmSync(dir, { recursive: true, force: true });

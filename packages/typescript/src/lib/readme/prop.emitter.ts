@@ -1,20 +1,19 @@
 import type {
-  OpenAPIObject,
   ReferenceObject,
   RequestBodyObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { followRef, isRef } from '@sdk-it/core';
+import { type OpenAPIDocument, followRef, isRef } from '@sdk-it/core';
 import { coerceTypes } from '@sdk-it/spec';
 
 /**
  * PropEmitter handles converting OpenAPI schemas to Markdown documentation
  */
 export class PropEmitter {
-  #spec: OpenAPIObject;
+  #spec: OpenAPIDocument;
 
-  constructor(spec: OpenAPIObject) {
+  constructor(spec: OpenAPIDocument) {
     this.#spec = spec;
   }
 

@@ -2,10 +2,9 @@ import { template } from 'lodash-es';
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
-import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { camelcase, spinalcase } from 'stringcase';
 
-import { pascalcase, toLitObject } from '@sdk-it/core';
+import { type OpenAPIDocument, pascalcase, toLitObject } from '@sdk-it/core';
 import {
   type WriteContent,
   createWriterProxy,
@@ -17,7 +16,6 @@ import {
   cleanFiles,
   readWriteMetadata,
   sanitizeTag,
-  security,
   toIR,
 } from '@sdk-it/spec';
 
@@ -41,6 +39,7 @@ import offsetPaginationTxt from './paginations/offset-pagination.txt';
 import paginationTxt from './paginations/page-pagination.txt';
 import { toReadme } from './readme/readme.ts';
 import type { Operation } from './sdk.ts';
+import security from './security.ts';
 import { expandServerUrls } from './server-urls.ts';
 import { TypeScriptSnippet } from './typescript-snippet.ts';
 
@@ -48,17 +47,28 @@ import { TypeScriptSnippet } from './typescript-snippet.ts';
 // instead export this function from the cli package with
 // defaults for programmatic usage
 export async function generate(
-  openapi: OpenAPIObject,
+  openapi: OpenAPIDocument,
   settings: TypeScriptGeneratorOptions,
 ): Promise<{ packageName: string }> {
+  // A requirement with no local scheme leaves the client unable to authenticate,
+  // so refuse rather than emit an SDK that always gets a 401.
+  const unresolvedSecuritySchemes = new Set<string>();
   const spec = await toIR(
     {
       spec: openapi,
       responses: { flattenErrorResponses: true },
       pagination: settings.pagination,
+      onDiagnostic: ({ code, message }) => {
+        if (code === 'unresolved-security-scheme') {
+          unresolvedSecuritySchemes.add(message);
+        }
+      },
     },
     false,
   );
+  if (unresolvedSecuritySchemes.size) {
+    throw new TypeError([...unresolvedSecuritySchemes].join('\n'));
+  }
 
   const style = Object.assign({}, { name: 'github' }, settings.style ?? {});
   const output =
@@ -123,13 +133,19 @@ ${template(dispatcherTxt, {})()}`,
     'interceptors.ts': `
     import type { RequestConfig, HeadersInit } from './${makeImport('request')}';
     ${interceptors}`,
+    'security.ts': Object.keys(spec.components.securitySchemes).length
+      ? security({
+          makeImport,
+          securitySchemes: spec.components.securitySchemes,
+        })
+      : null,
   });
 
   await settings.writer(output, {
     'client.ts': backend({
       name: clientName,
       servers: expandServerUrls(spec.servers ?? []),
-      options: security(spec),
+      securitySchemes: spec.components.securitySchemes,
       makeImport,
     }),
     ...inputs,

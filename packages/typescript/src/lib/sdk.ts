@@ -1,11 +1,14 @@
 import type { ResponseObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
-import { isEmpty, pascalcase } from '@sdk-it/core';
+import {
+  type OpenAPISecuritySchemeObject,
+  isEmpty,
+  pascalcase,
+} from '@sdk-it/core';
 import {
   type IR,
   type OperationPagination,
-  type OurParameter,
   type TunedOperationObject,
   isBinaryContentType,
   isSseContentType,
@@ -36,7 +39,7 @@ export interface SdkConfig {
 
 export interface Spec {
   name: string;
-  options: OurParameter[];
+  securitySchemes: Record<string, OpenAPISecuritySchemeObject>;
   servers: string[];
   operations: Record<string, Operation[]>;
   makeImport: MakeImportFn;
@@ -85,6 +88,7 @@ export function toEndpoint(
     const endpoint = `${typePrefix}${operation.method.toUpperCase()} ${operation.path}`;
     schemas.push(
       `"${endpoint}": {
+          security: ${JSON.stringify(specOperation.security ?? [])} as readonly Record<string, readonly string[]>[],
           schema: ${schemaRef}${addTypeParser ? `.${type}` : ''},
           output:[${outputs.join(',')}],
           toRequest(input: z.input<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>) {

@@ -206,7 +206,7 @@ describe('client template', () => {
     const spec: Omit<Spec, 'operations'> = {
       name: 'TestClient',
       servers: [],
-      options: [],
+      securitySchemes: {},
       makeImport: (p) => p,
     };
     await assertMatchesGolden('basic', backend(spec));
@@ -216,7 +216,7 @@ describe('client template', () => {
     const spec: Omit<Spec, 'operations'> = {
       name: 'TestClient',
       servers: [],
-      options: [],
+      securitySchemes: {},
       makeImport: (p) => p,
     };
 
@@ -236,62 +236,10 @@ describe('client template', () => {
     const spec: Omit<Spec, 'operations'> = {
       name: 'ApiClient',
       servers: ['https://api.example.com', 'https://staging.example.com'],
-      options: [],
+      securitySchemes: {},
       makeImport: (p) => p,
     };
     await assertMatchesGolden('with-servers', backend(spec));
-  });
-
-  test('client with token option', async () => {
-    const spec: Omit<Spec, 'operations'> = {
-      name: 'AuthClient',
-      servers: [],
-      options: [
-        {
-          name: 'Authorization',
-          in: 'header',
-          'x-optionName': 'token',
-          schema: { type: 'string' },
-          required: false,
-        },
-      ],
-      makeImport: (p) => p,
-    };
-    await assertMatchesGolden('with-token', backend(spec));
-  });
-
-  test('client with api key header', async () => {
-    const spec: Omit<Spec, 'operations'> = {
-      name: 'ApiKeyClient',
-      servers: [],
-      options: [
-        {
-          name: 'x-api-key',
-          in: 'header',
-          schema: { type: 'string' },
-          required: true,
-        },
-      ],
-      makeImport: (p) => p,
-    };
-    await assertMatchesGolden('with-api-key', backend(spec));
-  });
-
-  test('client with input option', async () => {
-    const spec: Omit<Spec, 'operations'> = {
-      name: 'InputClient',
-      servers: [],
-      options: [
-        {
-          name: 'organizationId',
-          in: 'input',
-          schema: { type: 'string' },
-          required: false,
-        },
-      ],
-      makeImport: (p) => p,
-    };
-    await assertMatchesGolden('with-input-option', backend(spec));
   });
 
   test('client with server URL variables expanded', async () => {
@@ -312,33 +260,9 @@ describe('client template', () => {
           },
         },
       ]),
-      options: [],
+      securitySchemes: {},
       makeImport: (p) => p,
     };
     await assertMatchesGolden('with-server-variables', backend(spec));
-  });
-
-  test('client with multiple options', async () => {
-    const spec: Omit<Spec, 'operations'> = {
-      name: 'FullClient',
-      servers: ['https://api.example.com'],
-      options: [
-        {
-          name: 'Authorization',
-          in: 'header',
-          'x-optionName': 'token',
-          schema: { type: 'string' },
-          required: false,
-        },
-        {
-          name: 'x-api-key',
-          in: 'header',
-          schema: { type: 'string' },
-          required: true,
-        },
-      ],
-      makeImport: (p) => p,
-    };
-    await assertMatchesGolden('with-multiple-options', backend(spec));
   });
 });

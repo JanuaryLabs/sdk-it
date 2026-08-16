@@ -1,10 +1,13 @@
-import type {
-  OpenAPIObject,
-  ReferenceObject,
-  SchemaObject,
-} from 'openapi3-ts/oas31';
+import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
-import { followRef, isEmpty, isRef, parseRef, pascalcase } from '@sdk-it/core';
+import {
+  type OpenAPIDocument,
+  followRef,
+  isEmpty,
+  isRef,
+  parseRef,
+  pascalcase,
+} from '@sdk-it/core';
 import { isPrimitiveSchema, sanitizeTag } from '@sdk-it/spec';
 
 type OnRefCallback = (ref: string, content: string) => void;
@@ -14,10 +17,10 @@ type OnRefCallback = (ref: string, content: string) => void;
  */
 export class ZodEmitter {
   #generatedRefs = new Set<string>();
-  #spec: OpenAPIObject;
+  #spec: OpenAPIDocument;
   #onRef?: OnRefCallback;
 
-  constructor(spec: OpenAPIObject, onRef?: OnRefCallback) {
+  constructor(spec: OpenAPIDocument, onRef?: OnRefCallback) {
     this.#spec = spec;
     this.#onRef = onRef;
   }
@@ -404,21 +407,4 @@ function appendDefault(defaultValue?: any) {
   return defaultValue !== undefined || typeof defaultValue !== 'undefined'
     ? `.default(${defaultValue})`
     : '';
-}
-
-export function toZod(schema: SchemaObject, required?: boolean): string {
-  const emitter = new ZodEmitter({} as OpenAPIObject);
-  const schemaStr = emitter.handle(schema, required ?? false);
-  if (schema['x-prefix']) {
-    const prefix = schema['x-prefix'];
-    if (required === false) {
-      return (
-        schemaStr +
-        `.transform((val) => (val ? \`${prefix}\${val}\` : undefined))`
-      );
-    } else {
-      return schemaStr + `.transform((val) => \`${prefix}\${val}\`)`;
-    }
-  }
-  return schemaStr;
 }

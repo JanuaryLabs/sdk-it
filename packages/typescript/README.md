@@ -39,12 +39,43 @@ import { OpenStatus } from './src/generated/openstatus/index.ts';
 
 const client = new OpenStatus({
   baseUrl: 'https://api.openstatus.dev/v1',
-  'x-openstatus-key': process.env.OPENSTATUS_API_KEY,
+  credentials: {
+    ApiKeyAuth: process.env.OPENSTATUS_API_KEY,
+  },
 });
 
 const reports = await client.request('GET /status_report', {});
 console.log(reports);
 ```
+
+## Security credentials
+
+Credential keys are the exact names from `components.securitySchemes`.
+Generated types enforce the value required by each scheme:
+
+- API keys, Bearer/custom HTTP, OAuth 2, and OpenID Connect use a string.
+- HTTP Basic uses `{ username, password }`.
+- Mutual TLS uses `true`; the configured `fetch` implementation owns the
+  client certificate.
+
+Each value may instead be a sync or async provider. Providers receive the
+scheme name plus the current operation's OpenAPI scopes or roles:
+
+```typescript
+const client = new ExampleClient({
+  baseUrl: 'https://api.example.com',
+  credentials: {
+    oauth: async ({ scopes }) => issueToken(scopes),
+    bearer: ({ roles }) => tokenForRoles(roles),
+  },
+});
+```
+
+The client preserves OpenAPI security semantics: alternatives in the security
+array are OR, schemes inside one requirement are AND, `security: []` sends no
+credentials, and an empty requirement (`{}`) permits anonymous access. When
+anonymous and authenticated alternatives coexist, configured authentication
+is preferred.
 
 `request` returns unwrapped response data. It throws `ParseError` when input
 validation fails and an `APIError` subclass when the server returns a
@@ -59,7 +90,9 @@ import {
 
 const client = new OpenStatus({
   baseUrl: 'https://api.openstatus.dev/v1',
-  'x-openstatus-key': process.env.OPENSTATUS_API_KEY,
+  credentials: {
+    ApiKeyAuth: process.env.OPENSTATUS_API_KEY,
+  },
 });
 
 try {

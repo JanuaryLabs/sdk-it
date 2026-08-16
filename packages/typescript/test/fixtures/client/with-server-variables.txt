@@ -17,7 +17,7 @@ export const servers = [
   "https://staging.api.example.com/v1",
   "https://staging.api.example.com/v2"
 ] as const
-const optionsSchema = z.object({fetch: fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.'), baseUrl: z.union([z.string(),z.custom<() => string | Promise<string>>((value) => typeof value === 'function'),]).default(servers[0]).transform(async (baseUrl, ctx) => {
+const optionsSchema = z.object({fetch: fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.'), baseUrl: z.union([z.string(),z.custom<() => string | Promise<string>>((value) => typeof value === 'function'),]).transform(async (baseUrl, ctx) => {
       const value = typeof baseUrl === 'function' ? await baseUrl() : baseUrl;
       if (typeof value !== 'string') {
         ctx.addIssue({ code: 'custom', message: 'baseUrl must resolve to a string' });
@@ -62,15 +62,7 @@ export class ApiClient {
 
   async defaultHeaders() {
     const options = await optionsSchema.parseAsync(this.options);
-    return {
-      ...{},
-      ...options.headers,
-    };
-  }
-
-  async defaultInputs() {
-    const options = await optionsSchema.parseAsync(this.options);
-    return {}
+    return { ...options.headers };
   }
 
   setOptions(options: Partial<ApiClientOptions>) {
@@ -84,7 +76,7 @@ export class ApiClient {
 
 /**
  * Sends a validated request using the client's configuration and returns the parsed response.
- * Merges the client's default inputs and headers before sending.
+ * Applies the client's default headers before sending.
  * Throws `APIError` on non-ok responses.
  *
  * @example
@@ -100,17 +92,12 @@ export async function request<const E extends keyof typeof schemas>(
 ): Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>> {
   const route = schemas[endpoint];
   const options = await optionsSchema.parseAsync(client.options);
-  const withDefaultInputs = Object.assign(
-    {},
-    {},
-    input,
-  );
-  const parsedInput = options.skipValidation ? withDefaultInputs : parseInput(route.schema, withDefaultInputs);
+  const parsedInput = options.skipValidation ? input : parseInput(route.schema, input);
   const result = await route.dispatch(parsedInput as never, {
     fetch: options.fetch,
     interceptors: [
       createHeadersInterceptor(
-        { ...{}, ...options.headers },
+        { ...options.headers },
         requestOptions?.headers ?? {},
       ),
       createBaseUrlInterceptor(options.baseUrl),
@@ -142,15 +129,10 @@ export async function prepare<const E extends keyof typeof schemas>(
 }> {
   const route = schemas[endpoint];
   const options = await optionsSchema.parseAsync(client.options);
-  const withDefaultInputs = Object.assign(
-    {},
-    {},
-    input,
-  );
-  const parsedInput = options.skipValidation ? withDefaultInputs : parseInput(route.schema, withDefaultInputs);
+  const parsedInput = options.skipValidation ? input : parseInput(route.schema, input);
   const interceptors = [
     createHeadersInterceptor(
-      { ...{}, ...options.headers },
+      { ...options.headers },
       requestOptions?.headers ?? {},
     ),
     createBaseUrlInterceptor(options.baseUrl),

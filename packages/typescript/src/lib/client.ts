@@ -1,52 +1,17 @@
 import { toLitObject } from '@sdk-it/core';
 
-import { toZod } from './emitters/zod.ts';
 import type { Spec } from './sdk.ts';
 
 export default (spec: Omit<Spec, 'operations'>) => {
   const callableString = `z.custom<() => string | Promise<string>>((value) => typeof value === 'function')`;
-  const baseUrlSchema = `z.union([z.string(),${callableString},])${spec.servers.length ? '.default(servers[0])' : ''}`;
-  const defaultHeaders = `{${spec.options
-    .filter((value) => value.in === 'header')
-    .map(
-      (value) =>
-        `'${value.name}': options['${value['x-optionName'] ?? value.name}']`,
-    )
-    .join(',\n')}}`;
-  const defaultInputs = `{${spec.options
-    .filter((value) => value.in === 'input')
-    .map(
-      (value) =>
-        `'${value.name}': options['${value['x-optionName'] ?? value.name}']`,
-    )
-    .join(',\n')}}`;
-
-  /**
-   * Map of option name to zod schema (as string)
-   * Usually stuff like token, apiKey and so on.
-   */
-  const globalOptions = Object.fromEntries(
-    spec.options.map((value) => [
-      `'${value['x-optionName'] ?? value.name}'`,
-      { schema: toZod(value.schema, value.required) },
-    ]),
-  );
+  const baseUrlSchema = `z.union([z.string(),${callableString},])${spec.servers.length === 1 ? '.default(servers[0])' : ''}`;
+  const securitySchemeNames = Object.keys(spec.securitySchemes);
 
   const specOptions: Record<string, { schema: string }> = {
-    ...globalOptions,
-    ...(globalOptions["'token'"]
+    ...(securitySchemeNames.length
       ? {
-          "'token'": {
-            schema: `z.union([z.string(),${callableString},]).optional()
-    .transform(async (token, ctx) => {
-      if (!token) return undefined;
-      const value = typeof token === 'function' ? await token() : token;
-      if (typeof value !== 'string') {
-        ctx.addIssue({ code: 'custom', message: 'token must resolve to a string' });
-        return z.NEVER;
-      }
-      return \`Bearer \${value}\`;
-    }).describe('Bearer token for authentication. Can be a string or a function that returns a string.')`,
+          credentials: {
+            schema: `credentialsSchema.optional().describe('Credentials keyed by OpenAPI security scheme name.')`,
           },
         }
       : {}),
@@ -82,7 +47,18 @@ import {
   createHeadersInterceptor,
 } from './http/${spec.makeImport('interceptors')}';
 
-import { type ParseError, parseInput } from './http/${spec.makeImport('parser')}';
+import { type ParseError, parseInput } from './http/${spec.makeImport('parser')}';${
+    securitySchemeNames.length
+      ? `
+import { credentialsSchema, createSecurityInterceptor } from './http/${spec.makeImport('security')}';
+export type {
+  SecurityContext,
+  SecurityCredential,
+  SecurityCredentialProvider,
+  SecurityCredentialValue,
+} from './http/${spec.makeImport('security')}';`
+      : ''
+  }
 
 ${spec.servers.length ? `export const servers = ${JSON.stringify(spec.servers, null, 2)} as const` : ''}
 const optionsSchema = z.object(${toLitObject(specOptions, (x) => x.schema)});
@@ -123,15 +99,7 @@ export class ${spec.name} {
 
   async defaultHeaders() {
     const options = await optionsSchema.parseAsync(this.options);
-    return {
-      ...${defaultHeaders},
-      ...options.headers,
-    };
-  }
-
-  async defaultInputs() {
-    const options = await optionsSchema.parseAsync(this.options);
-    return ${defaultInputs}
+    return { ...options.headers };
   }
 
   setOptions(options: Partial<${spec.name}Options>) {
@@ -145,7 +113,7 @@ export class ${spec.name} {
 
 /**
  * Sends a validated request using the client's configuration and returns the parsed response.
- * Merges the client's default inputs and headers before sending.
+ * Applies the client's default headers before sending.
  * Throws \`APIError\` on non-ok responses.
  *
  * @example
@@ -161,20 +129,15 @@ export async function request<const E extends keyof typeof schemas>(
 ): Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>> {
   const route = schemas[endpoint];
   const options = await optionsSchema.parseAsync(client.options);
-  const withDefaultInputs = Object.assign(
-    {},
-    ${defaultInputs},
-    input,
-  );
-  const parsedInput = options.skipValidation ? withDefaultInputs : parseInput(route.schema, withDefaultInputs);
+  const parsedInput = options.skipValidation ? input : parseInput(route.schema, input);
   const result = await route.dispatch(parsedInput as never, {
     fetch: options.fetch,
     interceptors: [
       createHeadersInterceptor(
-        { ...${defaultHeaders}, ...options.headers },
+        { ...options.headers },
         requestOptions?.headers ?? {},
       ),
-      createBaseUrlInterceptor(options.baseUrl),
+${securitySchemeNames.length ? '      createSecurityInterceptor(route.security, options.credentials),\n' : ''}      createBaseUrlInterceptor(options.baseUrl),
     ],
     signal: requestOptions?.signal,
   });
@@ -203,18 +166,13 @@ export async function prepare<const E extends keyof typeof schemas>(
 }> {
   const route = schemas[endpoint];
   const options = await optionsSchema.parseAsync(client.options);
-  const withDefaultInputs = Object.assign(
-    {},
-    ${defaultInputs},
-    input,
-  );
-  const parsedInput = options.skipValidation ? withDefaultInputs : parseInput(route.schema, withDefaultInputs);
+  const parsedInput = options.skipValidation ? input : parseInput(route.schema, input);
   const interceptors = [
     createHeadersInterceptor(
-      { ...${defaultHeaders}, ...options.headers },
+      { ...options.headers },
       requestOptions?.headers ?? {},
     ),
-    createBaseUrlInterceptor(options.baseUrl),
+${securitySchemeNames.length ? '    createSecurityInterceptor(route.security, options.credentials),\n' : ''}    createBaseUrlInterceptor(options.baseUrl),
   ];
 
   let config = route.toRequest(parsedInput as never);
