@@ -298,16 +298,6 @@ export class RuntimeZodConverter {
       base = base.default(defaultValue);
     }
 
-    // Handle x-prefix transform (this should be last)
-    if (schema['x-prefix']) {
-      const prefix = schema['x-prefix'];
-      if (!required) {
-        base = base.transform((val) => (val ? `${prefix}${val}` : undefined));
-      } else {
-        base = base.transform((val) => `${prefix}${val}`);
-      }
-    }
-
     return base;
   }
 

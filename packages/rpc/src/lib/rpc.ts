@@ -375,9 +375,9 @@ function coerceToolValue(value: any, schema: any): any {
 
 /**
  * The ai SDK serializes zod schemas with `unrepresentable: 'throw'`, so a
- * schema containing date/custom/transform (coerce-date, binary, x-prefix
- * inputs) would crash every agent invocation. Precompute a serializable JSON
- * schema and keep argument validation on the zod schema.
+ * schema containing date/custom/transform (coerce-date, binary inputs) would
+ * crash every agent invocation. Precompute a serializable JSON schema and keep
+ * argument validation on the zod schema.
  */
 function toToolSchema(schema: z.ZodType) {
   const marked = z.toJSONSchema(schema, {
@@ -405,7 +405,7 @@ function toToolSchema(schema: z.ZodType) {
       const result = schema.safeParse(coerced);
       // Return the input-form value, not result.data: Client.request runs
       // parseInput itself, so returning the parsed output here would apply
-      // schema transforms twice (e.g. x-prefix -> 'Bearer Bearer <token>').
+      // schema transforms twice.
       return result.success
         ? { success: true, value: coerced }
         : { success: false, error: result.error };

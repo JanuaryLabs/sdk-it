@@ -593,24 +593,6 @@ describe('schemaToZod — v3→v4 characterization (default + optional semantics
   });
 });
 
-describe('schemaToZod — v3→v4 characterization (x-prefix transform)', () => {
-  test('x-prefix prepends to required string input', () => {
-    const schema = schemaToZod({ type: 'string', 'x-prefix': 'user_' }, ir, {
-      required: true,
-    });
-    const r = schema.safeParse('123');
-    assert.equal(r.success, true);
-    assert.equal(r.data, 'user_123');
-  });
-
-  test('x-prefix on optional string returns undefined when input is undefined', () => {
-    const schema = schemaToZod({ type: 'string', 'x-prefix': 'user_' }, ir);
-    const r = schema.safeParse(undefined);
-    assert.equal(r.success, true);
-    assert.equal(r.data, undefined);
-  });
-});
-
 describe('schemaToZod — v3→v4 characterization ($ref)', () => {
   test('$ref resolves and parses against the referenced schema', () => {
     const spec = {
