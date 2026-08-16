@@ -25,7 +25,9 @@ import { OpenStatus } from './src/generated/openstatus/index.ts';
 
 const openstatus = new OpenStatus({
   baseUrl: 'https://api.openstatus.dev/v1',
-  'x-openstatus-key': process.env.OPENSTATUS_API_KEY,
+  credentials: {
+    ApiKeyAuth: process.env.OPENSTATUS_API_KEY,
+  },
 });
 ```
 
