@@ -6,6 +6,7 @@ import type {
   ResponseObject,
   ResponsesObject,
   SchemaObject,
+  SecurityRequirementObject,
 } from 'openapi3-ts/oas31';
 
 import { $types } from './deriver.js';
@@ -18,6 +19,7 @@ export type OperationInfo = {
   summary?: string;
   description?: string;
   tags?: string[];
+  security?: SecurityRequirementObject[];
 };
 export type Method =
   'get' | 'post' | 'put' | 'patch' | 'delete' | 'trace' | 'head';
@@ -253,6 +255,7 @@ export class Paths {
         // || undefined would omit the value from final openapi spec
         description: operation.info.description || undefined,
         summary: operation.info.summary || undefined,
+        security: operation.info.security,
         'x-tool': operation.info.tool
           ? {
               name: operation.info.tool || undefined,

@@ -7,9 +7,12 @@ import type {
   ReferenceObject,
   RequestBodyObject,
   SchemaObject,
-  SecuritySchemeObject,
 } from 'openapi3-ts/oas31';
 
+import type {
+  OpenAPIDocument,
+  OpenAPISecuritySchemeObject,
+} from './security.js';
 import { isEmpty } from './utils.js';
 
 export function isRef(obj: any): obj is ReferenceObject {
@@ -48,15 +51,16 @@ export function resolveRef<
     | ParameterObject
     | PathItemObject
     | ReferenceObject
-    | RequestBodyObject = SchemaObject,
+    | RequestBodyObject
+    | OpenAPISecuritySchemeObject = SchemaObject,
 >(
-  spec: OpenAPIObject,
+  spec: OpenAPIObject | OpenAPIDocument,
   maybeRef:
     | SchemaObject
     | ReferenceObject
     | ParameterObject
     | PathItemObject
-    | SecuritySchemeObject
+    | OpenAPISecuritySchemeObject
     | HeaderObject,
 ): T {
   if (isRef(maybeRef)) {
@@ -72,8 +76,9 @@ export function followRef<
     | ParameterObject
     | PathItemObject
     | ReferenceObject
-    | RequestBodyObject = SchemaObject,
->(spec: OpenAPIObject, ref: string): T {
+    | RequestBodyObject
+    | OpenAPISecuritySchemeObject = SchemaObject,
+>(spec: OpenAPIObject | OpenAPIDocument, ref: string): T {
   const pathParts = cleanRef(ref).split('/');
   const entry = get(spec, pathParts) as T | ReferenceObject;
   if (isRef(entry)) {
@@ -89,7 +94,10 @@ export function tapRef<
     | ParameterObject
     | ReferenceObject
     | RequestBodyObject = SchemaObject,
->(spec: OpenAPIObject, maybeRef: SchemaObject | ReferenceObject): T {
+>(
+  spec: OpenAPIObject | OpenAPIDocument,
+  maybeRef: SchemaObject | ReferenceObject,
+): T {
   if (isRef(maybeRef)) {
     const pathParts = cleanRef(maybeRef.$ref).split('/');
     return get(spec, pathParts) as T;
@@ -104,7 +112,10 @@ export function distillRef<
     | ParameterObject
     | ReferenceObject
     | RequestBodyObject = SchemaObject,
->(spec: OpenAPIObject, maybeRef: ReferenceObject | SchemaObject): T {
+>(
+  spec: OpenAPIObject | OpenAPIDocument,
+  maybeRef: ReferenceObject | SchemaObject,
+): T {
   const def = resolveRef<T>(spec, maybeRef);
   if (!def) {
     return def;
