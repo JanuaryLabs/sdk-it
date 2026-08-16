@@ -24,6 +24,8 @@ export async function analyzeProject(tsconfig: string, config: ProjectConfig) {
 
   const { paths, components } = await analyze(tsconfig, {
     responseAnalyzer: honoResponseAnalyzer,
+    securitySchemes: config.securitySchemes,
+    middlewareSecurity: config.middlewareSecurity,
     ...(prisma
       ? {
           imports: prisma.imports,

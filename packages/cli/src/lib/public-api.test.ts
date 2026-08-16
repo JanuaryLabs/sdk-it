@@ -292,6 +292,13 @@ import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
   tsconfig: './tsconfig.json',
+  securitySchemes: {
+    bearer: { type: 'http', scheme: 'bearer' },
+  },
+  middlewareSecurity: [{
+    middleware: { import: 'authenticate', from: './src/auth.ts' },
+    security: [{ bearer: [] }],
+  }],
 });
 `,
   );
@@ -300,6 +307,11 @@ export default defineConfig({
     loadProjectConfig?: (options: { cwd: string }) => Promise<{
       tsconfig: string;
       output: string;
+      securitySchemes: Record<string, unknown>;
+      middlewareSecurity: Array<{
+        middleware: { import: string; from: string };
+        security: Array<Record<string, string[]>>;
+      }>;
     }>;
   };
   assert.equal(typeof cli.loadProjectConfig, 'function');
@@ -310,6 +322,18 @@ export default defineConfig({
   assert.deepEqual(config, {
     tsconfig: join(workspace, 'tsconfig.json'),
     output: join(workspace, '.sdk-it'),
+    securitySchemes: {
+      bearer: { type: 'http', scheme: 'bearer' },
+    },
+    middlewareSecurity: [
+      {
+        middleware: {
+          import: 'authenticate',
+          from: join(workspace, 'src/auth.ts'),
+        },
+        security: [{ bearer: [] }],
+      },
+    ],
   });
 });
 

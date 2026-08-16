@@ -2,12 +2,17 @@ import { access, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import type { OpenAPISecuritySchemeObject } from '@sdk-it/core';
+import type { MiddlewareSecurityRule } from '@sdk-it/generic';
+
 export interface ProjectConfig {
   tsconfig: string;
   framework?: 'auto' | 'hono';
   preset?: 'auto' | 'prisma' | 'none';
   output?: string;
   packageName?: string;
+  securitySchemes?: Record<string, OpenAPISecuritySchemeObject>;
+  middlewareSecurity?: readonly MiddlewareSecurityRule[];
 }
 
 export interface ResolvedProjectConfig extends ProjectConfig {
@@ -55,6 +60,17 @@ export async function loadProjectConfig(
     ...config,
     tsconfig: resolve(directory, config.tsconfig),
     output: resolve(directory, config.output ?? '.sdk-it'),
+    ...(config.middlewareSecurity
+      ? {
+          middlewareSecurity: config.middlewareSecurity.map((rule) => ({
+            ...rule,
+            middleware: {
+              ...rule.middleware,
+              from: resolve(directory, rule.middleware.from),
+            },
+          })),
+        }
+      : {}),
   };
 }
 
