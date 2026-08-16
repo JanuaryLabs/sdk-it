@@ -204,6 +204,46 @@ const { paths, components } = await analyze('./tsconfig.json', {
 The injected file must be loadable by the Node.js process running the
 analyzer.
 
+## Derive operation security from middleware
+
+Declare each OpenAPI security scheme once, then associate authentication and
+authorization middleware by its exported symbol and source file:
+
+```typescript
+import { fileURLToPath } from 'node:url';
+
+import { analyze } from '@sdk-it/generic';
+import { responseAnalyzer } from '@sdk-it/hono';
+
+const authModule = fileURLToPath(new URL('./src/auth.ts', import.meta.url));
+
+const { paths, components } = await analyze('./tsconfig.json', {
+  responseAnalyzer,
+  securitySchemes: {
+    bearer: { type: 'http', scheme: 'bearer' },
+  },
+  middlewareSecurity: [
+    {
+      middleware: { import: 'authenticate', from: authModule },
+      security: [{ bearer: [] }],
+    },
+    {
+      middleware: { import: 'authorise', from: authModule },
+      security: [{ bearer: [] }],
+      values: { scheme: 'bearer', argument: 0, mode: 'any' },
+    },
+  ],
+});
+```
+
+The analyzer resolves imported symbols, so local import aliases do not change
+the mapping. `mode: 'any'` emits one OpenAPI alternative per statically known
+argument value; `mode: 'all'` keeps every value in one requirement. Multiple
+matched middleware are combined as an OpenAPI AND requirement. A route with no
+matched security middleware receives `security: []`. Dynamic values fail
+analysis because they cannot be represented accurately in the generated
+document.
+
 ## Hide an operation
 
 Add `@access private` to exclude a route from the generated OpenAPI document:

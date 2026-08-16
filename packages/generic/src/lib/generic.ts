@@ -1,5 +1,7 @@
 import debug from 'debug';
-import type { ComponentsObject } from 'openapi3-ts/oas31';
+import { realpathSync } from 'node:fs';
+import { resolve } from 'node:path';
+import type { SecurityRequirementObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 import ts from 'typescript';
 
@@ -7,6 +9,8 @@ import {
   type InjectImport,
   type NaunceResponseAnalyzer,
   type OnOperation,
+  type OpenAPIComponentsObject,
+  type OpenAPISecuritySchemeObject,
   Paths,
   type ResponseAnalyzerFn,
   type ResponseItem,
@@ -54,6 +58,256 @@ function isLocalFunction(symbol: ts.Symbol | undefined): boolean {
   }
 
   return !isExternalFunction(symbol);
+}
+
+export interface MiddlewareSecurityRule {
+  middleware: {
+    import: string;
+    from: string;
+  };
+  security: SecurityRequirementObject[];
+  values?: {
+    scheme: string;
+    argument: number;
+    mode: 'any' | 'all';
+  };
+}
+
+function resolvedSymbol(
+  expression: ts.LeftHandSideExpression,
+  typeChecker: ts.TypeChecker,
+) {
+  const location = ts.isPropertyAccessExpression(expression)
+    ? expression.name
+    : expression;
+  const symbol = typeChecker.getSymbolAtLocation(location);
+  return symbol && symbol.flags & ts.SymbolFlags.Alias
+    ? typeChecker.getAliasedSymbol(symbol)
+    : symbol;
+}
+
+/**
+ * Symlinked working directories (macOS `/tmp` -> `/private/tmp`) and Windows
+ * drive-letter casing make two spellings of the same file compare unequal.
+ */
+function realPath(path: string) {
+  const resolved = resolve(path);
+  try {
+    return realpathSync.native(resolved);
+  } catch {
+    return resolved;
+  }
+}
+
+function matchesMiddleware(
+  symbol: ts.Symbol | undefined,
+  middleware: MiddlewareSecurityRule['middleware'],
+) {
+  if (symbol?.name !== middleware.import) {
+    return false;
+  }
+  const from = realPath(middleware.from);
+  return (symbol.declarations ?? []).some(
+    (declaration) => realPath(declaration.getSourceFile().fileName) === from,
+  );
+}
+
+interface SecurityAnalysis {
+  rules: readonly MiddlewareSecurityRule[];
+  matched: Set<MiddlewareSecurityRule>;
+}
+
+function middlewareSecurity(
+  args: readonly ts.Expression[],
+  security: SecurityAnalysis,
+  typeChecker: ts.TypeChecker,
+): SecurityRequirementObject[] {
+  let requirements: SecurityRequirementObject[] | undefined;
+  for (const arg of args) {
+    const call = ts.isCallExpression(arg) ? arg : undefined;
+    const reference = call ? call.expression : arg;
+    if (
+      !ts.isIdentifier(reference) &&
+      !ts.isPropertyAccessExpression(reference)
+    ) {
+      continue;
+    }
+    const symbol = resolvedSymbol(reference, typeChecker);
+    const rule = security.rules.find(({ middleware }) =>
+      matchesMiddleware(symbol, middleware),
+    );
+    if (!rule) {
+      continue;
+    }
+    security.matched.add(rule);
+    if (rule.values && !call) {
+      throw new TypeError(
+        `Security middleware ${rule.middleware.import} must be called so argument ${rule.values.argument} can be read\n  at ${nodeLocation(arg) ?? 'unknown'}`,
+      );
+    }
+    const requirement =
+      rule.values && call
+        ? securityWithValues(call, rule, rule.values, typeChecker)
+        : structuredClone(rule.security);
+    requirements = requirements
+      ? andSecurity(requirements, requirement)
+      : requirement;
+  }
+  return requirements ?? [];
+}
+
+function securityWithValues(
+  call: ts.CallExpression,
+  rule: MiddlewareSecurityRule,
+  valuesConfig: NonNullable<MiddlewareSecurityRule['values']>,
+  typeChecker: ts.TypeChecker,
+) {
+  const expression = call.arguments[valuesConfig.argument];
+  if (!expression) {
+    throw new TypeError(
+      `Security middleware ${rule.middleware.import} requires argument ${valuesConfig.argument}`,
+    );
+  }
+  const resolved = constantStrings(expression, typeChecker);
+  if (!resolved) {
+    throw new TypeError(
+      `Could not statically resolve security values at ${nodeLocation(expression) ?? 'unknown'}`,
+    );
+  }
+  if (resolved.length === 0) {
+    return structuredClone(rule.security);
+  }
+  const values = [...new Set(resolved)];
+  return rule.security.flatMap((requirement) => {
+    const existing = requirement[valuesConfig.scheme];
+    if (!existing) {
+      throw new TypeError(
+        `Security scheme ${valuesConfig.scheme} is not present in the middleware requirement`,
+      );
+    }
+    if (valuesConfig.mode === 'all') {
+      return [
+        {
+          ...structuredClone(requirement),
+          [valuesConfig.scheme]: [...new Set([...existing, ...values])],
+        },
+      ];
+    }
+    return values.map((value) => ({
+      ...structuredClone(requirement),
+      [valuesConfig.scheme]: [...new Set([...existing, value])],
+    }));
+  });
+}
+
+function constantStrings(
+  expression: ts.Expression,
+  typeChecker: ts.TypeChecker,
+  visited = new Set<ts.Declaration>(),
+): string[] | undefined {
+  while (
+    ts.isParenthesizedExpression(expression) ||
+    ts.isAsExpression(expression) ||
+    ts.isTypeAssertionExpression(expression) ||
+    ts.isSatisfiesExpression(expression) ||
+    ts.isNonNullExpression(expression)
+  ) {
+    expression = expression.expression;
+  }
+  if (ts.isStringLiteralLike(expression)) {
+    return [expression.text];
+  }
+  if (ts.isArrayLiteralExpression(expression)) {
+    const result: string[] = [];
+    for (const element of expression.elements) {
+      if (ts.isOmittedExpression(element)) {
+        continue;
+      }
+      const values = constantStrings(
+        ts.isSpreadElement(element) ? element.expression : element,
+        typeChecker,
+        visited,
+      );
+      if (!values) {
+        return undefined;
+      }
+      result.push(...values);
+    }
+    return result;
+  }
+  if (ts.isPropertyAccessExpression(expression)) {
+    const value = typeChecker.getConstantValue(expression);
+    if (typeof value === 'string') {
+      return [value];
+    }
+  }
+  if (
+    ts.isIdentifier(expression) ||
+    ts.isPropertyAccessExpression(expression)
+  ) {
+    const symbol = resolvedSymbol(expression, typeChecker);
+    for (const declaration of symbol?.declarations ?? []) {
+      // `visited` tracks the current recursion path, not everything ever seen,
+      // so the same constant can be referenced more than once in one expression.
+      if (visited.has(declaration)) {
+        continue;
+      }
+      visited.add(declaration);
+      try {
+        if (
+          (ts.isVariableDeclaration(declaration) ||
+            ts.isEnumMember(declaration)) &&
+          declaration.initializer
+        ) {
+          const values = constantStrings(
+            declaration.initializer,
+            typeChecker,
+            visited,
+          );
+          if (values) {
+            return values;
+          }
+        }
+      } finally {
+        visited.delete(declaration);
+      }
+    }
+  }
+  return undefined;
+}
+
+function andSecurity(
+  left: SecurityRequirementObject[],
+  right: SecurityRequirementObject[],
+) {
+  const combined = left.flatMap((leftRequirement) =>
+    right.map((rightRequirement) => {
+      const requirement = structuredClone(leftRequirement);
+      for (const [scheme, values] of Object.entries(rightRequirement)) {
+        requirement[scheme] = [
+          ...new Set([...(requirement[scheme] ?? []), ...values]),
+        ];
+      }
+      return requirement;
+    }),
+  );
+  return [
+    ...new Map(
+      combined.map((requirement) => [requirementKey(requirement), requirement]),
+    ).values(),
+  ];
+}
+
+/**
+ * Scheme and value order carry no meaning in a security requirement, so the
+ * identity key has to ignore both.
+ */
+function requirementKey(requirement: SecurityRequirementObject) {
+  return JSON.stringify(
+    Object.keys(requirement)
+      .sort()
+      .map((scheme) => [scheme, [...requirement[scheme]].sort()]),
+  );
 }
 
 export const returnTokens = (
@@ -222,6 +476,7 @@ function visit(
   paths: Paths,
   typeChecker: ts.TypeChecker,
   typeDeriver: TypeDeriver,
+  security?: SecurityAnalysis,
 ) {
   if (!ts.isCallExpression(node) || node.arguments.length < 2) {
     return moveOn();
@@ -384,12 +639,17 @@ function visit(
     toSelectors(props),
     responses,
     sourceFile.fileName,
-    metadata,
+    {
+      ...metadata,
+      security: security
+        ? middlewareSecurity(node.arguments.slice(1, -1), security, typeChecker)
+        : undefined,
+    },
   );
 
   function moveOn() {
     ts.forEachChild(node, (node) =>
-      visit(node, responseAnalyzer, paths, typeChecker, typeDeriver),
+      visit(node, responseAnalyzer, paths, typeChecker, typeDeriver, security),
     );
   }
 }
@@ -439,6 +699,8 @@ export async function analyze(
     typesMap?: Record<string, string>;
     responseAnalyzer: ResponseAnalyzerFn | NaunceResponseAnalyzer;
     onOperation?: OnOperation;
+    securitySchemes?: Record<string, OpenAPISecuritySchemeObject>;
+    middlewareSecurity?: readonly MiddlewareSecurityRule[];
   },
 ) {
   logger(`Parsing tsconfig`);
@@ -452,6 +714,10 @@ export async function analyze(
     imports: config.imports ?? [],
     onOperation: config.onOperation,
   });
+  const security: SecurityAnalysis | undefined = config.middlewareSecurity && {
+    rules: config.middlewareSecurity,
+    matched: new Set(),
+  };
 
   for (const sourceFile of program.getSourceFiles()) {
     logger(`Analyzing ${sourceFile.fileName}`);
@@ -474,11 +740,20 @@ export async function analyze(
         paths,
         typeChecker,
         typeDeriver,
+        security,
       );
     }
   }
 
-  const components: ComponentsObject = {
+  for (const rule of security?.rules ?? []) {
+    if (!security?.matched.has(rule)) {
+      console.warn(
+        `⚠ Security middleware ${rule.middleware.import} from ${rule.middleware.from} matched no route\n  routes it protects are documented as public`,
+      );
+    }
+  }
+
+  const components: OpenAPIComponentsObject = {
     schemas: {
       ...paths.getSharedSchemas(),
       ...Object.entries(typeDeriver.collector).reduce(
@@ -486,6 +761,7 @@ export async function analyze(
         {},
       ),
     },
+    securitySchemes: config.securitySchemes,
   };
 
   return {

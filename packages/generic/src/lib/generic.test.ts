@@ -319,6 +319,288 @@ app.post(
     );
   });
 
+  it('derives effective operation security from resolved middleware symbols', async () => {
+    await using workspace = await tsworkspace(tsconfig, {
+      'auth.ts': `
+export const authenticate = () => (_ctx: unknown) => undefined;
+`,
+      'routes.ts': `
+import { authenticate as requireAuth } from './auth.js';
+
+const app = { get: (_path: string, ..._handlers: unknown[]) => undefined };
+const validate = (selector: unknown) => selector;
+
+/** @openapi getAccount */
+app.get(
+  '/account',
+  requireAuth(),
+  validate(() => ({})),
+  () => ({ ok: true }),
+);
+
+/** @openapi getStatus */
+app.get('/status', validate(() => ({})), () => ({ ok: true }));
+`,
+    });
+
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer,
+      securitySchemes: {
+        bearer: { type: 'http', scheme: 'bearer' },
+      },
+      middlewareSecurity: [
+        {
+          middleware: {
+            import: 'authenticate',
+            from: join(dirname(workspace.tsconfig), 'src/auth.ts'),
+          },
+          security: [{ bearer: [] }],
+        },
+      ],
+    });
+
+    assert.deepStrictEqual(result.components.securitySchemes, {
+      bearer: { type: 'http', scheme: 'bearer' },
+    });
+    assert.deepStrictEqual(result.paths['/account']?.get?.security, [
+      { bearer: [] },
+    ]);
+    assert.deepStrictEqual(result.paths['/status']?.get?.security, []);
+  });
+
+  it('derives security from middleware passed by reference rather than called', async () => {
+    await using workspace = await tsworkspace(tsconfig, {
+      'auth.ts': `
+export const authenticate = (_ctx: unknown) => undefined;
+`,
+      'routes.ts': `
+import { authenticate } from './auth.js';
+
+const app = { get: (_path: string, ..._handlers: unknown[]) => undefined };
+const validate = (selector: unknown) => selector;
+
+/** @openapi getAccount */
+app.get('/account', authenticate, validate(() => ({})), () => ({ ok: true }));
+`,
+    });
+
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer,
+      securitySchemes: {
+        bearer: { type: 'http', scheme: 'bearer' },
+      },
+      middlewareSecurity: [
+        {
+          middleware: {
+            import: 'authenticate',
+            from: join(dirname(workspace.tsconfig), 'src/auth.ts'),
+          },
+          security: [{ bearer: [] }],
+        },
+      ],
+    });
+
+    assert.deepStrictEqual(result.paths['/account']?.get?.security, [
+      { bearer: [] },
+    ]);
+  });
+
+  it('resolves a constant referenced more than once in one expression', async () => {
+    await using workspace = await tsworkspace(tsconfig, {
+      'auth.ts': `
+export const authorise = (_roles: readonly string[]) => (_ctx: unknown) => undefined;
+`,
+      'routes.ts': `
+import { authorise } from './auth.js';
+
+const app = { get: (_path: string, ..._handlers: unknown[]) => undefined };
+const validate = (selector: unknown) => selector;
+const ADMIN = 'admin';
+const ROUTE_ROLES = [ADMIN, 'doctor'] as const;
+
+/** @openapi getCases */
+app.get(
+  '/cases',
+  authorise([ADMIN, ...ROUTE_ROLES]),
+  validate(() => ({})),
+  () => ({ ok: true }),
+);
+`,
+    });
+
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer,
+      securitySchemes: {
+        bearer: { type: 'http', scheme: 'bearer' },
+      },
+      middlewareSecurity: [
+        {
+          middleware: {
+            import: 'authorise',
+            from: join(dirname(workspace.tsconfig), 'src/auth.ts'),
+          },
+          security: [{ bearer: [] }],
+          values: { scheme: 'bearer', argument: 0, mode: 'any' },
+        },
+      ],
+    });
+
+    assert.deepStrictEqual(result.paths['/cases']?.get?.security, [
+      { bearer: ['admin'] },
+      { bearer: ['doctor'] },
+    ]);
+  });
+
+  it('combines middleware security and resolves any-role constants', async () => {
+    await using workspace = await tsworkspace(tsconfig, {
+      'auth.ts': `
+export const authenticate = () => (_ctx: unknown) => undefined;
+export const authorise = (_roles: readonly string[]) => (_ctx: unknown) => undefined;
+`,
+      'roles.ts': `
+export enum Role {
+  Doctor = 'doctor',
+  Coordinator = 'coordinator',
+}
+
+export const CARE_ROLES = [Role.Doctor, Role.Coordinator] as const;
+`,
+      'routes.ts': `
+import { authenticate, authorise as allowRoles } from './auth.js';
+import { CARE_ROLES } from './roles.js';
+
+const app = { get: (_path: string, ..._handlers: unknown[]) => undefined };
+const validate = (selector: unknown) => selector;
+const ADMIN = 'admin';
+const ROUTE_ROLES = [...CARE_ROLES, ADMIN] as const;
+
+/** @openapi getCases */
+app.get(
+  '/cases',
+  authenticate(),
+  allowRoles([...ROUTE_ROLES]),
+  validate(() => ({})),
+  () => ({ ok: true }),
+);
+`,
+    });
+    const authModule = join(dirname(workspace.tsconfig), 'src/auth.ts');
+
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer,
+      securitySchemes: {
+        bearer: { type: 'http', scheme: 'bearer' },
+      },
+      middlewareSecurity: [
+        {
+          middleware: { import: 'authenticate', from: authModule },
+          security: [{ bearer: [] }],
+        },
+        {
+          middleware: { import: 'authorise', from: authModule },
+          security: [{ bearer: [] }],
+          values: { scheme: 'bearer', argument: 0, mode: 'any' },
+        },
+      ],
+    });
+
+    assert.deepStrictEqual(result.paths['/cases']?.get?.security, [
+      { bearer: ['doctor'] },
+      { bearer: ['coordinator'] },
+      { bearer: ['admin'] },
+    ]);
+  });
+
+  it('combines schemes with AND and keeps all required values together', async () => {
+    await using workspace = await tsworkspace(tsconfig, {
+      'auth.ts': `
+export const authorise = (_roles: readonly string[]) => (_ctx: unknown) => undefined;
+export const requireTenant = () => (_ctx: unknown) => undefined;
+`,
+      'routes.ts': `
+import { authorise, requireTenant } from './auth.js';
+
+const app = { get: (_path: string, ..._handlers: unknown[]) => undefined };
+const validate = (selector: unknown) => selector;
+const ROLES = ['doctor', 'coordinator'] as const;
+
+/** @openapi getCases */
+app.get(
+  '/cases',
+  authorise(ROLES),
+  requireTenant(),
+  validate(() => ({})),
+  () => ({ ok: true }),
+);
+`,
+    });
+    const authModule = join(dirname(workspace.tsconfig), 'src/auth.ts');
+
+    const result = await analyze(workspace.tsconfig, {
+      responseAnalyzer,
+      securitySchemes: {
+        bearer: { type: 'http', scheme: 'bearer' },
+        tenantKey: { type: 'apiKey', in: 'header', name: 'X-Tenant-Key' },
+      },
+      middlewareSecurity: [
+        {
+          middleware: { import: 'authorise', from: authModule },
+          security: [{ bearer: [] }],
+          values: { scheme: 'bearer', argument: 0, mode: 'all' },
+        },
+        {
+          middleware: { import: 'requireTenant', from: authModule },
+          security: [{ tenantKey: [] }],
+        },
+      ],
+    });
+
+    assert.deepStrictEqual(result.paths['/cases']?.get?.security, [
+      { bearer: ['doctor', 'coordinator'], tenantKey: [] },
+    ]);
+  });
+
+  it('fails analysis when middleware security values are dynamic', async () => {
+    await using workspace = await tsworkspace(tsconfig, {
+      'auth.ts': `
+export const authorise = (_roles: readonly string[]) => (_ctx: unknown) => undefined;
+`,
+      'routes.ts': `
+import { authorise } from './auth.js';
+
+const app = { get: (_path: string, ..._handlers: unknown[]) => undefined };
+const validate = (selector: unknown) => selector;
+declare function rolesFromDatabase(): string[];
+
+/** @openapi getCases */
+app.get(
+  '/cases',
+  authorise(rolesFromDatabase()),
+  validate(() => ({})),
+  () => ({ ok: true }),
+);
+`,
+    });
+
+    await assert.rejects(
+      analyze(workspace.tsconfig, {
+        responseAnalyzer,
+        securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } },
+        middlewareSecurity: [
+          {
+            middleware: {
+              import: 'authorise',
+              from: join(dirname(workspace.tsconfig), 'src/auth.ts'),
+            },
+            security: [{ bearer: [] }],
+            values: { scheme: 'bearer', argument: 0, mode: 'any' },
+          },
+        ],
+      }),
+      /Could not statically resolve security values at/,
+    );
+  });
+
   it('should follow call expressions into helper functions', async () => {
     // Test Case 5: Recursive call expression following
     await using workspace = await tsworkspace(tsconfig, {
