@@ -9,5 +9,6 @@ export * from './normalize-parameters.js';
 export * from './normalize-paths.js';
 export * from './normalize-request-bodies.js';
 export * from './normalize-responses.js';
+export * from './normalize-security.js';
 export * from './normalize-schemas.js';
 export * from './normalize-tags.js';

@@ -1,17 +1,18 @@
-import type {
-  OpenAPIObject,
-  OperationObject,
-  SecuritySchemeObject,
-} from 'openapi3-ts/oas31';
+import type { OperationObject } from 'openapi3-ts/oas31';
 
-import { camelcase, resolveRef } from '@sdk-it/core';
+import {
+  type OpenAPIDocument,
+  type OpenAPISecuritySchemeObject,
+  camelcase,
+  resolveRef,
+} from '@sdk-it/core';
 
 import type { ProcessingDiagnostic, ProcessingPlugin } from './processing.js';
 import { determineGenericTag, sanitizeTag } from './tag.js';
 import type { IR } from './types.js';
 
 export interface GenerateSdkConfig {
-  spec: OpenAPIObject;
+  spec: OpenAPIDocument;
   responses?: ResponsesConfig;
   pagination?: PaginationConfig | false;
   operationId?: (
@@ -66,7 +67,7 @@ export function coeraceConfig(config: GenerateSdkConfig) {
         Object.entries(config.spec.components?.securitySchemes ?? {}).map(
           ([name, schema]) => [
             name,
-            resolveRef<SecuritySchemeObject>(config.spec, schema),
+            resolveRef<OpenAPISecuritySchemeObject>(config.spec, schema),
           ],
         ),
       ),

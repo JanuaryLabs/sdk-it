@@ -1,7 +1,5 @@
 import type {
-  ComponentsObject,
   MediaTypeObject,
-  OpenAPIObject,
   OperationObject,
   ParameterObject,
   PathsObject,
@@ -9,15 +7,23 @@ import type {
   RequestBodyObject,
   ResponseObject,
   SchemaObject,
-  SecuritySchemeObject,
   ServerObject,
   TagObject,
 } from 'openapi3-ts/oas31';
 
+import type {
+  OpenAPIComponentsObject,
+  OpenAPIDocument,
+  OpenAPISecuritySchemeObject,
+} from '@sdk-it/core';
+
 import type { PaginationGuess } from './pagination/guess-pagination.js';
 import type { SidebarData, TagGroups } from './sidebar.js';
 
-export interface IR extends OpenAPIObject {
+export type IR = Omit<
+  OpenAPIDocument,
+  'components' | 'paths' | 'servers' | 'tags'
+> & {
   servers: ServerObject[];
   'x-sdk-processing'?: {
     plugins: string[];
@@ -25,13 +31,13 @@ export interface IR extends OpenAPIObject {
   };
   'x-docs': SidebarData;
   'x-tagGroups': TagGroups[];
-  components: Omit<ComponentsObject, 'schemas'> & {
+  components: Omit<OpenAPIComponentsObject, 'schemas' | 'securitySchemes'> & {
     schemas: Record<string, SchemaObject | ReferenceObject>;
-    securitySchemes: Record<string, SecuritySchemeObject>;
+    securitySchemes: Record<string, OpenAPISecuritySchemeObject>;
   };
   paths: PathsObject;
   tags: TagObject[];
-}
+};
 
 export interface OurRequestBodyObject extends RequestBodyObject {
   content: Record<

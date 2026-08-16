@@ -3,7 +3,6 @@ import type {
   ParameterObject,
   RequestBodyObject,
   SchemaObject,
-  SecurityRequirementObject,
 } from 'openapi3-ts/oas31';
 
 import { followRef, isRef, resolveRef } from '@sdk-it/core/ref.js';
@@ -12,7 +11,6 @@ import { isEmpty } from '@sdk-it/core/utils.js';
 import { findUniqueSchemaName } from '../find-unique-schema-name.js';
 import { iterateOperations } from '../for-each-operation.js';
 import type { ProcessingPlugin } from '../processing.js';
-import { securityToOptions } from '../security.js';
 import type {
   IR,
   OurRequestBodyObject,
@@ -23,14 +21,7 @@ export function patchParameters(
   spec: IR,
   schema: SchemaObject,
   parameters: ParameterObject[],
-  security: SecurityRequirementObject[],
 ) {
-  const securityOptions = securityToOptions(
-    spec,
-    security,
-    spec.components.securitySchemes,
-  );
-
   const required = new Set(
     Array.isArray(schema.required) ? schema.required : [],
   );
@@ -46,15 +37,6 @@ export function patchParameters(
         : (param.schema ?? { type: 'string' })),
     };
   }
-  for (const param of securityOptions) {
-    required.delete(param.name);
-    schema['x-properties'][param.name] = {
-      'x-in': 'header',
-      ...(isRef(param.schema)
-        ? followRef<SchemaObject>(spec, param.schema.$ref)
-        : (param.schema ?? { type: 'string' })),
-    };
-  }
   schema['x-required'] = [...required];
 }
 
@@ -63,7 +45,6 @@ function normalizeRequestBody(
   operationId: string,
   operation: OperationObject,
   parameters: ParameterObject[],
-  security: SecurityRequirementObject[],
 ): OurRequestBodyObject {
   const requestBodySource = isRef(operation.requestBody)
     ? followRef<RequestBodyObject>(spec, operation.requestBody.$ref)
@@ -82,7 +63,7 @@ function normalizeRequestBody(
       'x-inputname': inputName,
       'x-requestbody': true,
     };
-    patchParameters(spec, schema, parameters, security);
+    patchParameters(spec, schema, parameters);
     const normalized: OurRequestBodyObject = {
       ...requestBody,
       content: {
@@ -121,7 +102,7 @@ function normalizeRequestBody(
         break;
     }
 
-    patchParameters(spec, schema, parameters, security);
+    patchParameters(spec, schema, parameters);
     spec.components.schemas[inputName] = {
       ...schema,
       'x-requestbody': true,
@@ -159,7 +140,6 @@ export function normalizeRequestBodies(): ProcessingPlugin {
                 spec,
                 schema as SchemaObject,
                 tunedOperation.parameters,
-                operation.security ?? [],
               );
             }
             continue;
@@ -170,7 +150,6 @@ export function normalizeRequestBodies(): ProcessingPlugin {
           tunedOperation.operationId,
           operation,
           tunedOperation.parameters,
-          operation.security ?? [],
         );
       }
     },

@@ -1,4 +1,4 @@
-import type { OpenAPIObject } from 'openapi3-ts/oas31';
+import type { OpenAPIDocument } from '@sdk-it/core';
 
 import {
   type GenerateSdkConfig,
@@ -51,7 +51,7 @@ export async function processSpec(
   signal?.throwIfAborted();
   const coerced = coerceConfig({
     ...generateConfig,
-    spec: structuredClone(generateConfig.spec) as OpenAPIObject,
+    spec: structuredClone(generateConfig.spec) as OpenAPIDocument,
   });
   const { spec, ...options } = coerced;
   const diagnostics: ProcessingDiagnostic[] = [];

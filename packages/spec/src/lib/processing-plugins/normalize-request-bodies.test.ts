@@ -133,7 +133,7 @@ test('referenced request bodies are isolated per operation', async () => {
   );
 });
 
-test('operations without bodies receive one input schema for parameters and security', async () => {
+test('operations without bodies keep security credentials out of input schemas', async () => {
   const { spec } = await processSpec({
     spec: {
       openapi: '3.1.0',
@@ -183,7 +183,6 @@ test('operations without bodies receive one input schema for parameters and secu
     'x-properties': {
       id: { 'x-in': 'path', type: 'string' },
       expand: { 'x-in': 'query', type: 'boolean' },
-      'X-API-Key': { 'x-in': 'header', type: 'string' },
     },
     'x-required': ['id'],
   });

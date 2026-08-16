@@ -1,11 +1,9 @@
-import type { OpenAPIObject } from 'openapi3-ts/oas31';
-
-import { joinSkipDigits, pascalcase } from '@sdk-it/core';
+import { type OpenAPIDocument, joinSkipDigits, pascalcase } from '@sdk-it/core';
 
 const reservedNames = new Set(['Function', 'Error']);
 
 export function findUniqueSchemaName(
-  spec: OpenAPIObject,
+  spec: OpenAPIDocument,
   initialName: string,
   potentialSuffixList: string[],
   fallback?: string,

@@ -16,7 +16,6 @@ export * from './lib/processing-plugins/index.js';
 export * from './lib/processing.js';
 export * from './lib/overview-docs/overview-errors.js';
 export * from './lib/reserved-keywords.js';
-export * from './lib/security.js';
 export * from './lib/sidebar.js';
 export * from './lib/tag.js';
 export * from './lib/types.js';

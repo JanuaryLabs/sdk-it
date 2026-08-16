@@ -9,6 +9,7 @@ import { normalizePaths } from './normalize-paths.js';
 import { normalizeRequestBodies } from './normalize-request-bodies.js';
 import { normalizeResponses } from './normalize-responses.js';
 import { normalizeSchemas } from './normalize-schemas.js';
+import { normalizeSecurity } from './normalize-security.js';
 import { normalizeTags } from './normalize-tags.js';
 
 export function createDefaultProcessingPlugins(
@@ -20,6 +21,7 @@ export function createDefaultProcessingPlugins(
     normalizeTags(),
     normalizeParameters(),
     normalizeResponses(),
+    normalizeSecurity(),
     normalizeRequestBodies(),
     inferPagination(),
     normalizeSchemas(),
