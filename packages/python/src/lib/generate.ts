@@ -1,14 +1,19 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
-  OpenAPIObject,
   OperationObject,
   ReferenceObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
 import { snakecase } from 'stringcase';
 
-import { followRef, isEmpty, isRef, pascalcase } from '@sdk-it/core';
+import {
+  type OpenAPIDocument,
+  followRef,
+  isEmpty,
+  isRef,
+  pascalcase,
+} from '@sdk-it/core';
 import {
   type ReadFolderFn,
   type Writer,
@@ -31,7 +36,7 @@ import responsesTxt from './http/responses.txt';
 import { PythonEmitter } from './python-emitter.ts';
 
 export async function generate(
-  openapi: OpenAPIObject,
+  openapi: OpenAPIDocument,
   settings: {
     output: string;
     cleanup?: boolean;
