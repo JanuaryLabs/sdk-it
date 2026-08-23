@@ -34,7 +34,7 @@ Generate an SDK from an OpenAPI specification:
 
 ```bash
 npx @sdk-it/cli@latest generate typescript \
-  --spec https://api.openstatus.dev/v1/openapi \
+  --spec https://api.openstatus.dev/openapi.yaml \
   --output ./src/openstatus \
   --name OpenStatus \
   --mode minimal
@@ -46,11 +46,16 @@ Use the generated SDK:
 import { OpenStatus } from './src/openstatus/index.ts';
 
 const client = new OpenStatus({
-  baseUrl: 'https://api.openstatus.dev/v1/',
-  'x-openstatus-key': process.env.OPENSTATUS_API_KEY!,
+  baseUrl: 'https://api.openstatus.dev',
+  credentials: {
+    ApiKeyAuth: process.env.OPENSTATUS_API_KEY!,
+  },
 });
 
-const reports = await client.request('GET /status_report', {});
+const reports = await client.request(
+  'POST /rpc/openstatus.status_report.v1.StatusReportService/ListStatusReports',
+  {},
+);
 console.log(reports);
 ```
 

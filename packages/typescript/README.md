@@ -16,11 +16,10 @@ generated in `minimal` mode.
 ## Generate from an OpenAPI document
 
 ```typescript
+import { loadSpec } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
 
-const spec = await fetch('https://api.openstatus.dev/v1/openapi').then(
-  (response) => response.json(),
-);
+const spec = await loadSpec('https://api.openstatus.dev/openapi.yaml');
 
 await generate(spec, {
   output: './src/generated/openstatus',
@@ -29,8 +28,9 @@ await generate(spec, {
 });
 ```
 
-`name` controls the generated client class name. `minimal` mode writes client
-source files directly to `output`.
+`loadSpec` accepts a URL or a local path and reads JSON or YAML. `name`
+controls the generated client class name. `minimal` mode writes client source
+files directly to `output`.
 
 ## Use the generated client
 
@@ -38,13 +38,16 @@ source files directly to `output`.
 import { OpenStatus } from './src/generated/openstatus/index.ts';
 
 const client = new OpenStatus({
-  baseUrl: 'https://api.openstatus.dev/v1',
+  baseUrl: 'https://api.openstatus.dev',
   credentials: {
     ApiKeyAuth: process.env.OPENSTATUS_API_KEY,
   },
 });
 
-const reports = await client.request('GET /status_report', {});
+const reports = await client.request(
+  'POST /rpc/openstatus.status_report.v1.StatusReportService/ListStatusReports',
+  {},
+);
 console.log(reports);
 ```
 
@@ -89,14 +92,17 @@ import {
 } from './src/generated/openstatus/index.ts';
 
 const client = new OpenStatus({
-  baseUrl: 'https://api.openstatus.dev/v1',
+  baseUrl: 'https://api.openstatus.dev',
   credentials: {
     ApiKeyAuth: process.env.OPENSTATUS_API_KEY,
   },
 });
 
 try {
-  const report = await client.request('GET /status_report/{id}', { id: '42' });
+  const report = await client.request(
+    'POST /rpc/openstatus.status_report.v1.StatusReportService/GetStatusReport',
+    { id: '42' },
+  );
   console.log(report);
 } catch (error) {
   if (error instanceof ParseError) {
