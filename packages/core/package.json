@@ -35,6 +35,14 @@
     "typescript": "^6.0.3",
     "openapi3-ts": "^4.4.0"
   },
+  "peerDependenciesMeta": {
+    "openapi3-ts": {
+      "optional": true
+    },
+    "typescript": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/debug": "^4.1.12"
   }

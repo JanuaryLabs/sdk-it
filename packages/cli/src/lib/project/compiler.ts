@@ -66,9 +66,19 @@ async function synchronizeGeneratedManifest(
   packageName: string,
 ): Promise<void> {
   const manifestPath = join(output, 'package.json');
-  const manifest = JSON.parse(
-    await readFile(manifestPath, 'utf8'),
-  ) as GeneratedPackageManifest;
+  const manifest = generatedPackageManifest(
+    packageName,
+    JSON.parse(
+      await readFile(manifestPath, 'utf8'),
+    ) as GeneratedPackageManifest,
+  );
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+export function generatedPackageManifest(
+  packageName: string,
+  manifest: GeneratedPackageManifest,
+): GeneratedPackageManifest {
   Object.assign(manifest, {
     name: packageName,
     version: '0.0.1',
@@ -92,5 +102,5 @@ async function synchronizeGeneratedManifest(
     'fast-content-type-parse': '^3.0.0',
     zod: '^4.3.0',
   };
-  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  return manifest;
 }

@@ -14,7 +14,7 @@ export default new Command('readme')
     await runReadme(options.spec, options.output);
   });
 
-export async function runReadme(specFile: string, output: string) {
+async function runReadme(specFile: string, output: string) {
   const spec = await toIR({ spec: await loadSpec(specFile) });
   const content = toReadme(spec);
   await writeFile(output, content, 'utf-8');

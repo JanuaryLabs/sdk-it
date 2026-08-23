@@ -24,34 +24,45 @@ npx @sdk-it/cli init --project ./apps/backend/tsconfig.json
 
 The initializer:
 
-- Creates `sdk-it.config.ts`.
-- Adds `.sdk-it/` to `.gitignore`.
-- Registers `.sdk-it` as a workspace package.
+- Creates `apps/backend/sdk-it.config.ts` beside the backend tsconfig.
+- Creates the tracked `apps/backend/.sdk-it/package.json` workspace stub.
+- Ignores the generated workspace except for that stub.
+- Registers the explicit `apps/backend/.sdk-it` workspace path.
 - Preserves existing ignore and workspace entries.
 
-The generated config contains the backend path:
+If the workspace package is named `@acme/platform`, the generated config is:
 
 ```ts
 import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
-  tsconfig: './apps/backend/tsconfig.json',
+  tsconfig: './tsconfig.json',
+  packageName: '@acme/backend-client',
 });
 ```
 
-## Generate
-
-Generate the client, then let the package manager create the workspace link:
+Run the package manager once after initialization, then commit the updated root
+manifest, lockfile, backend config, ignore file, and generated package stub:
 
 ```bash
-npx @sdk-it/cli generate
 npm install
 ```
 
-SDK-IT writes the client to `.sdk-it`:
+The stub lets `npm ci` link the generated package on a fresh clone before the
+first generation run.
+
+## Generate
+
+Generate the client through the backend's config:
+
+```bash
+npx @sdk-it/cli generate --config ./apps/backend/sdk-it.config.ts
+```
+
+SDK-IT writes the client beside the backend:
 
 ```text
-.sdk-it/
+apps/backend/.sdk-it/
   package.json
   src/
   dist/
@@ -62,7 +73,7 @@ SDK-IT writes the client to `.sdk-it`:
 Application code imports the generated package normally:
 
 ```ts
-import { Client } from '@sdk-it/client';
+import { Client } from '@acme/backend-client';
 
 const api = new Client({
   baseUrl: '/api',
@@ -85,7 +96,7 @@ await generateProject({
 });
 ```
 
-The defaults are:
+The programmatic defaults are:
 
 | Option        | Default          |
 | ------------- | ---------------- |
@@ -93,6 +104,9 @@ The defaults are:
 | `packageName` | `@sdk-it/client` |
 | `framework`   | auto-detected    |
 | `preset`      | `auto`           |
+
+`init --project` instead derives a unique package name from the workspace scope
+and backend directory.
 
 ## Vite
 
@@ -114,7 +128,7 @@ Pass a config path when Vite cannot discover the workspace config from its root:
 
 ```ts
 sdkIt({
-  config: '../../sdk-it.config.ts',
+  config: '../backend/sdk-it.config.ts',
 });
 ```
 
@@ -126,7 +140,7 @@ Force Prisma support when the project must use it:
 
 ```ts
 export default defineConfig({
-  tsconfig: './apps/backend/tsconfig.json',
+  tsconfig: './tsconfig.json',
   preset: 'prisma',
 });
 ```
@@ -135,19 +149,19 @@ Forced mode fails when SDK-IT cannot find a Prisma client import. Disable detect
 
 ```ts
 export default defineConfig({
-  tsconfig: './apps/backend/tsconfig.json',
+  tsconfig: './tsconfig.json',
   preset: 'none',
 });
 ```
 
 ## Fresh clones and CI
 
-`.sdk-it` is ignored, so generate it before type checking or building:
+Generated sources are ignored, so generate them before type checking or building:
 
 ```json
 {
   "scripts": {
-    "sdk:generate": "npx @sdk-it/cli generate",
+    "sdk:generate": "npx @sdk-it/cli generate --config ./apps/backend/sdk-it.config.ts",
     "typecheck": "npm run sdk:generate && nx run web:typecheck",
     "build": "npm run sdk:generate && nx run web:build"
   }

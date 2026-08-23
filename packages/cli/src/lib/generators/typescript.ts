@@ -76,7 +76,7 @@ export default new Command('typescript')
     await runTypescript(options);
   });
 
-export async function runTypescript(options: Options) {
+async function runTypescript(options: Options) {
   if (!options.publish && !options.output) {
     throw new Error('Error: --publish or --output option is required.');
   }

@@ -34,8 +34,7 @@
     "registry-auth-token": "^5.1.0",
     "@sdk-it/python": "0.46.3",
     "execa": "^9.6.0",
-    "@sdk-it/readme": "0.46.3",
-    "@inquirer/prompts": "^7.7.1"
+    "@sdk-it/readme": "0.46.3"
   },
   "peerDependencies": {
     "typescript": "^6.0.3"

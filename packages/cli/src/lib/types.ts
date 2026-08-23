@@ -39,22 +39,3 @@ export interface DartOptions extends BaseGeneratorOptions {
   formatter?: string;
   pagination?: PaginationConfig | false;
 }
-
-/**
- * Complete SDK configuration file structure
- */
-export interface SdkConfig {
-  readme?: {
-    spec: string;
-    output: string;
-  };
-  apiref?: {
-    spec: string;
-    output: string;
-  };
-  generators: {
-    typescript?: TypeScriptOptions;
-    python?: PythonOptions;
-    dart?: DartOptions;
-  };
-}

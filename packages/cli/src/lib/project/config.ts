@@ -1,9 +1,11 @@
-import { access, readFile, stat, writeFile } from 'node:fs/promises';
-import { dirname, join, relative, resolve } from 'node:path';
+import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import type { OpenAPISecuritySchemeObject } from '@sdk-it/core';
 import type { MiddlewareSecurityRule } from '@sdk-it/generic';
+
+import { generatedPackageManifest } from './compiler.ts';
 
 export interface ProjectConfig {
   tsconfig: string;
@@ -30,6 +32,7 @@ export interface InitializeProjectOptions {
 }
 
 interface ProjectPackageManifest {
+  name?: string;
   workspaces?: string[] | { packages?: string[]; [key: string]: unknown };
   [key: string]: unknown;
 }
@@ -78,10 +81,21 @@ export async function initializeProject(
   options: InitializeProjectOptions,
 ): Promise<void> {
   const cwd = resolve(options.cwd ?? process.cwd());
-  const configPath = join(cwd, 'sdk-it.config.ts');
   const tsconfigPath = resolve(cwd, options.tsconfig);
   await validateTsconfig(tsconfigPath);
-  const tsconfig = relative(cwd, tsconfigPath).replaceAll('\\', '/');
+  const projectDirectory = dirname(tsconfigPath);
+  const configPath = join(projectDirectory, 'sdk-it.config.ts');
+  const { directory: workspaceDirectory, manifest } =
+    await findWorkspace(projectDirectory);
+  const packageName = generatedPackageName(
+    manifest.name,
+    projectDirectory,
+    workspaceDirectory,
+  );
+  const tsconfig = relative(projectDirectory, tsconfigPath).replaceAll(
+    '\\',
+    '/',
+  );
   const relativeTsconfig = tsconfig.startsWith('.')
     ? tsconfig
     : `./${tsconfig}`;
@@ -89,7 +103,7 @@ export async function initializeProject(
 
 export default defineConfig({
   tsconfig: '${relativeTsconfig}',
-});
+${projectDirectory === workspaceDirectory ? '' : `  packageName: '${packageName}',\n`}});
 `;
 
   const existingConfig = await readOptionalFile(configPath);
@@ -99,49 +113,118 @@ export default defineConfig({
     );
   }
 
-  const packagePath = join(cwd, 'package.json');
-  const manifest = JSON.parse(
-    await readFile(packagePath, 'utf8'),
-  ) as ProjectPackageManifest;
-  const manifestChanged = addGeneratedWorkspace(manifest);
+  const output = join(projectDirectory, '.sdk-it');
+  const manifestPath = join(output, 'package.json');
+  const existingManifest = await readOptionalFile(manifestPath);
+  const generatedManifest = generatedPackageManifest(
+    packageName,
+    existingManifest
+      ? (JSON.parse(existingManifest) as ProjectPackageManifest)
+      : {},
+  );
+  const generatedManifestSource = `${JSON.stringify(generatedManifest, null, 2)}\n`;
+  const workspacePath = relative(workspaceDirectory, output).replaceAll(
+    '\\',
+    '/',
+  );
+  const manifestChanged = addGeneratedWorkspace(manifest, workspacePath);
 
-  const gitignorePath = join(cwd, '.gitignore');
+  const gitignorePath = join(workspaceDirectory, '.gitignore');
   const gitignore = (await readOptionalFile(gitignorePath)) ?? '';
-  if (!ignoresGeneratedWorkspace(gitignore)) {
-    const prefix =
-      gitignore.length > 0 && !gitignore.endsWith('\n') ? '\n' : '';
-    await writeFile(gitignorePath, `${gitignore}${prefix}.sdk-it/\n`);
+  const updatedGitignore = withGeneratedWorkspaceIgnore(
+    gitignore,
+    workspacePath,
+  );
+  if (updatedGitignore !== gitignore) {
+    await writeFile(gitignorePath, updatedGitignore);
   }
 
   if (manifestChanged) {
-    await writeFile(packagePath, `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeFile(
+      join(workspaceDirectory, 'package.json'),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+    );
   }
 
   if (existingConfig === undefined) {
     await writeFile(configPath, configSource);
   }
+  if (existingManifest !== generatedManifestSource) {
+    await mkdir(output, { recursive: true });
+    await writeFile(manifestPath, generatedManifestSource);
+  }
 }
 
-function addGeneratedWorkspace(manifest: ProjectPackageManifest): boolean {
+function addGeneratedWorkspace(
+  manifest: ProjectPackageManifest,
+  workspace: string,
+): boolean {
   const workspaces = manifest.workspaces;
   if (Array.isArray(workspaces)) {
-    if (workspaces.includes('.sdk-it')) return false;
-    workspaces.push('.sdk-it');
+    if (workspaces.includes(workspace)) return false;
+    workspaces.push(workspace);
     return true;
   }
   if (workspaces && Array.isArray(workspaces.packages)) {
-    if (workspaces.packages.includes('.sdk-it')) return false;
-    workspaces.packages.push('.sdk-it');
+    if (workspaces.packages.includes(workspace)) return false;
+    workspaces.packages.push(workspace);
     return true;
   }
-  manifest.workspaces = ['.sdk-it'];
+  manifest.workspaces = [workspace];
   return true;
 }
 
-function ignoresGeneratedWorkspace(gitignore: string): boolean {
-  return gitignore
+function withGeneratedWorkspaceIgnore(
+  gitignore: string,
+  workspace: string,
+): string {
+  const patterns = [
+    `!${workspace}/`,
+    `${workspace}/*`,
+    `!${workspace}/package.json`,
+  ];
+  const lines = gitignore
     .split(/\r?\n/)
-    .some((line) => line.trim() === '.sdk-it/' || line.trim() === '.sdk-it');
+    .filter((line) => !patterns.includes(line.trim()));
+  while (lines.at(-1) === '') lines.pop();
+  return `${lines.length ? `${lines.join('\n')}\n` : ''}${patterns.join('\n')}\n`;
+}
+
+async function findWorkspace(
+  start: string,
+): Promise<{ directory: string; manifest: ProjectPackageManifest }> {
+  let directory = start;
+  let nearest:
+    { directory: string; manifest: ProjectPackageManifest } | undefined;
+  while (true) {
+    const source = await readOptionalFile(join(directory, 'package.json'));
+    if (source) {
+      const candidate = {
+        directory,
+        manifest: JSON.parse(source) as ProjectPackageManifest,
+      };
+      nearest ??= candidate;
+      if (candidate.manifest.workspaces !== undefined) return candidate;
+    }
+    const parent = dirname(directory);
+    if (parent === directory) break;
+    directory = parent;
+  }
+  if (nearest) return nearest;
+  throw new Error(`Could not find a package.json from ${start}.`);
+}
+
+function generatedPackageName(
+  workspaceName: string | undefined,
+  projectDirectory: string,
+  workspaceDirectory: string,
+): string {
+  if (projectDirectory === workspaceDirectory) return '@sdk-it/client';
+  const project = basename(projectDirectory)
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-');
+  const scope = workspaceName?.match(/^@([^/]+)\//)?.[1];
+  return scope ? `@${scope}/${project}-client` : `${project}-client`;
 }
 
 async function validateTsconfig(path: string): Promise<void> {

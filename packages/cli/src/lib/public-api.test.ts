@@ -388,70 +388,155 @@ export default defineConfig({
   assert.equal(manifest.exports['.'].import, './dist/index.js');
 });
 
-test('sdk-it generate preserves legacy sdk-it.json projects', () => {
-  const { workspace } = createHonoWorkspace();
+test('sdk-it init --project initializes a nested backend client workspace', () => {
+  const workspace = mkdtempSync(join(tmpdir(), 'sdk-it-monorepo-'));
+  tempDirectories.push(workspace);
+  const project = join(workspace, 'apps', 'api');
+  mkdirSync(join(project, 'src'), { recursive: true });
+  symlinkSync(join(repoRoot, 'node_modules'), join(workspace, 'node_modules'));
   writeFileSync(
-    join(workspace, 'openapi.json'),
-    JSON.stringify({
-      openapi: '3.1.0',
-      info: { title: 'Legacy API', version: '1.0.0' },
-      paths: {},
-    }),
-  );
-  writeFileSync(
-    join(workspace, 'sdk-it.json'),
-    JSON.stringify({
-      generators: {
-        typescript: {
-          spec: './openapi.json',
-          output: './legacy-client',
-          mode: 'minimal',
-          name: 'LegacyClient',
-          install: false,
-          defaultFormatter: false,
-          readme: false,
+    join(project, 'tsconfig.app.json'),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          module: 'esnext',
+          moduleResolution: 'bundler',
+          skipLibCheck: true,
+          target: 'esnext',
         },
+        include: ['src/**/*.ts'],
       },
-    }),
+      null,
+      2,
+    ),
   );
+  writeFileSync(
+    join(project, 'src', 'index.ts'),
+    `import { Hono } from 'hono';
+import { z } from 'zod';
+import { validate } from '@sdk-it/hono/runtime';
 
-  const result = runCli(workspace, 'generate', '--config', 'sdk-it.json');
+const app = new Hono();
 
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(existsSync(join(workspace, 'legacy-client', 'index.ts')), true);
-  assert.equal(
-    existsSync(join(workspace, 'legacy-client', 'package.json')),
-    false,
+/** @openapi listBooks @tags books */
+app.get(
+  '/books',
+  validate((payload) => ({
+    author: {
+      select: payload.query.author,
+      against: z.string().optional(),
+    },
+  })),
+  (context) => context.json([{ id: 'book-1', title: 'Type Systems' }]),
+);
+`,
   );
-});
-
-test('sdk-it init --project initializes the backend client workspace', () => {
-  const { workspace } = createHonoWorkspace();
   writeFileSync(
     join(workspace, 'package.json'),
-    JSON.stringify({ private: true }, null, 2),
+    JSON.stringify(
+      {
+        name: '@acme/platform',
+        private: true,
+        workspaces: ['apps/*'],
+      },
+      null,
+      2,
+    ),
+  );
+  writeFileSync(join(workspace, '.gitignore'), '.sdk-it/\n');
+  assert.equal(
+    spawnSync('git', ['init', '--quiet'], { cwd: workspace }).status,
+    0,
   );
 
-  const result = runCli(workspace, 'init', '--project', './tsconfig.json');
+  const result = runCli(
+    workspace,
+    'init',
+    '--project',
+    './apps/api/tsconfig.app.json',
+  );
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(
-    readFileSync(join(workspace, 'sdk-it.config.ts'), 'utf8'),
+    readFileSync(join(project, 'sdk-it.config.ts'), 'utf8'),
     `import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
-  tsconfig: './tsconfig.json',
+  tsconfig: './tsconfig.app.json',
+  packageName: '@acme/api-client',
 });
 `,
   );
   assert.equal(
     readFileSync(join(workspace, '.gitignore'), 'utf8'),
-    '.sdk-it/\n',
+    `.sdk-it/
+!apps/api/.sdk-it/
+apps/api/.sdk-it/*
+!apps/api/.sdk-it/package.json
+`,
   );
+  assert.equal(existsSync(join(project, '.gitignore')), false);
   assert.deepEqual(
     JSON.parse(readFileSync(join(workspace, 'package.json'), 'utf8'))
       .workspaces,
-    ['.sdk-it'],
+    ['apps/*', 'apps/api/.sdk-it'],
+  );
+  const stubManifest = readFileSync(
+    join(project, '.sdk-it', 'package.json'),
+    'utf8',
+  );
+  assert.deepEqual(JSON.parse(stubManifest), {
+    name: '@acme/api-client',
+    version: '0.0.1',
+    type: 'module',
+    main: './dist/index.js',
+    module: './dist/index.js',
+    types: './dist/index.d.ts',
+    publishConfig: { access: 'public' },
+    exports: {
+      './package.json': './package.json',
+      '.': {
+        types: './dist/index.d.ts',
+        import: './dist/index.js',
+        default: './dist/index.js',
+      },
+    },
+    dependencies: {
+      'fast-content-type-parse': '^3.0.0',
+      zod: '^4.3.0',
+    },
+  });
+  assert.equal(existsSync(join(workspace, 'sdk-it.config.ts')), false);
+  writeFileSync(join(project, '.sdk-it', 'generated.ts'), 'generated');
+  assert.equal(
+    spawnSync(
+      'git',
+      ['check-ignore', '--quiet', 'apps/api/.sdk-it/generated.ts'],
+      {
+        cwd: workspace,
+      },
+    ).status,
+    0,
+  );
+  assert.equal(
+    spawnSync(
+      'git',
+      ['check-ignore', '--quiet', 'apps/api/.sdk-it/package.json'],
+      { cwd: workspace },
+    ).status,
+    1,
+  );
+
+  const generateResult = runCli(
+    workspace,
+    'generate',
+    '--config',
+    'apps/api/sdk-it.config.ts',
+  );
+  assert.equal(generateResult.status, 0, generateResult.stderr);
+  assert.equal(
+    readFileSync(join(project, '.sdk-it', 'package.json'), 'utf8'),
+    stubManifest,
   );
 });
 
@@ -522,7 +607,7 @@ test('initializeProject preserves repository settings and is idempotent', async 
 
   assert.equal(
     readFileSync(join(workspace, '.gitignore'), 'utf8'),
-    'dist/\n.sdk-it/\n',
+    'dist/\n!.sdk-it/\n.sdk-it/*\n!.sdk-it/package.json\n',
   );
   assert.deepEqual(
     JSON.parse(readFileSync(join(workspace, 'package.json'), 'utf8'))
@@ -538,6 +623,7 @@ export default defineConfig({
 });
 `,
   );
+  assert.equal(existsSync(join(workspace, '.sdk-it', 'package.json')), true);
 });
 
 test('initializeProject validates package.json before modifying repository files', async () => {

@@ -32,7 +32,7 @@ export default new Command('dart')
     await runDart(options);
   });
 
-export async function runDart(options: Options) {
+async function runDart(options: Options) {
   await generate(await loadSpec(options.spec), {
     output: options.output,
     mode: options.mode || 'full',

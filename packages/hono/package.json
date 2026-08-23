@@ -35,6 +35,11 @@
   "peerDependencies": {
     "typescript": "^6.0.3"
   },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/debug": "^4.1.12"
   }
