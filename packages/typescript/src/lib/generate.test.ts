@@ -11,7 +11,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { describe, test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createContext, runInContext } from 'node:vm';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import ts from 'typescript';
@@ -618,6 +618,75 @@ describe('generate — security options assembly', () => {
         ),
         /Security scheme https:\/\/auth\.example\.com\/security-scheme must be resolved/,
       );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('generates a client for a security scheme resolved from an external URI', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-resolved-security-'));
+    try {
+      writeFileSync(
+        join(dir, 'auth.json'),
+        JSON.stringify({
+          components: {
+            securitySchemes: {
+              apiKey: { type: 'apiKey', in: 'header', name: 'X-API-Key' },
+            },
+          },
+        }),
+      );
+      const output = join(dir, 'sdk');
+
+      await generate(
+        {
+          openapi: '3.2.0',
+          info: { title: 'Resolved security', version: '1.0.0' },
+          $self: pathToFileURL(join(dir, 'openapi.json')).href,
+          paths: {
+            '/records': {
+              get: {
+                operationId: 'getRecords',
+                security: [
+                  { './auth.json#/components/securitySchemes/apiKey': [] },
+                ],
+                responses: { '204': { description: 'OK' } },
+              },
+            },
+          },
+        },
+        { output, name: 'ResolvedSecurity', readme: false },
+      );
+
+      const bundlePath = join(dir, 'client.cjs');
+      await esbuild({
+        entryPoints: [join(output, 'index.ts')],
+        bundle: true,
+        outfile: bundlePath,
+        format: 'cjs',
+        platform: 'node',
+        target: 'node20',
+        absWorkingDir: dir,
+        nodePaths: [join(repoRoot, 'node_modules')],
+        logLevel: 'silent',
+      });
+      const { ResolvedSecurity } = createRequire(import.meta.url)(
+        bundlePath,
+      ) as {
+        ResolvedSecurity: new (options: unknown) => {
+          prepare(
+            endpoint: string,
+            input: unknown,
+          ): Promise<{ init: { headers: Headers } }>;
+        };
+      };
+      const client = new ResolvedSecurity({
+        baseUrl: 'https://api.example.com',
+        credentials: { apiKey: 'secret' },
+      });
+
+      const request = await client.prepare('GET /records', {});
+      assert.equal(request.init.headers.get('X-API-Key'), 'secret');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

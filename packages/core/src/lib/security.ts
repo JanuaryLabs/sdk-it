@@ -49,5 +49,7 @@ export type OpenAPIComponentsObject = Omit<
 };
 
 export type OpenAPIDocument = Omit<OpenAPIObject, 'components'> & {
+  /** OpenAPI 3.2 document URI; the base for resolving relative references. */
+  $self?: string;
   components?: OpenAPIComponentsObject;
 };

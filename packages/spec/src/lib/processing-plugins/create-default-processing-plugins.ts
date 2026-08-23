@@ -11,6 +11,7 @@ import { normalizeResponses } from './normalize-responses.js';
 import { normalizeSchemas } from './normalize-schemas.js';
 import { normalizeSecurity } from './normalize-security.js';
 import { normalizeTags } from './normalize-tags.js';
+import { resolveSecuritySchemeUris } from './resolve-security-scheme-uris.js';
 
 export function createDefaultProcessingPlugins(
   options: { verbose?: boolean } = {},
@@ -21,6 +22,7 @@ export function createDefaultProcessingPlugins(
     normalizeTags(),
     normalizeParameters(),
     normalizeResponses(),
+    resolveSecuritySchemeUris(),
     normalizeSecurity(),
     normalizeRequestBodies(),
     inferPagination(),

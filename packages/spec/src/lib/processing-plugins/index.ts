@@ -12,3 +12,4 @@ export * from './normalize-responses.js';
 export * from './normalize-security.js';
 export * from './normalize-schemas.js';
 export * from './normalize-tags.js';
+export * from './resolve-security-scheme-uris.js';
