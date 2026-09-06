@@ -286,4 +286,56 @@ describe('bigint spec mapping', () => {
     assert.equal(schema.default, 42);
     assert.equal(schema.format, 'int64');
   });
+
+  describe('input optionality', () => {
+    test('a root .default() marks the input optional', async () => {
+      const { optional, schema } = await evalZod(
+        "z.enum(['asc', 'desc']).default('desc')",
+      );
+      assert.equal(optional, true);
+      assert.equal(schema.default, 'desc');
+    });
+
+    test('a root .prefault() marks the input optional', async () => {
+      const { optional } = await evalZod("z.string().prefault('x')");
+      assert.equal(optional, true);
+    });
+
+    test('a root .catch() marks the input optional', async () => {
+      const { optional } = await evalZod("z.string().catch('x')");
+      assert.equal(optional, true);
+    });
+
+    test('.nonoptional() over an optional schema marks the input required', async () => {
+      const { optional } = await evalZod('z.string().optional().nonoptional()');
+      assert.equal(optional, false);
+    });
+
+    test('a nested .default() inside an array element does not mark the root optional', async () => {
+      const { optional } = await evalZod(
+        'z.array(z.object({ equipment: z.array(z.string()).default([]) }))',
+      );
+      assert.equal(optional, false);
+    });
+  });
+
+  describe('pipes', () => {
+    test('z.stringbool() renders as a boolean', async () => {
+      const { schema } = await evalZod('z.stringbool()');
+      assert.deepStrictEqual(schema, { type: 'boolean' });
+    });
+
+    test('a pipe into a conflicting primitive keeps the input side', async () => {
+      const { schema } = await evalZod('z.string().pipe(z.coerce.number())');
+      assert.equal(schema.type, 'string');
+      assert.equal(schema.allOf, undefined);
+    });
+
+    test('a pipe into a compatible primitive merges the constraints', async () => {
+      const { schema } = await evalZod('z.string().min(1).pipe(z.email())');
+      assert.equal(schema.type, 'string');
+      assert.equal(schema.minLength, 1);
+      assert.equal(schema.format, 'email');
+    });
+  });
 });

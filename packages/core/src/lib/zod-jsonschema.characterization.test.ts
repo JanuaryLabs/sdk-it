@@ -491,11 +491,11 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
       assert.ok(Array.isArray(schema.anyOf) || Array.isArray(schema.type));
     });
 
-    test('a nested optional inside an object still flips optional to true (override fires on any ZodOptional)', async () => {
+    test('a nested optional inside an object leaves the root optional: false', async () => {
       const { optional, schema } = await evalZod(
         'z.object({ a: z.string().optional() })',
       );
-      assert.equal(optional, true);
+      assert.equal(optional, false);
       assert.equal(schema.type, 'object');
       assert.deepStrictEqual(schema.properties.a, { type: 'string' });
       assert.deepStrictEqual(schema.required ?? [], []);

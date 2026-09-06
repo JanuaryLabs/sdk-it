@@ -246,6 +246,12 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
           schema.type === 'integer')
       );
     }`,
+    `function isNumericPair(left, right) {
+      return (
+        (left.type === 'number' && right.type === 'integer') ||
+        (left.type === 'integer' && right.type === 'number')
+      );
+    }`,
     `function mergePrimitiveSchemas(schemas) {
       const merged = {};
       for (const schema of schemas) {
@@ -262,10 +268,7 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
         if (merged.type === undefined) {
           merged.type = schema.type;
         } else if (merged.type !== schema.type) {
-          const numericPair =
-            (merged.type === 'number' && schema.type === 'integer') ||
-            (merged.type === 'integer' && schema.type === 'number');
-          if (!numericPair) {
+          if (!isNumericPair(merged, schema)) {
             return null;
           }
           merged.type = 'integer';
@@ -503,9 +506,6 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
         override(ctx) {
           const def = ctx.zodSchema._zod.def;
           const json = ctx.jsonSchema;
-          if (def.type === 'optional') {
-            optional = true;
-          }
           if (def.type === 'catch') {
             delete json.default;
           }
@@ -580,8 +580,18 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
             );
             if (outKeys.length > 0) {
               const inJson = { ...json };
-              for (const key of Object.keys(json)) delete json[key];
-              json.allOf = [inJson, outJson];
+              const compatible =
+                inJson.type === undefined ||
+                outJson.type === undefined ||
+                inJson.type === outJson.type ||
+                isNumericPair(inJson, outJson);
+              if (inJson.type === 'string' && outJson.type === 'boolean') {
+                for (const key of Object.keys(json)) delete json[key];
+                Object.assign(json, outJson);
+              } else if (compatible) {
+                for (const key of Object.keys(json)) delete json[key];
+                json.allOf = [inJson, outJson];
+              }
             }
           }
           if (def.type === 'tuple' && Array.isArray(json.items)) {
@@ -603,6 +613,9 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
     try {
       zodSchema = ${removeUnsupportedMethods(schema)};
       maskBigIntDefaults(zodSchema);
+      // zod's own input-side flag: 'optional' for optional/nullish/catch,
+      // 'defaulted' for default/prefault, undefined once .nonoptional() applies.
+      optional = ['optional', 'defaulted'].includes(zodSchema._zod.optin);
       const { $schema, ...converted } = toJsonSchema(zodSchema);
       rawResult = converted;
     } finally {
