@@ -117,6 +117,14 @@ export class TypeDeriver {
         ],
       };
     }
+    if (type.symbol?.getName() === 'Date') {
+      return {
+        [deriveSymbol]: true,
+        kind: 'date',
+        optional: false,
+        [$types]: ['string'],
+      };
+    }
     const indexType = type.getStringIndexType();
     if (indexType) {
       return {
@@ -613,7 +621,7 @@ export class TypeDeriver {
       const type = this.checker.getTypeAtLocation(node);
       return this.serializeType(type);
     }
-    if (ts.isCallExpression(node)) {
+    if (ts.isCallOrNewExpression(node)) {
       const type = this.checker.getTypeAtLocation(node);
       return this.serializeType(type);
     }

@@ -498,7 +498,6 @@ describe('Type Derivation', () => {
   });
 
   describe('Type Mappings', () => {
-    test.todo('uses default typesMap for built-in types');
     test.todo('uses custom typesMap');
   });
 

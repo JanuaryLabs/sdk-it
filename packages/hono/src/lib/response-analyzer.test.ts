@@ -1,3 +1,4 @@
+import { type Context, Hono } from 'hono';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -117,6 +118,48 @@ async function analyzeNewResponse(handlerCode: string) {
 describe('Response Analyzer', () => {
   describe('defaultResponseAnalyzer', () => {
     describe('c.json() returns', () => {
+      test('documents Date responses as date-time strings', async () => {
+        const handler = (c: Context) => {
+          const createdAt = new Date('2026-09-06T00:00:00Z');
+          return c.json({ createdAt, history: [createdAt] });
+        };
+        const app = new Hono().get('/', handler);
+        const response = await app.request('/');
+        assert.deepStrictEqual(await response.json(), {
+          createdAt: '2026-09-06T00:00:00.000Z',
+          history: ['2026-09-06T00:00:00.000Z'],
+        });
+
+        const [inferred] = await analyzeHandler(handler.toString());
+        assert.strictEqual(inferred.contentType, 'application/json');
+        assert.deepStrictEqual(toSchema(inferred.response), {
+          type: 'object',
+          properties: {
+            createdAt: { type: 'string', format: 'date-time' },
+            history: {
+              type: 'array',
+              items: { type: 'string', format: 'date-time' },
+            },
+          },
+          required: ['createdAt', 'history'],
+          additionalProperties: false,
+        });
+      });
+
+      test('documents a Date constructed directly in c.json()', async () => {
+        const handler = (c: Context) => {
+          return c.json(new Date('2026-09-06T00:00:00Z'));
+        };
+        const response = await new Hono().get('/', handler).request('/');
+        assert.strictEqual(await response.json(), '2026-09-06T00:00:00.000Z');
+
+        const [inferred] = await analyzeHandler(handler.toString());
+        assert.deepStrictEqual(toSchema(inferred.response), {
+          type: 'string',
+          format: 'date-time',
+        });
+      });
+
       test('extracts 200 status from c.json(data)', async () => {
         const responses = await analyzeHandler(`
           async (c: any) => {
