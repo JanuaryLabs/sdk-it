@@ -585,10 +585,7 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
                 outJson.type === undefined ||
                 inJson.type === outJson.type ||
                 isNumericPair(inJson, outJson);
-              if (inJson.type === 'string' && outJson.type === 'boolean') {
-                for (const key of Object.keys(json)) delete json[key];
-                Object.assign(json, outJson);
-              } else if (compatible) {
+              if (compatible) {
                 for (const key of Object.keys(json)) delete json[key];
                 json.allOf = [inJson, outJson];
               }

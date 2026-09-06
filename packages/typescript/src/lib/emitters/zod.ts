@@ -398,7 +398,7 @@ export class ZodEmitter {
       }
       // If multiple different types, build a union
       const subSchemas = types.map((t) =>
-        this.normal(t, { ...schema, type: t }, false),
+        this.normal(t, { ...schema, type: t }, true),
       );
       return `z.union([${subSchemas.join(', ')}])${appendOptional(required)}`;
     }

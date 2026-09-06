@@ -271,6 +271,82 @@ describe('generate — dictionary inputs', () => {
   });
 });
 
+test('generated input validators keep required type unions required', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'generate-required-union-'));
+  try {
+    await generate(
+      {
+        openapi: '3.1.0',
+        info: { title: 'Union inputs', version: '1.0.0' },
+        paths: {
+          '/values': {
+            post: {
+              operationId: 'createValue',
+              tags: ['values'],
+              requestBody: {
+                required: true,
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        requiredValue: { type: ['string', 'integer'] },
+                        optionalValue: { type: ['string', 'integer'] },
+                      },
+                      required: ['requiredValue'],
+                    },
+                  },
+                },
+              },
+              responses: { '204': { description: 'Created' } },
+            },
+          },
+        },
+      },
+      { output: dir, name: 'Values', readme: false },
+    );
+    const bundlePath = join(dir, 'values-schema.cjs');
+    await esbuild({
+      entryPoints: [join(dir, 'inputs', 'values.ts')],
+      bundle: true,
+      outfile: bundlePath,
+      format: 'cjs',
+      platform: 'node',
+      absWorkingDir: dir,
+      nodePaths: [join(repoRoot, 'node_modules')],
+      logLevel: 'silent',
+    });
+    const { createValueSchema } = createRequire(import.meta.url)(
+      bundlePath,
+    ) as {
+      createValueSchema: {
+        safeParse(value: unknown): { success: boolean };
+      };
+    };
+
+    for (const [input, expected] of [
+      [{ requiredValue: 'hello' }, true],
+      [{ requiredValue: 7, optionalValue: 'hello' }, true],
+      [{ requiredValue: 'hello', optionalValue: 7 }, true],
+      [{ requiredValue: 7, optionalValue: undefined }, true],
+      [{}, false],
+      [{ requiredValue: undefined }, false],
+      [{ requiredValue: null }, false],
+      [{ requiredValue: false }, false],
+      [{ requiredValue: 1.5 }, false],
+      [{ requiredValue: 7, optionalValue: false }, false],
+    ] as const) {
+      assert.equal(
+        createValueSchema.safeParse(input).success,
+        expected,
+        `validation of ${JSON.stringify(input)}`,
+      );
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 describe('generate — discriminated input unions', () => {
   test('client.prepare accepts objects matching one discriminator branch', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'generate-discriminated-input-'));

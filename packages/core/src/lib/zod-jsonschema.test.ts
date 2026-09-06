@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import { evalZod } from './zod-jsonschema.ts';
+import { evalZod } from '@sdk-it/core';
 
 function getNonNullBranch(
   schema: Record<string, unknown>,
@@ -320,9 +320,9 @@ describe('bigint spec mapping', () => {
   });
 
   describe('pipes', () => {
-    test('z.stringbool() renders as a boolean', async () => {
+    test('z.stringbool() renders its string input', async () => {
       const { schema } = await evalZod('z.stringbool()');
-      assert.deepStrictEqual(schema, { type: 'boolean' });
+      assert.deepStrictEqual(schema, { type: 'string' });
     });
 
     test('a pipe into a conflicting primitive keeps the input side', async () => {
