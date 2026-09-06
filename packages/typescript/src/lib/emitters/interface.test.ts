@@ -171,3 +171,45 @@ describe('TypeScriptEmitter 64-bit integers', () => {
     );
   });
 });
+
+describe('TypeScriptEmitter nullable unions', () => {
+  test('anyOf with a leading null member keeps null', () => {
+    const emitter = new TypeScriptEmitter(emptySpec);
+    assert.equal(
+      emitter.handle({ anyOf: [{ type: 'null' }, { type: 'string' }] }, true),
+      'null | string',
+    );
+  });
+
+  test('anyOf with a trailing null member keeps null and adds undefined when optional', () => {
+    const emitter = new TypeScriptEmitter(emptySpec);
+    assert.equal(
+      emitter.handle({ anyOf: [{ type: 'string' }, { type: 'null' }] }, false),
+      'string | null | undefined',
+    );
+  });
+
+  test('type array with null does not add undefined to a required property', () => {
+    const emitter = new TypeScriptEmitter(emptySpec);
+    assert.equal(
+      emitter.handle({ type: ['string', 'null'] }, true),
+      'string | null',
+    );
+  });
+
+  test('type array with null adds undefined only when optional', () => {
+    const emitter = new TypeScriptEmitter(emptySpec);
+    assert.equal(
+      emitter.handle({ type: ['string', 'null'] }, false),
+      'string | null | undefined',
+    );
+  });
+
+  test('type array of two real types does not add undefined per member', () => {
+    const emitter = new TypeScriptEmitter(emptySpec);
+    assert.equal(
+      emitter.handle({ type: ['string', 'number'] }, true),
+      'string | number',
+    );
+  });
+});

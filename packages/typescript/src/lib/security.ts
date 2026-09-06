@@ -131,7 +131,7 @@ function applyCredential(
         config.url.searchParams.set(scheme.name, credential);
       }
     } else if (scheme.in === 'cookie') {
-      if (typeof document !== 'undefined') {
+      if ('document' in globalThis) {
         throw new Error(
           \`Cannot send the \${scheme.name} cookie credential: browsers forbid setting the Cookie header. Let the browser send the cookie and pass a fetch that sets credentials: 'include'.\`,
         );

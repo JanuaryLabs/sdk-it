@@ -239,12 +239,12 @@ export class TypeScriptEmitter {
       const realTypes = types.filter((t) => t !== 'null');
       if (realTypes.length === 1 && types.includes('null')) {
         // Single real type + "null"
-        const tsType = this.normal(realTypes[0], schema, false);
+        const tsType = this.normal(realTypes[0], schema, true);
         return appendOptional(`${tsType} | null`, required);
       }
 
       // Multiple different types
-      const typeResults = types.map((t) => this.normal(t, schema, false));
+      const typeResults = types.map((t) => this.normal(t, schema, true));
       return appendOptional(typeResults.join(' | '), required);
     }
 

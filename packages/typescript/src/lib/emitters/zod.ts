@@ -389,10 +389,17 @@ export class ZodEmitter {
       const realTypes = types.filter((t) => t !== 'null');
       if (realTypes.length === 1 && types.includes('null')) {
         // Single real type + "null"
-        return this.normal(realTypes[0], schema, required, true);
+        return this.normal(
+          realTypes[0],
+          { ...schema, type: realTypes[0] },
+          required,
+          true,
+        );
       }
       // If multiple different types, build a union
-      const subSchemas = types.map((t) => this.normal(t, schema, false));
+      const subSchemas = types.map((t) =>
+        this.normal(t, { ...schema, type: t }, false),
+      );
       return `z.union([${subSchemas.join(', ')}])${appendOptional(required)}`;
     }
     return this.normal(types[0], schema, required, false);
