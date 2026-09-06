@@ -273,7 +273,81 @@ describe('Type Derivation', () => {
 
   describe('Collections', () => {
     test.todo('handles arrays of primitives');
-    test.todo('handles arrays of objects');
+    test('derives arrays of object literals from the item type, not the first element', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `
+            export const indicators = [
+              { id: 1, description: 'first' },
+              { id: 2, description: 'second' },
+            ];
+          `,
+          'indicators',
+        ),
+      );
+
+      assert.deepStrictEqual(result, {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            description: { type: 'string' },
+            id: { type: 'number' },
+          },
+          required: ['description', 'id'],
+          additionalProperties: false,
+        },
+      });
+    });
+
+    test('widens const-asserted arrays after filter and map', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `
+            const indicators = [
+              { id: 1, description: 'first' },
+              { id: 2, description: 'second' },
+            ] as const;
+            export const active = indicators.filter((indicator) => indicator.id > 1);
+          `,
+          'active',
+        ),
+      );
+
+      assert.deepStrictEqual(result, {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            description: { type: 'string' },
+            id: { type: 'number' },
+          },
+          required: ['description', 'id'],
+          additionalProperties: false,
+        },
+      });
+    });
+
+    test('keeps declared literal unions read into array items', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `
+            interface User { id: string; role: 'admin' | 'member'; }
+            declare const users: User[];
+            export const payload = users.map((user) => ({ id: user.id, role: user.role }));
+          `,
+          'payload',
+        ),
+      );
+
+      assert.deepStrictEqual(result.items.properties.role, {
+        anyOf: [
+          { enum: ['admin'], type: 'string' },
+          { enum: ['member'], type: 'string' },
+        ],
+      });
+    });
+
     test.todo('handles tuples');
 
     test('widens const-asserted array values to their item type', async () => {

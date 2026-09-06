@@ -4,6 +4,15 @@ import { sortObjectKeys } from './utils.js';
 
 type Collector = Record<string, any>;
 
+/**
+ * How literal values met while serializing collapse to their base type.
+ * - none: keep every literal (top-level response objects).
+ * - values: array items are representative, so literals read straight off an
+ *   item's initializer collapse while declared literal types keep their values.
+ * - all: const-asserted tuples collapse every literal.
+ */
+type LiteralWidening = 'none' | 'values' | 'all';
+
 export const deriveSymbol = Symbol.for('serialize');
 export const $types = Symbol.for('types');
 export const defaultTypesMap: Record<string, string> = {
@@ -69,13 +78,13 @@ export class TypeDeriver {
   }
 
   serializeType(type: ts.Type): any {
-    return this.serialize(type, false);
+    return this.serialize(type, 'none');
   }
 
-  private serialize(type: ts.Type, widenLiteralValues: boolean): unknown {
+  private serialize(type: ts.Type, widening: LiteralWidening): unknown {
     const alias = type.aliasSymbol?.getName();
     if (!alias) {
-      return this.serializeResolved(type, widenLiteralValues);
+      return this.serializeResolved(type, widening);
     }
     if (this.activeAliases.has(type)) {
       this.activeAliases.set(type, true);
@@ -88,7 +97,7 @@ export class TypeDeriver {
 
     this.activeAliases.set(type, false);
     try {
-      const result = this.serializeResolved(type, widenLiteralValues);
+      const result = this.serializeResolved(type, widening);
       if (this.activeAliases.get(type)) {
         this.collector[alias] = result;
       }
@@ -98,10 +107,7 @@ export class TypeDeriver {
     }
   }
 
-  private serializeResolved(
-    type: ts.Type,
-    widenLiteralValues: boolean,
-  ): unknown {
+  private serializeResolved(type: ts.Type, widening: LiteralWidening): unknown {
     if (this.typesMap[type.aliasSymbol?.getName() || type.symbol?.getName()]) {
       return {
         [deriveSymbol]: true,
@@ -117,7 +123,7 @@ export class TypeDeriver {
         [deriveSymbol]: true,
         kind: 'record',
         optional: false,
-        [$types]: [this.serialize(indexType, widenLiteralValues)],
+        [$types]: [this.serialize(indexType, widening)],
       };
     }
     if (type.flags & TypeFlags.Any) {
@@ -146,7 +152,7 @@ export class TypeDeriver {
       return {
         [deriveSymbol]: true,
         optional: false,
-        ...(widenLiteralValues ? {} : { kind: 'literal', value: type.value }),
+        ...(widening === 'all' ? {} : { kind: 'literal', value: type.value }),
         [$types]: ['string'],
       };
     }
@@ -154,7 +160,7 @@ export class TypeDeriver {
       return {
         [deriveSymbol]: true,
         optional: false,
-        ...(widenLiteralValues ? {} : { kind: 'literal', value: type.value }),
+        ...(widening === 'all' ? {} : { kind: 'literal', value: type.value }),
         [$types]: ['number'],
       };
     }
@@ -162,7 +168,7 @@ export class TypeDeriver {
       return {
         [deriveSymbol]: true,
         optional: false,
-        ...(widenLiteralValues
+        ...(widening === 'all'
           ? {}
           : {
               kind: 'literal',
@@ -217,7 +223,7 @@ export class TypeDeriver {
           }
         }
 
-        types.push(this.serialize(intersectionType, widenLiteralValues));
+        types.push(this.serialize(intersectionType, widening));
       }
       return {
         [deriveSymbol]: true,
@@ -238,7 +244,7 @@ export class TypeDeriver {
           }
         }
 
-        types.push(this.serialize(unionType, widenLiteralValues));
+        types.push(this.serialize(unionType, widening));
       }
       return {
         [deriveSymbol]: true,
@@ -266,18 +272,15 @@ export class TypeDeriver {
         this.typesMap[
           elementType.aliasSymbol?.getName() || elementType.symbol?.getName()
         ];
+      const itemWidening: LiteralWidening =
+        widening === 'all' || this.checker.isTupleType(type) ? 'all' : 'values';
       return {
         kind: 'array',
         optional: false,
         [deriveSymbol]: true,
         [$types]: mappedElementType
           ? [mappedElementType]
-          : [
-              this.serialize(
-                elementType,
-                widenLiteralValues || this.checker.isTupleType(type),
-              ),
-            ],
+          : [this.serialize(elementType, itemWidening)],
       };
     }
     if (type.isClass()) {
@@ -333,14 +336,14 @@ export class TypeDeriver {
             : undefined;
           // get literal properties values if any
           if (propAssingment) {
-            serializedProps[prop.name] = this.serialize(
+            serializedProps[prop.name] = this.serializeValue(
               this.typeOfExpression(propAssingment.initializer),
-              widenLiteralValues,
+              widening,
             );
           } else if (shorthandType) {
-            serializedProps[prop.name] = this.serialize(
+            serializedProps[prop.name] = this.serializeValue(
               shorthandType,
-              widenLiteralValues,
+              widening,
             );
           } else {
             const propType = this.checker.getTypeOfSymbol(prop);
@@ -379,6 +382,15 @@ export class TypeDeriver {
         ),
       ],
     };
+  }
+
+  private serializeValue(type: ts.Type, widening: LiteralWidening): unknown {
+    const isLiteral =
+      type.isLiteral() || (type.flags & TypeFlags.BooleanLiteral) !== 0;
+    return this.serialize(
+      type,
+      widening === 'values' && isLiteral ? 'all' : widening,
+    );
   }
 
   /**
