@@ -1,10 +1,10 @@
 /* eslint-disable @nx/enforce-module-boundaries */
 import { type RouteConfig, index, route } from '@react-router/dev/routes';
-import { readFile } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
-import { loadSpec, toIR } from '@sdk-it/spec';
+import { type NavItem, loadSpec, toIR } from '@sdk-it/spec';
 
 const spec = await toIR({
   spec: await loadSpec(
@@ -17,39 +17,40 @@ const template = await readFile(
   'utf-8',
 );
 
-const docs = spec['x-docs'] ?? [];
+type DocPage = NavItem & { url: string; content: string };
+
+const docs = spec['x-docs']
+  .flatMap((it) => it.items)
+  .filter((it): it is DocPage => Boolean(it.url && it.content));
+
+const generatedDir = join(import.meta.dirname, '_generated');
+await rm(generatedDir, { recursive: true, force: true });
 await writeFiles(
-  join(import.meta.dirname, '_generated'),
-  docs
-    .flatMap((it) => it.items)
-    .filter((it) => it.content)
-    .reduce(
-      (acc, curr) => ({
-        ...acc,
-        [`${curr.id}.tsx`]: template.replace(
-          '###PLACE_HERE###',
-          `<MD content={${JSON.stringify(curr.content)}} />`,
-        ),
-      }),
-      {},
-    ),
+  generatedDir,
+  Object.fromEntries(
+    docs.map((doc) => [
+      `${doc.id}.tsx`,
+      template.replace(
+        '###PLACE_HERE###',
+        `<MD content={${JSON.stringify(doc.content)}} />`,
+      ),
+    ]),
+  ),
 );
 
+const overview = docs.find((doc) => doc.url === '/');
+const pages = docs.filter((doc) => doc !== overview);
+
 export default [
-  index('./app.tsx', { id: 'app-root' }), // exact "/"
-  route('embed', './embed.tsx', { id: 'embed' }), // /embed
-  route('/:group/:operationId', './app.tsx', {
-    id: 'operation',
-  }),
-  ...docs
-    .flatMap((it) => it.items)
-    .filter((it) => it.content)
-    .map((doc) =>
-      route(doc.id, `./_generated/${doc.id}.tsx`, {
-        id: doc.id,
-      }),
-    ),
-  route('*', './app.tsx', {
-    id: 'catch-all',
-  }), // catch all
+  overview
+    ? index(`./_generated/${overview.id}.tsx`, { id: overview.id })
+    : index('./app.tsx', { id: 'app-root' }),
+  route('embed', './embed.tsx', { id: 'embed' }),
+  route('/:group/:operationId', './app.tsx', { id: 'operation' }),
+  ...pages.map((doc) =>
+    route(doc.url.replace(/^\//, ''), `./_generated/${doc.id}.tsx`, {
+      id: doc.id,
+    }),
+  ),
+  route('*', './app.tsx', { id: 'catch-all' }),
 ] satisfies RouteConfig;

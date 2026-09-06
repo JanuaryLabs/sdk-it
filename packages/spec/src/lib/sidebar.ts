@@ -35,7 +35,7 @@ export interface TagGroups {
 }
 
 export function toSidebar(spec: IR) {
-  const sidebar: SidebarData = spec['x-docs'];
+  const sidebar: SidebarData = [...spec['x-docs']];
   for (const tagGroup of spec['x-tagGroups']) {
     sidebar.push({
       id: camelcase(tagGroup.name),

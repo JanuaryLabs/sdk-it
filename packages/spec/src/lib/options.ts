@@ -74,6 +74,7 @@ export function coeraceConfig(config: GenerateSdkConfig) {
     },
     paths: config.spec.paths ?? {},
     'x-docs': [],
+    'x-sdks': [],
     'x-tagGroups': config.spec['x-tagGroups'] ?? [
       {
         name: 'API',
@@ -87,6 +88,12 @@ export function coeraceConfig(config: GenerateSdkConfig) {
   return {
     pagination: coercePaginationConfig(config.pagination),
     responses: config.responses ?? {},
+    // Authored `x-docs` / `x-sdks` change shape during processing, so they are
+    // handed to the overview plugin as raw input instead of living on the IR.
+    docs: {
+      entries: config.spec['x-docs'] as unknown,
+      sdks: config.spec['x-sdks'] as unknown,
+    },
     spec,
     operationId: config.operationId ?? defaults.operationId,
     tag: config.tag ?? defaults.tag,

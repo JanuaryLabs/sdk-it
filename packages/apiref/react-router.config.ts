@@ -8,8 +8,8 @@ export default {
   ...(process.env.VITE_SDK_IT_STATIC === 'true'
     ? {
         ssr: false,
-        async prerender() {
-          return ['/'];
+        async prerender({ getStaticPaths }) {
+          return getStaticPaths();
         },
       }
     : {}),

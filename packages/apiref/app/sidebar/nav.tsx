@@ -69,7 +69,7 @@ export function SidebarItem({ item }: { item: NavItem }) {
               </SidebarMenuButton>
             </NavLink>
           ) : (
-            <NavLink to={item.url}>
+            <NavLink to={item.url} end={item.url === '/'}>
               <SidebarMenuButton
                 className="flex items-center justify-between p-2 text-sm font-normal"
                 size={'default'}

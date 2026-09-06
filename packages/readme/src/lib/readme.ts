@@ -12,7 +12,7 @@ function toTOC(spec: IR) {
     }
 
     for (const item of category.items) {
-      if (item.id !== 'generated-introduction') {
+      if (item.id !== 'overview') {
         contents.push(item.content || '');
       }
 
@@ -51,7 +51,7 @@ export function toReadme(spec: IR) {
 
   const generatedIntro = spec['x-docs']
     .flatMap((it) => it.items)
-    .find((doc) => doc.id === 'generated-introduction');
+    .find((doc) => doc.id === 'overview');
 
   if (generatedIntro && generatedIntro.content) {
     markdown.push(generatedIntro.content);

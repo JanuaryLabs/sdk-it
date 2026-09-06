@@ -85,8 +85,10 @@ continue.
 8. `normalize-schemas` applies SDK-IT's schema normalization.
 9. `extract-inline-schemas` runs only when
    `createDefaultProcessingPlugins({ verbose: true })` is used.
-10. `extract-overview-docs` derives overview documentation after operations
-    and schemas are complete.
+10. `extract-overview-docs` builds the Overview pages (overview, authorization,
+    errors) after operations and schemas are complete. Authored `x-docs`
+    entries seed or extend those pages and `x-sdks` renders the SDK install
+    box; see `docs/recipes/overview-docs.md`.
 11. `canonicalize-spec` sorts component schemas and schema properties
     deterministically.
 

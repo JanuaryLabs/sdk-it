@@ -17,6 +17,7 @@ import type {
   OpenAPISecuritySchemeObject,
 } from '@sdk-it/core';
 
+import type { SdkDoc } from './overview-docs/types.js';
 import type { PaginationGuess } from './pagination/guess-pagination.js';
 import type { SidebarData, TagGroups } from './sidebar.js';
 
@@ -30,6 +31,7 @@ export type IR = Omit<
     configuration: string;
   };
   'x-docs': SidebarData;
+  'x-sdks': SdkDoc[];
   'x-tagGroups': TagGroups[];
   components: Omit<OpenAPIComponentsObject, 'schemas' | 'securitySchemes'> & {
     schemas: Record<string, SchemaObject | ReferenceObject>;

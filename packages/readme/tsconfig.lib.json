@@ -17,5 +17,6 @@
     {
       "path": "../core/tsconfig.lib.json"
     }
-  ]
+  ],
+  "exclude": ["src/**/*.test.ts"]
 }

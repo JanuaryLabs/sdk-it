@@ -42,33 +42,6 @@ export const presetDocs = {
       singular: 'Official API Client',
       plural: 'Official API Clients',
     },
-    sdk: {
-      singular: 'SDK',
-      plural: 'SDKs',
-    },
-    language: {
-      singular: 'a programming language',
-      plural: 'multiple programming languages',
-    },
-    recommendation: {
-      singular: 'this client',
-      plural: 'these clients',
-    },
-    location: {
-      singular: 'it',
-      plural: 'them',
-    },
-    intro: {
-      template: (
-        apiTitle: string,
-        count: number,
-        sdks: string,
-        languages: string,
-        recommendation: string,
-        location: string,
-      ) =>
-        `${apiTitle} provides official client ${sdks} for ${languages}. We recommend using ${recommendation} to interact with all stable endpoints. You can find ${location} here:`,
-    },
   },
 } as const;
 
@@ -117,23 +90,4 @@ export function getAuthIntroText(count: number): string {
   const pronoun = pronouns.pronoun(count);
 
   return presetDocs.auth.intro.template(count, methods, schemes, pronoun);
-}
-
-export function getClientIntroText(apiTitle: string, count: number): string {
-  const sdks = getTextByCount(count, presetDocs.client.sdk);
-  const languages = getTextByCount(count, presetDocs.client.language);
-  const recommendation = getTextByCount(
-    count,
-    presetDocs.client.recommendation,
-  );
-  const location = getTextByCount(count, presetDocs.client.location);
-
-  return presetDocs.client.intro.template(
-    apiTitle,
-    count,
-    sdks,
-    languages,
-    recommendation,
-    location,
-  );
 }
