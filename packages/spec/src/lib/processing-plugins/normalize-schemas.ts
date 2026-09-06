@@ -7,6 +7,7 @@ import { isEmpty, isRef, notRef, resolveRef, snakecase } from '@sdk-it/core';
 import { findVarients } from '../find-polymorphic-varients.js';
 import { formatName } from '../format-name.js';
 import { isPrimitiveSchema } from '../is-primitive-schema.js';
+import { coerceTypes } from '../is.js';
 import type { ProcessingPlugin } from '../processing.js';
 import type { IR } from '../types.js';
 
@@ -173,8 +174,16 @@ function normalizeSchemaObjects(
           (item) => resolveRef<SchemaObject>(spec, item).type !== 'null',
         );
         if (otherTypes.length === 1) {
-          Object.assign(schema, otherTypes[0]);
+          const [only] = otherTypes;
+          const droppedNull = otherTypes.length !== schema[kind].length;
+          Object.assign(schema, only);
           delete schema[kind];
+          if (droppedNull && notRef(only)) {
+            const types = coerceTypes(only, false);
+            if (types.length) {
+              schema.type = uniq([...types, 'null']);
+            }
+          }
           continue;
         }
 

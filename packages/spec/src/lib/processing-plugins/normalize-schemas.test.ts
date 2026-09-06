@@ -27,6 +27,9 @@ test('schema normalization preserves the established recursive IR repairs', asyn
           Choice: {
             oneOf: [{ type: 'string' }, { type: 'null' }],
           },
+          Note: {
+            anyOf: [{ type: 'null' }, { type: 'string' }],
+          },
           Dictionary: {
             type: 'object',
             additionalProperties: {
@@ -55,7 +58,12 @@ test('schema normalization preserves the established recursive IR repairs', asyn
     items: { type: 'string' },
     default: ['first', 'second'],
   });
-  assert.deepStrictEqual(spec.components.schemas.Choice, { type: 'string' });
+  assert.deepStrictEqual(spec.components.schemas.Choice, {
+    type: ['string', 'null'],
+  });
+  assert.deepStrictEqual(spec.components.schemas.Note, {
+    type: ['string', 'null'],
+  });
 
   const dictionary = spec.components.schemas.Dictionary as SchemaObject;
   assert.ok(
