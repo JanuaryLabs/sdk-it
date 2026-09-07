@@ -61,6 +61,21 @@ Generated types enforce the value required by each scheme:
 - Mutual TLS uses `true`; the configured `fetch` implementation owns the
   client certificate.
 
+Any scheme also accepts `true` to declare a transport-owned credential: the
+requirement counts as satisfied and the client sets nothing, because something
+outside it supplies the credential. That is the configuration for a browser
+session cookie (`apiKey` with `in: cookie`; the browser sends it when the
+configured `fetch` passes `credentials: 'include'`) and for a host proxy that
+injects `Authorization` on the client's behalf:
+
+```typescript
+const client = new ExampleClient({
+  baseUrl: '/api',
+  fetch: (request) => fetch(request, { credentials: 'include' }),
+  credentials: { session: true },
+});
+```
+
 Each value may instead be a sync or async provider. Providers receive the
 scheme name plus the current operation's OpenAPI scopes or roles:
 

@@ -38,7 +38,8 @@ const providerSchema = <T extends SecurityCredentialValue>() =>
   z.custom<SecurityCredentialProvider<T>>((value) => typeof value === 'function');
 const stringCredentialSchema = z.union([
   z.string(),
-  providerSchema<string>(),
+  z.literal(true),
+  providerSchema<string | true>(),
 ]);
 const basicCredentialValueSchema = z.object({
   username: z.string(),
@@ -46,7 +47,8 @@ const basicCredentialValueSchema = z.object({
 });
 const basicCredentialSchema = z.union([
   basicCredentialValueSchema,
-  providerSchema<{ username: string; password: string }>(),
+  z.literal(true),
+  providerSchema<{ username: string; password: string } | true>(),
 ]);
 const mutualTlsCredentialSchema = z.union([
   z.literal(true),
@@ -118,6 +120,9 @@ function applyCredential(
   if (credential === undefined) {
     throw new Error('Security credential provider returned no credential');
   }
+  // true declares a transport-owned credential: the configured fetch, a host
+  // proxy, or the browser's cookie jar supplies it, so nothing is set here.
+  if (credential === true) return;
   if (scheme.type === 'apiKey') {
     if (typeof credential !== 'string') {
       throw new TypeError('API key credentials must be strings');
@@ -147,10 +152,7 @@ function applyCredential(
     return;
   }
   if (scheme.type === 'mutualTLS') {
-    if (credential !== true) {
-      throw new TypeError('mutualTLS credentials must be true when the custom fetch owns the client certificate');
-    }
-    return;
+    throw new TypeError('mutualTLS credentials must be true when the custom fetch owns the client certificate');
   }
   if (scheme.type === 'http' && scheme.scheme.toLowerCase() === 'basic') {
     if (

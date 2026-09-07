@@ -1228,8 +1228,6 @@ describe('generate — security options assembly', () => {
 new MutualTls({ baseUrl: '', credentials: { mtls: false } });
 new MutualTls({ baseUrl: '', credentials: { mtls: 'certificate' } });
 new MutualTls({ baseUrl: '', credentials: { mtls: () => 'certificate' } });
-new MutualTls({ baseUrl: '', credentials: { bearer: true } });
-new MutualTls({ baseUrl: '', credentials: { bearer: () => true } });
 new MutualTls({ baseUrl: '', credentials: { basic: 'user:password' } });
 new MutualTls({ baseUrl: '', credentials: { basic: () => 'user:password' } });
 `,
@@ -1241,7 +1239,7 @@ new MutualTls({ baseUrl: '', credentials: { basic: () => 'user:password' } });
           file: file ? relative(dir, file) : undefined,
           line,
         })),
-        [2, 3, 4, 5, 6, 7, 8].map((line) => ({
+        [2, 3, 4, 5, 6].map((line) => ({
           file: join('src', 'invalid-mtls.ts'),
           line,
         })),
@@ -1407,6 +1405,111 @@ describe('generate — emitted code is cross-runtime portable', () => {
       );
       const broken = await bundle();
       assert.throws(() => evaluate(broken), /Blob is not defined/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+async function withBrowserGlobals<T>(run: () => Promise<T>): Promise<T> {
+  Object.defineProperty(globalThis, 'document', {
+    value: {},
+    configurable: true,
+  });
+  try {
+    return await run();
+  } finally {
+    Reflect.deleteProperty(globalThis, 'document');
+  }
+}
+
+describe('generate — transport-owned credentials', () => {
+  test('true declares a credential the transport supplies and sends nothing', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-transport-owned-'));
+    try {
+      const output = join(dir, 'sdk');
+      await generate(
+        {
+          openapi: '3.2.0',
+          info: { title: 'Transport owned', version: '1.0.0' },
+          components: {
+            securitySchemes: {
+              bearer: { type: 'http', scheme: 'bearer' },
+              session: { type: 'apiKey', in: 'cookie', name: 'session' },
+            },
+          },
+          paths: {
+            '/records': {
+              get: {
+                operationId: 'getRecords',
+                security: [{ bearer: [] }, { session: [] }],
+                responses: { '204': { description: 'OK' } },
+              },
+            },
+          },
+        },
+        { output, name: 'TransportOwned', readme: false },
+      );
+
+      const bundlePath = join(dir, 'client.cjs');
+      await esbuild({
+        entryPoints: [join(output, 'index.ts')],
+        bundle: true,
+        outfile: bundlePath,
+        format: 'cjs',
+        platform: 'node',
+        target: 'node20',
+        absWorkingDir: dir,
+        nodePaths: [join(repoRoot, 'node_modules')],
+        logLevel: 'silent',
+      });
+      const { TransportOwned } = createRequire(import.meta.url)(bundlePath) as {
+        TransportOwned: new (options: unknown) => {
+          prepare(
+            endpoint: string,
+            input: unknown,
+          ): Promise<{ init: { headers: Headers } }>;
+        };
+      };
+      const baseUrl = 'https://api.example.com';
+
+      const proxied = await new TransportOwned({
+        baseUrl,
+        credentials: { bearer: true },
+      }).prepare('GET /records', {});
+      assert.equal(proxied.init.headers.get('Authorization'), null);
+
+      const browserSession = await withBrowserGlobals(() =>
+        new TransportOwned({
+          baseUrl,
+          credentials: { session: true },
+        }).prepare('GET /records', {}),
+      );
+      assert.equal(browserSession.init.headers.get('Cookie'), null);
+
+      await withBrowserGlobals(() =>
+        assert.rejects(
+          new TransportOwned({
+            baseUrl,
+            credentials: { session: 'abc' },
+          }).prepare('GET /records', {}),
+          /browsers forbid setting the Cookie header/,
+        ),
+      );
+
+      await assert.rejects(
+        new TransportOwned({ baseUrl, credentials: {} }).prepare(
+          'GET /records',
+          {},
+        ),
+        /Missing credentials for security requirements: bearer or session/,
+      );
+
+      const explicit = await new TransportOwned({
+        baseUrl,
+        credentials: { bearer: 'token' },
+      }).prepare('GET /records', {});
+      assert.equal(explicit.init.headers.get('Authorization'), 'Bearer token');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
