@@ -30,7 +30,10 @@ export function sse(response: Response): SSEListener {
 		const decoder = new TextDecoder();
 		let buffer = "";
 
-		(async () => {
+		// The pump owns its own failure (the catch below), so nothing awaits it;
+		// `void` states that, and keeps generated output clean under
+		// @typescript-eslint/no-floating-promises.
+		void (async () => {
 			try {
 				for await (const value of response.body!) {
 					buffer += decoder.decode(value, { stream: true });

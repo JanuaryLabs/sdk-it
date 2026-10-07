@@ -437,6 +437,50 @@ describe('generate — discriminated input unions', () => {
   });
 });
 
+describe('generate — http runtime', () => {
+  test('marks the SSE reader pump as intentionally unawaited', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-sse-void-'));
+    try {
+      await generate(
+        {
+          openapi: '3.1.0',
+          info: { title: 'Events', version: '1.0.0' },
+          paths: {
+            '/events': {
+              get: {
+                operationId: 'streamEvents',
+                tags: ['events'],
+                responses: {
+                  '200': {
+                    description: 'OK',
+                    content: {
+                      'text/event-stream': {
+                        schema: { type: 'string' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          output: dir,
+          name: 'Events',
+          readme: false,
+        },
+      );
+
+      const source = readFileSync(join(dir, 'http', 'sse.ts'), 'utf8');
+      // Consumers lint generated output with no-floating-promises; a bare
+      // async IIFE trips it even though the pump catches internally.
+      assert.match(source, /^\s*void \(async \(\) => \{/m);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('generate — impossible schemas', () => {
   test('emits never arrays for schemas that reject every item', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'generate-never-response-'));
