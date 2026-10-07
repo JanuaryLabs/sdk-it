@@ -8,6 +8,8 @@ export default [
       '@nx/dependency-checks': [
         'error',
         {
+          // evalZod emits require('zod') inside its evaluated module source.
+          runtimeHelpers: ['zod'],
           ignoredFiles: [
             '{projectRoot}/eslint.config.{js,cjs,mjs}',
             '{projectRoot}/esbuild.config.{js,ts,mjs,mts}',

@@ -11,8 +11,12 @@ the generation pipeline.
 ## Install
 
 ```bash
-npm install @sdk-it/core typescript openapi3-ts
+npm install @sdk-it/core zod@^4.3.0 typescript openapi3-ts
 ```
+
+Schema analysis requires Zod 4.3 or later within major version 4. Imported schemas
+must also use Zod 4, including nested schemas. Separate compatible Zod 4 package
+instances are supported; Zod 3 runtimes and schemas receive a migration error.
 
 ## Create a TypeScript program
 

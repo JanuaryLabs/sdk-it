@@ -2,6 +2,11 @@
 
 Hono runtime middleware and response analysis for SDK-IT.
 
+`@sdk-it/hono/runtime` is the canonical home for the shared Hono request
+validator. Import it instead of copying its implementation into an application.
+See the [validator comparison and contract](../../docs/architecture/hono-validator.md)
+for the consolidation decisions and consumer migration notes.
+
 See [`@sdk-it/typescript`](../typescript/README.md) for OpenAPI-to-TypeScript
 client generation.
 
@@ -88,6 +93,18 @@ Supported enforced content types are:
 
 Query and path values arrive as strings. Use Zod coercion when the parsed value
 should be a number, boolean, or another non-string type.
+The query string `"null"` stays a string unless a schema explicitly transforms it.
+Malformed JSON throws an HTTP 400 exception with `api/invalid-json` in its cause.
+Malformed content-type headers return 415 with `api/unsupported-media-type`.
+Selecting a body field from JSON null, an array, or a scalar returns 400 with
+`api/invalid-body`; validate these values through a whole-body schema instead.
+
+The selector runs once per request. `c.var.input` contains Zod's parsed output,
+including defaults, transformations, and optional keys.
+
+Whole-body selection (`select: payload.body`) works at runtime, including for
+array or nullable schemas. For generated OpenAPI, keep direct field selectors;
+whole-body generation is not supported by the current static analyzer.
 
 ### Validate file uploads
 
@@ -121,6 +138,28 @@ app.post(
   },
 );
 ```
+
+Repeated form fields are preserved: a single `files` field is a `File`, while
+multiple `files` fields are a `File[]`. A field named `files[]` always produces
+an array and is selected with `payload.body['files[]']`. The same rule applies
+to repeated URL-encoded fields. Use a Zod schema matching the accepted shape.
+
+### Parse a schema directly
+
+`parse` supports any Zod schema, including unions, arrays, async refinements,
+and transformations:
+
+```typescript
+import { parse } from '@sdk-it/hono/runtime';
+
+const status = await parse(z.enum(['draft', 'published']), rawStatus);
+```
+
+Failed validation throws `HTTPException(400)`. Its cause contains `code`,
+`details`, `errors` grouped by field, and `formErrors` for root-level issues.
+Both error collections contain entries
+with `message`, `code`, and a dot-joined `path`. Applications choose how to
+serialize the exception through their Hono error handler.
 
 ### Enforce a content type without validation
 

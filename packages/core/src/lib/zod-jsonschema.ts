@@ -19,6 +19,9 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
     `const filename = "${import.meta.url}";`,
     `const require = createRequire(filename);`,
     `const z = require("zod");`,
+    `if (typeof z.toJSONSchema !== 'function') {
+      throw new Error('@sdk-it/core requires Zod 4. Install zod@^4.3.0 and migrate Zod 3 schemas before analysis.');
+    }`,
     // zod 4 removed ZodString.ip/.cidr; restore them for analyzed user source
     // that still uses the v3 spellings.
     `const stringProto = Object.getPrototypeOf(z.string());
@@ -121,7 +124,10 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
     // runs, which throws on bigint. Mask them as sentinel strings up front
     // and restore after conversion.
     `function maskBigIntDefaults(schema, seen = new Set()) {
-      if (!schema || !schema._zod || seen.has(schema)) return;
+      if (!schema?._zod || schema._zod.version?.major !== 4) {
+        throw new Error('@sdk-it/core requires Zod 4 schemas; migrate imported Zod 3 schemas before analysis.');
+      }
+      if (seen.has(schema)) return;
       seen.add(schema);
       const def = schema._zod.def;
       if (

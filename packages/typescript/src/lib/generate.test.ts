@@ -347,6 +347,122 @@ test('generated input validators keep required type unions required', async () =
   }
 });
 
+test('generated nullable anyOf contracts preserve null separately from omission', async () => {
+  const dir = mkdtempSync(join(repoRoot, '.generate-nullable-contract-'));
+  try {
+    await generate(
+      {
+        openapi: '3.1.0',
+        info: { title: 'Nullable values', version: '1.0.0' },
+        paths: {
+          '/values': {
+            post: {
+              operationId: 'createValue',
+              tags: ['values'],
+              requestBody: {
+                required: true,
+                content: {
+                  'application/json': {
+                    schema: { $ref: '#/components/schemas/Value' },
+                  },
+                },
+              },
+              responses: {
+                '200': {
+                  description: 'Value',
+                  content: {
+                    'application/json': {
+                      schema: { $ref: '#/components/schemas/Value' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        components: {
+          schemas: {
+            Value: {
+              type: 'object',
+              properties: {
+                price: {
+                  anyOf: [{ type: 'integer', minimum: 0 }, { type: 'null' }],
+                },
+                optionalPrice: {
+                  anyOf: [{ type: 'integer', minimum: 0 }, { type: 'null' }],
+                },
+              },
+              required: ['price'],
+            },
+          },
+        },
+      },
+      { output: dir, name: 'Values', readme: false, mode: 'full' },
+    );
+    const configPath = join(dir, 'tsconfig.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    config.compilerOptions.strict = true;
+    writeFileSync(configPath, JSON.stringify(config));
+    const bundlePath = join(dir, 'values-schema.cjs');
+    await esbuild({
+      entryPoints: [join(dir, 'src', 'inputs', 'values.ts')],
+      bundle: true,
+      outfile: bundlePath,
+      format: 'cjs',
+      platform: 'node',
+      absWorkingDir: dir,
+      nodePaths: [join(repoRoot, 'node_modules')],
+      logLevel: 'silent',
+    });
+    const { createValueSchema } = createRequire(import.meta.url)(
+      bundlePath,
+    ) as {
+      createValueSchema: { safeParse(value: unknown): { success: boolean } };
+    };
+    for (const [input, expected] of [
+      [{ price: null }, true],
+      [{ price: 0, optionalPrice: null }, true],
+      [{ price: 5, optionalPrice: 3 }, true],
+      [{ price: null, optionalPrice: undefined }, true],
+      [{}, false],
+      [{ price: undefined }, false],
+      [{ price: '5' }, false],
+      [{ price: null, optionalPrice: 'bad' }, false],
+    ] as const) {
+      assert.equal(
+        createValueSchema.safeParse(input).success,
+        expected,
+        `validation of ${JSON.stringify(input)}`,
+      );
+    }
+    writeFileSync(
+      join(dir, 'src', 'consumer.ts'),
+      `
+import { Values } from './index.ts';
+const client = new Values({ baseUrl: 'https://example.test' });
+const read = () => client.request('POST /values', { price: null });
+// @ts-expect-error A required request price cannot be omitted.
+client.request('POST /values', {});
+// @ts-expect-error A required request price cannot be undefined.
+client.request('POST /values', { price: undefined });
+type Value = Awaited<ReturnType<typeof read>>;
+const nullPrice: Value['price'] = null;
+const numberPrice: Value['price'] = 2;
+const optionalNull: Value['optionalPrice'] = null;
+const optionalOmitted: Value['optionalPrice'] = undefined;
+// @ts-expect-error A required nullable value is not optional.
+const missing: Value['price'] = undefined;
+// @ts-expect-error Strings are not prices.
+const stringPrice: Value['price'] = '2';
+void [nullPrice, numberPrice, optionalNull, optionalOmitted, missing, stringPrice];
+`,
+    );
+    assert.deepEqual(compileGeneratedProject(dir), []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 describe('generate — discriminated input unions', () => {
   test('client.prepare accepts objects matching one discriminator branch', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'generate-discriminated-input-'));
