@@ -63,9 +63,13 @@ the HTTP plugin executes them per request. Neither should be copied wholesale.
    `z.output<z.ZodObject<...>>`, adopting DeepAgents' optional-key inference
    without its proxies or runtime shape assertions. Defaults and transformations
    describe parsed outputs, not wire inputs.
-6. **Use `details` consistently.** The canonical error cause uses `details`
-   for validation, malformed JSON, and unsupported media types. This replaces
-   the earlier mixture of `detail` and `details`, following the user's decision.
+6. **Use `detail` consistently.** The canonical error cause uses singular
+   `detail` for every validator error, following the Problem Details field name
+   from [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html#section-3.1.4),
+   which supersedes RFC 7807, and .NET's `ProblemDetails.Detail`. This corrects
+   the initial consolidation's plural spelling. Applications own the response
+   serialization; the exception cause itself is not a complete Problem Details
+   HTTP response.
 7. **Erase selector markers.** Adopt GI backend's tagged types instead of
    allocating unused marker classes. The selector still receives actual request
    values, not runtime marker objects. Retain the source distinctions in its
@@ -131,7 +135,7 @@ suppressions into the package.
 - Keep `openapi` as the existing runtime alias of `validate`. For static OpenAPI
   analysis, use the documented `validate` spelling and direct field selectors.
 - Keep existing content-type enforcement, including case/parameter parsing, GET
-  rejection when a content-type header exists, and plural `cause.details` on 415
+  rejection when a content-type header exists, and singular `cause.detail` on 415
   errors. All validator error causes now use that same spelling.
 - `text/plain` can be enforced, but the selector's body is not populated from
   text. Cookie marker types do not constitute cookie extraction. Neither is
@@ -168,9 +172,9 @@ Before migrating each application, check these concrete differences:
   schema if their clients rely on that encoding.
 - Consumers serializing `HTTPException.cause` now also expose `formErrors`.
   Root-error paths are the empty string; nested field paths remain dot-joined.
-- Apps reading `cause.detail` must switch to `cause.details`, including existing
-  SDK-IT callers handling validation errors. App-local error serializers remain
-  application-owned.
+- Error serializers should read singular `cause.detail`, matching Problem
+  Details and the existing Text2SQL/DeepAgents convention. Consumers reading
+  plural `cause.details` must switch to `cause.detail`.
 - The `parse` API is asynchronous. Older Serverize/January call sites must await
   it. Zod 3 issue fields and types must not be copied into the Zod 4 contract.
 

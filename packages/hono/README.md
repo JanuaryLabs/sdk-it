@@ -156,10 +156,13 @@ const status = await parse(z.enum(['draft', 'published']), rawStatus);
 ```
 
 Failed validation throws `HTTPException(400)`. Its cause contains `code`,
-`details`, `errors` grouped by field, and `formErrors` for root-level issues.
+`detail`, `errors` grouped by field, and `formErrors` for root-level issues.
 Both error collections contain entries
 with `message`, `code`, and a dot-joined `path`. Applications choose how to
 serialize the exception through their Hono error handler.
+The singular `detail` spelling follows
+[Problem Details (RFC 9457)](https://www.rfc-editor.org/rfc/rfc9457.html#section-3.1.4)
+and .NET's `ProblemDetails.Detail`; the application owns the full response format.
 
 ### Enforce a content type without validation
 

@@ -5,6 +5,10 @@ The user requested fixes after comparing all validator copies, using the
 `coding:write-test` workflow. Existing property selectors must stay unchanged;
 the user explicitly rejected adding callable selectors.
 
+The original ticket verification below was recorded with commit `4549d9c`.
+The later singular `detail` correction is documented at the end of this file;
+it supersedes the earlier plural spelling without changing ticket scope.
+
 ## Source comparison before changes
 
 All 15 distinct variants were rechecked against the comparison inventory.
@@ -165,3 +169,65 @@ targeted mutations are not counted as proof.
 - [x] test-mutation-prover: every implemented test CAUGHT — `mutation_proof`; C3 has no claimed proof.
 - [x] test-gotcha-reviewer: every finding fixed or answered — `test_review` rechecked both corrections with no remaining findings.
 - [x] Done when — verification workflow complete; the product limitation in #2406 is explicitly unproven.
+
+## Singular `detail` correction
+
+The user corrected the error contract to singular `detail`, following .NET
+Problem Details. The relevant standard is RFC 7807, superseded by
+[RFC 9457 section 3.1.4](https://www.rfc-editor.org/rfc/rfc9457.html#section-3.1.4).
+All seven validator error-cause branches now use `detail`; no plural alias is
+retained. Status codes, error codes, messages, and validation issues stay intact.
+The application still owns serialization of a complete Problem Details response.
+
+Existing public integration tests cover the correction; no duplicate tests or
+test-only production interfaces were added.
+
+| Claim | Existing test                                                                              | What it proves                                                                         | Assumes | Status |
+| ----- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- | ------- | ------ |
+| D1    | missing required field returns 400 with field error entry                                  | Validation failure exposes singular detail and no plural alias                         | Nothing | CAUGHT |
+| D2    | malformed media types have a distinct client error through every public entrypoint         | Malformed, missing, and unsupported media-type diagnostics use singular detail         | Nothing | CAUGHT |
+| D3    | GET with content-type header is rejected with 415                                          | GET media-type rejection uses singular detail and no plural alias                      | Nothing | CAUGHT |
+| D4    | unsupported content-type returns 415 when expected type set                                | Unsupported media-type rejection uses singular detail and no plural alias              | Nothing | CAUGHT |
+| D5    | missing content-type with expected type returns 415                                        | Missing media-type rejection uses singular detail and no plural alias                  | Nothing | CAUGHT |
+| D6    | non-object field selections fail without changing whole-body values or per-request schemas | Non-object field rejection uses singular detail and retains the body/selector contract | Nothing | CAUGHT |
+| D7    | malformed JSON returns a structured 400 without running the handler                        | JSON syntax rejection uses singular detail                                             | Nothing | CAUGHT |
+| D8    | parse preserves both root and nested issues from one schema                                | Direct parse rejection uses singular detail and preserves root/nested issues           | Nothing | CAUGHT |
+
+Evidence:
+
+- `/tmp/sdk-it-detail-before.json` reproduced plural keys through real Hono
+  requests. `/tmp/sdk-it-detail-after.json` contains the same responses with only
+  `details` renamed to `detail`; the structural comparison passed.
+- D1, D2, D3, D6, and D7 each failed on the old key before its production branch
+  was changed, then passed through the Nx test target. Logs are
+  `/tmp/sdk-it-detail-D*-{red,green}.log`. D4/D5 share the verifier corrected by D2;
+  D8 shares the parser corrected by D1. Their updated integration assertions also
+  passed before mutation verification.
+- `nx run-many -t test typecheck lint -p @sdk-it/hono --parallel=1` passed:
+  55 tests, 7 existing TODOs, no failures; lint has 4 existing warnings and no
+  errors. Log: `/tmp/sdk-it-detail-checks.log`.
+- `test_discovery` refreshed the eight-test map; `claim_comparison` accepted
+  D1–D8 with no missing or weakened requirements.
+
+| Finding                                      | Disposition                                                                                            |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| User's RFC number is 7084                    | answered: Problem Details is RFC 7807, superseded by RFC 9457; the requested singular field is correct |
+| Discovery abbreviated the Nx project as hono | fixed: used the configured project name `@sdk-it/hono` for every run                                   |
+
+The independent reviewer found no remaining issues. The mutation prover ran all
+eight corrected tests: the baseline passed 8/8; changing the seven production
+`detail` keys back to `details` failed all 8/8. There were no INVALID or SURVIVED
+attempts in this correction pass.
+The detailed proof is `/tmp/sdk-it-detail-proof-report.json`; emitted code was
+verified in `packages/hono/dist/lib/runtime/index.js`. The scratch copy was
+removed successfully with no owned processes left running.
+
+Correction workflow checklist:
+
+- [x] test-discoverer map in hand — `test_discovery`, eight existing integration tests.
+- [x] Claim ledger written from the requirement — D1–D8 above.
+- [x] test-claim-comparator: nothing unclaimed or weakened — `claim_comparison`, no gaps.
+- [x] One RED → GREEN at a time — branch-specific Nx logs above; shared branches verified by their other callers too.
+- [x] test-mutation-prover: every test CAUGHT — one source regression, eight named tests fail.
+- [x] test-gotcha-reviewer: every finding fixed or answered — `test_review`, no findings.
+- [x] Done when — correction verified through public HTTP/parse entrypoints and Nx targets; full RFC response serialization remains application-owned.

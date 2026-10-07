@@ -120,7 +120,7 @@ export function validate<T extends ValidatorConfig>(
         message: 'Unsupported Media Type',
         cause: {
           code: 'api/unsupported-media-type',
-          details: `GET requests cannot have a content type header`,
+          detail: `GET requests cannot have a content type header`,
         },
       });
     }
@@ -140,7 +140,7 @@ export function validate<T extends ValidatorConfig>(
             message: 'Invalid JSON body',
             cause: {
               code: 'api/invalid-json',
-              details: 'Request body must be valid JSON.',
+              detail: 'Request body must be valid JSON.',
             },
           });
         }
@@ -167,7 +167,7 @@ export function validate<T extends ValidatorConfig>(
                   message: 'Invalid request body',
                   cause: {
                     code: 'api/invalid-body',
-                    details:
+                    detail:
                       'Request body must be an object when selecting fields.',
                   },
                 });
@@ -221,7 +221,7 @@ export async function parse<T extends z.ZodType>(
       message: 'Validation failed',
       cause: {
         code: 'api/validation-failed',
-        details: 'The input data is invalid',
+        detail: 'The input data is invalid',
         errors: fieldErrors,
         formErrors,
       },
@@ -248,7 +248,7 @@ function parseContentType(header: string) {
       message: 'Unsupported Media Type',
       cause: {
         code: 'api/unsupported-media-type',
-        details: 'Invalid content type header',
+        detail: 'Invalid content type header',
       },
     });
   }
@@ -264,7 +264,7 @@ export function verifyContentType(
       message: 'Unsupported Media Type',
       cause: {
         code: 'api/unsupported-media-type',
-        details: 'Missing content type header',
+        detail: 'Missing content type header',
       },
     });
   }
@@ -274,7 +274,7 @@ export function verifyContentType(
       message: 'Unsupported Media Type',
       cause: {
         code: 'api/unsupported-media-type',
-        details: `Expected content type: ${expected}, but got: ${incomingContentType}`,
+        detail: `Expected content type: ${expected}, but got: ${incomingContentType}`,
       },
     });
   }

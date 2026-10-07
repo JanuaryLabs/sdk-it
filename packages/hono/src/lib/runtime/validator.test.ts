@@ -14,7 +14,7 @@ import {
 
 interface ValidationCause {
   code: string;
-  details: string;
+  detail: string;
   errors: Record<
     string,
     Array<{ message: string; code: string; path: string; fatal?: boolean }>
@@ -23,7 +23,7 @@ interface ValidationCause {
 
 interface UnsupportedMediaCause {
   code: string;
-  details: string;
+  detail: string;
 }
 
 function buildApp(handler: MiddlewareHandler) {
@@ -63,7 +63,8 @@ describe('hono validator: body validation', () => {
     };
     assert.equal(body.message, 'Validation failed');
     assert.equal(body.cause.code, 'api/validation-failed');
-    assert.equal(body.cause.details, 'The input data is invalid');
+    assert.equal(body.cause.detail, 'The input data is invalid');
+    assert.equal(Object.hasOwn(body.cause, 'details'), false);
     assert.ok(Array.isArray(body.cause.errors.name));
     assert.equal(body.cause.errors.name.length, 1);
     const entry = body.cause.errors.name[0];
@@ -208,7 +209,7 @@ describe('hono validator: content-type handling', () => {
         assert.deepEqual(await rejected.json(), {
           cause: {
             code: 'api/unsupported-media-type',
-            details: 'Invalid content type header',
+            detail: 'Invalid content type header',
           },
         });
       }
@@ -220,7 +221,7 @@ describe('hono validator: content-type handling', () => {
       assert.equal(accepted.status, 200);
       assert.deepEqual(await accepted.json(), { reached: true });
     }
-    for (const [actual, details] of [
+    for (const [actual, detail] of [
       [undefined, 'Missing content type header'],
       [
         'text/plain',
@@ -234,7 +235,7 @@ describe('hono validator: content-type handling', () => {
           assert.equal(error.status, 415);
           assert.deepEqual(error.cause, {
             code: 'api/unsupported-media-type',
-            details,
+            detail,
           });
           return true;
         },
@@ -260,7 +261,8 @@ describe('hono validator: content-type handling', () => {
     };
     assert.equal(body.message, 'Unsupported Media Type');
     assert.equal(body.cause.code, 'api/unsupported-media-type');
-    assert.match(body.cause.details, /GET requests cannot have a content type/);
+    assert.match(body.cause.detail, /GET requests cannot have a content type/);
+    assert.equal(Object.hasOwn(body.cause, 'details'), false);
   });
 
   test('unsupported content-type returns 415 when expected type set', async () => {
@@ -282,10 +284,8 @@ describe('hono validator: content-type handling', () => {
     };
     assert.equal(body.message, 'Unsupported Media Type');
     assert.equal(body.cause.code, 'api/unsupported-media-type');
-    assert.match(
-      body.cause.details,
-      /Expected content type: application\/json/,
-    );
+    assert.match(body.cause.detail, /Expected content type: application\/json/);
+    assert.equal(Object.hasOwn(body.cause, 'details'), false);
   });
 
   test('missing content-type with expected type returns 415', async () => {
@@ -300,7 +300,8 @@ describe('hono validator: content-type handling', () => {
     const body = (await res.json()) as {
       cause: UnsupportedMediaCause;
     };
-    assert.equal(body.cause.details, 'Missing content type header');
+    assert.equal(body.cause.detail, 'Missing content type header');
+    assert.equal(Object.hasOwn(body.cause, 'details'), false);
   });
 
   test('unknown content-type falls through to empty body validation', async () => {
@@ -361,7 +362,7 @@ describe('hono validator: canonical request handling', () => {
       assert.deepEqual(await rejected.json(), {
         cause: {
           code: 'api/invalid-body',
-          details: 'Request body must be an object when selecting fields.',
+          detail: 'Request body must be an object when selecting fields.',
         },
       });
       const whole = await app.request('/whole', init);
@@ -400,7 +401,7 @@ describe('hono validator: canonical request handling', () => {
       message: 'Invalid JSON body',
       cause: {
         code: 'api/invalid-json',
-        details: 'Request body must be valid JSON.',
+        detail: 'Request body must be valid JSON.',
       },
     });
   });
@@ -718,7 +719,7 @@ describe('hono validator: canonical request handling', () => {
     assert.deepEqual(await response.json(), {
       cause: {
         code: 'api/validation-failed',
-        details: 'The input data is invalid',
+        detail: 'The input data is invalid',
         errors: {
           items: [
             { message: 'Item rejected', code: 'custom', path: 'items.0' },
