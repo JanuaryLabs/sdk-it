@@ -430,6 +430,10 @@ export class TypeDeriver {
         declaration.parent.flags & ts.NodeFlags.Const
       ) {
         seen.add(symbol);
+        const narrowed = this.checker.getTypeAtLocation(expression);
+        if (narrowed !== this.checker.getTypeAtLocation(declaration.name)) {
+          return narrowed;
+        }
         if (declaration.type) {
           return this.checker.getTypeFromTypeNode(declaration.type);
         }

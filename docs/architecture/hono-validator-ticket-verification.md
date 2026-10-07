@@ -231,3 +231,70 @@ Correction workflow checklist:
 - [x] test-mutation-prover: every test CAUGHT — one source regression, eight named tests fail.
 - [x] test-gotcha-reviewer: every finding fixed or answered — `test_review`, no findings.
 - [x] Done when — correction verified through public HTTP/parse entrypoints and Nx targets; full RFC response serialization remains application-owned.
+
+## 0.46.7 release and consumer verification
+
+The release build and all eleven generated-client fixtures passed after the
+consumer migration exposed a control-flow narrowing regression. Following a
+`const` initializer discarded the narrowed type at a guarded response use site.
+The deriver now preserves that use-site type before following the declaration.
+
+| Claim | Caller-visible result                                                                                                                          | Failure prevented                                   | Test boundary                                                                                                 | Status |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------ |
+| N1    | Strict generated comparison clients can read `baseline.id` and `candidate.id` directly as strings; the optional sibling still requires a guard | Guarded response fields incorrectly become optional | Real Hono requests, public analyzer and generator, strict generated client compiled with TypeScript; no mocks | CAUGHT |
+
+`packages/generic/src/lib/narrowed-responses.test.ts` failed before the fix with
+both guarded fields reported as possibly undefined, then passed. Core and generic
+Nx typechecks passed. The four package suites passed **431 tests**, with 69
+existing TODOs and no failures. Full release builds and the eleven end-to-end
+SDK fixtures passed with Node, Bun, TypeScript, and DOM-library checks.
+
+Evidence logs:
+
+- `/tmp/sdk-it-narrowing-red-interface.log`
+- `/tmp/sdk-it-narrowing-green.log`
+- `/tmp/sdk-it-narrowing-verification.log`
+- `/tmp/sdk-it-release-recheck.log`
+- `/tmp/sdk-it-narrowing-proof-report.json`
+
+The independent mutation prover reversed the use-site narrowing condition in a
+scratch copy, confirmed the emitted marker, and observed both expected strict
+consumer errors. The baseline passed 1/1 and the mutant failed 1/1. Scratch cleanup
+succeeded with no remaining owned processes.
+
+| Finding / attempt                                                                                     | Disposition                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Analyzer-only assertions do not prove generated client usability                                      | fixed: the test generates a full public client and compiles a strict consumer                                                             |
+| Initial inline type-alias fixture also exposed a separate optional-object emitter bug                 | answered: the final fixture uses the real consumer's interface pattern; the independent emitter defect is captured as #2443               |
+| Comparator questioned negative wording in the failure column                                          | answered: the caller-visible claim is positive; the adjacent column describes the regression being prevented                              |
+| First mutation attempt failed with `kill EPERM` during process-group cleanup before producing results | INVALID; fixed: confirmed no owned test process remained and reran the supported mutator with authorized escalation; final verdict CAUGHT |
+| Independent test review                                                                               | no findings or additional mutations requested                                                                                             |
+
+Narrowing workflow checklist:
+
+- [x] Discovery map — `narrowing_discovery`.
+- [x] Claim ledger and comparison — N1, `claim_comparison`.
+- [x] Exact RED → GREEN through the Nx test target.
+- [x] Independent mutation proof — `mutation_proof`, CAUGHT.
+- [x] Independent test review — `test_review`, no remaining findings.
+- [x] Real consumer confirmation — DeepAgents regenerated frontend typecheck passes.
+
+Consumer preparation uses packed 0.46.7 artifacts. DeepAgents' HTTP, schedule,
+and upload suites passed **49 tests**; experimental, eval backend, and eval
+frontend Nx typechecks passed. Limerence's desktop logs, providers, and data-source
+route suites passed **3 integration tests**. Both Limerence clients regenerated.
+Its complete typecheck remains pending a registry install: dependency lint reads
+the old lockfile version and rejects the new manifest range.
+
+The spec comparison retained 25 DeepAgents, 175 Limerence main, and 70 Limerence
+v2 operations. DeepAgents' two defaulted request schemas correctly became less
+restrictive; Limerence's guarded current-user response became non-nullable.
+Moving middleware into a published declaration-only dependency also removes its
+documented 400/415 responses. Runtime errors remain covered, but generated error
+metadata is incomplete; this package-analysis gap is captured as **#2444**.
+
+At this checkpoint, 0.46.7 has **not been published**. npm accepts account login
+but rejects publication with HTTP 403 requiring publishing 2FA or a granular
+publish token with Bypass 2FA. Consumer lockfile updates, registry-backed final
+checks, and consumer commits remain pending publication. #2406 remains open
+under the unchanged property-selector API constraint.
