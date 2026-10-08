@@ -332,3 +332,151 @@ Final logs: `/tmp/sdk-it-publish-final.log`,
 Known limitations remain explicit: #2406 is unresolved under the unchanged
 property-selector API constraint; #2443 tracks optional inline object emission;
 #2444 tracks missing published-middleware error response metadata.
+
+## #2444 package analysis fix — staged review, 2026-10-08
+
+**Verdict:** the package boundary regression is fixed through TypeScript's native
+conditional exports. Runtime middleware code needs no removal or replacement.
+The candidate is uncommitted and unreleased pending review.
+
+SDK-IT's analysis program requests the `@sdk-it/source` condition, preserving any
+consumer conditions. `@sdk-it/hono/runtime` supplies its existing source under
+that condition inside `types`, and includes the runtime source in the npm payload.
+Ordinary TypeScript consumers still receive declarations; Node still loads built
+JavaScript. Applications need no selector API or tsconfig changes. Analysis uses
+package exports with Bundler, Node16, or NodeNext resolution. This does not add
+support for legacy resolvers that do not understand package exports.
+
+**Removed:** the declaration-only restriction at the published runtime entry.
+Before editing production, the new integration test failed with only `200`
+instead of `200`, `400`, and `415`. The same source route already had those error
+responses. No status map, copied validator, or custom module resolver was added.
+
+**Net delta:** this is an additive fix: 11 production lines added and one removed,
+plus the integration regression and this verification record. The added surface
+exposes the existing implementation instead of maintaining a second response
+contract. Exact total line counts are in the staged diff.
+
+**Retained:** public runtime signatures and exports, singular `detail`, application
+error serialization, and the existing analyzer and program containers. The
+middleware traversal guard, depth limit, and visited-function set are unchanged.
+Commit `2c8156999b6c08b3be7b1457a4568b101adc96ba` introduced these traversal controls;
+source/package parity passes without widening them. The ticket and regression
+remain as durable evidence. Temporary investigation scripts and fixtures were
+removed after recording their results.
+
+Discovery and measured radius:
+
+- Accepted: TypeScript's public `CompilerOptions.customConditions`, native package
+  export resolution, and npm's own packed-file manifest. Installed TypeScript's
+  `getConditions` appends custom conditions to its native resolution conditions.
+- Three existing `getProgram` call sites were inspected: generic `analyze`, CLI
+  import discovery, and CLI project analysis. All four owning/affected package
+  test and typecheck targets passed. Literal/config searches found no additional
+  condition consumers before this addition.
+- REJECTED: `onOperation` error maps; they duplicate validator knowledge.
+- REJECTED: source-map parsing and internal `noDtsResolution`; the public condition
+  handles module resolution without private APIs or path guessing.
+- REJECTED: replacing ordinary declaration exports with source; ordinary consumer
+  typechecking remains on declarations.
+- REJECTED: `returnTokens`' existing `consider3rdParty` option; widening traversal
+  was unnecessary for the observed package/source parity fix.
+- Existing `debug` hooks (`january:client`, `@sdk-it/generic`) were inspected. No
+  separate source-resolution environment switch or public hook was present.
+
+The regression packs the real Hono package with npm and materializes exactly its
+reported payload files into an isolated `node_modules`. It verifies actual HTTP
+200/400/415 behavior, full source/package OpenAPI equality under Bundler, Node16,
+and NodeNext, preservation of consumer conditions, ordinary declaration and JS
+resolution, generated client error classes, and a strict generated consumer that
+uses both error statuses and `detail`. It does not install from the registry or
+extract the tarball through npm install; dependency packages are local symlinks.
+
+Verification commands use Nx. Baseline core/Hono/generic tests and typechecks
+passed. Final core/Hono/generic/CLI tests, typechecks, and lint passed: **315 passes,
+69 existing TODOs, zero failures**. The original red/green logs were in
+`/tmp/sdk-it-2444-red.log` and `/tmp/sdk-it-2444-review-checks.log`; those temporary
+files were cleared externally during the session pause. These are recorded
+observations, not currently available log attachments.
+
+### Actual consumer verification
+
+Fresh isolated snapshots of the current DeepAgents and Limerence working trees
+were tested with real `npm pack` tarballs of the staged core and Hono packages.
+Both tarballs retain the unreleased candidate's current `0.46.7` version; they
+are not the registry artifacts with that version. Other installed SDK packages
+were copied into the snapshots and external dependencies reused through
+symlinks. Workspace source, generated files, dependency builds, and SDK package
+replacement were isolated from the original checkouts. No original consumer
+source, manifest, lockfile, or generated client was changed by this verification.
+
+The published-package baseline and candidate each regenerated the actual API
+specs over the **same freshly built consumer dependencies**:
+
+| API            | Operations | Operations with 400, registry → candidate | Operations with 415, registry → candidate |
+| -------------- | ---------: | ----------------------------------------: | ----------------------------------------: |
+| DeepAgents     |         25 |                                    6 → 25 |                                    0 → 25 |
+| Limerence main |        175 |                                  53 → 175 |                                   0 → 175 |
+| Limerence v2   |         70 |                                   18 → 70 |                                    0 → 70 |
+
+Across all three specs, the operation set, request/operation metadata, responses
+other than 400/415, and every existing component stayed identical. The only new
+schema components were `validate400_application_json` and
+`validate415_application_json`. All 270 operations now expose both error statuses.
+This comparison includes DeepAgents' delete-route 204 response; an earlier
+comparison against a stale build was superseded by this controlled regeneration.
+
+Executed consumer checks, with Nx caching disabled:
+
+- DeepAgents: `nx run-many -t typecheck -p backend frontend
+@deepagents/experimental --parallel=2` passed all three targets and their 18
+  dependency tasks, including API and client generation. The experimental Nx
+  test target, after the build, ran the HTTP, schedules HTTP, and uploads HTTP
+  integration files locally with `node --test --test-timeout=60000`:
+  **49 passed, zero failures or skips**.
+- Limerence: `nx run-many -t generate -p client v2-client --parallel=2` passed.
+  The backend, v2-backend, desktop-backend, client, v2-client, v2-frontend, and
+  desktop-frontend typecheck targets passed with their 141 dependency tasks.
+  `nx run frontend:typecheck --excludeTaskDependencies` also passed.
+- Limerence's separate `frontend:lint` still fails on the existing
+  `@nx/dependency-checks` demand for `google-auth-library` in frontend dependencies
+  (**#2446**). The compiler pass does not establish a passing full frontend
+  lint/typecheck pipeline.
+- Limerence: the desktop-backend Nx test target ran the logs, providers, and
+  data-sources route integration files after building dependencies:
+  **3 passed, zero failures or skips**.
+
+During the first pass, DeepAgents' then-current source-condition configuration
+failed its elements build identically with registry and candidate SDK packages
+(**#2451**). Concurrent work removed those root source conditions. The fresh
+snapshot of that configuration passes the complete relevant graph above; #2451
+is closed as resolved by that concurrent change. This task did not change the
+DeepAgents configuration.
+
+Current local evidence is under `.nx/sdk-it-2444-review/`: per-command logs,
+`deepagents-results.json`, `text2sql-results.json`, and `comparison.json`, plus
+the baseline/candidate specs. Original-file hash checks found no Limerence
+changes; only DeepAgents' already-dirty README changed concurrently during this
+final run. Both original Git status listings stayed unchanged. The disposable
+snapshots, tarballs, and spent probe scripts were removed after verification;
+all test processes completed.
+
+Self-audit found one added fallback: the empty custom-condition list. TypeScript
+explicitly declares `customConditions?: string[]` (`typescript.d.ts:7028`) and
+its resolver accepts absence (`typescript.js:44639-44656`), so the empty-list
+identity is required when appending the SDK condition. The `default` export is
+the native ordinary-consumer declaration branch. No compatibility shim, optional
+escape hatch, dependency filtering rule, or suppression directive was added.
+
+**Unproven:** registry publication and deployment of regenerated consumer specs
+are pending review/release. The regression and actual consumer snapshots prove
+the package payload, generation, compilation, and the focused HTTP flows above;
+they do not establish deployment or a full browser/product test. Existing
+source-level schema completeness is
+outside the parity claim: **#2447** tracks loss of distinct same-status error
+bodies during named-response deduplication; **#2448** tracks exceptions thrown
+through variables. Application-specific Problem Details mapping remains owned by
+the application.
+
+**Unresolved:** no unanswered implementation decision. Review and release remain
+pending as requested; #2406 and #2443 retain their previously documented scope.

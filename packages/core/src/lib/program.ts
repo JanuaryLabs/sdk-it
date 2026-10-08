@@ -45,6 +45,12 @@ export function getProgram(tsconfigPath: string) {
   return ts.createProgram({
     options: {
       ...tsConfigParseResult.options,
+      // Packages may expose their implementation for static analysis while
+      // keeping ordinary consumers on declarations and compiled JavaScript.
+      customConditions: [
+        '@sdk-it/source',
+        ...(tsConfigParseResult.options.customConditions ?? []),
+      ],
       noEmit: true,
       incremental: true,
       tsBuildInfoFile: join(dirname(tsconfigPath), './.tsbuildinfo'), // not working atm

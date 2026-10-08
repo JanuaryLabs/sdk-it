@@ -16,13 +16,17 @@
       "default": "./dist/index.js"
     },
     "./runtime": {
-      "types": "./dist/lib/runtime/index.d.ts",
+      "types": {
+        "@sdk-it/source": "./src/lib/runtime/index.ts",
+        "default": "./dist/lib/runtime/index.d.ts"
+      },
       "import": "./dist/lib/runtime/index.js",
       "default": "./dist/lib/runtime/index.js"
     }
   },
   "files": [
     "dist",
+    "src/lib/runtime",
     "!**/*.tsbuildinfo",
     "!**/*.test.*"
   ],
