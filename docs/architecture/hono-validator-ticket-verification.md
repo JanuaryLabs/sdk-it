@@ -279,12 +279,12 @@ Narrowing workflow checklist:
 - [x] Independent test review — `test_review`, no remaining findings.
 - [x] Real consumer confirmation — DeepAgents regenerated frontend typecheck passes.
 
-Consumer preparation uses packed 0.46.7 artifacts. DeepAgents' HTTP, schedule,
+Consumer preparation used packed 0.46.7 artifacts. DeepAgents' HTTP, schedule,
 and upload suites passed **49 tests**; experimental, eval backend, and eval
 frontend Nx typechecks passed. Limerence's desktop logs, providers, and data-source
 route suites passed **3 integration tests**. Both Limerence clients regenerated.
-Its complete typecheck remains pending a registry install: dependency lint reads
-the old lockfile version and rejects the new manifest range.
+Its initial complete typecheck was blocked until the registry install: dependency
+lint read the old lockfile version and rejected the new manifest range.
 
 The spec comparison retained 25 DeepAgents, 175 Limerence main, and 70 Limerence
 v2 operations. DeepAgents' two defaulted request schemas correctly became less
@@ -293,8 +293,42 @@ Moving middleware into a published declaration-only dependency also removes its
 documented 400/415 responses. Runtime errors remain covered, but generated error
 metadata is incomplete; this package-analysis gap is captured as **#2444**.
 
-At this checkpoint, 0.46.7 has **not been published**. npm accepts account login
-but rejects publication with HTTP 403 requiring publishing 2FA or a granular
-publish token with Bypass 2FA. Consumer lockfile updates, registry-backed final
-checks, and consumer commits remain pending publication. #2406 remains open
-under the unchanged property-selector API constraint.
+## Release completion, 2026-10-08
+
+The refreshed credential resolved the publishing rejection. `nx release publish`
+published all twelve public packages at **0.46.7**. Every package's registry
+record and `latest` tag were verified after npm's availability delay. SDK-IT
+`main` and `release/0.46.7` were pushed; the release tag points to `3dfdddf`.
+The repository's pre-push test/build checks also passed.
+
+DeepAgents and Limerence now install the release from npm. Their lockfile changes
+are limited to the SDK-IT packages and the affected workspace manifests; no
+temporary tarball paths remain. The installed package files match the packed
+artifacts used for the 49 DeepAgents and 3 Limerence route tests byte for byte.
+Five local validator copies and DeepAgents' orphan parser were removed.
+Limerence's three now-unused direct content-type parser dependencies were removed;
+DeepAgents retains its parser dependency for the upload route.
+
+Final verification against the registry packages:
+
+- DeepAgents: experimental runtime, eval backend, and regenerated frontend Nx
+  typechecks all passed, including their dependency tasks.
+- Limerence: backend, desktop-backend, v2-backend, client, v2-client,
+  desktop-frontend, and v2-frontend Nx typechecks passed with lint/format tasks.
+- Limerence's main frontend full check is blocked by a pre-existing dependency
+  attribution error: `frontend -> data-sources -> google-connectors` causes lint
+  to demand `google-auth-library`. This is captured as **#2446** in Limerence's
+  backlog. Its compiler target passed separately through
+  `nx run frontend:typecheck --excludeTaskDependencies`; that does not count as
+  a passing full lint/typecheck pipeline.
+
+Final logs: `/tmp/sdk-it-publish-final.log`,
+`/tmp/deepagents-sdk-registry-ready.log`,
+`/tmp/limerence-sdk-registry-ready.log`,
+`/tmp/deepagents-sdk-published-typechecks.log`,
+`/tmp/limerence-sdk-published-typechecks.log`, and
+`/tmp/limerence-sdk-frontend-compiler.log`.
+
+Known limitations remain explicit: #2406 is unresolved under the unchanged
+property-selector API constraint; #2443 tracks optional inline object emission;
+#2444 tracks missing published-middleware error response metadata.
