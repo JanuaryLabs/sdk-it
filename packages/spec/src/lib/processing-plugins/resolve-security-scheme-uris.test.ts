@@ -1,3 +1,4 @@
+import { HttpServer } from '@zukhruf/testing/http';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -86,50 +87,42 @@ test('resolves a relative security scheme URI against the document $self', async
 });
 
 test('resolves an absolute security scheme URI over http', async () => {
-  const originalFetch = globalThis.fetch;
-  const requested: string[] = [];
-  globalThis.fetch = (async (input: string) => {
-    requested.push(String(input));
-    return {
-      ok: true,
-      json: async () => ({
+  const requested: (string | undefined)[] = [];
+  await using server = await new HttpServer().start((request, response) => {
+    requested.push(request.url);
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(
+      JSON.stringify({
         components: {
           securitySchemes: { oauth: { type: 'http', scheme: 'bearer' } },
         },
       }),
-    };
-  }) as never;
-  try {
-    const { spec, diagnostics } = await processSpec({
-      spec: specWith(
-        'https://auth.example.com/schemes.json#/components/securitySchemes/oauth',
-      ),
-      plugins: [resolveSecuritySchemeUris(), normalizeSecurity()],
-    });
+    );
+  });
+  const { spec, diagnostics } = await processSpec({
+    spec: specWith(
+      `${server.origin}/schemes.json#/components/securitySchemes/oauth`,
+    ),
+    plugins: [resolveSecuritySchemeUris(), normalizeSecurity()],
+  });
 
-    assert.deepStrictEqual(requested, [
-      'https://auth.example.com/schemes.json',
-    ]);
-    assert.deepStrictEqual(spec.components.securitySchemes, {
-      oauth: { type: 'http', scheme: 'bearer' },
-    });
-    assert.deepStrictEqual(spec.paths['/records']?.get?.security, [
-      { oauth: [] },
-    ]);
-    assert.deepStrictEqual(diagnostics, []);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  assert.deepStrictEqual(requested, ['/schemes.json']);
+  assert.deepStrictEqual(spec.components.securitySchemes, {
+    oauth: { type: 'http', scheme: 'bearer' },
+  });
+  assert.deepStrictEqual(spec.paths['/records']?.get?.security, [
+    { oauth: [] },
+  ]);
+  assert.deepStrictEqual(diagnostics, []);
 });
 
 test('fetches each referenced document once when several schemes share it', async () => {
-  const originalFetch = globalThis.fetch;
   let calls = 0;
-  globalThis.fetch = (async () => {
+  await using server = await new HttpServer().start((_request, response) => {
     calls++;
-    return {
-      ok: true,
-      json: async () => ({
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(
+      JSON.stringify({
         components: {
           securitySchemes: {
             reader: { type: 'apiKey', in: 'header', name: 'X-Reader' },
@@ -137,25 +130,21 @@ test('fetches each referenced document once when several schemes share it', asyn
           },
         },
       }),
-    };
-  }) as never;
-  try {
-    const base = 'https://auth.example.com/schemes.json';
-    const { spec } = await processSpec({
-      spec: specWith(`${base}#/components/securitySchemes/reader`, {
-        security: [{ [`${base}#/components/securitySchemes/writer`]: [] }],
-      }),
-      plugins: [resolveSecuritySchemeUris()],
-    });
-
-    assert.equal(calls, 1);
-    assert.deepStrictEqual(
-      Object.keys(spec.components.securitySchemes).sort(),
-      ['reader', 'writer'],
     );
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  });
+  const base = `${server.origin}/schemes.json`;
+  const { spec } = await processSpec({
+    spec: specWith(`${base}#/components/securitySchemes/reader`, {
+      security: [{ [`${base}#/components/securitySchemes/writer`]: [] }],
+    }),
+    plugins: [resolveSecuritySchemeUris()],
+  });
+
+  assert.equal(calls, 1);
+  assert.deepStrictEqual(Object.keys(spec.components.securitySchemes).sort(), [
+    'reader',
+    'writer',
+  ]);
 });
 
 test('reports the URI that failed and leaves the requirement unresolved', async () => {
@@ -189,23 +178,19 @@ test('reports the URI that failed and leaves the requirement unresolved', async 
   }
 });
 
-test('treats a bare component-shaped name as a name, never as a document', async () => {
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (() =>
-    assert.fail('must not fetch a plain name')) as never;
-  try {
-    const { diagnostics } = await processSpec({
-      spec: specWith('auth.json'),
-      plugins: [resolveSecuritySchemeUris(), normalizeSecurity()],
-    });
+test('treats a bare component-shaped name as a name, never as a document', async (t) => {
+  t.mock.method(globalThis, 'fetch', () =>
+    assert.fail('must not fetch a plain name'),
+  );
+  const { diagnostics } = await processSpec({
+    spec: specWith('auth.json'),
+    plugins: [resolveSecuritySchemeUris(), normalizeSecurity()],
+  });
 
-    assert.deepStrictEqual(
-      diagnostics.map(({ code }) => code),
-      ['unresolved-security-scheme'],
-    );
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  assert.deepStrictEqual(
+    diagnostics.map(({ code }) => code),
+    ['unresolved-security-scheme'],
+  );
 });
 
 test('loadSpec stamps $self so a relative URI has a base to resolve against', async () => {
