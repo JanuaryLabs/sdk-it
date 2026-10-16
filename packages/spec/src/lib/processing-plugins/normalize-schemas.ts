@@ -20,7 +20,7 @@ function normalizeSchemaObjects(
     if (isRef(schema)) continue;
 
     if (!isEmpty(schema.properties)) {
-      schema.type = 'object';
+      schema.type ??= 'object';
       delete schema.oneOf;
       delete schema.anyOf;
       normalizeSchemaObjects(spec, Object.values(schema.properties), visited);
