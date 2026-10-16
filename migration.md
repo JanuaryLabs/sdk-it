@@ -19,7 +19,6 @@ The dependency tree was resolved without `legacy-peer-deps`.
 | TypeScript                              |            6.0.3 | Latest published stable 6.x release                                                                                 |
 | TypeScript-ESLint                       |           8.63.0 | Peer range `>=4.8.4 <6.1.0`                                                                                         |
 | React Router                            |           7.18.1 | Peer range `^5.1.0 \|\| ^6.0.0`                                                                                     |
-| Twoslash / Twoslash CDN                 |            0.3.9 | Peer range `^5.5.0 \|\| ^6.0.0`                                                                                     |
 | Nx                                      |           23.0.2 | Current Nx suite, including its dedicated Vitest plugin and `@phenomnomnominal/tsquery` 6.2.0 (`typescript >3.0.0`) |
 | `vite-plugin-dts`                       |            5.0.3 | Uses `unplugin-dts` 1.0.3, whose TypeScript peer is `>=4`; API Extractor is an unused optional peer                 |
 | Prettier                                |            3.9.5 | Parses the repository's explicit-resource-management syntax                                                         |
