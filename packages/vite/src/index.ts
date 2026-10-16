@@ -1,7 +1,6 @@
 import chalk from 'chalk';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { type Plugin } from 'vite';
@@ -80,11 +79,9 @@ function filePlugin(openapi: string, settings: Settings): Omit<Plugin, 'name'> {
   let sourceRef: string | null = null;
 
   const generateIfNeeded = async (ref: string) => {
-    const hash = await hashFile(watchPath || ref);
-    const key = `${hash}|${settings.output}`;
-    return cachedGeneration(key, async () => {
+    const spec = await loadSpec(ref);
+    return cachedGeneration(settings.output, hashSpec(spec), async () => {
       console.log(`${chalk.blue('SDKIT')}: Generating SDK.`);
-      const spec = await loadSpec(ref);
       await generate(spec, settings);
       console.log(`${chalk.blue('SDKIT')}: SDK generated successfully.`);
     });
@@ -129,10 +126,9 @@ function specPlugin(
   openapi: OpenAPIObject,
   settings: Settings,
 ): Omit<Plugin, 'name'> {
-  const generateIfNeeded = async (spec: OpenAPIObject) => {
-    const hash = hashSpec(spec);
-    const key = `${hash}|${settings.output}`;
-    return cachedGeneration(key, async () => {
+  const generateIfNeeded = async (document: OpenAPIObject) => {
+    const spec = structuredClone(document);
+    return cachedGeneration(settings.output, hashSpec(spec), async () => {
       console.log(`${chalk.blue('SDKIT')}: Generating SDK.`);
       await generate(spec, settings);
       console.log(`${chalk.blue('SDKIT')}: SDK generated successfully.`);
@@ -151,24 +147,31 @@ function specPlugin(
   };
 }
 
-const generationCache = new Map<string, Promise<void>>();
+const generationCache = new Map<
+  string,
+  { hash: string; promise: Promise<void> }
+>();
 
-function cachedGeneration(key: string, fn: () => Promise<void>): Promise<void> {
+function cachedGeneration(
+  output: string,
+  hash: string,
+  fn: () => Promise<void>,
+): Promise<void> {
+  const key = resolve(output);
   const existing = generationCache.get(key);
-  if (existing) return existing;
+  // Only the latest queued generation can represent this output directory.
+  if (existing?.hash === hash) return existing.promise;
 
-  const promise = fn().catch((err) => {
-    generationCache.delete(key);
+  // A failed predecessor still releases the queue; its own caller keeps the error.
+  const promise: Promise<void> = (
+    existing ? existing.promise.then(fn, fn) : fn()
+  ).catch((err) => {
+    if (generationCache.get(key)?.promise === promise)
+      generationCache.delete(key);
     throw err;
   });
-  generationCache.set(key, promise);
+  generationCache.set(key, { hash, promise });
   return promise;
-}
-
-function hashFile(filePath: string): Promise<string> {
-  return readFile(filePath).then((content) =>
-    createHash('sha256').update(content).digest('hex'),
-  );
 }
 
 function hashSpec(spec: OpenAPIObject): string {
