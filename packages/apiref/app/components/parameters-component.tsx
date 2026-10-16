@@ -8,13 +8,11 @@ import { SchemaComponent } from './schema-component';
 interface ParametersComponentProps {
   parameters: ParameterObject[];
   type: 'path' | 'query' | 'header';
-  title?: string;
 }
 
 export const ParametersComponent: React.FC<ParametersComponentProps> = ({
   parameters,
   type,
-  title,
 }) => {
   const filteredParams = parameters.filter((it) => it.in === type);
 
@@ -25,7 +23,7 @@ export const ParametersComponent: React.FC<ParametersComponentProps> = ({
   return (
     <div>
       <h4 className="text-lg font-semibold">
-        {title || `${type.charAt(0).toUpperCase() + type.slice(1)} Parameters`}
+        {`${type.charAt(0).toUpperCase() + type.slice(1)} Parameters`}
       </h4>
       <div className="space-y-2">
         {filteredParams.map((parameter, index) => {
