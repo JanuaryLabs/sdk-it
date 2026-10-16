@@ -79,7 +79,7 @@ export function SidebarItem({ item }: { item: NavItem }) {
               </SidebarMenuButton>
             </NavLink>
           ))}
-        {item.items?.length && (
+        {item.items?.length ? (
           <>
             <CollapsibleTrigger asChild>
               <SidebarMenuButton
@@ -142,7 +142,7 @@ export function SidebarItem({ item }: { item: NavItem }) {
               </SidebarMenuSub>
             </CollapsibleContent>
           </>
-        )}
+        ) : null}
       </SidebarMenuItem>
     </Collapsible>
   );
