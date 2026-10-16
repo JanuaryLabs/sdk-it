@@ -1,3 +1,4 @@
+import { describe, test } from '@zukhruf/testing/node';
 import { build as esbuild } from 'esbuild';
 import assert from 'node:assert/strict';
 import {
@@ -10,7 +11,6 @@ import {
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
-import { describe, test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createContext, runInContext } from 'node:vm';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
@@ -693,8 +693,8 @@ describe('generate — impossible schemas', () => {
 });
 
 describe('generate — AI SDK 7 agent tools', () => {
-  test('emits type-correct projects for every agent runtime', async () => {
-    for (const agentTools of ['ai-sdk', 'openai-agents'] as const) {
+  void test.each(['ai-sdk', 'openai-agents'] as const, (agentTools) =>
+    test(`emits a type-correct project for ${agentTools}`, async () => {
       const dir = mkdtempSync(join(repoRoot, '.generate-agent-typecheck-'));
       try {
         await generate(agentToolSpec(), {
@@ -719,8 +719,8 @@ describe('generate — AI SDK 7 agent tools', () => {
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
-    }
-  });
+    }),
+  );
 
   test('reads the tool-specific context from execution options', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'generate-ai-sdk-tools-'));

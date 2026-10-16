@@ -1,8 +1,8 @@
+import { describe, test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
 import { type ZodObject, type ZodType } from 'zod';
 
-import { RuntimeZodConverter } from './zod.ts';
+import { RuntimeZodConverter } from '@sdk-it/rpc';
 
 describe('RuntimeZodConverter', () => {
   const converter = new RuntimeZodConverter({} as never);
@@ -181,8 +181,8 @@ describe('RuntimeZodConverter', () => {
     assert.equal(schema.safeParse(blob).success, true);
   });
 
-  test('format byte/binary accepts Blob values', () => {
-    for (const format of ['byte', 'binary'] as const) {
+  void test.each(['byte', 'binary'] as const, (format) =>
+    test(`format ${format} accepts Blob values`, () => {
       const schema = converter.handle({ type: 'string', format }, true);
       const blob = new Blob(['hello'], { type: 'text/plain' });
       assert.equal(
@@ -190,8 +190,8 @@ describe('RuntimeZodConverter', () => {
         true,
         `format ${format} should accept Blob`,
       );
-    }
-  });
+    }),
+  );
 });
 
 describe('RuntimeZodConverter 64-bit integers', () => {

@@ -1,5 +1,5 @@
+import { describe, test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
 import type { ZodType } from 'zod';
 
 import { schemaToZod } from '@sdk-it/rpc';
@@ -85,8 +85,8 @@ describe('schemaToZod — v3→v4 characterization (string formats)', () => {
     );
   });
 
-  test('format: url and format: uri validate URL strings', () => {
-    for (const format of ['url', 'uri'] as const) {
+  void test.each(['url', 'uri'] as const, (format) =>
+    test(`format: ${format} validates URL strings`, () => {
       const schema = schemaToZod({ type: 'string', format }, ir, {
         required: true,
       });
@@ -100,8 +100,8 @@ describe('schemaToZod — v3→v4 characterization (string formats)', () => {
         false,
         `format ${format} should reject invalid URL`,
       );
-    }
-  });
+    }),
+  );
 
   test('format: int64 on a string is a plain string (no coercion)', () => {
     const schema = schemaToZod({ type: 'string', format: 'int64' }, ir, {

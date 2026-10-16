@@ -1,5 +1,5 @@
+import { describe, test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
 
 import { evalZod } from '@sdk-it/core';
 
@@ -20,7 +20,7 @@ function getNonNullBranch(
 }
 
 describe('evalZod', () => {
-  test('preserves wrapped coerce metadata for supported primitive schemas', async () => {
+  test('preserves wrapped coerce metadata for supported primitive schemas', async (t) => {
     const cases = [
       {
         name: 'number',
@@ -77,18 +77,20 @@ describe('evalZod', () => {
       },
     ] as const;
 
-    for (const testCase of cases) {
-      const { optional, schema } = await evalZod(testCase.source);
-      assert.equal(optional, true, `${testCase.name} should be optional`);
-      assert.deepStrictEqual(
-        getNonNullBranch(schema),
-        testCase.expected,
-        `${testCase.name} should preserve its non-null branch metadata`,
-      );
-    }
+    await test.each(cases, (testCase) =>
+      t.test(testCase.name, async () => {
+        const { optional, schema } = await evalZod(testCase.source);
+        assert.equal(optional, true, `${testCase.name} should be optional`);
+        assert.deepStrictEqual(
+          getNonNullBranch(schema),
+          testCase.expected,
+          `${testCase.name} should preserve its non-null branch metadata`,
+        );
+      }),
+    );
   });
 
-  test('preserves .describe() through ZodOptional override for all coerce types with .nullish()', async () => {
+  test('preserves .describe() through ZodOptional override for all coerce types with .nullish()', async (t) => {
     const cases = [
       {
         name: 'coerce-number',
@@ -117,18 +119,20 @@ describe('evalZod', () => {
       },
     ] as const;
 
-    for (const { name, source, desc } of cases) {
-      const { optional, schema } = await evalZod(source);
-      assert.equal(optional, true, `${name} should be optional`);
-      assert.equal(
-        schema.description,
-        desc,
-        `${name}: description should be preserved at the top level`,
-      );
-    }
+    await test.each(cases, ({ name, source, desc }) =>
+      t.test(name, async () => {
+        const { optional, schema } = await evalZod(source);
+        assert.equal(optional, true, `${name} should be optional`);
+        assert.equal(
+          schema.description,
+          desc,
+          `${name}: description should be preserved at the top level`,
+        );
+      }),
+    );
   });
 
-  test('preserves .describe() on required schemas (no optional/nullable wrapper)', async () => {
+  test('preserves .describe() on required schemas (no optional/nullable wrapper)', async (t) => {
     const cases = [
       {
         name: 'z.date()',
@@ -167,19 +171,21 @@ describe('evalZod', () => {
       },
     ] as const;
 
-    for (const { name, source, desc, type, extra } of cases) {
-      const { optional, schema } = await evalZod(source);
-      assert.equal(optional, false, `${name} should not be optional`);
-      assert.equal(
-        schema.description,
-        desc,
-        `${name}: description should be preserved`,
-      );
-      assert.equal(schema.type, type, `${name}: type should match`);
-      for (const [k, v] of Object.entries(extra)) {
-        assert.equal(schema[k], v, `${name}: ${k} should be ${v}`);
-      }
-    }
+    await test.each(cases, ({ name, source, desc, type, extra }) =>
+      t.test(name, async () => {
+        const { optional, schema } = await evalZod(source);
+        assert.equal(optional, false, `${name} should not be optional`);
+        assert.equal(
+          schema.description,
+          desc,
+          `${name}: description should be preserved`,
+        );
+        assert.equal(schema.type, type, `${name}: type should match`);
+        for (const [k, v] of Object.entries(extra)) {
+          assert.equal(schema[k], v, `${name}: ${k} should be ${v}`);
+        }
+      }),
+    );
   });
 
   test('preserves .describe() on z.number().optional()', async () => {
@@ -192,7 +198,7 @@ describe('evalZod', () => {
     assert.equal(schema.type, 'number');
   });
 
-  test('preserves .describe() on compound types with .nullish()', async () => {
+  test('preserves .describe() on compound types with .nullish()', async (t) => {
     const cases = [
       {
         name: 'object',
@@ -211,18 +217,20 @@ describe('evalZod', () => {
       },
     ] as const;
 
-    for (const { name, source, desc } of cases) {
-      const { optional, schema } = await evalZod(source);
-      assert.equal(optional, true, `${name} should be optional`);
-      assert.equal(
-        schema.description,
-        desc,
-        `${name}: description should be preserved at the top level`,
-      );
-    }
+    await test.each(cases, ({ name, source, desc }) =>
+      t.test(name, async () => {
+        const { optional, schema } = await evalZod(source);
+        assert.equal(optional, true, `${name} should be optional`);
+        assert.equal(
+          schema.description,
+          desc,
+          `${name}: description should be preserved at the top level`,
+        );
+      }),
+    );
   });
 
-  test('converts binary-like zod schemas to a base64 string schema', async () => {
+  test('converts binary-like zod schemas to a base64 string schema', async (t) => {
     const cases = [
       'z.instanceof(File)',
       'z.instanceof(Blob)',
@@ -230,15 +238,17 @@ describe('evalZod', () => {
       'z.custom<Blob>()',
     ];
 
-    for (const source of cases) {
-      const { schema } = await evalZod(source);
-      assert.equal(schema.type, 'string', `${source}: expected string type`);
-      assert.equal(
-        schema.format,
-        'binary',
-        `${source}: expected base64 format:binary`,
-      );
-    }
+    await test.each(cases, (source) =>
+      t.test(source, async () => {
+        const { schema } = await evalZod(source);
+        assert.equal(schema.type, 'string', `${source}: expected string type`);
+        assert.equal(
+          schema.format,
+          'binary',
+          `${source}: expected base64 format:binary`,
+        );
+      }),
+    );
   });
 
   test('collapses primitive pipelines into a single schema', async () => {
