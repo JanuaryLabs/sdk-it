@@ -1,5 +1,5 @@
 type InferPage<T> = T extends Page<infer U> ? U : never;
-type PaginationParams<P extends number | bigint, S extends number | bigint> = {
+type PaginationParams<P extends number | bigint | null, S extends number | bigint | null> = {
   page?: P;
   pageSize?: S;
 };
@@ -20,8 +20,8 @@ type PaginationResult<T, M extends Metadata> = {
 type FetchFn<
   T,
   M extends Metadata,
-  P extends number | bigint,
-  S extends number | bigint,
+  P extends number | bigint | null,
+  S extends number | bigint | null,
 > = (
   input: Partial<PaginationParams<P, S>>,
   requestOptions?: PaginationRequestOptions,
@@ -33,8 +33,8 @@ type FetchFn<
 export class Pagination<
   T,
   M extends Metadata,
-  P extends number | bigint,
-  S extends number | bigint,
+  P extends number | bigint | null,
+  S extends number | bigint | null,
 > {
   #meta: PaginationResult<T, M>['meta'] | null = null;
   #params: PaginationParams<P, S>;
