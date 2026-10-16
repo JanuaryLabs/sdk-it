@@ -26,7 +26,7 @@ export class TypeScriptEmitter {
     const propEntries = Object.entries(properties).map(([key, propSchema]) => {
       const isRequired = (schema.required ?? []).includes(key);
       const tsType = this.handle(propSchema, isRequired);
-      return `${this.#stringifyKey(key)}: ${tsType}`;
+      return `${this.#stringifyKey(key)}${isRequired ? '' : '?'}: ${tsType}`;
     });
 
     if (schema.additionalProperties) {
