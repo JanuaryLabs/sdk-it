@@ -1,6 +1,7 @@
 import { Command, Option } from 'commander';
+import { execa } from 'execa';
 import { publish } from 'libnpmpublish';
-import { execFile, execSync, spawnSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -111,10 +112,10 @@ async function emitLocal(spec: OpenAPIObject, options: Options) {
     },
     readme: options.readme,
     useTsExtension: options.useTsExtension,
-    formatCode: ({ env, output }) => {
+    formatCode: async ({ env, output }) => {
       if (options.formatter) {
         const [command, ...args] = options.formatter.split(' ');
-        execFile(command, args, {
+        await execa(command, args, {
           env: { ...env, SDK_IT_OUTPUT: output },
         });
       } else if (options.defaultFormatter) {
