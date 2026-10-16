@@ -1,6 +1,58 @@
 import type { SchemaObject, SchemasObject } from 'openapi3-ts/oas31';
 import pluralize from 'pluralize';
 
+import { resolveRef } from '@sdk-it/core/ref.js';
+
+import { coerceTypes } from '../is.js';
+import type { IR } from '../types.js';
+
+export function getNextCursorName(
+  schema: SchemaObject,
+  spec: IR,
+  visited = new Set<SchemaObject>(),
+): string | undefined {
+  if (visited.has(schema)) return undefined;
+  const ancestors = new Set(visited).add(schema);
+  const properties = Object.entries(schema.properties ?? {}).map(
+    ([name, property]) =>
+      [name, resolveRef<SchemaObject>(spec, property)] as const,
+  );
+  for (const [name, property] of properties) {
+    if (
+      /^(nextcursor|nextpagetoken|nexttoken|continuationtoken|endcursor)$/i.test(
+        name.replaceAll(/[_-]/g, ''),
+      ) &&
+      (property.anyOf ?? property.oneOf ?? [property]).some((variant) =>
+        coerceTypes(resolveRef<SchemaObject>(spec, variant)).includes('string'),
+      )
+    ) {
+      return name;
+    }
+  }
+  for (const [name, property] of properties) {
+    const nested = getNextCursorName(property, spec, ancestors);
+    if (nested) return `${name}.${nested}`;
+  }
+  const candidates = new Set<string>();
+  for (const variant of [...(schema.anyOf ?? []), ...(schema.oneOf ?? [])]) {
+    const resolved = resolveRef<SchemaObject>(spec, variant);
+    const types = coerceTypes(resolved, false);
+    if (types.length === 1 && types[0] === 'null') continue;
+    const candidate = getNextCursorName(resolved, spec, ancestors);
+    if (!candidate) return undefined;
+    candidates.add(candidate);
+  }
+  for (const variant of schema.allOf ?? []) {
+    const candidate = getNextCursorName(
+      resolveRef<SchemaObject>(spec, variant),
+      spec,
+      ancestors,
+    );
+    if (candidate) candidates.add(candidate);
+  }
+  return candidates.size === 1 ? candidates.values().next().value : undefined;
+}
+
 const PRIMARY_TOP_TIER_KEYWORDS: string[] = [
   'data',
   'items',

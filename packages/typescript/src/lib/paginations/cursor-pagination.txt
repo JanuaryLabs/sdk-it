@@ -45,6 +45,9 @@ export class CursorPagination<T, M extends CursorMetadata> {
   }
 
   async getNextPage(requestOptions?: PaginationRequestOptions) {
+    if (this.#meta?.hasMore && this.#meta.nextCursor == null) {
+      throw new Error('Cannot fetch the next page: the response has more items but no next cursor.');
+    }
     const result = await this.#fetchFn(this.#params, {
       ...this.#requestOptions,
       ...requestOptions,

@@ -30,8 +30,8 @@ function describe(p: OperationPagination): PaginationShape {
         hasMore: p.hasMore,
         statusCode: p.statusCode,
         sameInputNames: p.cursorParamName === 'cursor',
-        initialOverride: `cursor: input.${p.cursorParamName}`,
-        nextPageMapping: `${p.cursorParamName}: nextPageParams.cursor`,
+        initialOverride: `cursor: input[${JSON.stringify(p.cursorParamName)}]`,
+        nextPageMapping: `[${JSON.stringify(p.cursorParamName)}]: nextPageParams.cursor ?? input[${JSON.stringify(p.cursorParamName)}]`,
       };
     case 'page':
       return {
@@ -54,9 +54,17 @@ export function paginationOperation(pagination: OperationPagination): string {
   const initialParams = shape.sameInputNames
     ? 'input'
     : `{...input, ${shape.initialOverride}}`;
-  const nextPageParams = shape.sameInputNames
-    ? '...nextPageParams'
-    : shape.nextPageMapping;
+  const nextPageParams =
+    shape.sameInputNames && pagination.type !== 'cursor'
+      ? '...nextPageParams'
+      : shape.nextPageMapping;
+  const nextCursor =
+    pagination.type === 'cursor' && pagination.nextCursor
+      ? `result.data${pagination.nextCursor
+          .split('.')
+          .map((key) => `?.[${JSON.stringify(key)}]`)
+          .join('')}`
+      : undefined;
 
   return `{
       const pagination = new ${shape.className}(${initialParams}, async (nextPageParams, requestOptions) => {
@@ -67,10 +75,12 @@ export function paginationOperation(pagination: OperationPagination): string {
           requestOptions?.signal ?? options.signal,
         );
         if (result.status !== ${shape.statusCode}) { throw result; }
+        ${nextCursor ? `const nextCursor = ${nextCursor};` : ''}
         return {
           data: result.data.${shape.items},
           meta: {
             hasMore: Boolean(result.data.${shape.hasMore}),
+            ${nextCursor ? '...(typeof nextCursor === "string" ? { nextCursor } : {}),' : ''}
           },
         };
       }, options.signal ? { signal: options.signal } : {});

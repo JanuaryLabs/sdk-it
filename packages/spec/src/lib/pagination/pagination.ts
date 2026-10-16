@@ -9,39 +9,49 @@ import { followRef, isRef } from '@sdk-it/core/ref.js';
 import { isSuccessStatusCode } from '../is.js';
 import type { IR, TunedOperationObject } from '../types.js';
 import { guessPagination } from './guess-pagination.js';
+import { getNextCursorName } from './pagination-result.js';
 
 export function toPagination(spec: IR, tunedOperation: TunedOperationObject) {
-  if (tunedOperation['x-pagination']) {
-    return tunedOperation['x-pagination'];
+  const configured = tunedOperation['x-pagination'];
+  if (configured && (configured.type !== 'cursor' || configured.nextCursor)) {
+    return configured;
   }
   const successResponse = Object.entries(tunedOperation.responses).find(
     ([status]) =>
-      isSuccessStatusCode(status) && Number.isInteger(Number(status)),
+      configured
+        ? Number(status) === configured.statusCode
+        : isSuccessStatusCode(status) && Number.isInteger(Number(status)),
   );
   const statusCode = successResponse ? Number(successResponse[0]) : undefined;
   const schema = successResponse
     ? getResponseContentSchema(spec, successResponse[1], 'application/json')
     : undefined;
-  const pagination = guessPagination(
-    tunedOperation,
-    tunedOperation.requestBody
-      ? getRequestContentSchema(
-          spec,
-          tunedOperation.requestBody,
-          'application/json',
-        )
-      : undefined,
-    schema,
-  );
+  const pagination =
+    configured ??
+    guessPagination(
+      tunedOperation,
+      tunedOperation.requestBody
+        ? getRequestContentSchema(
+            spec,
+            tunedOperation.requestBody,
+            'application/json',
+          )
+        : undefined,
+      schema,
+    );
   if (
     pagination &&
     pagination.type !== 'none' &&
     schema &&
     statusCode !== undefined
   ) {
-    return { ...pagination, statusCode };
+    const nextCursor =
+      pagination.type === 'cursor'
+        ? getNextCursorName(schema, spec)
+        : undefined;
+    return { ...pagination, statusCode, ...(nextCursor ? { nextCursor } : {}) };
   }
-  return undefined;
+  return configured;
 }
 
 function getResponseContentSchema(

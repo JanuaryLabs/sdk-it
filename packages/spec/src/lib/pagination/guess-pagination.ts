@@ -37,6 +37,8 @@ export interface CursorPaginationResult extends PaginationResultBase {
   cursorKeyword: string;
   limitParamName: string;
   limitKeyword: string;
+  /** Dot-separated response path containing the next request cursor. */
+  nextCursor?: string;
 }
 
 export interface NoPaginationResult extends PaginationResultBase {
