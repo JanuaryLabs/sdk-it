@@ -19,7 +19,7 @@
     "@react-router/node": "^7.18.1",
     "@react-router/serve": "^7.18.1",
     "@streamdown/code": "^1.1.1",
-    "@zukhruf/shadcn": "^0.3.21",
+    "@zukhruf/shadcn": "^0.3.23",
     "ai": "^7.0.29",
     "cn": "^0.4.0",
     "isbot": "^5.1.28",
