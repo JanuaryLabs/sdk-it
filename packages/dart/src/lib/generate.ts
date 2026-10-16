@@ -1,5 +1,5 @@
 import { parse as partContentType } from 'fast-content-type-parse';
-import { readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
   OpenAPIObject,
@@ -188,6 +188,7 @@ class Options {
 }
 
   `;
+  await mkdir(settings.output, { recursive: true });
   await settings.writer(output, models);
 
   const metadata = await readWriteMetadata(
