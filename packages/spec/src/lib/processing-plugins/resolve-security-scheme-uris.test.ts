@@ -178,15 +178,21 @@ test('reports the URI that failed and leaves the requirement unresolved', async 
   }
 });
 
-test('treats a bare component-shaped name as a name, never as a document', async (t) => {
-  t.mock.method(globalThis, 'fetch', () =>
-    assert.fail('must not fetch a plain name'),
-  );
+test('treats a bare component-shaped name as a name, never as a document', async () => {
+  let calls = 0;
+  await using server = await new HttpServer().start((_request, response) => {
+    calls++;
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ type: 'http', scheme: 'bearer' }));
+  });
   const { diagnostics } = await processSpec({
-    spec: specWith('auth.json'),
+    spec: specWith('auth.json', {
+      $self: `${server.origin}/openapi.json`,
+    }),
     plugins: [resolveSecuritySchemeUris(), normalizeSecurity()],
   });
 
+  assert.equal(calls, 0);
   assert.deepStrictEqual(
     diagnostics.map(({ code }) => code),
     ['unresolved-security-scheme'],
