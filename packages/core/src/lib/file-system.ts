@@ -72,8 +72,19 @@ export async function writeFiles(dir: string, contents: WriteContent) {
         await writeFile(filePath, content, 'utf-8');
       } else {
         if (content.ignoreIfExists) {
-          if (!(await exist(filePath))) {
-            await writeFile(filePath, content.content, 'utf-8');
+          try {
+            await writeFile(filePath, content.content, {
+              encoding: 'utf-8',
+              flag: 'wx',
+            });
+          } catch (error) {
+            if (!(
+              error instanceof Error &&
+              'code' in error &&
+              error.code === 'EEXIST'
+            )) {
+              throw error;
+            }
           }
         } else {
           await writeFile(filePath, content.content, 'utf-8');
