@@ -1,5 +1,7 @@
 import { type UIMessage, type UseChatHelpers, useChat } from '@ai-sdk/react';
+import { Button } from '@zukhruf/shadcn';
 import { DefaultChatTransport, getToolName, isToolUIPart } from 'ai';
+import { cn } from 'cn';
 import { Dot } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import React, {
@@ -15,19 +17,7 @@ import React, {
 import { AiOutlineArrowDown } from 'react-icons/ai';
 import { type ScrollToBottom, useStickToBottom } from 'use-stick-to-bottom';
 
-import { Button } from '@sdk-it/shadcn';
-
 import { StillMarkdown } from '../api-doc/markdown';
-import {
-  Credenza,
-  CredenzaBody,
-  CredenzaContent,
-  CredenzaDescription,
-  CredenzaHeader,
-  CredenzaTitle,
-  CredenzaTrigger,
-} from '../components/credenza';
-import { cn } from '../shadcn/cn';
 import { MessageInput } from './message-input';
 import { TextShimmer } from './text-shimmer';
 import useElementHeight from './use-element-height';
@@ -42,29 +32,6 @@ function getMessageText(message: UIMessage): string {
     )
     .map((part) => part.text)
     .join('');
-}
-
-export function AI(props: PropsWithChildren<{ open: boolean }>) {
-  const [open, setOpen] = useState(() => props.open);
-  return (
-    <Credenza open={open} onOpenChange={setOpen}>
-      <CredenzaTrigger>{props.children}</CredenzaTrigger>
-      <CredenzaContent className="gap-0 sm:max-w-xl xl:max-w-4xl">
-        <CredenzaHeader>
-          <CredenzaTitle>Ask AI</CredenzaTitle>
-          <CredenzaDescription>
-            Hi! I'm an AI assistant trained on documentation, code, and other
-            content. I can answer questions about{' '}
-            <span className="text-foreground font-bold">SDK-IT</span>, what's on
-            your mind?
-          </CredenzaDescription>
-        </CredenzaHeader>
-        <CredenzaBody>
-          <AskAi />
-        </CredenzaBody>
-      </CredenzaContent>
-    </Credenza>
-  );
 }
 
 export function AskAi(props: { className?: string }) {

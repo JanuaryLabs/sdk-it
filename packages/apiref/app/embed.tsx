@@ -1,15 +1,16 @@
-import { Loader } from 'lucide-react';
-
-import { OperationsList } from './api-doc/operations-list.tsx';
-import { SearchCmdk } from './components/search';
-import { useScrollOperations } from './hooks/use-scroll-operations';
 import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
   SidebarInset,
   SidebarProvider,
-} from './shadcn/sidebar';
+} from '@zukhruf/shadcn';
+import { Loader } from 'lucide-react';
+import type { CSSProperties } from 'react';
+
+import { OperationsList } from './api-doc/operations-list.tsx';
+import { SearchCmdk } from './components/search';
+import { useScrollOperations } from './hooks/use-scroll-operations';
 import { NavMain } from './sidebar/nav';
 import { useRootData } from './use-root-data';
 
@@ -21,8 +22,11 @@ export default function Embed() {
   const { sidebar } = useRootData();
   useScrollOperations();
   return (
-    <SidebarProvider>
-      <Sidebar collapsible="offcanvas">
+    <SidebarProvider style={{ '--sidebar-width': '18rem' } as CSSProperties}>
+      <Sidebar
+        collapsible="offcanvas"
+        className="*:data-[slot=sidebar-inner]:px-2"
+      >
         <SidebarHeader>
           <SearchCmdk />
         </SidebarHeader>

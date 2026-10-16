@@ -1,20 +1,9 @@
 /* eslint-disable @nx/enforce-module-boundaries */
-import { ChevronRight, ExternalLink } from 'lucide-react';
-import { useState } from 'react';
-import { NavLink, useParams } from 'react-router';
-import { titlecase } from 'stringcase';
-
-import { isEmpty } from '@sdk-it/core/utils.js';
-import type { CategoryItem, NavItem, SidebarData } from '@sdk-it/spec';
-
-import { Badge } from '../shadcn/badge';
-import { cn } from '../shadcn/cn.tsx';
 import {
+  Badge,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '../shadcn/collapsible';
-import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
@@ -23,7 +12,16 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from '../shadcn/sidebar';
+} from '@zukhruf/shadcn';
+import { cn } from 'cn';
+import { ChevronRight, ExternalLink } from 'lucide-react';
+import { useState } from 'react';
+import { NavLink, useParams } from 'react-router';
+import { titlecase } from 'stringcase';
+
+import { isEmpty } from '@sdk-it/core/utils.js';
+import type { CategoryItem, NavItem, SidebarData } from '@sdk-it/spec';
+
 import { useRootData } from '../use-root-data';
 
 // Helper function to check if a URL is external
@@ -46,60 +44,61 @@ export function SidebarItem({ item }: { item: NavItem }) {
   const { operationsMap } = useRootData();
   return (
     <Collapsible
-      asChild
+      render={<SidebarMenuItem />}
       defaultOpen={activeGroup === item.id}
       className="group/collapsible"
     >
-      <SidebarMenuItem>
-        {item.url &&
-          (isExternalUrl(item.url) ? (
-            <NavLink
-              to={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="no-underline"
+      {item.url &&
+        (isExternalUrl(item.url) ? (
+          <NavLink
+            to={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="no-underline"
+          >
+            <SidebarMenuButton
+              className="text-muted-foreground hover:text-foreground flex items-center justify-between p-2 text-sm font-normal"
+              size={'default'}
+              tooltip={item.title}
             >
-              <SidebarMenuButton
-                className="text-muted-foreground hover:text-foreground flex items-center justify-between p-2 text-sm font-normal"
-                size={'default'}
-                tooltip={item.title}
-              >
-                <span className="truncate">{titlecase(item.title)}</span>
-                <ExternalLink />
-              </SidebarMenuButton>
-            </NavLink>
-          ) : (
-            <NavLink to={item.url} end={item.url === '/'}>
-              <SidebarMenuButton
-                className="flex items-center justify-between p-2 text-sm font-normal"
-                size={'default'}
-                tooltip={item.title}
-              >
-                <span>{titlecase(item.title)}</span>
-              </SidebarMenuButton>
-            </NavLink>
-          ))}
-        {item.items?.length ? (
-          <>
-            <CollapsibleTrigger asChild>
+              <span className="truncate">{titlecase(item.title)}</span>
+              <ExternalLink />
+            </SidebarMenuButton>
+          </NavLink>
+        ) : (
+          <NavLink to={item.url} end={item.url === '/'}>
+            <SidebarMenuButton
+              className="flex items-center justify-between p-2 text-sm font-normal"
+              size={'default'}
+              tooltip={item.title}
+            >
+              <span>{titlecase(item.title)}</span>
+            </SidebarMenuButton>
+          </NavLink>
+        ))}
+      {item.items?.length ? (
+        <>
+          <CollapsibleTrigger
+            render={
               <SidebarMenuButton
                 className="flex items-center justify-between p-2 text-sm font-normal"
                 size={'default'}
                 tooltip={item.title}
-              >
-                <span>{titlecase(item.title)}</span>
-                <ChevronRight className="transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-              </SidebarMenuButton>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <SidebarMenuSub className="gap-0">
-                {item.items?.map((subItem) => (
-                  <SidebarMenuSubItem key={subItem.title}>
-                    <SidebarMenuSubButton
-                      asChild
-                      isActive={activeOperationId === subItem.id}
-                      size="md"
-                    >
+              />
+            }
+          >
+            <span>{titlecase(item.title)}</span>
+            <ChevronRight className="transition-transform duration-200 group-data-open/collapsible:rotate-90" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <SidebarMenuSub className="mx-2 gap-0">
+              {item.items?.map((subItem) => (
+                <SidebarMenuSubItem key={subItem.title}>
+                  <SidebarMenuSubButton
+                    isActive={activeOperationId === subItem.id}
+                    size="md"
+                    className="h-8 data-active:font-medium"
+                    render={
                       <NavLink
                         to={import.meta.env.BASE_URL + subItem.url}
                         onClick={(e) => {
@@ -120,30 +119,29 @@ export function SidebarItem({ item }: { item: NavItem }) {
                             });
                           }
                         }}
+                      />
+                    }
+                  >
+                    {subItem.id in operationsMap && (
+                      <Badge
+                        variant={'ghost'}
+                        className="min-w-8 px-0 hover:bg-transparent"
                       >
-                        {subItem.id in operationsMap && (
-                          <Badge
-                            variant={'ghost'}
-                            className="min-w-8 px-0 hover:bg-transparent"
-                          >
-                            <code className="uppercase">
-                              {operationsMap[subItem.id].entry.method ===
-                              'delete'
-                                ? 'DEL'
-                                : operationsMap[subItem.id].entry.method}
-                            </code>
-                          </Badge>
-                        )}
-                        <span>{subItem.title}</span>
-                      </NavLink>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                ))}
-              </SidebarMenuSub>
-            </CollapsibleContent>
-          </>
-        ) : null}
-      </SidebarMenuItem>
+                        <code className="uppercase">
+                          {operationsMap[subItem.id].entry.method === 'delete'
+                            ? 'DEL'
+                            : operationsMap[subItem.id].entry.method}
+                        </code>
+                      </Badge>
+                    )}
+                    <span>{subItem.title}</span>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              ))}
+            </SidebarMenuSub>
+          </CollapsibleContent>
+        </>
+      ) : null}
     </Collapsible>
   );
 }

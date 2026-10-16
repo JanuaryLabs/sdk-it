@@ -166,7 +166,6 @@ SDK-IT is organized as a monorepo with multiple packages:
 │   ├── python/           # Python SDK generator
 │   ├── readme/           # README generation
 │   ├── rpc/              # Runtime RPC client and agent tools
-│   ├── shadcn/           # Shared UI component library (private)
 │   ├── spec/             # OpenAPI normalization and IR
 │   ├── typescript/       # TypeScript SDK generator
 │   └── vite/             # Vite generation plugin
@@ -184,7 +183,6 @@ Each package serves a specific purpose:
 - **spec**: Shared OpenAPI loading, normalization, and intermediate representation
 - **command** and **rpc**: Operation command construction and runtime dispatch
 - **readme**: Generated SDK documentation
-- **shadcn**: Private shared UI component library for API reference surfaces
 - **vite**: Development/build integration backed by the CLI generation engine
 
 For more detailed information about the codebase structure and development process, see the [contributing guide](CONTRIBUTING.md).

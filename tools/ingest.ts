@@ -11,13 +11,7 @@ const excludeFiles = [
   'combined.txt',
   'ingest.ts',
 ];
-const excludeDirs = [
-  'apps/api/',
-  'apps/www/',
-  'archive/',
-  'packages/apiref/app/shadcn/',
-  '.github/',
-];
+const excludeDirs = ['apps/api/', 'apps/www/', 'archive/', '.github/'];
 const OUTPUT_FILE = 'combined.txt';
 
 // Grab all relevant files from Git

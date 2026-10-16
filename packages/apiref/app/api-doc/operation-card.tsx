@@ -1,11 +1,11 @@
+import { Badge } from '@zukhruf/shadcn';
+import { cn } from 'cn';
 import { useMemo } from 'react';
 
 import type { TunedOperationObject } from '@sdk-it/spec';
 
 import { JSXEmitter } from '../components/jsx-emitter';
 import { EditorTabs } from '../components/sdks-tabs';
-import { Badge } from '../shadcn/badge';
-import { cn } from '../shadcn/cn';
 import { useRootData } from '../use-root-data';
 import { MD } from './markdown';
 import type { AugmentedOperation } from './types';

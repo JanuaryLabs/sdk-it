@@ -1,5 +1,6 @@
+import { cn } from 'cn';
+
 import { MD } from '../api-doc/markdown';
-import { cn } from '../shadcn/cn';
 
 export function Description(props: {
   description: string | undefined;

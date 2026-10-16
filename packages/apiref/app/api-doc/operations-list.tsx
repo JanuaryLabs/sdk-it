@@ -1,8 +1,8 @@
+import { Separator } from '@zukhruf/shadcn';
 import { motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 
 import { Description } from '../components/description';
-import { Separator } from '../shadcn/separator';
 import { useRootData } from '../use-root-data';
 import { OperationCard } from './operation-card';
 

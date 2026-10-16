@@ -1,17 +1,18 @@
-import { Loader, Wand2 } from 'lucide-react';
-
-import { OperationsList } from './api-doc/operations-list.tsx';
-import { SearchCmdk } from './components/search';
-import { useScrollOperations } from './hooks/use-scroll-operations';
-import { Separator } from './shadcn/separator.tsx';
 import {
+  Separator,
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarInset,
   SidebarMenuSubButton,
   SidebarProvider,
-} from './shadcn/sidebar';
+} from '@zukhruf/shadcn';
+import { Loader, Wand2 } from 'lucide-react';
+import type { CSSProperties } from 'react';
+
+import { OperationsList } from './api-doc/operations-list.tsx';
+import { SearchCmdk } from './components/search';
+import { useScrollOperations } from './hooks/use-scroll-operations';
 import { NavMain } from './sidebar/nav';
 import { useRootData } from './use-root-data';
 
@@ -24,10 +25,10 @@ export default function Page() {
   useScrollOperations();
 
   return (
-    <SidebarProvider>
+    <SidebarProvider style={{ '--sidebar-width': '18rem' } as CSSProperties}>
       <Sidebar
         collapsible="icon"
-        className="left-5 group-data-[side=left]:border-none"
+        className="group-data-[side=left]:border-none data-[side=left]:left-5 *:data-[slot=sidebar-inner]:px-2"
       >
         {/* <SidebarHeader>
           <SearchCmdk />

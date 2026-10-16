@@ -1,11 +1,10 @@
+import { Button } from '@zukhruf/shadcn';
+import { cn } from 'cn';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowUp, Square, X } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
-import { Button } from '@sdk-it/shadcn';
-
 import { useAutosizeTextArea } from '../hooks/use-autosize-textarea';
-import { cn } from '../shadcn/cn';
 
 interface MessageInputBaseProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   value: string;

@@ -43,9 +43,6 @@
       "path": "../core/tsconfig.lib.json"
     },
     {
-      "path": "../shadcn/tsconfig.lib.json"
-    },
-    {
       "path": "../spec/tsconfig.lib.json"
     }
   ]

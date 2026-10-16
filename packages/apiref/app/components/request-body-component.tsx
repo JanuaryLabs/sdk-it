@@ -1,10 +1,10 @@
 /* eslint-disable @nx/enforce-module-boundaries */
+import { Separator } from '@zukhruf/shadcn';
 import React, { Fragment } from 'react';
 
 import { resolveRef } from '@sdk-it/core/ref.js';
 import type { IR, OurRequestBodyObject } from '@sdk-it/spec';
 
-import { Separator } from '../shadcn/separator';
 import { Description } from './description';
 import { SchemaComponent } from './schema-component';
 

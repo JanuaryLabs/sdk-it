@@ -1,3 +1,4 @@
+import { cn } from 'cn';
 import { HTTPSnippet } from 'httpsnippet';
 import type { ParameterObject, RequestBodyObject } from 'openapi3-ts/oas31';
 import type { ShouldRevalidateFunctionArgs } from 'react-router';
@@ -11,7 +12,6 @@ import {
 } from 'react-router';
 
 import type { AugmentedOperation } from './api-doc/types';
-import { cn } from './shadcn/cn';
 import './styles.css';
 import { useRootData } from './use-root-data';
 

@@ -3,7 +3,7 @@ import {
   BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbPage,
-} from '../shadcn/breadcrumb';
+} from '@zukhruf/shadcn';
 
 interface ApiHeaderProps {
   title: string;

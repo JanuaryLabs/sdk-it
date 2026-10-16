@@ -1,11 +1,16 @@
+import {
+  ScrollArea,
+  ScrollBar,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@zukhruf/shadcn';
+import { cn } from 'cn';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { BiLogoFlutter, BiLogoTypescript } from 'react-icons/bi';
 import { SiAiohttp, SiOpenapiinitiative } from 'react-icons/si';
-
-import { cn } from '../shadcn/cn';
-import { ScrollArea, ScrollBar } from '../shadcn/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../shadcn/tabs';
 
 interface SdkTab {
   name: string;
@@ -22,7 +27,7 @@ export default function SdksTabs({ tabs }: { tabs: SdkTab[] }) {
           <TabsTrigger
             key={tab.value}
             value={tab.value}
-            className="bg-background border-b-border data-[state=active]:border-border data-[state=active]:border-b-background -mb-[2px] h-full rounded-none rounded-t border border-transparent data-[state=active]:shadow-none"
+            className="bg-background border-b-border data-active:border-border data-active:border-b-background -mb-[2px] h-full rounded-none rounded-t border border-transparent data-active:shadow-none"
           >
             <code className="text-xs">{tab.name}</code>
           </TabsTrigger>
@@ -61,6 +66,7 @@ export function EditorTabs({
     <Tabs value={activeLanguage} onValueChange={setActiveLanguage}>
       <ScrollArea>
         <TabsList
+          variant="line"
           className={cn(
             'bg-background h-auto w-full justify-start -space-x-px rounded-none p-0 rtl:space-x-reverse',
             className,
@@ -70,7 +76,7 @@ export function EditorTabs({
             <TabsTrigger
               key={tab.value}
               value={tab.value}
-              className="data-[state=active]:after:bg-primary relative gap-x-1 overflow-hidden rounded-none py-2 after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 data-[state=active]:bg-inherit data-[state=active]:shadow-none dark:text-white dark:data-[state=active]:text-[#99FFE4]"
+              className="data-active:after:bg-primary relative gap-x-1 overflow-hidden rounded-none py-2 after:pointer-events-none after:absolute after:inset-x-0 after:h-0.5 group-data-horizontal/tabs:after:bottom-0 data-active:bg-inherit data-active:shadow-none dark:text-white dark:data-active:text-[#99FFE4]"
             >
               {langIconMap[tab.value as keyof typeof langIconMap]}
               <code className="text-xs">{tab.name}</code>

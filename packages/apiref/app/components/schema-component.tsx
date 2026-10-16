@@ -1,4 +1,5 @@
 /* eslint-disable @nx/enforce-module-boundaries */
+import { Separator } from '@zukhruf/shadcn';
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 import React, { Fragment } from 'react';
 
@@ -7,7 +8,6 @@ import { isEmpty } from '@sdk-it/core/utils.js';
 import { isPrimitiveSchema } from '@sdk-it/spec/is-primitive-schema.js';
 import { coerceTypes } from '@sdk-it/spec/is.js';
 
-import { Separator } from '../shadcn/separator.tsx';
 import { Description } from './description';
 
 interface SchemaProps {

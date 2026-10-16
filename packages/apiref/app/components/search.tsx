@@ -1,19 +1,20 @@
-import { Search } from 'lucide-react';
-import React, { Fragment, useState } from 'react';
-import { useHotkeys } from 'react-hotkeys-hook';
-import { VscCopilot } from 'react-icons/vsc';
-
-import { OperationCard } from '../api-doc/operation-card';
-import { Badge } from '../shadcn/badge';
-import { Button } from '../shadcn/button';
 import {
+  Badge,
+  Button,
+  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-} from '../shadcn/command';
+} from '@zukhruf/shadcn';
+import { Search } from 'lucide-react';
+import React, { Fragment, useState } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
+import { VscCopilot } from 'react-icons/vsc';
+
+import { OperationCard } from '../api-doc/operation-card';
 import { useRootData } from '../use-root-data';
 import { AskAi } from './ai';
 
@@ -32,7 +33,7 @@ export function SearchCmdk() {
       <Button
         variant={'ghost'}
         size={'lg'}
-        className="text-muted-foreground hover:bg-sidebar-primary/10 flex items-center justify-between border px-3 font-normal"
+        className="text-muted-foreground hover:bg-sidebar-primary/10 border-border flex items-center justify-between border px-3 font-normal"
         onClick={() => setOpen((open) => !open)}
       >
         <div className="flex items-center gap-2">
@@ -44,6 +45,7 @@ export function SearchCmdk() {
         </kbd>
       </Button>
       <CommandDialog
+        className="top-1/2 -translate-y-1/2 sm:h-10/12 sm:max-w-6xl"
         open={open}
         onOpenChange={(newOpen) => {
           setOpen(newOpen);
@@ -52,107 +54,110 @@ export function SearchCmdk() {
           // }
         }}
       >
-        <CommandInput placeholder="Type a command or search..." />
-        <div className="flex h-full overflow-auto">
-          {/* Left Pane - Search UI */}
-          <CommandList className="h-full max-h-full w-2/5 sm:w-1/4">
-            <CommandGroup forceMount={true} heading="Help">
-              <CommandItem
-                value={aiValue}
-                className="cursor-pointer space-x-2"
-                forceMount={true}
-                onSelect={() => {
-                  setSelectedOperationId(aiValue);
-                }}
-                onMouseEnter={() => setSelectedOperationId(aiValue)}
-              >
-                <VscCopilot size={18} />
-                <span>Ask AI</span>
-              </CommandItem>
-            </CommandGroup>
-            <CommandEmpty>No results found.</CommandEmpty>
-            {sidebar
-              .filter((it) => it.id.startsWith('api'))
-              .map((category) => (
-                <Fragment key={category.category}>
-                  <CommandGroup heading={category.category}>
-                    {category.items.map((item) => (
-                      <React.Fragment key={item.id}>
-                        {/* <CommandItem disabled className="pl-2 opacity-80">
-                        <span className="font-medium">{item.title}</span>
-                      </CommandItem> */}
-                        {item.items?.map((child) => {
-                          const operationId = child.url.split('/').pop() || '';
-                          return (
-                            <CommandItem
-                              key={child.id}
-                              className="flex flex-col items-start gap-0 p-0 pl-6"
-                              onSelect={() => {
-                                window.history.replaceState(
-                                  null,
-                                  '',
-                                  `${import.meta.env.BASE_URL}${child.url}`,
-                                );
-                                const element = document.getElementById(
-                                  child.id,
-                                );
-                                if (element) {
-                                  element.scrollIntoView({
-                                    behavior: 'instant',
-                                    block: 'start',
-                                    inline: 'nearest',
-                                  });
+        <Command>
+          <CommandInput placeholder="Type a command or search..." />
+          <div className="flex h-full overflow-auto">
+            {/* Left Pane - Search UI */}
+            <CommandList className="h-full max-h-full w-2/5 sm:w-1/4">
+              <CommandGroup forceMount={true} heading="Help">
+                <CommandItem
+                  value={aiValue}
+                  className="cursor-pointer space-x-2"
+                  forceMount={true}
+                  onSelect={() => {
+                    setSelectedOperationId(aiValue);
+                  }}
+                  onMouseEnter={() => setSelectedOperationId(aiValue)}
+                >
+                  <VscCopilot size={18} />
+                  <span>Ask AI</span>
+                </CommandItem>
+              </CommandGroup>
+              <CommandEmpty>No results found.</CommandEmpty>
+              {sidebar
+                .filter((it) => it.id.startsWith('api'))
+                .map((category) => (
+                  <Fragment key={category.category}>
+                    <CommandGroup heading={category.category}>
+                      {category.items.map((item) => (
+                        <React.Fragment key={item.id}>
+                          {/* <CommandItem disabled className="pl-2 opacity-80">
+                          <span className="font-medium">{item.title}</span>
+                        </CommandItem> */}
+                          {item.items?.map((child) => {
+                            const operationId =
+                              child.url.split('/').pop() || '';
+                            return (
+                              <CommandItem
+                                key={child.id}
+                                className="flex flex-col items-start gap-0 p-0 pl-6"
+                                onSelect={() => {
+                                  window.history.replaceState(
+                                    null,
+                                    '',
+                                    `${import.meta.env.BASE_URL}${child.url}`,
+                                  );
+                                  const element = document.getElementById(
+                                    child.id,
+                                  );
+                                  if (element) {
+                                    element.scrollIntoView({
+                                      behavior: 'instant',
+                                      block: 'start',
+                                      inline: 'nearest',
+                                    });
+                                  }
+                                  setOpen(false);
+                                }}
+                                onMouseEnter={() =>
+                                  setSelectedOperationId(operationId)
                                 }
-                                setOpen(false);
-                              }}
-                              onMouseEnter={() =>
-                                setSelectedOperationId(operationId)
-                              }
-                            >
-                              <span>{child.title}</span>
-                              <div className="flex items-center">
-                                <Badge
-                                  variant={'ghost'}
-                                  className="text-muted-foreground line-clamp-2 flex gap-x-1 px-0 font-mono text-[10px] hover:bg-transparent"
-                                >
-                                  <span className="uppercase">
-                                    {operationsMap[operationId].entry.method}
-                                  </span>
-                                  <span className="font-normal">
-                                    {operationsMap[operationId].entry.path}
-                                  </span>
-                                </Badge>
-                              </div>
-                            </CommandItem>
-                          );
-                        })}
-                      </React.Fragment>
-                    ))}
-                  </CommandGroup>
-                </Fragment>
-              ))}
-          </CommandList>
+                              >
+                                <span>{child.title}</span>
+                                <div className="flex items-center">
+                                  <Badge
+                                    variant={'ghost'}
+                                    className="text-muted-foreground line-clamp-2 flex gap-x-1 px-0 font-mono text-[10px] hover:bg-transparent"
+                                  >
+                                    <span className="uppercase">
+                                      {operationsMap[operationId].entry.method}
+                                    </span>
+                                    <span className="font-normal">
+                                      {operationsMap[operationId].entry.path}
+                                    </span>
+                                  </Badge>
+                                </div>
+                              </CommandItem>
+                            );
+                          })}
+                        </React.Fragment>
+                      ))}
+                    </CommandGroup>
+                  </Fragment>
+                ))}
+            </CommandList>
 
-          {/* Right Pane - Operation Card */}
-          {selectedOperationId ? (
-            <div className="relative h-full w-2/5 overflow-auto border-l px-4 sm:block sm:w-3/4">
-              {selectedOperationId === aiValue ? (
-                <AskAi
-                  key={'ai'}
-                  className="flex h-full flex-col justify-between"
-                />
-              ) : (
-                operationsMap[selectedOperationId] && (
-                  <OperationCard
-                    className="text-sm"
-                    entry={operationsMap[selectedOperationId].entry}
-                    operation={operationsMap[selectedOperationId].operation}
+            {/* Right Pane - Operation Card */}
+            {selectedOperationId ? (
+              <div className="relative h-full w-2/5 overflow-auto border-l px-4 sm:block sm:w-3/4">
+                {selectedOperationId === aiValue ? (
+                  <AskAi
+                    key={'ai'}
+                    className="flex h-full flex-col justify-between"
                   />
-                )
-              )}
-            </div>
-          ) : null}
-        </div>
+                ) : (
+                  operationsMap[selectedOperationId] && (
+                    <OperationCard
+                      className="text-sm"
+                      entry={operationsMap[selectedOperationId].entry}
+                      operation={operationsMap[selectedOperationId].operation}
+                    />
+                  )
+                )}
+              </div>
+            ) : null}
+          </div>
+        </Command>
       </CommandDialog>
     </>
   );

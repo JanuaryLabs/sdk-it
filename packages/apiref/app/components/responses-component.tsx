@@ -1,4 +1,15 @@
 /* eslint-disable @nx/enforce-module-boundaries */
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Separator,
+} from '@zukhruf/shadcn';
+import { cn } from 'cn';
 import { ChevronDown } from 'lucide-react';
 import type {
   HeaderObject,
@@ -11,19 +22,6 @@ import React, { Fragment, useState } from 'react';
 import { followRef, isRef, resolveRef } from '@sdk-it/core/ref.js';
 import { isEmpty } from '@sdk-it/core/utils.js';
 
-import { cn } from '../shadcn/cn';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '../shadcn/collapsible';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../shadcn/dropdown-menu';
-import { Separator } from '../shadcn/separator';
 import { useRootData } from '../use-root-data';
 import { Description } from './description';
 import { SchemaComponent, getTypeDisplay } from './schema-component';
@@ -165,17 +163,20 @@ const ResponseItem: React.FC<ResponseItemProps> = ({
         onOpenChange={setExpanded}
         className="response-item"
       >
-        <CollapsibleTrigger asChild>
-          <h5 className={cn('flex cursor-pointer gap-x-2 text-sm')}>
-            <code>{statusCode}</code>
-            <Description
-              description={response.description}
-              className={cn({
-                'line-clamp-1': !expanded,
-              })}
-            />
-          </h5>
-        </CollapsibleTrigger>
+        <CollapsibleTrigger
+          nativeButton={false}
+          render={
+            <h5 className={cn('flex cursor-pointer gap-x-2 text-sm')}>
+              <code>{statusCode}</code>
+              <Description
+                description={response.description}
+                className={cn({
+                  'line-clamp-1': !expanded,
+                })}
+              />
+            </h5>
+          }
+        />
         <CollapsibleContent className="mt-2">
           {hasMultipleContentTypes && (
             <ContentTypeDropdown
