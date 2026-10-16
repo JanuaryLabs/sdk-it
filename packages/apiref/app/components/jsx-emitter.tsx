@@ -1,7 +1,6 @@
-import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import React from 'react';
 
-import type { TunedOperationObject } from '@sdk-it/spec';
+import type { IR, TunedOperationObject } from '@sdk-it/spec';
 
 import { Description } from './description';
 import { ParametersComponent } from './parameters-component';
@@ -13,9 +12,9 @@ import { ResponsesComponent } from './responses-component';
  * It returns JSX elements for path/query parameters, headers, request body, and responses
  */
 export class JSXEmitter {
-  #spec: OpenAPIObject;
+  #spec: IR;
 
-  constructor(spec: OpenAPIObject) {
+  constructor(spec: IR) {
     this.#spec = spec;
   }
 
@@ -32,19 +31,16 @@ export class JSXEmitter {
             <ParametersComponent
               parameters={operation.parameters}
               type="path"
-              spec={this.#spec}
             />
 
             <ParametersComponent
               parameters={operation.parameters}
               type="query"
-              spec={this.#spec}
             />
 
             <ParametersComponent
               parameters={operation.parameters}
               type="header"
-              spec={this.#spec}
             />
           </div>
         )}

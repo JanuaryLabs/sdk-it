@@ -1,9 +1,8 @@
 /* eslint-disable @nx/enforce-module-boundaries */
-import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import React, { Fragment } from 'react';
 
 import { resolveRef } from '@sdk-it/core/ref.js';
-import type { OurRequestBodyObject } from '@sdk-it/spec';
+import type { IR, OurRequestBodyObject } from '@sdk-it/spec';
 
 import { Separator } from '../shadcn/separator';
 import { Description } from './description';
@@ -11,7 +10,7 @@ import { SchemaComponent } from './schema-component';
 
 interface RequestBodyComponentProps {
   requestBody: OurRequestBodyObject;
-  spec: OpenAPIObject;
+  spec: IR;
   className?: string;
 }
 

@@ -1,4 +1,4 @@
-import type { OpenAPIObject, ParameterObject } from 'openapi3-ts/oas31';
+import type { ParameterObject } from 'openapi3-ts/oas31';
 import React from 'react';
 
 import { Separator } from '../shadcn/separator';
@@ -9,14 +9,12 @@ interface ParametersComponentProps {
   parameters: ParameterObject[];
   type: 'path' | 'query' | 'header';
   title?: string;
-  spec: OpenAPIObject;
 }
 
 export const ParametersComponent: React.FC<ParametersComponentProps> = ({
   parameters,
   type,
   title,
-  spec: _spec,
 }) => {
   const filteredParams = parameters.filter((it) => it.in === type);
 
