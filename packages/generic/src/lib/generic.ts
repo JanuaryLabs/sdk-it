@@ -328,10 +328,54 @@ export const returnTokens = (
     }
 
     if (ts.isThrowStatement(node)) {
-      if (ts.isNewExpression(node.expression)) {
+      let expression = node.expression;
+      const visited = new Set<ts.Declaration>();
+      while (true) {
+        if (
+          ts.isParenthesizedExpression(expression) ||
+          ts.isAsExpression(expression) ||
+          ts.isTypeAssertionExpression(expression) ||
+          ts.isSatisfiesExpression(expression) ||
+          ts.isNonNullExpression(expression)
+        ) {
+          expression = expression.expression;
+          continue;
+        }
+        if (
+          !typeChecker ||
+          (!ts.isIdentifier(expression) &&
+            !ts.isPropertyAccessExpression(expression))
+        )
+          break;
+        // Structural property types can point at another object's declaration.
+        // Only module namespace imports guarantee the referenced export binding.
+        if (
+          ts.isPropertyAccessExpression(expression) &&
+          !typeChecker
+            .getSymbolAtLocation(expression.expression)
+            ?.declarations?.some(ts.isNamespaceImport)
+        )
+          break;
+        const declaration = resolvedSymbol(
+          expression,
+          typeChecker,
+        )?.valueDeclaration;
+        if (
+          !declaration ||
+          visited.has(declaration) ||
+          !ts.isVariableDeclaration(declaration) ||
+          !ts.isVariableDeclarationList(declaration.parent) ||
+          !(declaration.parent.flags & ts.NodeFlags.Const) ||
+          !declaration.initializer
+        )
+          break;
+        visited.add(declaration);
+        expression = declaration.initializer;
+      }
+      if (ts.isNewExpression(expression)) {
         tokens.push({
-          token: `throw.new.${node.expression.expression.getText()}`,
-          node: node.expression,
+          token: `throw.new.${expression.expression.getText()}`,
+          node: expression,
         });
       }
     }
