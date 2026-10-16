@@ -73,7 +73,7 @@ export function paginationOperation(pagination: OperationPagination): string {
             hasMore: Boolean(result.data.${shape.hasMore}),
           },
         };
-      }, { signal: options.signal });
+      }, options.signal ? { signal: options.signal } : {});
       await pagination.getNextPage();
       return pagination
     }}`;

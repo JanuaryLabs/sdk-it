@@ -97,7 +97,7 @@ export async function request<const E extends keyof typeof schemas>(
       ),
       createBaseUrlInterceptor(options.baseUrl),
     ],
-    signal: requestOptions?.signal,
+    ...(requestOptions?.signal ? { signal: requestOptions.signal } : {}),
   });
   return result as Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>;
 }

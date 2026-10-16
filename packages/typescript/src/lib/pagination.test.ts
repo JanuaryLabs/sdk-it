@@ -235,7 +235,7 @@ describe('pagination templates', () => {
       assert.match(
         source,
         new RegExp(
-          `new ${className}\\([^\\n]+, async \\(nextPageParams, requestOptions\\) => \\{[\\s\\S]*requestOptions\\?\\.signal \\?\\? options\\.signal,[\\s\\S]*\\}, \\{ signal: options\\.signal \\}\\);`,
+          `new ${className}\\([^\\n]+, async \\(nextPageParams, requestOptions\\) => \\{[\\s\\S]*requestOptions\\?\\.signal \\?\\? options\\.signal,[\\s\\S]*\\}, options\\.signal \\? \\{ signal: options\\.signal \\} : \\{\\}\\);`,
         ),
       );
       assert.match(source, /await pagination\.getNextPage\(\);/);

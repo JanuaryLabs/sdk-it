@@ -41,9 +41,7 @@ export class CursorPagination<T, M extends CursorMetadata> {
   ) {
     this.#fetchFn = fetchFn;
     this.#requestOptions = requestOptions;
-    this.#params = {
-      cursor: initialParams.cursor ?? undefined,
-    };
+    this.#params = initialParams.cursor == null ? {} : { cursor: initialParams.cursor };
   }
 
   async getNextPage(requestOptions?: PaginationRequestOptions) {
@@ -53,10 +51,7 @@ export class CursorPagination<T, M extends CursorMetadata> {
     });
     this.#currentPage = new Page(result.data);
     this.#meta = result.meta;
-    this.#params = {
-      ...this.#params,
-      cursor: result.meta.nextCursor,
-    };
+    this.#params = result.meta.nextCursor === undefined ? {} : { cursor: result.meta.nextCursor };
     return this;
   }
 
@@ -112,5 +107,5 @@ class Page<T> {
 }
 
 type PartialNullable<T> = {
-  [K in keyof T]?: T[K] | null;
+  [K in keyof T]?: T[K] | null | undefined;
 };

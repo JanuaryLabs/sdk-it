@@ -139,7 +139,7 @@ export async function request<const E extends keyof typeof schemas>(
       ),
 ${securitySchemeNames.length ? '      createSecurityInterceptor(route.security, options.credentials),\n' : ''}      createBaseUrlInterceptor(options.baseUrl),
     ],
-    signal: requestOptions?.signal,
+    ...(requestOptions?.signal ? { signal: requestOptions.signal } : {}),
   });
   return result as Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>;
 }

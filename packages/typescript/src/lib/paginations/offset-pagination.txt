@@ -32,7 +32,7 @@ export class OffsetPagination<T, M extends Metadata> {
   readonly #requestOptions: PaginationRequestOptions;
 
   constructor(
-    initialParams: Partial<OffsetPaginationParams>,
+    initialParams: { offset?: number | undefined; limit?: number | undefined },
     fetchFn: FetchFn<T, M>,
     requestOptions: PaginationRequestOptions = {},
   ) {

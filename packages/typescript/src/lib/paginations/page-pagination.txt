@@ -43,13 +43,16 @@ export class Pagination<
   readonly #requestOptions: PaginationRequestOptions;
 
   constructor(
-    initialParams: Partial<PaginationParams<P, S>>,
+    initialParams: { page?: P | undefined; pageSize?: S | undefined },
     fetchFn: FetchFn<T, M, P, S>,
     requestOptions: PaginationRequestOptions = {},
   ) {
     this.#fetchFn = fetchFn;
     this.#requestOptions = requestOptions;
-    this.#params = { ...initialParams, page: initialParams.page };
+    this.#params = {
+      ...(initialParams.page === undefined ? {} : { page: initialParams.page }),
+      ...(initialParams.pageSize === undefined ? {} : { pageSize: initialParams.pageSize }),
+    };
   }
 
   async getNextPage(requestOptions?: PaginationRequestOptions) {

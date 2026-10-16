@@ -206,7 +206,7 @@ export function toRequest<T extends Endpoint>(
     init: {
       method: method,
       headers: new Headers(input.headers),
-      body: method === 'GET' ? undefined : input.body,
+      ...(method === 'GET' ? {} : { body: input.body }),
     },
   };
 }
