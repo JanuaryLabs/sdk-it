@@ -1,3 +1,5 @@
+import { untilAborted } from '@zukhruf/async';
+
 import type { OpenAPIDocument } from '@sdk-it/core';
 
 import {
@@ -75,7 +77,7 @@ export async function processSpec(
         return reported;
       },
     };
-    await plugin.process(context);
+    await untilAborted(Promise.resolve(plugin.process(context)), signal);
     signal?.throwIfAborted();
   }
 

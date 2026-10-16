@@ -1,3 +1,4 @@
+import { untilAborted } from '@zukhruf/async';
 import type {
   MediaTypeObject,
   OperationObject,
@@ -59,10 +60,18 @@ async function enrichMediaType(
   target.signal?.throwIfAborted();
   const schema = resolveRef<SchemaObject>(target.spec, media.schema);
   const enrichmentInput = { ...target, schema };
-  const value = await options.generate(enrichmentInput);
+  const value = await untilAborted(
+    Promise.resolve(options.generate(enrichmentInput)),
+    target.signal,
+  );
   target.signal?.throwIfAborted();
 
-  if (!(await options.validate({ ...enrichmentInput, value }))) {
+  const valid = await untilAborted(
+    Promise.resolve(options.validate({ ...enrichmentInput, value })),
+    target.signal,
+  );
+  target.signal?.throwIfAborted();
+  if (!valid) {
     report({
       severity: 'warning',
       code: 'generated-example-invalid',
