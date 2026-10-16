@@ -196,11 +196,11 @@ class Options {
     Array.from(writtenFiles),
   );
 
-  if (settings.cleanup !== false && writtenFiles.size > 0) {
+  if (settings.cleanup !== false) {
     await cleanFiles(metadata.content, settings.output, [
       '/package.dart',
       '/**/index.dart',
-      'pubspec.yaml',
+      '/pubspec.yaml',
       '/metadata.json',
     ]);
   }
