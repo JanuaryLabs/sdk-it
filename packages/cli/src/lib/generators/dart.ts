@@ -1,5 +1,6 @@
 import { Command } from 'commander';
-import { execFile, execSync } from 'node:child_process';
+import { execa } from 'execa';
+import { execSync } from 'node:child_process';
 
 import { generate } from '@sdk-it/dart';
 import { loadSpec } from '@sdk-it/spec';
@@ -28,6 +29,7 @@ export default new Command('dart')
     'true',
   )
   .option('-v, --verbose', 'Verbose output', false)
+  .option('--formatter <formatter>', 'Formatter to use for the generated code')
   .action(async (options: Options) => {
     await runDart(options);
   });
@@ -41,10 +43,10 @@ async function runDart(options: Options) {
       typeof options.pagination === 'string'
         ? parsePagination(parseDotConfig(options.pagination ?? 'true'))
         : options.pagination,
-    formatCode: ({ output }) => {
+    formatCode: async ({ output }) => {
       if (options.formatter) {
         const [command, ...args] = options.formatter.split(' ');
-        execFile(command, args, {
+        await execa(command, args, {
           env: { ...process.env, SDK_IT_OUTPUT: output },
         });
       } else {

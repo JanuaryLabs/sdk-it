@@ -1,5 +1,6 @@
 import { Command } from 'commander';
-import { execFile, execSync } from 'node:child_process';
+import { execa } from 'execa';
+import { execSync } from 'node:child_process';
 
 import { generate } from '@sdk-it/python';
 import { loadSpec, toIR } from '@sdk-it/spec';
@@ -24,10 +25,10 @@ async function runPython(options: PythonOptions) {
     output: options.output,
     mode: options.mode || 'full',
     name: options.name,
-    formatCode: ({ output }: { output: string }) => {
+    formatCode: async ({ output }: { output: string }) => {
       if (options.formatter) {
         const [command, ...args] = options.formatter.split(' ');
-        execFile(command, args, {
+        await execa(command, args, {
           env: { ...process.env, SDK_IT_OUTPUT: output },
         });
       } else {

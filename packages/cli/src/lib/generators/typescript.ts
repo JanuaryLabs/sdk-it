@@ -1,7 +1,7 @@
 import { Command, Option } from 'commander';
 import { execa } from 'execa';
 import { publish } from 'libnpmpublish';
-import { execSync, spawnSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -119,7 +119,7 @@ async function emitLocal(spec: OpenAPIObject, options: Options) {
           env: { ...env, SDK_IT_OUTPUT: output },
         });
       } else if (options.defaultFormatter) {
-        spawnSync('npx', ['-y', 'prettier', output, '--write'], {
+        await execa('npx', ['-y', 'prettier', output, '--write'], {
           env: {
             ...env,
             SDK_IT_OUTPUT: output,
