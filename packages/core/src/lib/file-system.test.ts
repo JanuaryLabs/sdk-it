@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
@@ -107,9 +107,16 @@ describe('File System Utilities - Error-First Testing', () => {
       });
     });
 
-    it('should handle permission denied on directory', async () => {
-      const result = await readFolder('/root');
-      assert.deepStrictEqual(result, []);
+    it('rejects with EACCES for a directory it cannot read', async () => {
+      const dirPath = join(testDir, 'unreadable-dir-for-readfolder');
+      await mkdir(dirPath);
+      await chmod(dirPath, 0o000);
+
+      try {
+        await assert.rejects(() => readFolder(dirPath), { code: 'EACCES' });
+      } finally {
+        await chmod(dirPath, 0o700);
+      }
     });
 
     it('should handle recursive reading with circular symlinks gracefully', async () => {
