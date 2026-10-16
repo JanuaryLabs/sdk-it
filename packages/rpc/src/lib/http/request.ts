@@ -26,7 +26,9 @@ function template(
     }
 
     const result = key in templateVariables ? templateVariables[key] : null;
-    return result === null || result === undefined ? '' : String(result);
+    return result === null || result === undefined
+      ? ''
+      : encodeURIComponent(String(result));
   });
 }
 
