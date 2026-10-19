@@ -1,12 +1,8 @@
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Separator,
 } from '@zukhruf/shadcn';
 import { cn } from 'cn';
 import { ChevronDown } from 'lucide-react';
@@ -16,14 +12,14 @@ import type {
   ResponseObject,
   ResponsesObject,
 } from 'openapi3-ts/oas31';
-import React, { Fragment, useState } from 'react';
+import React, { useState } from 'react';
 
-import { followRef, isRef, resolveRef } from '@sdk-it/core/ref.js';
+import { resolveRef } from '@sdk-it/core/ref.js';
 import { isEmpty } from '@sdk-it/core/utils.js';
 
 import { useRootData } from '../use-root-data';
 import { Description } from './description';
-import { SchemaComponent, getTypeDisplay } from './schema-component';
+import { SchemaComponent } from './schema-component';
 
 interface ResponseTypesProps {
   contentTypes: string[];
@@ -136,117 +132,6 @@ const ResponseContent: React.FC<ResponseContentProps> = ({
   );
 };
 
-interface ResponseItemProps {
-  statusCode: string;
-  response: ResponseObject;
-  collapsible?: boolean;
-}
-
-const ResponseItem: React.FC<ResponseItemProps> = ({
-  statusCode,
-  response,
-  collapsible = false,
-}) => {
-  const contentTypes = Object.keys(response.content ?? {});
-  const [selectedContentType, setSelectedContentType] = useState<string | null>(
-    contentTypes[0] ?? null,
-  );
-  const [expanded, setExpanded] = useState(false);
-
-  const hasMultipleContentTypes = contentTypes.length > 1;
-
-  if (collapsible) {
-    return (
-      <Collapsible
-        open={expanded}
-        onOpenChange={setExpanded}
-        className="response-item"
-      >
-        <CollapsibleTrigger
-          nativeButton={false}
-          render={
-            <h5 className={cn('flex cursor-pointer gap-x-2 text-sm')}>
-              <code>{statusCode}</code>
-              <Description
-                description={response.description}
-                className={cn({
-                  'line-clamp-1': !expanded,
-                })}
-              />
-            </h5>
-          }
-        />
-        <CollapsibleContent className="mt-2">
-          {hasMultipleContentTypes && (
-            <ContentTypeDropdown
-              contentTypes={contentTypes}
-              selectedContentType={selectedContentType}
-              setSelectedContentType={setSelectedContentType}
-            />
-          )}
-          <ResponseContent
-            response={response}
-            selectedContentType={selectedContentType}
-          />
-        </CollapsibleContent>
-      </Collapsible>
-    );
-  }
-
-  return (
-    <div className="response-item">
-      <div className="flex items-center justify-between gap-x-1">
-        <h5
-          className={cn(
-            'flex cursor-pointer flex-wrap items-center gap-x-1 text-sm',
-          )}
-        >
-          <code>{statusCode}</code>
-          <Type response={response} selectedContentType={selectedContentType} />
-          <Description description={response.description} />
-        </h5>
-        {hasMultipleContentTypes && (
-          <ContentTypeDropdown
-            contentTypes={contentTypes}
-            selectedContentType={selectedContentType}
-            setSelectedContentType={setSelectedContentType}
-          />
-        )}
-      </div>
-      <ResponseContent
-        response={response}
-        selectedContentType={selectedContentType}
-      />
-    </div>
-  );
-};
-
-function Type({
-  response,
-  selectedContentType,
-}: {
-  response: ResponseObject;
-  selectedContentType: string | null;
-}) {
-  const { spec } = useRootData();
-  if (
-    !selectedContentType ||
-    !response.content ||
-    !response.content[selectedContentType] ||
-    !response.content[selectedContentType].schema
-  ) {
-    return null;
-  }
-  const schema = isRef(response.content[selectedContentType].schema)
-    ? followRef(spec, response.content[selectedContentType].schema.$ref)
-    : response.content[selectedContentType].schema;
-  return (
-    <span className="text-muted-foreground text-xs">
-      {getTypeDisplay(schema)}
-    </span>
-  );
-}
-
 interface StatusesDropdownProps {
   statusCodes: string[];
   value: string;
@@ -290,12 +175,6 @@ const StatusesDropdown: React.FC<StatusesDropdownProps> = ({
 interface ResponsesComponentProps {
   responses: ResponsesObject;
   className?: string;
-  /**
-   * Renders the responses in a compact layout
-   * @if {false} render status codes in dropdown.
-   * @if {true} render each status code in a collapsible section.
-   */
-  compact?: boolean;
 }
 
 interface CompactModeProps {
@@ -349,40 +228,9 @@ function CompactMode({ responses }: CompactModeProps) {
   );
 }
 
-interface CollapsibleModeProps {
-  responses: ResponsesObject;
-}
-
-function CollapsibleMode({ responses }: CollapsibleModeProps) {
-  const entries = Object.entries(responses as Record<string, ResponseObject>);
-  const single = entries.length === 1;
-
-  return (
-    <div>
-      <h4 className="text-lg font-semibold">Returns</h4>
-
-      <Separator className="my-4" />
-
-      <div className="space-y-1">
-        {entries.map(([statusCode, response], index) => (
-          <Fragment key={statusCode}>
-            {index > 0 && <Separator className="my-4" />}
-            <ResponseItem
-              statusCode={statusCode}
-              response={response}
-              collapsible={!single}
-            />
-          </Fragment>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export const ResponsesComponent: React.FC<ResponsesComponentProps> = ({
   responses,
   className,
-  compact = true,
 }) => {
   if (isEmpty(responses)) {
     return null;
@@ -390,11 +238,7 @@ export const ResponsesComponent: React.FC<ResponsesComponentProps> = ({
 
   return (
     <div className={className}>
-      {compact ? (
-        <CompactMode responses={responses} />
-      ) : (
-        <CollapsibleMode responses={responses} />
-      )}
+      <CompactMode responses={responses} />
     </div>
   );
 };
