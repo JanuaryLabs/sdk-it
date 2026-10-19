@@ -1,4 +1,3 @@
-/* eslint-disable @nx/enforce-module-boundaries */
 import { Separator } from '@zukhruf/shadcn';
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 import React, { Fragment } from 'react';

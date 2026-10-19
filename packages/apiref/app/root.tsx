@@ -12,6 +12,13 @@ import {
 } from 'react-router';
 
 import { resolveRef } from '@sdk-it/core/ref.js';
+import {
+  type TunedOperationObject,
+  forEachOperation,
+  loadSpec,
+  toIR,
+  toSidebar,
+} from '@sdk-it/spec';
 
 import type { AugmentedOperation } from './api-doc/types';
 import './styles.css';
@@ -90,8 +97,6 @@ export async function loader({
   params: { '*'?: string };
 }) {
   const { TypeScriptSnippet } = await import('@sdk-it/typescript');
-  const { toIR, toSidebar, forEachOperation, loadSpec } =
-    await import('@sdk-it/spec');
   // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
   // 'https://api.openstatus.dev/v1/openapi',
 
@@ -111,7 +116,7 @@ export async function loader({
     string,
     {
       entry: AugmentedOperation;
-      operation: import('@sdk-it/spec').TunedOperationObject;
+      operation: TunedOperationObject;
     }
   > = {};
   const generator = new TypeScriptSnippet(spec, {

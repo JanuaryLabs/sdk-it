@@ -1,4 +1,3 @@
-/* eslint-disable @nx/enforce-module-boundaries */
 import { type RouteConfig, index, route } from '@react-router/dev/routes';
 import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
