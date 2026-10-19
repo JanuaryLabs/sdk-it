@@ -52,10 +52,16 @@ describe('File System Utilities - Error-First Testing', () => {
       });
     });
 
-    it('should handle permission denied scenarios gracefully', async () => {
-      // Test with invalid path that would cause permission errors
-      const result = await getFile('/root/protected-file.txt');
-      assert.strictEqual(result, null);
+    it('rejects with EACCES for a file it cannot read', async () => {
+      const filePath = join(testDir, 'unreadable-file-for-getfile.txt');
+      await writeFile(filePath, 'content');
+      await chmod(filePath, 0o000);
+
+      try {
+        await assert.rejects(() => getFile(filePath), { code: 'EACCES' });
+      } finally {
+        await chmod(filePath, 0o600);
+      }
     });
 
     it('should handle malformed paths', async () => {
