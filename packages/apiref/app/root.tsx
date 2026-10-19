@@ -11,6 +11,8 @@ import {
   ScrollRestoration,
 } from 'react-router';
 
+import { resolveRef } from '@sdk-it/core/ref.js';
+
 import type { AugmentedOperation } from './api-doc/types';
 import './styles.css';
 import { useRootData } from './use-root-data';
@@ -88,7 +90,6 @@ export async function loader({
   params: { '*'?: string };
 }) {
   const { TypeScriptSnippet } = await import('@sdk-it/typescript');
-  const { resolveRef } = await import('@sdk-it/core');
   const { toIR, toSidebar, forEachOperation, loadSpec } =
     await import('@sdk-it/spec');
   // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',

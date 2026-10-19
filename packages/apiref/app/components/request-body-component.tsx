@@ -1,4 +1,3 @@
-/* eslint-disable @nx/enforce-module-boundaries */
 import { Separator } from '@zukhruf/shadcn';
 import React, { Fragment } from 'react';
 
