@@ -8,7 +8,8 @@ type Collector = Record<string, any>;
  * How literal values met while serializing collapse to their base type.
  * - none: keep every literal (top-level response objects).
  * - values: array items are representative, so literals read straight off an
- *   item's initializer collapse while declared literal types keep their values.
+ *   item's initializer collapse while declared literal types and
+ *   property-level `as const` values keep their literals.
  * - all: const-asserted tuples collapse every literal.
  */
 type LiteralWidening = 'none' | 'values' | 'all';
@@ -346,7 +347,9 @@ export class TypeDeriver {
           if (propAssingment) {
             serializedProps[prop.name] = this.serializeValue(
               this.typeOfExpression(propAssingment.initializer),
-              widening,
+              this.isConstAsserted(propAssingment.initializer)
+                ? 'none'
+                : widening,
             );
           } else if (shorthandType) {
             serializedProps[prop.name] = this.serializeValue(
@@ -452,6 +455,18 @@ export class TypeDeriver {
     }
 
     return this.checker.getTypeAtLocation(expression);
+  }
+
+  private isConstAsserted(node: ts.Expression): boolean {
+    let expression = node;
+    while (ts.isParenthesizedExpression(expression)) {
+      expression = expression.expression;
+    }
+    return (
+      (ts.isAsExpression(expression) ||
+        ts.isTypeAssertionExpression(expression)) &&
+      ts.isConstTypeReference(expression.type)
+    );
   }
 
   private emptyArraySatisfies(

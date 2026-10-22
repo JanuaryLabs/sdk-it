@@ -348,6 +348,101 @@ describe('Type Derivation', () => {
       });
     });
 
+    test('keeps property-level const assertions inside array items as literals', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `
+            export const templates = [
+              { id: 'support', source: 'prebuilt' as const },
+              { id: 'sales', source: 'marketplace' as const },
+            ];
+          `,
+          'templates',
+        ),
+      );
+
+      assert.deepStrictEqual(result, {
+        type: 'array',
+        items: {
+          anyOf: [
+            {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                source: { type: 'string', enum: ['prebuilt'] },
+              },
+              required: ['id', 'source'],
+              additionalProperties: false,
+            },
+            {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                source: { type: 'string', enum: ['marketplace'] },
+              },
+              required: ['id', 'source'],
+              additionalProperties: false,
+            },
+          ],
+        },
+      });
+    });
+
+    test('keeps property-level const assertions through map, spread and rest', async () => {
+      const result = toSchema(
+        await deriveExpressionFromCode(
+          `
+            const prebuilt = [{ id: 'support', agents: ['a'] }];
+            declare const published: { id: string; agents: string[] }[];
+            const templates = [
+              ...prebuilt.map((template) => ({
+                ...template,
+                source: 'prebuilt' as const,
+              })),
+              ...published.map(({ id, agents }) => ({
+                id,
+                agents,
+                source: 'marketplace' as const,
+              })),
+            ];
+            export const payload = templates.map(({ agents, ...template }) => ({
+              ...template,
+              agentCount: agents.length,
+            }));
+          `,
+          'payload',
+        ),
+      );
+
+      assert.deepStrictEqual(result, {
+        type: 'array',
+        items: {
+          anyOf: [
+            {
+              type: 'object',
+              properties: {
+                agentCount: { type: 'number' },
+                id: { type: 'string' },
+                source: { type: 'string', enum: ['prebuilt'] },
+              },
+              required: ['agentCount', 'id', 'source'],
+              additionalProperties: false,
+            },
+            {
+              type: 'object',
+              properties: {
+                agentCount: { type: 'number' },
+                id: { type: 'string' },
+                source: { type: 'string', enum: ['marketplace'] },
+              },
+              required: ['agentCount', 'id', 'source'],
+              additionalProperties: false,
+            },
+          ],
+        },
+      });
+    });
+
     test.todo('handles tuples');
 
     test('widens const-asserted array values to their item type', async () => {
