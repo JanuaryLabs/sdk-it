@@ -44,6 +44,14 @@ export function nodeLocation(node: ts.Node): string | undefined {
   }
 }
 
+function skipParentheses(node: ts.Expression): ts.Expression {
+  let expression = node;
+  while (ts.isParenthesizedExpression(expression)) {
+    expression = expression.expression;
+  }
+  return expression;
+}
+
 export class TypeDeriver {
   public readonly collector: Collector = {};
   public readonly checker: ts.TypeChecker;
@@ -416,10 +424,7 @@ export class TypeDeriver {
     if (satisfies) {
       return this.checker.getTypeFromTypeNode(satisfies.type);
     }
-    let expression = node;
-    while (ts.isParenthesizedExpression(expression)) {
-      expression = expression.expression;
-    }
+    const expression = skipParentheses(node);
 
     if (ts.isIdentifier(expression)) {
       const symbol = this.checker.getSymbolAtLocation(expression);
@@ -458,10 +463,7 @@ export class TypeDeriver {
   }
 
   private isConstAsserted(node: ts.Expression): boolean {
-    let expression = node;
-    while (ts.isParenthesizedExpression(expression)) {
-      expression = expression.expression;
-    }
+    const expression = skipParentheses(node);
     return (
       (ts.isAsExpression(expression) ||
         ts.isTypeAssertionExpression(expression)) &&
@@ -472,17 +474,11 @@ export class TypeDeriver {
   private emptyArraySatisfies(
     node: ts.Expression,
   ): ts.SatisfiesExpression | undefined {
-    let expression = node;
-    while (ts.isParenthesizedExpression(expression)) {
-      expression = expression.expression;
-    }
+    const expression = skipParentheses(node);
     if (!ts.isSatisfiesExpression(expression)) {
       return undefined;
     }
-    let operand = expression.expression;
-    while (ts.isParenthesizedExpression(operand)) {
-      operand = operand.expression;
-    }
+    const operand = skipParentheses(expression.expression);
     if (!ts.isArrayLiteralExpression(operand) || operand.elements.length > 0) {
       return undefined;
     }
