@@ -83,7 +83,7 @@ export function toEndpoint(
               inputBody: [${paths.inputBody}],
               inputParams: [${paths.inputParams}],
             }));},
-         async dispatch(input: z.input<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>,options: {
+         async dispatch(input: z.output<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>,options: {
             signal?: AbortSignal;
             interceptors: Interceptor[];
             fetch: z.infer<typeof fetchType>;

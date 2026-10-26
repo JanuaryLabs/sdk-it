@@ -2751,3 +2751,127 @@ export async function read(fetch: (request: Request) => Promise<Response>) {
       }),
   );
 });
+
+describe('generate — pagination with coerced numeric parameters', () => {
+  test.each(
+    [
+      {
+        name: 'page and pageSize',
+        parameters: ['page', 'pageSize'],
+        defaults: false,
+        input: { page: 1, pageSize: 2 },
+        progression: ['page=1&pageSize=2', 'page=2&pageSize=2'],
+      },
+      {
+        name: 'limit and offset',
+        parameters: ['limit', 'offset'],
+        defaults: false,
+        input: { limit: 2, offset: 0 },
+        progression: ['limit=2&offset=0', 'limit=2&offset=2'],
+      },
+      {
+        name: 'page and limit with defaults',
+        parameters: ['page', 'limit'],
+        defaults: true,
+        input: { page: 1, limit: 2 },
+        progression: ['limit=2&page=1', 'limit=2&page=2'],
+      },
+    ] as const,
+    ({ name, parameters, defaults, input, progression }) =>
+      test(`a paginated SDK with coerced ${name} compiles and advances pages`, async () => {
+        const dir = mkdtempSync(join(repoRoot, '.generate-coerced-pages-'));
+        try {
+          await generate(
+            {
+              openapi: '3.1.0',
+              info: { title: 'Paged', version: '1.0.0' },
+              servers: [{ url: 'https://paged.test' }],
+              paths: {
+                '/items': {
+                  get: {
+                    operationId: 'listItems',
+                    parameters: parameters.map((name) => ({
+                      in: 'query',
+                      name,
+                      schema: {
+                        type: 'integer',
+                        'x-zod-type': 'coerce-number',
+                        ...(defaults ? { default: 1 } : {}),
+                      },
+                    })),
+                    responses: {
+                      '200': {
+                        description: 'Page',
+                        content: {
+                          'application/json': {
+                            schema: {
+                              type: 'object',
+                              required: ['data', 'hasMore'],
+                              properties: {
+                                data: {
+                                  type: 'array',
+                                  items: { type: 'string' },
+                                },
+                                hasMore: { type: 'boolean' },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            { output: dir, name: 'Paged', readme: false, mode: 'full' },
+          );
+          writeFileSync(
+            join(dir, 'src', 'consumer.ts'),
+            `
+import { Paged } from './index.ts';
+export async function read(fetch: (request: Request) => Promise<Response>) {
+  const pages = await new Paged({ baseUrl: 'https://paged.test', fetch }).request('GET /items', ${JSON.stringify(input)});
+  const received: string[][] = [];
+  for await (const page of pages) received.push(page.data);
+  return received;
+}
+`,
+          );
+          assert.deepEqual(compileGeneratedProject(dir), []);
+
+          const bundlePath = join(dir, 'consumer.cjs');
+          await esbuild({
+            entryPoints: [join(dir, 'src', 'consumer.ts')],
+            bundle: true,
+            outfile: bundlePath,
+            format: 'cjs',
+            platform: 'node',
+            target: 'node20',
+            absWorkingDir: dir,
+            nodePaths: [join(repoRoot, 'node_modules')],
+            logLevel: 'silent',
+          });
+          const { read } = createRequire(import.meta.url)(bundlePath) as {
+            read(
+              fetch: (request: Request) => Promise<Response>,
+            ): Promise<unknown>;
+          };
+          const queries: string[] = [];
+          const pages = [
+            { data: ['a', 'b'], hasMore: true },
+            { data: ['c'], hasMore: false },
+          ];
+
+          const received = await read(async (request) => {
+            queries.push(new URL(request.url).searchParams.toString());
+            return Response.json(pages.shift());
+          });
+
+          assert.deepEqual(received, [['a', 'b'], ['c']]);
+          assert.deepEqual(queries, progression);
+        } finally {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      }),
+  );
+});
