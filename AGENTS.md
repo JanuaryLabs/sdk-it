@@ -19,6 +19,8 @@ Brief descriptions of each package in the monorepo. These summaries focus on pur
 
 ### Cross-package invariants
 
+- **Hosts follow the package.** `@sdk-it/spec`'s IR is the single source of truth for what an operation means: its inputs, its responses, and each response's body kind. Generators (`typescript`, `dart`, `python`) and runtimes (`rpc`, `command`) read the IR. A host never parses another host's rendered output (emitted code strings), and never re-derives a fact the IR already records. When a host needs a fact the IR lacks, the fact goes into spec, which every host then follows. Never add API to a generator package for one host's sake.
+
 - **64-bit integers are not special.** The generated type follows the wire encoding: `type: integer, format: int64/uint64` → `number` (`z.number().int()`), `type: string, format: int64/uint64` → `string` (`z.string()`). No `bigint`, no runtime revival machinery — a `type: integer` value past 2^53 is a lossy `number`, and the fix is to encode 64-bit IDs as strings (protobuf-JSON style). `z.int64()`/`z.bigint()` in server code still emit `format: int64` in the spec as documentation. See `docs/recipes/int64-bigint.md` before touching int64 handling.
 
 ### Notes & Next Refinements
