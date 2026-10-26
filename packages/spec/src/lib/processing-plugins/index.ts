@@ -1,3 +1,4 @@
+export * from './bundle-external-refs.js';
 export * from './canonicalize-spec.js';
 export * from './create-default-processing-plugins.js';
 export * from './enrich-examples.js';

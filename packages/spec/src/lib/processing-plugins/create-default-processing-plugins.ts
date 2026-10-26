@@ -1,4 +1,5 @@
 import type { ProcessingPlugin } from '../processing.js';
+import { bundleExternalRefs } from './bundle-external-refs.js';
 import { canonicalizeSpec } from './canonicalize-spec.js';
 import { extractInlineSchemas } from './extract-inline-schemas.js';
 import { extractOverviewDocsPlugin } from './extract-overview-docs.js';
@@ -17,6 +18,7 @@ export function createDefaultProcessingPlugins(
   options: { verbose?: boolean } = {},
 ): ProcessingPlugin[] {
   return [
+    bundleExternalRefs(),
     normalizePaths(),
     normalizeOperationIds(),
     normalizeTags(),
