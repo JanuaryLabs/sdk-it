@@ -2638,3 +2638,116 @@ void [new Client({ baseUrl: 'https://shop.test' }), NotFound];
     }
   });
 });
+
+describe('generate — pagination with an optional items array', () => {
+  test.each(
+    [
+      {
+        type: 'offset',
+        parameters: { limit: 'integer', offset: 'integer' },
+        input: { limit: 2, offset: 0 },
+      },
+      {
+        type: 'page',
+        parameters: { page: 'integer', pageSize: 'integer' },
+        input: { page: 1, pageSize: 2 },
+      },
+      {
+        type: 'cursor',
+        parameters: { cursor: 'string', limit: 'integer' },
+        input: { limit: 2 },
+      },
+    ] as const,
+    ({ type, parameters, input }) =>
+      test(`a ${type}-paginated SDK compiles and treats a page without items as empty`, async () => {
+        const dir = mkdtempSync(join(repoRoot, '.generate-optional-items-'));
+        try {
+          await generate(
+            {
+              openapi: '3.1.0',
+              info: { title: 'Paged', version: '1.0.0' },
+              servers: [{ url: 'https://paged.test' }],
+              paths: {
+                '/items': {
+                  get: {
+                    operationId: 'listItems',
+                    parameters: Object.entries(parameters).map(
+                      ([name, kind]) => ({
+                        in: 'query',
+                        name,
+                        schema: { type: kind },
+                      }),
+                    ),
+                    responses: {
+                      '200': {
+                        description: 'Page',
+                        content: {
+                          'application/json': {
+                            schema: {
+                              type: 'object',
+                              properties: {
+                                data: {
+                                  type: 'array',
+                                  items: { type: 'string' },
+                                },
+                                hasMore: { type: 'boolean' },
+                                ...(type === 'cursor'
+                                  ? { nextCursor: { type: 'string' } }
+                                  : {}),
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            { output: dir, name: 'Paged', readme: false, mode: 'full' },
+          );
+          writeFileSync(
+            join(dir, 'src', 'consumer.ts'),
+            `
+import { Paged } from './index.ts';
+export async function read(fetch: (request: Request) => Promise<Response>) {
+  const pages = await new Paged({ baseUrl: 'https://paged.test', fetch }).request('GET /items', ${JSON.stringify(input)});
+  const received: string[][] = [];
+  for await (const page of pages) received.push(page.data);
+  return received;
+}
+`,
+          );
+          assert.deepEqual(compileGeneratedProject(dir), []);
+
+          const bundlePath = join(dir, 'consumer.cjs');
+          await esbuild({
+            entryPoints: [join(dir, 'src', 'consumer.ts')],
+            bundle: true,
+            outfile: bundlePath,
+            format: 'cjs',
+            platform: 'node',
+            target: 'node20',
+            absWorkingDir: dir,
+            nodePaths: [join(repoRoot, 'node_modules')],
+            logLevel: 'silent',
+          });
+          const { read } = createRequire(import.meta.url)(bundlePath) as {
+            read(
+              fetch: (request: Request) => Promise<Response>,
+            ): Promise<unknown>;
+          };
+          const pages = [
+            { data: ['a', 'b'], hasMore: true, nextCursor: '2' },
+            { hasMore: false },
+          ];
+
+          const received = await read(async () => Response.json(pages.shift()));
+
+          assert.deepEqual(received, [['a', 'b'], []]);
+        } finally {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      }),
+  );
+});

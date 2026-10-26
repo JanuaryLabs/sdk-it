@@ -58,12 +58,14 @@ export function paginationOperation(pagination: OperationPagination): string {
     shape.sameInputNames && pagination.type !== 'cursor'
       ? '...nextPageParams'
       : shape.nextPageMapping;
+  const readResultData = (path: string) =>
+    `result.data${path
+      .split('.')
+      .map((key) => `?.[${JSON.stringify(key)}]`)
+      .join('')}`;
   const nextCursor =
     pagination.type === 'cursor' && pagination.nextCursor
-      ? `result.data${pagination.nextCursor
-          .split('.')
-          .map((key) => `?.[${JSON.stringify(key)}]`)
-          .join('')}`
+      ? readResultData(pagination.nextCursor)
       : undefined;
 
   return `{
@@ -77,9 +79,9 @@ export function paginationOperation(pagination: OperationPagination): string {
         if (result.status !== ${shape.statusCode}) { throw result; }
         ${nextCursor ? `const nextCursor = ${nextCursor};` : ''}
         return {
-          data: result.data.${shape.items},
+          data: ${readResultData(shape.items)} ?? [],
           meta: {
-            hasMore: Boolean(result.data.${shape.hasMore}),
+            hasMore: Boolean(${readResultData(shape.hasMore)}),
             ${nextCursor ? '...(typeof nextCursor === "string" ? { nextCursor } : {}),' : ''}
           },
         };

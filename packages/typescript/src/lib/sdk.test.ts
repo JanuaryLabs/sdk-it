@@ -24,7 +24,7 @@ describe('paginationOperation status narrowing', () => {
     assert.match(emitted, guardPattern);
     assert.match(emitted, /throw result;/);
     const guardIndex = emitted.search(guardPattern);
-    const dataAccessIndex = emitted.indexOf('result.data.threads');
+    const dataAccessIndex = emitted.indexOf('result.data?.["threads"]');
     assert.ok(
       guardIndex >= 0 && dataAccessIndex > guardIndex,
       'guard must precede data access',
