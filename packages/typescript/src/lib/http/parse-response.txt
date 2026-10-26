@@ -36,38 +36,6 @@ function isAttachment(response: Response) {
 	return dispositionType?.trim().toLowerCase() === "attachment";
 }
 
-async function handleChunkedResponse(response: Response, contentType: string) {
-	const { type } = parse(contentType);
-
-	switch (type) {
-		case "application/json": {
-			let buffer = "";
-			const reader = response.body!.getReader();
-			const decoder = new TextDecoder();
-			while (true) {
-				const { value, done } = await reader.read();
-				if (done) break;
-				buffer += decoder.decode(value);
-			}
-			return JSON.parse(buffer);
-		}
-		case "text/html":
-		case "text/plain": {
-			let buffer = "";
-			const reader = response.body!.getReader();
-			const decoder = new TextDecoder();
-			while (true) {
-				const { value, done } = await reader.read();
-				if (done) break;
-				buffer += decoder.decode(value);
-			}
-			return buffer;
-		}
-		default:
-			return response.body;
-	}
-}
-
 export function chunked(response: Response) {
 	return response.body!;
 }
