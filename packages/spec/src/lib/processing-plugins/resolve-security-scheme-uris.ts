@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'node:url';
 import type { SecurityRequirementObject } from 'openapi3-ts/oas31';
 
 import {
@@ -7,8 +6,15 @@ import {
   isRef,
 } from '@sdk-it/core';
 
+import {
+  type Documents,
+  availableName,
+  documentUrl,
+  loadDocument,
+  readPointer,
+  splitFragment,
+} from '../external-documents.js';
 import { iterateOperations } from '../for-each-operation.js';
-import { loadFile } from '../loaders/load-spec.js';
 import type { ProcessingPlugin } from '../processing.js';
 import type { IR } from '../types.js';
 
@@ -45,7 +51,9 @@ export function resolveSecuritySchemeUris(): ProcessingPlugin {
             Object.entries(spec.components.securitySchemes).find(
               ([, registeredScheme]) => registeredScheme === scheme,
             ) ?? [];
-          const name = alias ?? availableName(spec, schemeName(uri));
+          const name =
+            alias ??
+            availableName(spec.components.securitySchemes, schemeName(uri));
           spec.components.securitySchemes[name] = scheme;
           registered.set(uri, name);
         } catch (error) {
@@ -90,11 +98,11 @@ function isUriKey(key: string) {
 async function resolveScheme(
   uri: string,
   spec: IR,
-  documents: Map<string, Promise<unknown>>,
+  documents: Documents,
 ): Promise<OpenAPISecuritySchemeObject> {
   const [location, fragment] = splitFragment(uri);
   const document = location
-    ? await loadDocument(location, spec, documents)
+    ? await schemeDocument(location, spec, documents)
     : spec;
   let scheme = fragment ? readPointer(document, fragment) : document;
   if (isRef(scheme)) {
@@ -112,63 +120,9 @@ async function resolveScheme(
   return scheme as OpenAPISecuritySchemeObject;
 }
 
-function loadDocument(
-  location: string,
-  spec: IR,
-  documents: Map<string, Promise<unknown>>,
-) {
-  const base = spec.$self;
-  if (!base && !isAbsolute(location)) {
-    return Promise.reject(
-      new Error(
-        'the document declares no $self, so a relative URI has no base to resolve against',
-      ),
-    );
-  }
-  const url = new URL(location, base);
-  if (url.href === base) {
-    return Promise.resolve(spec);
-  }
-  let pending = documents.get(url.href);
-  if (!pending) {
-    pending = loadFile(
-      url.protocol === 'file:' ? fileURLToPath(url) : url.href,
-    );
-    documents.set(url.href, pending);
-  }
-  return pending;
-}
-
-function isAbsolute(location: string) {
-  return URL.canParse(location);
-}
-
-function splitFragment(uri: string): [string, string | undefined] {
-  const index = uri.indexOf('#');
-  return index === -1
-    ? [uri, undefined]
-    : [uri.slice(0, index), uri.slice(index + 1)];
-}
-
-function readPointer(document: unknown, fragment: string) {
-  let current: unknown = document;
-  for (const segment of fragment.split('/')) {
-    if (!segment) {
-      continue;
-    }
-    const key = decodeURIComponent(segment)
-      .replaceAll('~1', '/')
-      .replaceAll('~0', '~');
-    if (
-      current === null ||
-      typeof current !== 'object' ||
-      !(key in (current as object))
-    ) {
-      throw new Error(`no value at pointer #${fragment}`);
-    }
-    current = (current as Record<string, unknown>)[key];
-  }
-  return current;
+function schemeDocument(location: string, spec: IR, documents: Documents) {
+  const url = documentUrl(location, spec.$self);
+  return url.href === spec.$self ? spec : loadDocument(url, documents);
 }
 
 function schemeName(uri: string) {
@@ -182,13 +136,4 @@ function schemeName(uri: string) {
 
 function lastSegment(value: string) {
   return value.split('/').filter(Boolean).at(-1);
-}
-
-function availableName(spec: IR, candidate: string) {
-  let name = candidate;
-  let suffix = 2;
-  while (spec.components.securitySchemes[name]) {
-    name = `${candidate}${suffix++}`;
-  }
-  return name;
 }
