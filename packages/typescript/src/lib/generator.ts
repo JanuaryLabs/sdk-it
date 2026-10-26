@@ -123,7 +123,7 @@ export function generateCode(config: {
       );
     }
     const details = buildInput(config.spec, operation);
-    const endpoint = toEndpoint(entry.tag, config.spec, operation, {
+    const endpoint = toEndpoint(entry.tag, operation, {
       method: entry.method,
       path: entry.path,
       operationId: operation.operationId,
@@ -171,23 +171,26 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
       ...Object.fromEntries(
         Object.entries(endpoints)
           .map(([name, endpoint]) => {
+            const operations = endpoint.flatMap((it) => it.schemas).join(',\n');
             return [
               [
                 join('api', `${spinalcase(name)}.ts`),
                 `${[
                   `import z from 'zod';`,
                   `import * as http from '${config.makeImport('../http/response')}';`,
-                  `import * as outputs from '${config.makeImport('../outputs/index')}';`,
+                  ...(operations.includes('outputs.')
+                    ? [
+                        `import * as outputs from '${config.makeImport('../outputs/index')}';`,
+                      ]
+                    : []),
                   `import { toRequest, json, urlencoded, empty, formdata, type HeadersInit } from '${config.makeImport('../http/request')}';`,
-                  `import { chunked, buffered } from "${config.makeImport('../http/parse-response')}";`,
-                  `import { sse } from "${config.makeImport('../http/sse')}";`,
+                  `import { chunked, buffered, bodyless } from "${config.makeImport('../http/parse-response')}";`,
+                  `import { sse, type SSEListener } from "${config.makeImport('../http/sse')}";`,
                   `import * as ${camelcase(name)} from '../inputs/${config.makeImport(spinalcase(name))}';`,
                   `import { createBaseUrlInterceptor, createHeadersInterceptor, type Interceptor } from '${config.makeImport('../http/interceptors')}';`,
                   `import { Dispatcher, fetchType, type InstanceType } from '${config.makeImport('../http/dispatcher')}';`,
                   `import { Pagination, OffsetPagination, CursorPagination } from "${config.makeImport('../pagination/index')}";`,
-                ].join(
-                  '\n',
-                )}\nexport default {\n${endpoint.flatMap((it) => it.schemas).join(',\n')}\n}`,
+                ].join('\n')}\nexport default {\n${operations}\n}`,
               ],
             ];
           })

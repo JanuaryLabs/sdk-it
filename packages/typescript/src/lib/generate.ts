@@ -13,7 +13,9 @@ import {
 } from '@sdk-it/core/file-system.js';
 import {
   type IR,
+  type ResponseBody,
   cleanFiles,
+  forEachOperation,
   readWriteMetadata,
   sanitizeTag,
   toIR,
@@ -325,6 +327,15 @@ ${template(dispatcherTxt, {})()}`,
 function serializeModels(spec: IR) {
   const filesMap: Record<string, string[]> = {};
   const files: Record<string, string> = {};
+  const responseBodies = new Map<string, ResponseBody>();
+  forEachOperation(spec, (_, operation) => {
+    for (const response of Object.values(operation.responses)) {
+      const name = response['x-response-name'];
+      if (name) {
+        responseBodies.set(name, response['x-body']);
+      }
+    }
+  });
   for (const [name, schema] of Object.entries(spec.components.schemas)) {
     // if (isRef(schema)) {
     //  continue;
@@ -332,7 +343,7 @@ function serializeModels(spec: IR) {
     const isResponseBody = (schema as any)['x-responsebody'];
     const isRequestBody = (schema as any)['x-requestbody'];
     const responseGroup = (schema as any)['x-response-group'];
-    const stream = (schema as any)['x-stream'];
+    const body = responseGroup ? responseBodies.get(name) : undefined;
     if (isRequestBody) {
       // we do not generate interfaces for request bodies. we use zod for that.
       // bewary that the sometimes request body content schema is used as model somewhere else.
@@ -340,15 +351,17 @@ function serializeModels(spec: IR) {
       continue;
     }
     const folder = isResponseBody ? 'outputs' : 'models';
-    const isSse = (schema as any)['x-sse'];
-    let typeContent = isSse ? 'SSEListener' : 'ReadableStream';
-    if (!stream) {
-      const serializer = new TypeScriptEmitter(spec);
-      typeContent = serializer.handle(schema, true);
+    let typeContent: string;
+    if (body === 'sse') {
+      typeContent = 'SSEListener';
+    } else if (body === 'stream') {
+      typeContent = 'ReadableStream';
+    } else {
+      typeContent = new TypeScriptEmitter(spec).handle(schema, true);
     }
 
     const imports: string[] = [];
-    if (isSse) {
+    if (body === 'sse') {
       imports.push(`import type { SSEListener } from '../http/sse.ts';`);
     }
 

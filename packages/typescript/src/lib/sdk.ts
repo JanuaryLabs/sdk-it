@@ -1,29 +1,19 @@
-import type { ResponseObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
+import { type OpenAPISecuritySchemeObject, pascalcase } from '@sdk-it/core';
 import {
-  type OpenAPISecuritySchemeObject,
-  isEmpty,
-  pascalcase,
-} from '@sdk-it/core';
-import {
-  type IR,
   type OperationPagination,
+  type ResponseBody,
   type TunedOperationObject,
-  isBinaryContentType,
-  isSseContentType,
-  isStreamingContentType,
-  isTextContentType,
-  parseJsonContentType,
+  type TunedResponseObject,
   sanitizeTag,
 } from '@sdk-it/spec';
 
-import { TypeScriptEmitter } from './emitters/interface.ts';
 import { type MakeImportFn } from './import-utilities.ts';
 import { paginationOperation } from './pagination-emit.ts';
 import statusMap from './status-map.ts';
 
-export type Parser = 'chunked' | 'buffered' | 'sse';
+export type Parser = 'chunked' | 'buffered' | 'sse' | 'bodyless';
 
 export interface SdkConfig {
   /**
@@ -60,7 +50,6 @@ export interface Operation {
 
 export function toEndpoint(
   groupName: string,
-  spec: IR,
   specOperation: TunedOperationObject,
   operation: Operation,
 ) {
@@ -69,13 +58,8 @@ export function toEndpoint(
 
   const schemas: string[] = [];
   specOperation.responses ??= {};
-  const outputs = Object.keys(specOperation.responses).flatMap((status) =>
-    toHttpOutput(
-      spec,
-      specOperation.operationId,
-      status,
-      specOperation.responses[status],
-    ),
+  const outputs = Object.keys(specOperation.responses).map((status) =>
+    toHttpOutput(status, specOperation.responses[status]),
   );
 
   const addTypeParser = Object.keys(operation.schemas).length > 1;
@@ -116,111 +100,51 @@ function normalOperation() {
           }`;
 }
 
-export function toHttpOutput(
-  spec: IR,
-  operationName: string,
-  status: string,
-  response: ResponseObject,
-  withGenerics = true,
-) {
-  const typeScriptDeserialzer = new TypeScriptEmitter(spec);
-  const interfaceName = pascalcase(sanitizeTag(response['x-response-name']));
+const bodyParser: Record<ResponseBody, Parser> = {
+  json: 'buffered',
+  text: 'buffered',
+  binary: 'buffered',
+  empty: 'bodyless',
+  stream: 'chunked',
+  sse: 'sse',
+};
 
-  if (!isEmpty(response.content)) {
-    const contentTypeResult = fromContentType(typeScriptDeserialzer, response);
-    if (!contentTypeResult) {
-      throw new Error(
-        `No recognizable content type for response ${status} in operation ${operationName}`,
-      );
-    }
-    const parser: Parser = contentTypeResult.parser || 'buffered';
-    const outputs: string[] = [];
-    const statusName = `http.${statusMap[status] || 'APIResponse'}`;
-    const statusCode = +status;
-    if (statusCode === 204) {
-      outputs.push(statusName);
-    } else {
-      const generic = withGenerics ? `<outputs.${interfaceName}>` : '';
-      if (status.endsWith('XX')) {
-        outputs.push(`http.APIError${generic}`);
-      } else {
-        if (parser !== 'buffered') {
-          outputs.push(`{type: ${statusName}${generic}, parser: ${parser}}`);
-        } else {
-          outputs.push(`${statusName}${generic}`);
-        }
-      }
-    }
-    return outputs;
+export function toHttpOutput(status: string, response: TunedResponseObject) {
+  const body = response['x-body'];
+  const type = status.endsWith('XX')
+    ? 'http.APIError'
+    : `http.${statusMap[status] || 'APIResponse'}`;
+  if (status === '204') {
+    return type;
   }
-  return [];
+  const data = dataType(status, response);
+  const parser = bodyParser[body];
+  return parser === 'buffered'
+    ? `${type}<${data}>`
+    : `{type: ${type}<${data}>, parser: ${parser}}`;
 }
 
-function fromContentType(
-  typeScriptDeserialzer: TypeScriptEmitter,
-  response: ResponseObject,
-): {
-  parser: Parser;
-  responseSchema: string;
-} {
-  if ((response.headers ?? {})['Transfer-Encoding']) {
-    return streamedOutput();
+function dataType(status: string, response: TunedResponseObject) {
+  switch (response['x-body']) {
+    case 'empty':
+      return 'null';
+    case 'stream':
+      return 'ReadableStream';
+    case 'sse':
+      return 'SSEListener';
+    default:
+      return `outputs.${pascalcase(sanitizeTag(outputName(status, response)))}`;
   }
-  const hasContentDisposition = hasHeader(response, 'Content-Disposition');
-  for (const type in response.content) {
-    const isStreaming = isStreamingContentType(type);
-    const isBinary =
-      isBinaryContentType(type) || (isStreaming && hasContentDisposition);
-    // Octet-stream defaults to streaming unless Content-Disposition hints a file download.
-    if (isStreaming && !hasContentDisposition) {
-      return streamedOutput();
-    }
-    if (isBinary) {
-      return {
-        parser: 'buffered' as const,
-        responseSchema: response.content[type].schema
-          ? typeScriptDeserialzer.handle(response.content[type].schema, true)
-          : 'Blob',
-      };
-    }
-    if (parseJsonContentType(type)) {
-      const schema = response.content[type].schema;
-      return {
-        parser: 'buffered' as const,
-        responseSchema: schema
-          ? typeScriptDeserialzer.handle(schema, true)
-          : 'void',
-      };
-    }
-    if (isSseContentType(type)) {
-      return {
-        parser: 'sse' as const,
-        responseSchema: 'SSEListener',
-      };
-    }
-    if (isTextContentType(type)) {
-      return {
-        parser: 'buffered' as const,
-        responseSchema: response.content[type].schema
-          ? typeScriptDeserialzer.handle(response.content[type].schema, true)
-          : 'void',
-      };
-    }
-  }
-  return streamedOutput();
 }
 
-function hasHeader(response: ResponseObject, name: string) {
-  const headers = response.headers ?? {};
-  const target = name.toLowerCase();
-  return Object.keys(headers).some((key) => key.toLowerCase() === target);
-}
-
-function streamedOutput() {
-  return {
-    parser: 'chunked' as const,
-    responseSchema: 'ReadableStream',
-  };
+function outputName(status: string, response: TunedResponseObject) {
+  const name = response['x-response-name'];
+  if (!name) {
+    throw new Error(
+      `Response ${status} has a ${response['x-body']} body but no output name; generate with responses.flattenErrorResponses so every response is normalized`,
+    );
+  }
+  return name;
 }
 
 export function inputToPath(

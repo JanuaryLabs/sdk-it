@@ -1097,6 +1097,244 @@ describe('generate — http runtime', () => {
   });
 });
 
+describe('generate — response bodies follow the spec body kind', () => {
+  test('a success response that declares no content resolves to null and is typed null', async () => {
+    const dir = mkdtempSync(join(repoRoot, '.generate-bodyless-'));
+    try {
+      await generate(
+        {
+          openapi: '3.1.0',
+          info: { title: 'Things', version: '1.0.0' },
+          paths: {
+            '/things': {
+              post: {
+                operationId: 'createThing',
+                tags: ['things'],
+                responses: { '201': { description: 'Created' } },
+              },
+            },
+          },
+        },
+        { output: dir, name: 'Things', readme: false, mode: 'full' },
+      );
+      const bundlePath = join(dir, 'client.cjs');
+      await esbuild({
+        entryPoints: [join(dir, 'src', 'index.ts')],
+        bundle: true,
+        outfile: bundlePath,
+        format: 'cjs',
+        platform: 'node',
+        target: 'node20',
+        absWorkingDir: dir,
+        nodePaths: [join(repoRoot, 'node_modules')],
+        logLevel: 'silent',
+      });
+      const { Things } = createRequire(import.meta.url)(bundlePath) as {
+        Things: new (options: unknown) => {
+          request(endpoint: string, input: unknown): Promise<unknown>;
+        };
+      };
+      const client = new Things({
+        baseUrl: 'https://api.example.com',
+        fetch: async () =>
+          new Response(null, {
+            status: 201,
+            headers: { 'Content-Length': '0' },
+          }),
+      });
+
+      assert.equal(await client.request('POST /things', {}), null);
+      writeFileSync(
+        join(dir, 'src', 'consumer.ts'),
+        `
+import { Things } from './index.ts';
+const client = new Things({ baseUrl: 'https://example.test' });
+const create = () => client.request('POST /things', {});
+const nothing: Awaited<ReturnType<typeof create>> = null;
+// @ts-expect-error A response without content carries no data.
+const something: Awaited<ReturnType<typeof create>> = {};
+void [nothing, something];
+`,
+      );
+      assert.deepEqual(compileGeneratedProject(dir), []);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('server-sent events with a referenced schema are typed and parsed as a listener', async () => {
+    const dir = mkdtempSync(join(repoRoot, '.generate-ref-sse-'));
+    try {
+      await generate(
+        {
+          openapi: '3.1.0',
+          info: { title: 'Events', version: '1.0.0' },
+          components: {
+            schemas: {
+              Event: { type: 'object', properties: { id: { type: 'string' } } },
+            },
+          },
+          paths: {
+            '/events': {
+              get: {
+                operationId: 'streamEvents',
+                tags: ['events'],
+                responses: {
+                  '200': {
+                    description: 'Events',
+                    content: {
+                      'text/event-stream': {
+                        schema: { $ref: '#/components/schemas/Event' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        { output: dir, name: 'Events', readme: false, mode: 'full' },
+      );
+      const bundlePath = join(dir, 'client.cjs');
+      await esbuild({
+        entryPoints: [join(dir, 'src', 'index.ts')],
+        bundle: true,
+        outfile: bundlePath,
+        format: 'cjs',
+        platform: 'node',
+        target: 'node20',
+        absWorkingDir: dir,
+        nodePaths: [join(repoRoot, 'node_modules')],
+        logLevel: 'silent',
+      });
+      const { Events } = createRequire(import.meta.url)(bundlePath) as {
+        Events: new (options: unknown) => {
+          request(
+            endpoint: string,
+            input: unknown,
+          ): Promise<(eventType: string) => AsyncIterable<string>>;
+        };
+      };
+      const client = new Events({
+        baseUrl: 'https://api.example.com',
+        fetch: async () =>
+          new Response('data: {"id":"a"}\n\ndata: {"id":"b"}\n\n', {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+          }),
+      });
+
+      const listen = await client.request('GET /events', {});
+      const received: string[] = [];
+      for await (const data of listen('message')) {
+        received.push(data);
+      }
+      assert.deepStrictEqual(received, ['{"id":"a"}', '{"id":"b"}']);
+      writeFileSync(
+        join(dir, 'src', 'consumer.ts'),
+        `
+import { Events } from './index.ts';
+import type { SSEListener } from './http/sse.ts';
+const client = new Events({ baseUrl: 'https://example.test' });
+const read = () => client.request('GET /events', {});
+type Data = Awaited<ReturnType<typeof read>>;
+const listener: SSEListener = {} as Data;
+// @ts-expect-error The data is a listener, not the event model.
+const model: Data = { id: 'a' };
+void [listener, model];
+`,
+      );
+      assert.deepEqual(compileGeneratedProject(dir), []);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('a response sent with Transfer-Encoding is typed and parsed as a stream, not as its model', async () => {
+    const dir = mkdtempSync(join(repoRoot, '.generate-chunked-'));
+    try {
+      await generate(
+        {
+          openapi: '3.1.0',
+          info: { title: 'Chunks', version: '1.0.0' },
+          components: {
+            schemas: {
+              Chunk: { type: 'object', properties: { id: { type: 'string' } } },
+            },
+          },
+          paths: {
+            '/chunks': {
+              get: {
+                operationId: 'readChunks',
+                tags: ['chunks'],
+                responses: {
+                  '200': {
+                    description: 'Chunks',
+                    headers: {
+                      'Transfer-Encoding': { schema: { type: 'string' } },
+                    },
+                    content: {
+                      'application/json': {
+                        schema: { $ref: '#/components/schemas/Chunk' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        { output: dir, name: 'Chunks', readme: false, mode: 'full' },
+      );
+      const bundlePath = join(dir, 'client.cjs');
+      await esbuild({
+        entryPoints: [join(dir, 'src', 'index.ts')],
+        bundle: true,
+        outfile: bundlePath,
+        format: 'cjs',
+        platform: 'node',
+        target: 'node20',
+        absWorkingDir: dir,
+        nodePaths: [join(repoRoot, 'node_modules')],
+        logLevel: 'silent',
+      });
+      const { Chunks } = createRequire(import.meta.url)(bundlePath) as {
+        Chunks: new (options: unknown) => {
+          request(endpoint: string, input: unknown): Promise<unknown>;
+        };
+      };
+      const client = new Chunks({
+        baseUrl: 'https://api.example.com',
+        fetch: async () =>
+          new Response('{"id":"a"}', {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      });
+
+      const data = await client.request('GET /chunks', {});
+      assert.ok(data instanceof ReadableStream);
+      assert.equal(await new Response(data).text(), '{"id":"a"}');
+      writeFileSync(
+        join(dir, 'src', 'consumer.ts'),
+        `
+import { Chunks } from './index.ts';
+const client = new Chunks({ baseUrl: 'https://example.test' });
+const read = () => client.request('GET /chunks', {});
+type Data = Awaited<ReturnType<typeof read>>;
+const stream: Data = new ReadableStream();
+// @ts-expect-error The data is a stream, not the JSON model.
+const model: Data = { id: 'a' };
+void [stream, model];
+`,
+      );
+      assert.deepEqual(compileGeneratedProject(dir), []);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('generate — impossible schemas', () => {
   test('emits never arrays for schemas that reject every item', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'generate-never-response-'));
