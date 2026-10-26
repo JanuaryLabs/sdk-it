@@ -8,6 +8,7 @@ import {
   type TunedResponseObject,
 } from '@sdk-it/spec';
 
+import { groupIdentifier } from './group-identifier.ts';
 import { type MakeImportFn } from './import-utilities.ts';
 import type { ModelNamer } from './model-name.ts';
 import { paginationOperation } from './pagination-emit.ts';
@@ -55,7 +56,7 @@ export function toEndpoint(
   modelName: ModelNamer,
 ) {
   const schemaName = camelcase(`${specOperation.operationId} schema`);
-  const schemaRef = `${camelcase(groupName)}.${schemaName}`;
+  const schemaRef = `${groupIdentifier(groupName)}.${schemaName}`;
 
   const schemas: string[] = [];
   specOperation.responses ??= {};

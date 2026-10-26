@@ -2875,3 +2875,62 @@ export async function read(fetch: (request: Request) => Promise<Response>) {
       }),
   );
 });
+
+test('operation groups whose tag starts with a digit generate valid identifiers', async () => {
+  const dir = mkdtempSync(join(repoRoot, '.generate-digit-groups-'));
+  try {
+    await generate(
+      {
+        openapi: '3.1.0',
+        info: { title: 'Nums', version: '1.0.0' },
+        servers: [{ url: 'https://nums.test' }],
+        paths: {
+          '/models/0': {
+            get: {
+              operationId: 'readZero',
+              responses: {
+                '200': {
+                  description: 'Zero',
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'object',
+                        properties: { id: { type: 'string' } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '/v2/2fa': {
+            post: {
+              operationId: 'enable2fa',
+              responses: { '204': { description: 'Enabled' } },
+            },
+          },
+        },
+      },
+      {
+        output: dir,
+        name: 'Nums',
+        readme: false,
+        mode: 'full',
+        agentTools: 'ai-sdk',
+      },
+    );
+    writeFileSync(
+      join(dir, 'src', 'consumer.ts'),
+      `
+import { Nums } from './index.ts';
+const client = new Nums({ baseUrl: 'https://nums.test' });
+export const zero = () => client.request('GET /models/0', {});
+export const twoFactor = () => client.request('POST /v2/2fa', {});
+`,
+    );
+
+    assert.deepEqual(compileGeneratedProject(dir), []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

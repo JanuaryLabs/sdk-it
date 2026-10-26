@@ -7,6 +7,8 @@ import {
   forEachOperation,
 } from '@sdk-it/spec';
 
+import { groupIdentifier } from '../group-identifier.ts';
+
 export function generateAISDKTools(ir: IR) {
   const groups: Record<
     string,
@@ -42,7 +44,7 @@ export function generateAISDKTools(ir: IR) {
   ];
   const agent = Object.entries(groups).map(
     ([group, { instructions, tools, displayName }]) => {
-      return `export const ${camelcase(group)} = {
+      return `export const ${groupIdentifier(group)} = {
     name: '${displayName}',
     instructions: \`${instructions}\`,
     tools: { ${tools.join(', ')} }

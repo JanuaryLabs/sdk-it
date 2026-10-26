@@ -5,7 +5,7 @@ import type {
   ReferenceObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
-import { camelcase, spinalcase } from 'stringcase';
+import { spinalcase } from 'stringcase';
 
 import {
   type OpenAPIDocument,
@@ -22,6 +22,7 @@ import {
 } from '@sdk-it/spec';
 
 import { ZodEmitter } from './emitters/zod.ts';
+import { groupIdentifier } from './group-identifier.ts';
 import type { ModelNamer } from './model-name.ts';
 import { type OperationInput, type Spec, toEndpoint } from './sdk.ts';
 import type { Style } from './style.ts';
@@ -155,8 +156,8 @@ export function generateCode(config: {
     });
   });
   const allSchemas = Object.keys(endpoints).map((it) => ({
-    import: `import ${camelcase(it)} from './${config.makeImport(spinalcase(it))}';`,
-    use: `  ...${camelcase(it)}`,
+    import: `import ${groupIdentifier(it)} from './${config.makeImport(spinalcase(it))}';`,
+    use: `  ...${groupIdentifier(it)}`,
   }));
 
   return {
@@ -197,7 +198,7 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
                   `import { toRequest, json, urlencoded, empty, formdata, type HeadersInit } from '${config.makeImport('../http/request')}';`,
                   `import { chunked, buffered, bodyless } from "${config.makeImport('../http/parse-response')}";`,
                   `import { sse, type SSEListener } from "${config.makeImport('../http/sse')}";`,
-                  `import * as ${camelcase(name)} from '../inputs/${config.makeImport(spinalcase(name))}';`,
+                  `import * as ${groupIdentifier(name)} from '../inputs/${config.makeImport(spinalcase(name))}';`,
                   `import { createBaseUrlInterceptor, createHeadersInterceptor, type Interceptor } from '${config.makeImport('../http/interceptors')}';`,
                   `import { Dispatcher, fetchType, type InstanceType } from '${config.makeImport('../http/dispatcher')}';`,
                   `import { Pagination, OffsetPagination, CursorPagination } from "${config.makeImport('../pagination/index')}";`,
