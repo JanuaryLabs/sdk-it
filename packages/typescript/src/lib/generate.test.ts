@@ -2,6 +2,7 @@ import { describe, test } from '@zukhruf/testing/node';
 import { build as esbuild } from 'esbuild';
 import assert from 'node:assert/strict';
 import {
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -16,6 +17,7 @@ import { createContext, runInContext } from 'node:vm';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 import ts from 'typescript';
 
+import { loadSpec } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
 
 const repoRoot = join(
@@ -459,6 +461,78 @@ void [nullPrice, numberPrice, optionalNull, optionalOmitted, missing, stringPric
     );
     assert.deepEqual(compileGeneratedProject(dir), []);
   } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a spec split across files generates a client typed by the referenced models', async () => {
+  const specDir = mkdtempSync(join(tmpdir(), 'generate-multi-file-spec-'));
+  const dir = mkdtempSync(join(repoRoot, '.generate-multi-file-'));
+  try {
+    mkdirSync(join(specDir, 'schemas'));
+    writeFileSync(
+      join(specDir, 'openapi.yaml'),
+      `
+openapi: 3.1.0
+info: { title: Pets, version: 1.0.0 }
+paths:
+  /pets/{id}:
+    get:
+      operationId: getPet
+      tags: [pets]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: A pet
+          content:
+            application/json:
+              schema: { $ref: './schemas/pet.yaml' }
+`,
+    );
+    writeFileSync(
+      join(specDir, 'schemas', 'pet.yaml'),
+      `
+type: object
+properties:
+  id: { type: string }
+  owner: { $ref: './owner.yaml#/Owner' }
+required: [id, owner]
+`,
+    );
+    writeFileSync(
+      join(specDir, 'schemas', 'owner.yaml'),
+      `
+Owner:
+  type: object
+  properties:
+    name: { type: string }
+  required: [name]
+`,
+    );
+
+    await generate(await loadSpec(join(specDir, 'openapi.yaml')), {
+      output: dir,
+      name: 'Pets',
+      readme: false,
+      mode: 'full',
+    });
+    writeFileSync(
+      join(dir, 'src', 'consumer.ts'),
+      `
+import { Pets } from './index.ts';
+const client = new Pets({ baseUrl: 'https://example.test' });
+const read = () => client.request('GET /pets/{id}', { id: 'a' });
+type Pet = Awaited<ReturnType<typeof read>>;
+const pet: Pet = { id: 'a', owner: { name: 'Ada' } };
+// @ts-expect-error The owner model from owner.yaml requires a name.
+const nameless: Pet = { id: 'a', owner: {} };
+void [pet, nameless];
+`,
+    );
+    assert.deepEqual(compileGeneratedProject(dir), []);
+  } finally {
+    rmSync(specDir, { recursive: true, force: true });
     rmSync(dir, { recursive: true, force: true });
   }
 });
