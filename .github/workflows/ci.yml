@@ -15,7 +15,6 @@ jobs:
     env:
       CI: true
       NX_DAEMON: false
-      VITE_SPEC: ${{ github.workspace }}/packages/apiref/openapi.ci.json
     steps:
       - uses: actions/checkout@v4
         with:

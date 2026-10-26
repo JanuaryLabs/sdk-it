@@ -7,7 +7,7 @@ import { type NavItem, loadSpec, toIR } from '@sdk-it/spec';
 
 const spec = await toIR({
   spec: await loadSpec(
-    process.env.VITE_SPEC || 'https://api.openstatus.dev/v1/openapi',
+    process.env.VITE_SPEC || join(import.meta.dirname, '..', 'openapi.ci.json'),
   ),
 });
 
