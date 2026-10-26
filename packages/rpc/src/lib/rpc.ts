@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import {
   type IR,
+  type ResponseBody,
   type TunedOperationObject,
   forEachOperation,
   loadSpec,
@@ -13,15 +14,20 @@ import {
   type OperationInput,
   buildInput,
   operationSchema,
-  toHttpOutput,
 } from '@sdk-it/typescript';
 
-import { Dispatcher, fetchType } from './http/dispatcher.ts';
+import {
+  Dispatcher,
+  type OutputType,
+  type Parser,
+  fetchType,
+} from './http/dispatcher.ts';
 import {
   type Interceptor,
   createBaseUrlInterceptor,
   createHeadersInterceptor,
 } from './http/interceptors.ts';
+import { bodyless, buffered, chunked } from './http/parse-response.ts';
 import { parseInput } from './http/parser.ts';
 import {
   type Endpoint,
@@ -34,7 +40,28 @@ import {
   urlencoded,
 } from './http/request.ts';
 import * as http from './http/response.ts';
+import { sse } from './http/sse.ts';
 import { schemaToZod } from './zod.ts';
+
+const bodyParser: Record<ResponseBody, Parser> = {
+  json: buffered,
+  text: buffered,
+  binary: buffered,
+  empty: bodyless,
+  stream: chunked,
+  sse,
+};
+
+const statusClasses = Object.values(http).filter(
+  (value) => typeof value.status === 'number',
+);
+
+function toOutputs(operation: TunedOperationObject): OutputType[] {
+  return Object.entries(operation.responses).flatMap(([status, response]) => {
+    const type = statusClasses.find((it) => it.status === Number(status));
+    return type ? [{ type, parser: bodyParser[response['x-body']] }] : [];
+  });
+}
 
 const callable = z.custom<() => string | Promise<string>>(
   (value) => typeof value === 'function',
@@ -173,15 +200,6 @@ export function createRpc(ir: IR, options: Partial<ClientOptions> = {}) {
       formdata: formdata,
       empty: empty,
     } as const;
-    const outputs = Object.keys(operation.responses).flatMap((status) =>
-      toHttpOutput(
-        ir,
-        operation.operationId,
-        status,
-        operation.responses[status],
-        false,
-      ),
-    );
     const inputSchema = schemaToZod(
       operationSchema(ir, operation, details.ct),
       ir,
@@ -189,7 +207,7 @@ export function createRpc(ir: IR, options: Partial<ClientOptions> = {}) {
     );
     schemas[endpoint] = {
       operationId: operation.operationId,
-      output: outputs.map((it) => http[it.replace('http.', '') as never]),
+      output: toOutputs(operation),
       schema: inputSchema,
       async dispatch(
         input: any,
