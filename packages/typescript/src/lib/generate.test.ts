@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createContext, runInContext } from 'node:vm';
-import type { OpenAPIObject } from 'openapi3-ts/oas31';
+import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 import ts from 'typescript';
 
 import { generate } from '@sdk-it/typescript';
@@ -455,6 +455,105 @@ const missing: Value['price'] = undefined;
 // @ts-expect-error Strings are not prices.
 const stringPrice: Value['price'] = '2';
 void [nullPrice, numberPrice, optionalNull, optionalOmitted, missing, stringPrice];
+`,
+    );
+    assert.deepEqual(compileGeneratedProject(dir), []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('allOf parts keep their required properties in generated types and input validators', async () => {
+  const dir = mkdtempSync(join(repoRoot, '.generate-all-of-required-'));
+  try {
+    const space: SchemaObject = {
+      allOf: [
+        {
+          type: 'object',
+          properties: { _count: { type: 'number' } },
+          required: ['_count'],
+        },
+        {
+          type: 'object',
+          properties: { id: { type: 'string' }, name: { type: 'string' } },
+          required: ['id', 'name'],
+        },
+      ],
+    };
+    await generate(
+      {
+        openapi: '3.1.0',
+        info: { title: 'Spaces', version: '1.0.0' },
+        paths: {
+          '/spaces': {
+            get: {
+              operationId: 'listSpaces',
+              tags: ['spaces'],
+              responses: {
+                '200': {
+                  description: 'Spaces',
+                  content: {
+                    'application/json': {
+                      schema: { type: 'array', items: space },
+                    },
+                  },
+                },
+              },
+            },
+            post: {
+              operationId: 'createSpace',
+              tags: ['spaces'],
+              requestBody: {
+                required: true,
+                content: { 'application/json': { schema: space } },
+              },
+              responses: { '204': { description: 'Created' } },
+            },
+          },
+        },
+      },
+      { output: dir, name: 'Spaces', readme: false, mode: 'full' },
+    );
+    const bundlePath = join(dir, 'spaces-schema.cjs');
+    await esbuild({
+      entryPoints: [join(dir, 'src', 'inputs', 'spaces.ts')],
+      bundle: true,
+      outfile: bundlePath,
+      format: 'cjs',
+      platform: 'node',
+      absWorkingDir: dir,
+      nodePaths: [join(repoRoot, 'node_modules')],
+      logLevel: 'silent',
+    });
+    const { createSpaceSchema } = createRequire(import.meta.url)(
+      bundlePath,
+    ) as {
+      createSpaceSchema: { safeParse(value: unknown): { success: boolean } };
+    };
+    for (const [input, expected] of [
+      [{ _count: 1, id: 'a', name: 'b' }, true],
+      [{ id: 'a', name: 'b' }, false],
+      [{ _count: 1, id: 'a' }, false],
+    ] as const) {
+      assert.equal(
+        createSpaceSchema.safeParse(input).success,
+        expected,
+        `validation of ${JSON.stringify(input)}`,
+      );
+    }
+    writeFileSync(
+      join(dir, 'src', 'consumer.ts'),
+      `
+import { Spaces } from './index.ts';
+const client = new Spaces({ baseUrl: 'https://example.test' });
+const read = () => client.request('GET /spaces', {});
+type Space = Awaited<ReturnType<typeof read>>[number];
+const complete: Space = { _count: 1, id: 'a', name: 'b' };
+// @ts-expect-error _count comes from the first allOf part and is required.
+const missingCount: Space = { id: 'a', name: 'b' };
+// @ts-expect-error name comes from the last allOf part and is required.
+const missingName: Space = { _count: 1, id: 'a' };
+void [complete, missingCount, missingName];
 `,
     );
     assert.deepEqual(compileGeneratedProject(dir), []);
