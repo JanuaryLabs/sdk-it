@@ -7,6 +7,7 @@ export function sse(response: Response): SSEListener {
   >();
   let started = false;
   let streamDone = false;
+  let streamFailure: { error: unknown } | null = null;
 
   function dispatch(eventType: string, data: string) {
     const sub = subscribers.get(eventType);
@@ -51,8 +52,8 @@ export function sse(response: Response): SSEListener {
             if (data) dispatch(eventType, data);
           }
         }
-      } catch (err) {
-        console.warn('sse stream error', err);
+      } catch (error) {
+        streamFailure = { error };
       }
       endAll();
     })();
@@ -70,6 +71,7 @@ export function sse(response: Response): SSEListener {
         return {
           async next(): Promise<IteratorResult<string>> {
             while (sub.queue.length === 0) {
+              if (streamFailure) throw streamFailure.error;
               if (streamDone) return { value: undefined as any, done: true };
               const { promise, resolve } = Promise.withResolvers<void>();
               sub.resolve = resolve;

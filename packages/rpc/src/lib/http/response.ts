@@ -15,13 +15,44 @@ export class APIResponse<Body = unknown, Status extends number = number> {
   }
 }
 
-export class APIError<Body, Status extends number = number> extends APIResponse<
-  Body,
-  Status
-> {
-  static override create<T>(status: number, headers: Headers, data: T) {
+export class APIError<Body, Status extends number = number> extends Error {
+  static readonly status: number;
+  readonly status: Status;
+  data: Body;
+  readonly headers: Headers;
+
+  constructor(status: Status, headers: Headers, data: Body) {
+    super(failureMessage(status, data));
+    this.name = 'APIError';
+    this.status = status;
+    this.headers = headers;
+    this.data = data;
+  }
+
+  static create<T>(status: number, headers: Headers, data: T) {
     return new this(status, headers, data);
   }
+}
+
+function failureMessage(status: number, data: unknown) {
+  const summary = bodySummary(data);
+  return summary
+    ? `Request failed with status code ${status}: ${summary}`
+    : `Request failed with status code ${status}`;
+}
+
+// Only text and JSON bodies read as a summary; a Blob, stream or FormData body
+// has none. The tag check holds across realms, where prototype checks do not.
+function bodySummary(data: unknown) {
+  const tag = Object.prototype.toString.call(data);
+  let text = '';
+  if (typeof data === 'string') {
+    text = data;
+  } else if (tag === '[object Object]' || tag === '[object Array]') {
+    text = JSON.stringify(data);
+  }
+  const line = text.replace(/\s+/g, ' ').trim();
+  return line.length > 200 ? `${line.slice(0, 200)}…` : line;
 }
 
 // 2xx Success
