@@ -1,4 +1,4 @@
-import { merge, uniq } from 'lodash-es';
+import { mergeWith, uniq } from 'lodash-es';
 import assert from 'node:assert';
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
@@ -96,7 +96,7 @@ function normalizeSchemaObjects(
       if (hasObjects && hasOtherTypes) {
         assert(false, `allOf must be an object`);
       }
-      merge(
+      mergeWith(
         schema,
         ...resolved.map((resolvedSchema, index) => {
           const sourceSchema = schemas[index];
@@ -119,6 +119,7 @@ function normalizeSchemaObjects(
           }
           return resolvedSchema;
         }),
+        unionRequired,
       );
       delete schema.allOf;
     } else {
@@ -193,6 +194,15 @@ function normalizeSchemaObjects(
       }
     }
   }
+}
+
+// allOf is a conjunction, so a value must carry every part's required
+// properties; lodash's default merge would overwrite the arrays by index.
+function unionRequired(target: unknown, source: unknown, key: string) {
+  if (key === 'required' && Array.isArray(target) && Array.isArray(source)) {
+    return uniq([...target, ...source]);
+  }
+  return undefined;
 }
 
 export function normalizeSchemas(): ProcessingPlugin {
