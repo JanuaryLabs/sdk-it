@@ -5,7 +5,6 @@ import type {
   ReferenceObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
-import { spinalcase } from 'stringcase';
 
 import {
   type OpenAPIDocument,
@@ -24,6 +23,7 @@ import {
 import { ZodEmitter } from './emitters/zod.ts';
 import { groupIdentifier } from './group-identifier.ts';
 import type { ModelNamer } from './model-name.ts';
+import { moduleFileName } from './module-file.ts';
 import { type OperationInput, type Spec, toEndpoint } from './sdk.ts';
 import type { Style } from './style.ts';
 import endpointsTxt from './styles/github/endpoints.txt';
@@ -156,7 +156,7 @@ export function generateCode(config: {
     });
   });
   const allSchemas = Object.keys(endpoints).map((it) => ({
-    import: `import ${groupIdentifier(it)} from './${config.makeImport(spinalcase(it))}';`,
+    import: `import ${groupIdentifier(it)} from './${config.makeImport(moduleFileName(it))}';`,
     use: `  ...${groupIdentifier(it)}`,
   }));
 
@@ -186,7 +186,7 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
             const operations = endpoint.flatMap((it) => it.schemas).join(',\n');
             return [
               [
-                join('api', `${spinalcase(name)}.ts`),
+                join('api', `${moduleFileName(name)}.ts`),
                 `${[
                   `import { z } from 'zod';`,
                   `import * as http from '${config.makeImport('../http/response')}';`,
@@ -198,7 +198,7 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
                   `import { toRequest, json, urlencoded, empty, formdata, type HeadersInit } from '${config.makeImport('../http/request')}';`,
                   `import { chunked, buffered, bodyless } from "${config.makeImport('../http/parse-response')}";`,
                   `import { sse, type SSEListener } from "${config.makeImport('../http/sse')}";`,
-                  `import * as ${groupIdentifier(name)} from '../inputs/${config.makeImport(spinalcase(name))}';`,
+                  `import * as ${groupIdentifier(name)} from '../inputs/${config.makeImport(moduleFileName(name))}';`,
                   `import { createBaseUrlInterceptor, createHeadersInterceptor, type Interceptor } from '${config.makeImport('../http/interceptors')}';`,
                   `import { Dispatcher, fetchType, type InstanceType } from '${config.makeImport('../http/dispatcher')}';`,
                   `import { Pagination, OffsetPagination, CursorPagination } from "${config.makeImport('../pagination/index')}";`,

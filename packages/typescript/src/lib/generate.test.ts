@@ -2934,3 +2934,84 @@ export const twoFactor = () => client.request('POST /v2/2fa', {});
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('a schema or operation group named index keeps its module beside the folder barrel', async () => {
+  const dir = mkdtempSync(join(repoRoot, '.generate-index-names-'));
+  try {
+    await generate(
+      {
+        openapi: '3.1.0',
+        info: { title: 'Idx', version: '1.0.0' },
+        servers: [{ url: 'https://idx.test' }],
+        components: {
+          schemas: {
+            index: {
+              type: 'object',
+              required: ['name'],
+              properties: { name: { type: 'string' } },
+            },
+            Catalog: {
+              type: 'object',
+              required: ['entries'],
+              properties: {
+                entries: {
+                  type: 'array',
+                  items: { $ref: '#/components/schemas/index' },
+                },
+              },
+            },
+          },
+        },
+        paths: {
+          '/index': {
+            get: {
+              operationId: 'readIndex',
+              tags: ['index'],
+              responses: {
+                '200': {
+                  description: 'Index',
+                  content: {
+                    'application/json': {
+                      schema: { $ref: '#/components/schemas/index' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '/catalog': {
+            get: {
+              operationId: 'readCatalog',
+              tags: ['catalog'],
+              responses: {
+                '200': {
+                  description: 'Catalog',
+                  content: {
+                    'application/json': {
+                      schema: { $ref: '#/components/schemas/Catalog' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      { output: dir, name: 'Idx', readme: false, mode: 'full' },
+    );
+    writeFileSync(
+      join(dir, 'src', 'consumer.ts'),
+      `
+import { Idx, type Catalog, type Index } from './index.ts';
+const client = new Idx({ baseUrl: 'https://idx.test' });
+export const index: () => Promise<Index> = () => client.request('GET /index', {});
+export const catalog: () => Promise<Catalog> = () => client.request('GET /catalog', {});
+export const entry: Index = { name: 'a' };
+`,
+    );
+
+    assert.deepEqual(compileGeneratedProject(dir), []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

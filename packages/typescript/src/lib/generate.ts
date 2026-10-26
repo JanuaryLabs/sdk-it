@@ -35,6 +35,7 @@ import responseTxt from './http/response.txt';
 import sseTxt from './http/sse.txt';
 import { type MakeImportFn } from './import-utilities.ts';
 import { type ModelNamer, createModelNamer } from './model-name.ts';
+import { moduleFileName } from './module-file.ts';
 import type { TypeScriptGeneratorOptions } from './options.ts';
 import cursorPaginationTxt from './paginations/cursor-pagination.txt';
 import offsetPaginationTxt from './paginations/offset-pagination.txt';
@@ -372,8 +373,8 @@ function serializeModels(spec: IR, modelName: ModelNamer) {
       `export type ${modelName(name)} = ${typeContent};`,
     ];
     const fileName = responseGroup
-      ? join(folder, `${spinalcase(responseGroup)}.ts`)
-      : join(folder, `${spinalcase(name)}.ts`);
+      ? join(folder, `${moduleFileName(responseGroup)}.ts`)
+      : join(folder, `${moduleFileName(name)}.ts`);
     filesMap[fileName] ??= [];
     filesMap[fileName].push(fileContent.join('\n'));
   }
@@ -411,13 +412,13 @@ export function toInputs(
       for (const it of commonImports) {
         if (schema.includes(it)) {
           imports.add(
-            `import { ${it} } from './schemas/${makeImport(spinalcase(it))}';`,
+            `import { ${it} } from './schemas/${makeImport(moduleFileName(it))}';`,
           );
         }
       }
       output.push(schema);
     }
-    inputs[`inputs/${spinalcase(name)}.ts`] =
+    inputs[`inputs/${moduleFileName(name)}.ts`] =
       [...imports, ...output].join('\n') + '\n';
   }
 
@@ -430,13 +431,13 @@ export function toInputs(
         const preciseMatch = new RegExp(`\\b${schema}\\b`);
         if (preciseMatch.test(content) && schema !== name) {
           output.push(
-            `import { ${schema} } from './${makeImport(spinalcase(schema))}';`,
+            `import { ${schema} } from './${makeImport(moduleFileName(schema))}';`,
           );
         }
       }
       output.push(content);
       return [
-        [`inputs/schemas/${spinalcase(name)}.ts`, output.join('\n')],
+        [`inputs/schemas/${moduleFileName(name)}.ts`, output.join('\n')],
         ...acc,
       ];
     }, []);
