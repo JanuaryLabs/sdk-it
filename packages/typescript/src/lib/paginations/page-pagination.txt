@@ -94,7 +94,9 @@ export class Pagination<
   }
 
   async *iter(requestOptions?: PaginationRequestOptions) {
-    if (!this.#currentPage) {
+    if (this.#currentPage) {
+      yield this;
+    } else {
       yield await this.getNextPage(requestOptions);
     }
 

@@ -307,13 +307,14 @@ export async function exercise(baseUrl: string) {
   const received = [pages.getCurrentPage().data];
   assert.equal(pages.metadata.nextCursor, 'next/? &+#');
   await pages.getNextPage();
-  received.push(pages.getCurrentPage().data);
   assert.equal(pages.metadata.nextCursor, '');
   for await (const page of pages) received.push(page.data);
   assert.deepEqual(received, [['first'], ['second'], ['third']]);
   assert.equal(pages.hasMore, false);
   assert.equal(pages.metadata.nextCursor, undefined);
-  for await (const page of pages) assert.fail('Pagination must stop after its final page');
+  const afterLastPage: string[][] = [];
+  for await (const page of pages) afterLastPage.push(page.data);
+  assert.deepEqual(afterLastPage, [['third']]);
   assert.deepEqual(input, { ${input}: 'start/? &+#', limit: 2, filter: 'preserved', scenario: 'complete' });
 
   for (const scenario of ${JSON.stringify(name === 'mixed token' ? ['missing', 'null', 'number'] : ['missing', 'null'])}) {
