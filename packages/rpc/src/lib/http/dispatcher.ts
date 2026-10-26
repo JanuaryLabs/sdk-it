@@ -1,4 +1,4 @@
-import z from 'zod';
+import { z } from 'zod';
 
 import { type Interceptor } from '../http/interceptors.ts';
 import { type RequestConfig } from '../http/request.ts';
