@@ -1,7 +1,9 @@
 import { createRequire } from 'node:module';
 import ts from 'typescript';
 
-import { type InjectImport, defaultTypesMap, getProgram } from '@sdk-it/core';
+import { type InjectImport } from '@sdk-it/core';
+import { defaultTypesMap } from '@sdk-it/core/deriver.js';
+import { getProgram } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer as honoResponseAnalyzer } from '@sdk-it/hono';
 

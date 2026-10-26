@@ -18,7 +18,7 @@ import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
-import { getProgram } from '@sdk-it/core';
+import { getProgram } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 import { generate } from '@sdk-it/typescript';

@@ -21,7 +21,7 @@ instances are supported; Zod 3 runtimes and schemas receive a migration error.
 ## Create a TypeScript program
 
 ```typescript
-import { getProgram } from '@sdk-it/core';
+import { getProgram } from '@sdk-it/core/program.js';
 
 const program = getProgram('./tsconfig.json');
 const checker = program.getTypeChecker();
@@ -41,7 +41,9 @@ import { resolveRef } from '@sdk-it/core';
 const schema = resolveRef(openapi, openapi.components!.schemas!.User!);
 ```
 
-The root export includes TypeScript program helpers, type derivation, route
-analysis, OpenAPI reference helpers, and Zod schema evaluation. Lower-level
-modules are also available through subpaths such as
+The root export includes route analysis, OpenAPI reference helpers, and Zod
+schema evaluation, and it never loads the TypeScript compiler. The helpers that
+need the compiler live in subpaths: `@sdk-it/core/program.js` (programs and
+tsconfig parsing) and `@sdk-it/core/deriver.js` (type derivation). Other
+lower-level modules are available the same way, such as
 `@sdk-it/core/file-system.js` and `@sdk-it/core/paths.js`.

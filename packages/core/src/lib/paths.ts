@@ -9,7 +9,7 @@ import type {
   SecurityRequirementObject,
 } from 'openapi3-ts/oas31';
 
-import { $types } from './deriver.js';
+import { $types } from './derived-type.js';
 import { sortArray, sortObjectKeys } from './utils.js';
 import { type InjectImport, evalZod } from './zod-jsonschema.js';
 

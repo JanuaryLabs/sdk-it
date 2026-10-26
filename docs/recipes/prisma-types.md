@@ -80,7 +80,7 @@ to explicit recursive OpenAPI schemas:
 ```typescript
 import { createRequire } from 'node:module';
 
-import { defaultTypesMap } from '@sdk-it/core';
+import { defaultTypesMap } from '@sdk-it/core/deriver.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 import { generate } from '@sdk-it/typescript';

@@ -4,8 +4,8 @@ import {
   $types,
   type NaunceResponseAnalyzerFn,
   type ResponseItem,
-  type TypeDeriver,
 } from '@sdk-it/core';
+import type { TypeDeriver } from '@sdk-it/core/deriver.js';
 
 import { getConstantValue } from './constant-value.js';
 

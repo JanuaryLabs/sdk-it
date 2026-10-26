@@ -1,10 +1,7 @@
 import ts from 'typescript';
 
-import type {
-  NaunceResponseAnalyzer,
-  ResponseItem,
-  TypeDeriver,
-} from '@sdk-it/core';
+import type { NaunceResponseAnalyzer, ResponseItem } from '@sdk-it/core';
+import type { TypeDeriver } from '@sdk-it/core/deriver.js';
 
 const handlerVisitor: (
   on: (

@@ -6,7 +6,8 @@ import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import ts from 'typescript';
 
-import { $types, TypeDeriver, deriveSymbol, toSchema } from '@sdk-it/core';
+import { $types, deriveSymbol, toSchema } from '@sdk-it/core';
+import { TypeDeriver } from '@sdk-it/core/deriver.js';
 import { defaultResponseAnalyzer, newResponse, streamSSE } from '@sdk-it/hono';
 
 async function createTestProject(code: string) {

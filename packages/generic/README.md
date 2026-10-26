@@ -117,7 +117,7 @@ For example, map Prisma's `Decimal` to a string so it keeps its precision on
 the wire:
 
 ```typescript
-import { defaultTypesMap } from '@sdk-it/core';
+import { defaultTypesMap } from '@sdk-it/core/deriver.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 

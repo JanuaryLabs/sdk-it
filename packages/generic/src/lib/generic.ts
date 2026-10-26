@@ -16,13 +16,11 @@ import {
   type ResponseItem,
   type Selector,
   type SemanticSource,
-  TypeDeriver,
-  getProgram,
-  isCallExpression,
   isHttpMethod,
-  nodeLocation,
   toSchema,
 } from '@sdk-it/core';
+import { TypeDeriver, nodeLocation } from '@sdk-it/core/deriver.js';
+import { getProgram, isCallExpression } from '@sdk-it/core/program.js';
 
 /**
  * Gets the file path from a symbol's first declaration

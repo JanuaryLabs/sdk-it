@@ -1,5 +1,6 @@
 import ts, { TypeFlags, symbolName } from 'typescript';
 
+import { $types, deriveSymbol } from './derived-type.js';
 import { sortObjectKeys } from './utils.js';
 
 type Collector = Record<string, any>;
@@ -14,8 +15,6 @@ type Collector = Record<string, any>;
  */
 type LiteralWidening = 'none' | 'values' | 'all';
 
-export const deriveSymbol = Symbol.for('serialize');
-export const $types = Symbol.for('types');
 export const defaultTypesMap: Record<string, string> = {
   Readable: 'any',
   ReadableStream: 'any',
