@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/spec",
-  "version": "0.46.8",
+  "version": "0.46.9",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -27,7 +27,7 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.46.8",
+    "@sdk-it/core": "0.46.9",
     "@zukhruf/async": "^0.3.21",
     "debug": "^4.4.1",
     "fast-content-type-parse": "^3.0.0",
