@@ -1,12 +1,7 @@
 import { parse as partContentType } from 'fast-content-type-parse';
 import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type {
-  OpenAPIObject,
-  OperationObject,
-  ReferenceObject,
-  ResponseObject,
-} from 'openapi3-ts/oas31';
+import type { OpenAPIObject, ReferenceObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 import yaml from 'yaml';
 
@@ -28,10 +23,9 @@ import {
   type IR,
   type Operation,
   type PaginationConfig,
+  type TunedOperationObject,
   cleanFiles,
   forEachOperation,
-  isSseContentType,
-  isStreamingContentType,
   isSuccessStatusCode,
   parseJsonContentType,
   readWriteMetadata,
@@ -326,26 +320,22 @@ function toInputs(spec: IR, { entry, operation }: Operation) {
   return { inputName, contentType, encode, haveInput };
 }
 
-function toOutput(spec: IR, operation: OperationObject) {
-  operation.responses ??= {};
+function toOutput(spec: IR, operation: TunedOperationObject) {
   for (const status in operation.responses) {
     if (!isSuccessStatusCode(status)) continue;
-    // if (isEmpty(response.content)) continue;
-    const response = operation.responses[status] as ResponseObject;
-    const outputName = response['x-response-name'];
-
-    if ((response.headers ?? {})['Transfer-Encoding']) {
+    const response = operation.responses[status];
+    if (response['x-body'] !== 'json') {
       return streamedOutput();
+    }
+    const outputName = response['x-response-name'];
+    if (!outputName) {
+      throw new Error(
+        `Response ${status} of ${operation.operationId} has a JSON body but no output name`,
+      );
     }
 
     for (const type in response.content) {
       const schema = response.content[type].schema as ReferenceObject;
-      if (isStreamingContentType(type)) {
-        return streamedOutput();
-      }
-      if (isSseContentType(type)) {
-        continue;
-      }
       if (parseJsonContentType(type)) {
         if (!schema) {
           return streamedOutput();
