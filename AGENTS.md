@@ -27,6 +27,12 @@ Brief descriptions of each package in the monorepo. These summaries focus on pur
 
 Planned follow-ups: add cross-package dependency graph, highlight shared IR flow (`spec` → generators), and document extension points (custom type maps, response analyzers).
 
+### Releasing
+
+- Run `npx nx release --skip-publish` (build, e2e gate, version bump, commit, `release/<version>` tag), then `npx nx release publish`. Nx loads `NPM_ACCESS_TOKEN` from the gitignored `.env`, and `.npmrc` reads it. Never set or override that variable: a session token in its place makes npm refuse the publish with 403.
+- All packages form one fixed release group. `--projects` is refused, so to repair a partial publish, re-run `npx nx release publish`, which skips versions already on npm.
+- Before pushing or announcing a release, check that every package's tarball (`https://registry.npmjs.org/@sdk-it/<name>/-/<name>-<version>.tgz`) returns 200. The packages pin each other's exact version, so one missing tarball breaks every install.
+
 ### Building a package
 
 To build a package, run the following command
