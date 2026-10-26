@@ -56,22 +56,19 @@ export async function parse<T extends OutputType[], R = ResponseData<T>>(
   response: Response,
   mapper?: ResponseMapper<T, R>,
 ) {
-  let output: typeof APIResponse | null = null;
+  let output: typeof APIResponse | typeof APIError | null = null;
   let parser: Parser = buffered;
   for (const outputType of outputs) {
-    if ('parser' in outputType) {
-      if (isTypeOf(outputType.type, APIResponse)) {
-        if (response.status === outputType.type.status) {
-          parser = outputType.parser;
-          output = outputType.type;
-          break;
-        }
+    const type = 'parser' in outputType ? outputType.type : outputType;
+    if (
+      (isTypeOf(type, APIResponse) || isTypeOf(type, APIError)) &&
+      response.status === type.status
+    ) {
+      output = type;
+      if ('parser' in outputType) {
+        parser = outputType.parser;
       }
-    } else if (isTypeOf(outputType, APIResponse)) {
-      if (response.status === outputType.status) {
-        output = outputType;
-        break;
-      }
+      break;
     }
   }
 
@@ -87,7 +84,8 @@ export async function parse<T extends OutputType[], R = ResponseData<T>>(
     return apiresponse as Extract<Unionize<T>, SuccessfulResponse<unknown>>;
   }
 
-  throw (output || APIError).create(
+  const failure = output && isTypeOf(output, APIError) ? output : APIError;
+  throw failure.create(
     response.status,
     response.headers,
     await parser(response),

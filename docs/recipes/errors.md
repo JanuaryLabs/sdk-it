@@ -9,7 +9,7 @@ Three error categories:
 
 1.  **Parse Errors (`ParseError`)**: Thrown before the HTTP request when input fails Zod schema validation. The `data` property contains flattened Zod issue objects.
 
-2.  **HTTP Errors (`APIError` subclasses)**: Thrown when the server responds with 4xx or 5xx. Each status code maps to a specific subclass (`NotFound` for 404, `BadRequest` for 400). Each error has `status` and `data` (parsed response body). The possible error types for each endpoint come from your OpenAPI specification.
+2.  **HTTP Errors (`APIError` subclasses)**: Thrown when the server responds with 4xx or 5xx. Each status code maps to a specific subclass (`NotFound` for 404, `BadRequest` for 400). Each error has `status` and `data` (parsed response body). `APIError` extends `Error`, so it carries a `stack`, and its `message` gives the status and a short summary of the body. The possible error types for each endpoint come from your OpenAPI specification.
 
 3.  **Network Errors**: Thrown when the request cannot complete -- DNS failure, connection refused, timeout, or CORS block. These are standard JavaScript errors.
 

@@ -595,6 +595,407 @@ describe('generate — http runtime', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test('a declared error status rejects with its APIError subclass, an Error with a stack and a readable message', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-api-error-'));
+    try {
+      await generate(
+        {
+          openapi: '3.1.0',
+          info: { title: 'Items', version: '1.0.0' },
+          paths: {
+            '/items/{id}': {
+              get: {
+                operationId: 'getItem',
+                tags: ['items'],
+                parameters: [
+                  {
+                    name: 'id',
+                    in: 'path',
+                    required: true,
+                    schema: { type: 'string' },
+                  },
+                ],
+                responses: {
+                  '200': {
+                    description: 'OK',
+                    content: {
+                      'application/json': {
+                        schema: {
+                          type: 'object',
+                          properties: { id: { type: 'string' } },
+                        },
+                      },
+                    },
+                  },
+                  '404': {
+                    description: 'Not found',
+                    content: {
+                      'application/json': {
+                        schema: {
+                          type: 'object',
+                          properties: { message: { type: 'string' } },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        { output: dir, name: 'Items', readme: false, mode: 'minimal' },
+      );
+      const bundlePath = join(dir, 'client.cjs');
+      await esbuild({
+        entryPoints: [join(dir, 'index.ts')],
+        bundle: true,
+        outfile: bundlePath,
+        format: 'cjs',
+        platform: 'node',
+        target: 'node20',
+        absWorkingDir: dir,
+        nodePaths: [join(repoRoot, 'node_modules')],
+        logLevel: 'silent',
+      });
+      type HttpError = Error & {
+        status: number;
+        headers: Headers;
+        data: unknown;
+      };
+      const generated = createRequire(import.meta.url)(bundlePath) as {
+        Items: new (options: unknown) => {
+          request(endpoint: string, input: unknown): Promise<unknown>;
+        };
+        APIError: new (...args: never[]) => HttpError;
+        NotFound: new (...args: never[]) => HttpError;
+      };
+      const client = new generated.Items({
+        baseUrl: 'https://api.example.com',
+        fetch: async () =>
+          Response.json({ message: 'Item not found' }, { status: 404 }),
+      });
+
+      await assert.rejects(
+        client.request('GET /items/{id}', { id: '7' }),
+        (error) => {
+          assert.ok(error instanceof generated.NotFound);
+          assert.equal(error instanceof generated.APIError, true);
+          assert.equal(
+            error instanceof Error,
+            true,
+            'an HTTP error is an Error',
+          );
+          assert.equal(error.status, 404);
+          assert.equal(error.headers.get('content-type'), 'application/json');
+          assert.deepStrictEqual(error.data, { message: 'Item not found' });
+          assert.equal(
+            error.message,
+            'Request failed with status code 404: {"message":"Item not found"}',
+          );
+          assert.ok(error.stack);
+          assert.match(
+            error.stack,
+            /^APIError: Request failed with status code 404/,
+          );
+          return true;
+        },
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('an undeclared error status with an HTML page rejects with an APIError whose message stays one short line', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-api-error-html-'));
+    try {
+      await generate(
+        {
+          openapi: '3.1.0',
+          info: { title: 'Items', version: '1.0.0' },
+          paths: {
+            '/items': {
+              get: {
+                operationId: 'listItems',
+                tags: ['items'],
+                responses: {
+                  '200': {
+                    description: 'OK',
+                    content: {
+                      'application/json': {
+                        schema: { type: 'array', items: { type: 'string' } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        { output: dir, name: 'Items', readme: false, mode: 'minimal' },
+      );
+      const bundlePath = join(dir, 'client.cjs');
+      await esbuild({
+        entryPoints: [join(dir, 'index.ts')],
+        bundle: true,
+        outfile: bundlePath,
+        format: 'cjs',
+        platform: 'node',
+        target: 'node20',
+        absWorkingDir: dir,
+        nodePaths: [join(repoRoot, 'node_modules')],
+        logLevel: 'silent',
+      });
+      const generated = createRequire(import.meta.url)(bundlePath) as {
+        Items: new (options: unknown) => {
+          request(endpoint: string, input: unknown): Promise<unknown>;
+        };
+        APIError: new (...args: never[]) => Error & {
+          status: number;
+          data: unknown;
+        };
+      };
+      const page = `<!DOCTYPE html>\n<html>\n  <body>\n    <h1>503 Service Unavailable</h1>\n${'    <p>The upstream did not answer in time.</p>\n'.repeat(60)}  </body>\n</html>\n`;
+      const client = new generated.Items({
+        baseUrl: 'https://api.example.com',
+        fetch: async () =>
+          new Response(page, {
+            status: 503,
+            headers: { 'Content-Type': 'text/html' },
+          }),
+      });
+
+      await assert.rejects(client.request('GET /items', {}), (error) => {
+        assert.ok(error instanceof generated.APIError);
+        assert.equal(error instanceof Error, true, 'an HTTP error is an Error');
+        assert.equal(error.constructor, generated.APIError);
+        assert.equal(error.status, 503);
+        assert.equal(error.data, page);
+        assert.equal(typeof error.stack, 'string');
+        assert.equal(
+          error.message,
+          'Request failed with status code 503: <!DOCTYPE html> <html> <body> <h1>503 Service Unavailable</h1> <p>The upstream did not answer in time.</p> <p>The upstream did not answer in time.</p> <p>The upstream did not answer in time.</p> <p>Th…',
+        );
+        return true;
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('an error with a binary body names only its status in the message', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-api-error-binary-'));
+    try {
+      await generate(
+        {
+          openapi: '3.1.0',
+          info: { title: 'Items', version: '1.0.0' },
+          paths: {
+            '/items': {
+              get: {
+                operationId: 'listItems',
+                tags: ['items'],
+                responses: {
+                  '200': {
+                    description: 'OK',
+                    content: {
+                      'application/json': {
+                        schema: { type: 'array', items: { type: 'string' } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        { output: dir, name: 'Items', readme: false, mode: 'minimal' },
+      );
+      const bundlePath = join(dir, 'client.cjs');
+      await esbuild({
+        entryPoints: [join(dir, 'index.ts')],
+        bundle: true,
+        outfile: bundlePath,
+        format: 'cjs',
+        platform: 'node',
+        target: 'node20',
+        absWorkingDir: dir,
+        nodePaths: [join(repoRoot, 'node_modules')],
+        logLevel: 'silent',
+      });
+      const generated = createRequire(import.meta.url)(bundlePath) as {
+        Items: new (options: unknown) => {
+          request(endpoint: string, input: unknown): Promise<unknown>;
+        };
+        APIError: new (...args: never[]) => Error & { data: unknown };
+      };
+      const client = new generated.Items({
+        baseUrl: 'https://api.example.com',
+        fetch: async () =>
+          new Response(new Uint8Array([0x1f, 0x8b, 0x08, 0x00]), {
+            status: 500,
+            headers: { 'Content-Type': 'application/octet-stream' },
+          }),
+      });
+
+      await assert.rejects(client.request('GET /items', {}), (error) => {
+        assert.ok(error instanceof generated.APIError);
+        assert.equal(error instanceof Error, true, 'an HTTP error is an Error');
+        assert.equal(error.data instanceof Blob, true);
+        assert.equal(error.message, 'Request failed with status code 500');
+        return true;
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('an error with a JSON array body summarizes the array in the message', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-api-error-array-'));
+    try {
+      await generate(
+        {
+          openapi: '3.1.0',
+          info: { title: 'Items', version: '1.0.0' },
+          paths: {
+            '/items': {
+              post: {
+                operationId: 'createItem',
+                tags: ['items'],
+                responses: { '201': { description: 'Created' } },
+              },
+            },
+          },
+        },
+        { output: dir, name: 'Items', readme: false, mode: 'minimal' },
+      );
+      const bundlePath = join(dir, 'client.cjs');
+      await esbuild({
+        entryPoints: [join(dir, 'index.ts')],
+        bundle: true,
+        outfile: bundlePath,
+        format: 'cjs',
+        platform: 'node',
+        target: 'node20',
+        absWorkingDir: dir,
+        nodePaths: [join(repoRoot, 'node_modules')],
+        logLevel: 'silent',
+      });
+      const generated = createRequire(import.meta.url)(bundlePath) as {
+        Items: new (options: unknown) => {
+          request(endpoint: string, input: unknown): Promise<unknown>;
+        };
+        APIError: new (...args: never[]) => Error;
+      };
+      const client = new generated.Items({
+        baseUrl: 'https://api.example.com',
+        fetch: async () =>
+          Response.json([{ field: 'name', message: 'is required' }], {
+            status: 422,
+          }),
+      });
+
+      await assert.rejects(client.request('POST /items', {}), (error) => {
+        assert.ok(error instanceof generated.APIError);
+        assert.equal(
+          error.message,
+          'Request failed with status code 422: [{"field":"name","message":"is required"}]',
+        );
+        return true;
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('an SSE stream error reaches the caller after the events received before it', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'generate-sse-error-'));
+    try {
+      await generate(
+        {
+          openapi: '3.1.0',
+          info: { title: 'Events', version: '1.0.0' },
+          paths: {
+            '/events': {
+              get: {
+                operationId: 'streamEvents',
+                tags: ['events'],
+                responses: {
+                  '200': {
+                    description: 'OK',
+                    content: {
+                      'text/event-stream': { schema: { type: 'string' } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        { output: dir, name: 'Events', readme: false, mode: 'minimal' },
+      );
+      const bundlePath = join(dir, 'client.cjs');
+      await esbuild({
+        entryPoints: [join(dir, 'index.ts')],
+        bundle: true,
+        outfile: bundlePath,
+        format: 'cjs',
+        platform: 'node',
+        target: 'node20',
+        absWorkingDir: dir,
+        nodePaths: [join(repoRoot, 'node_modules')],
+        logLevel: 'silent',
+      });
+      const generated = createRequire(import.meta.url)(bundlePath) as {
+        Events: new (options: unknown) => {
+          request(
+            endpoint: string,
+            input: unknown,
+          ): Promise<(eventType: string) => AsyncIterable<string>>;
+        };
+      };
+      const connectionReset = new Error('connection reset');
+      const streamErrored = Promise.withResolvers<void>();
+      const client = new generated.Events({
+        baseUrl: 'https://api.example.com',
+        fetch: async () =>
+          new Response(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.enqueue(new TextEncoder().encode('data: one\n\n'));
+              },
+              pull(controller) {
+                controller.error(connectionReset);
+                streamErrored.resolve();
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+          ),
+      });
+
+      const listen = await client.request('GET /events', {});
+      const events = listen('message');
+      // Start iterating only after the reader has seen the failure, so the
+      // queued event and the error are both pending when the caller reads.
+      await streamErrored.promise;
+      await new Promise((resolve) => setImmediate(resolve));
+      const received: string[] = [];
+      await assert.rejects(
+        async () => {
+          for await (const data of events) {
+            received.push(data);
+          }
+        },
+        (error) => {
+          assert.equal(error, connectionReset);
+          return true;
+        },
+      );
+      assert.deepStrictEqual(received, ['one']);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('generate — impossible schemas', () => {

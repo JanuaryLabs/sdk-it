@@ -7,6 +7,7 @@ export function sse(response: Response): SSEListener {
 	>();
 	let started = false;
 	let streamDone = false;
+	let streamFailure: { error: unknown } | null = null;
 
 	function dispatch(eventType: string, data: string) {
 		const sub = subscribers.get(eventType);
@@ -30,9 +31,9 @@ export function sse(response: Response): SSEListener {
 		const decoder = new TextDecoder();
 		let buffer = "";
 
-		// The pump owns its own failure (the catch below), so nothing awaits it;
-		// `void` states that, and keeps generated output clean under
-		// @typescript-eslint/no-floating-promises.
+		// The pump never rejects: the catch below hands a stream failure to the
+		// listeners, so nothing awaits it. `void` states that, and keeps generated
+		// output clean under @typescript-eslint/no-floating-promises.
 		void (async () => {
 			try {
 				for await (const value of response.body!) {
@@ -54,8 +55,8 @@ export function sse(response: Response): SSEListener {
 						if (data) dispatch(eventType, data);
 					}
 				}
-			} catch (err) {
-				console.warn("sse stream error", err);
+			} catch (error) {
+				streamFailure = { error };
 			}
 			endAll();
 		})();
@@ -73,6 +74,7 @@ export function sse(response: Response): SSEListener {
 				return {
 					async next(): Promise<IteratorResult<string>> {
 						while (sub.queue.length === 0) {
+							if (streamFailure) throw streamFailure.error;
 							if (streamDone) return { value: undefined as any, done: true };
 							const { promise, resolve } = Promise.withResolvers<void>();
 							sub.resolve = resolve;
