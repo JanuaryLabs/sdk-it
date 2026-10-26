@@ -14,7 +14,7 @@ export default (spec: Pick<Spec, 'makeImport' | 'securitySchemes'>) => {
     })
     .join(',\n');
 
-  return `import z from 'zod';
+  return `import { z } from 'zod';
 import type { Interceptor } from './${spec.makeImport('interceptors')}';
 import type { RequestConfig } from './${spec.makeImport('request')}';
 

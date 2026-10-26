@@ -123,7 +123,7 @@ export async function generate(
     'parser.ts': parserTxt,
     'request.ts': requestTxt,
     'sse.ts': sseTxt,
-    'dispatcher.ts': `import z from 'zod';
+    'dispatcher.ts': `import { z } from 'zod';
 import { type Interceptor } from '${makeImport('../http/interceptors')}';
 import { type RequestConfig } from '${makeImport('../http/request')}';
 import { buffered } from '${makeImport('./parse-response')}';

@@ -80,7 +80,7 @@ async function bundleSdk(options: BuildOptions): Promise<any> {
 
     await writeFile(
       join(httpDir, 'dispatcher.ts'),
-      `import z from 'zod';
+      `import { z } from 'zod';
 import { type Interceptor } from './interceptors';
 import { type RequestConfig } from './request';
 import { buffered } from './parse-response';
@@ -105,7 +105,7 @@ ${dispatcherTxt}`,
 
     await writeFile(
       join(apiDir, 'schemas.ts'),
-      `import z from 'zod';
+      `import { z } from 'zod';
 import { toRequest, json, empty } from '../http/request';
 import { Dispatcher, fetchType } from '../http/dispatcher';
 import { Ok, NoContent } from '../http/response';
@@ -167,7 +167,7 @@ export default {
 
     await writeFile(
       join(apiDir, 'endpoints.ts'),
-      `import type z from 'zod';
+      `import type { z } from 'zod';
 import type schemas from './schemas';
 import type { APIResponse, SuccessfulResponse } from '../http/response';
 import type { Unionize } from '../http/dispatcher';

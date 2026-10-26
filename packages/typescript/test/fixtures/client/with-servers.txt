@@ -1,4 +1,4 @@
-import z from 'zod';
+import { z } from 'zod';
 import { APIResponse } from './http/response';
 import type { HeadersInit, RequestConfig } from './http/request';
 import { fetchType, parse } from './http/dispatcher';

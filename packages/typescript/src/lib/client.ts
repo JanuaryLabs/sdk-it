@@ -36,7 +36,7 @@ export default (spec: Omit<Spec, 'operations'>) => {
     },
   };
 
-  return `import z from 'zod';
+  return `import { z } from 'zod';
 import { APIResponse } from '${spec.makeImport('./http/response')}';
 import type { HeadersInit, RequestConfig } from './http/${spec.makeImport('request')}';
 import { fetchType, parse } from './http/${spec.makeImport('dispatcher')}';
