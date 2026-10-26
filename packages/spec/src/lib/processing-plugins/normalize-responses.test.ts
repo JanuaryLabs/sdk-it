@@ -52,8 +52,8 @@ test('response media types receive independent component schemas', async () => {
   assert.deepStrictEqual(schemaForRef(spec, jsonSchema.$ref).properties, {
     items: { type: 'array', items: {} },
   });
-  assert.strictEqual(schemaForRef(spec, jsonSchema.$ref)['x-sse'], undefined);
-  assert.strictEqual(schemaForRef(spec, eventSchema.$ref)['x-sse'], true);
+  assert.deepStrictEqual(schemaForRef(spec, eventSchema.$ref).type, 'string');
+  assert.strictEqual(response['x-body'], 'json');
 });
 
 test('success response ranges and default responses are preserved', async () => {

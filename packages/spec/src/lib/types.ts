@@ -48,6 +48,15 @@ export interface OurRequestBodyObject extends RequestBodyObject {
   >;
 }
 
+export type ResponseBody =
+  'json' | 'text' | 'binary' | 'stream' | 'sse' | 'empty';
+
+export type TunedResponseObject = Omit<ResponseObject, 'content'> & {
+  content: Record<string, MediaTypeObject>;
+  'x-body': ResponseBody;
+  'x-response-name'?: string;
+};
+
 export type TunedOperationObject = Omit<
   OperationObject,
   'operationId' | 'tags' | 'parameters' | 'responses' | 'requestBody' | 'tags'
@@ -57,12 +66,7 @@ export type TunedOperationObject = Omit<
   parameters: ParameterObject[];
   ['x-fn-name']: string;
   ['x-fn-group']?: string;
-  responses: Record<
-    string,
-    Omit<ResponseObject, 'content'> & {
-      content: Record<string, MediaTypeObject>;
-    }
-  >;
+  responses: Record<string, TunedResponseObject>;
   requestBody: OurRequestBodyObject;
 };
 

@@ -65,7 +65,7 @@ describe('response normalization text output', () => {
       { spec: buildSpec({ contentType: 'text/plain' }) },
       false,
     );
-    const { schemaRef, schema, outputName } = getResponseArtifacts(
+    const { response, schemaRef, schema, outputName } = getResponseArtifacts(
       spec,
       'text/plain',
     );
@@ -76,11 +76,11 @@ describe('response normalization text output', () => {
     assert.deepStrictEqual(
       {
         type: schema.type,
-        'x-stream': schema['x-stream'],
+        'x-body': response['x-body'],
       },
       {
         type: 'string',
-        'x-stream': false,
+        'x-body': 'text',
       },
     );
   });
@@ -88,7 +88,7 @@ describe('response normalization text output', () => {
   test('defaults text schema when content-type has parameters', async () => {
     const contentType = 'text/html; charset=utf-8';
     const spec = await toIR({ spec: buildSpec({ contentType }) }, false);
-    const { schemaRef, schema, outputName } = getResponseArtifacts(
+    const { response, schemaRef, schema, outputName } = getResponseArtifacts(
       spec,
       contentType,
     );
@@ -99,11 +99,11 @@ describe('response normalization text output', () => {
     assert.deepStrictEqual(
       {
         type: schema.type,
-        'x-stream': schema['x-stream'],
+        'x-body': response['x-body'],
       },
       {
         type: 'string',
-        'x-stream': false,
+        'x-body': 'text',
       },
     );
   });
@@ -121,18 +121,18 @@ describe('response normalization text output', () => {
       },
       false,
     );
-    const { schema } = getResponseArtifacts(spec, 'text/plain');
+    const { response, schema } = getResponseArtifacts(spec, 'text/plain');
 
     assert.deepStrictEqual(
       {
         type: schema.type,
         maxLength: schema.maxLength,
-        'x-stream': schema['x-stream'],
+        'x-body': response['x-body'],
       },
       {
         type: 'string',
         maxLength: 5,
-        'x-stream': false,
+        'x-body': 'text',
       },
     );
   });
@@ -152,19 +152,19 @@ describe('response normalization text output', () => {
       },
       false,
     );
-    const { schema } = getResponseArtifacts(spec, 'text/plain');
+    const { response, schema } = getResponseArtifacts(spec, 'text/plain');
 
     const properties = schema.properties as Record<string, { type?: string }>;
     assert.deepStrictEqual(
       {
         type: schema.type,
         valueType: properties.value?.type,
-        'x-stream': schema['x-stream'],
+        'x-body': response['x-body'],
       },
       {
         type: 'object',
         valueType: 'string',
-        'x-stream': false,
+        'x-body': 'text',
       },
     );
   });
@@ -186,18 +186,18 @@ describe('response normalization binary output', () => {
       },
       false,
     );
-    const { schema } = getResponseArtifacts(spec, contentType);
+    const { response, schema } = getResponseArtifacts(spec, contentType);
 
     assert.deepStrictEqual(
       {
         type: schema.type,
         format: schema.format,
-        'x-stream': schema['x-stream'],
+        'x-body': response['x-body'],
       },
       {
         type: 'string',
         format: 'binary',
-        'x-stream': false,
+        'x-body': 'binary',
       },
     );
   });
@@ -205,18 +205,18 @@ describe('response normalization binary output', () => {
   test('octet-stream without content-disposition stays streamed', async () => {
     const contentType = 'application/octet-stream';
     const spec = await toIR({ spec: buildSpec({ contentType }) }, false);
-    const { schema } = getResponseArtifacts(spec, contentType);
+    const { response, schema } = getResponseArtifacts(spec, contentType);
 
     assert.deepStrictEqual(
       {
         type: schema.type,
         format: schema.format,
-        'x-stream': schema['x-stream'],
+        'x-body': response['x-body'],
       },
       {
         type: undefined,
         format: undefined,
-        'x-stream': true,
+        'x-body': 'stream',
       },
     );
   });

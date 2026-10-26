@@ -20,7 +20,7 @@ import {
 } from '../is.js';
 import type { ResponsesConfig } from '../options.js';
 import type { ProcessingPlugin } from '../processing.js';
-import type { IR, TunedOperationObject } from '../types.js';
+import type { IR, ResponseBody, TunedOperationObject } from '../types.js';
 
 function normalizeOperationResponses(
   spec: IR,
@@ -55,18 +55,14 @@ function normalizeOperationResponses(
   for (const status in operation.responses) {
     const response = operation.responses[status] as ResponseObject;
     const statusCode = +status;
+    response.content ??= {};
+    response['x-body'] = responseBody(response);
 
     if (
       !responsesConfig?.flattenErrorResponses &&
       !isSuccessStatusCode(status)
     ) {
       continue;
-    }
-
-    if (isEmpty(response.content)) {
-      response.content = {
-        'application/octet-stream': {},
-      };
     }
 
     let responseName: string | undefined;
@@ -94,36 +90,22 @@ function normalizeOperationResponses(
               'result',
             ]);
       responseName ??= outputName;
-      const isSse = isSseContentType(contentType);
-      const normalizedContentType = normalizeContentType(contentType);
-      const hasContentDisposition = hasHeader(
-        response.headers,
-        'Content-Disposition',
-      );
-      const isBinary =
-        isBinaryContentType(contentType) ||
-        (isStreamingContentType(normalizedContentType) &&
-          hasContentDisposition);
-      const isText = isTextContentType(contentType);
+      const body = mediaBody(contentType, response.headers);
 
-      if (parseJsonContentType(contentType)) {
+      if (body === 'json') {
         if (isEmpty(mediaType.schema)) {
           spec.components.schemas[outputName] = {
             type: 'object',
             additionalProperties: true,
           };
         }
-      } else {
-        if (isEmpty(mediaType.schema) && (isText || isBinary)) {
-          mediaType.schema = {
-            type: 'string',
-            ...(isBinary ? { format: 'binary' } : {}),
-          };
-        }
-        spec.components.schemas[outputName] = {
-          ...spec.components.schemas[outputName],
-          'x-stream': isSse || (!isText && !isBinary),
-          ...(isSse ? { 'x-sse': true } : {}),
+      } else if (
+        isEmpty(mediaType.schema) &&
+        (body === 'text' || body === 'binary')
+      ) {
+        mediaType.schema = {
+          type: 'string',
+          ...(body === 'binary' ? { format: 'binary' } : {}),
         };
       }
 
@@ -143,6 +125,47 @@ function normalizeOperationResponses(
   }
 
   return operation.responses;
+}
+
+function responseBody(response: ResponseObject): ResponseBody {
+  if (isEmpty(response.content)) {
+    return 'empty';
+  }
+  if (hasHeader(response.headers, 'Transfer-Encoding')) {
+    return 'stream';
+  }
+  for (const contentType of Object.keys(response.content)) {
+    const body = mediaBody(contentType, response.headers);
+    if (body) {
+      return body;
+    }
+  }
+  return 'stream';
+}
+
+function mediaBody(
+  contentType: string,
+  headers: ResponseObject['headers'],
+): ResponseBody | undefined {
+  const isOctetStream = isStreamingContentType(
+    normalizeContentType(contentType),
+  );
+  if (isOctetStream && !hasHeader(headers, 'Content-Disposition')) {
+    return 'stream';
+  }
+  if (isOctetStream || isBinaryContentType(contentType)) {
+    return 'binary';
+  }
+  if (parseJsonContentType(contentType)) {
+    return 'json';
+  }
+  if (isSseContentType(contentType)) {
+    return 'sse';
+  }
+  if (isTextContentType(contentType)) {
+    return 'text';
+  }
+  return undefined;
 }
 
 function normalizeContentType(contentType: string) {
