@@ -231,13 +231,11 @@ export function createRpc(ir: IR, options: Partial<ClientOptions> = {}) {
     };
   });
 
-  return new Client(
-    {
-      ...options,
-      baseUrl: options?.baseUrl ?? ir.servers[0].url,
-    },
-    schemas,
-  );
+  const baseUrl = options.baseUrl ?? ir.servers.at(0)?.url;
+  if (baseUrl === undefined) {
+    throw new Error('rpc: the spec declares no servers; pass options.baseUrl');
+  }
+  return new Client({ ...options, baseUrl }, schemas);
 }
 
 export async function rpc(
