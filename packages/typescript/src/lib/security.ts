@@ -1,5 +1,13 @@
 import type { Spec } from './sdk.ts';
 
+/** Security types the generated client re-exports from the SDK root. */
+export const securityTypeExports = [
+  'SecurityContext',
+  'SecurityCredential',
+  'SecurityCredentialProvider',
+  'SecurityCredentialValue',
+] as const;
+
 export default (spec: Pick<Spec, 'makeImport' | 'securitySchemes'>) => {
   const securitySchemes = JSON.stringify(spec.securitySchemes, null, 2);
   const credentialProperties = Object.entries(spec.securitySchemes)

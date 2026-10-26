@@ -1,15 +1,15 @@
 import { camelcase } from 'stringcase';
 
-import { type OpenAPISecuritySchemeObject, pascalcase } from '@sdk-it/core';
+import { type OpenAPISecuritySchemeObject } from '@sdk-it/core';
 import {
   type OperationPagination,
   type ResponseBody,
   type TunedOperationObject,
   type TunedResponseObject,
-  sanitizeTag,
 } from '@sdk-it/spec';
 
 import { type MakeImportFn } from './import-utilities.ts';
+import type { ModelNamer } from './model-name.ts';
 import { paginationOperation } from './pagination-emit.ts';
 import statusMap from './status-map.ts';
 
@@ -52,6 +52,7 @@ export function toEndpoint(
   groupName: string,
   specOperation: TunedOperationObject,
   operation: Operation,
+  modelName: ModelNamer,
 ) {
   const schemaName = camelcase(`${specOperation.operationId} schema`);
   const schemaRef = `${camelcase(groupName)}.${schemaName}`;
@@ -59,7 +60,7 @@ export function toEndpoint(
   const schemas: string[] = [];
   specOperation.responses ??= {};
   const outputs = Object.keys(specOperation.responses).map((status) =>
-    toHttpOutput(status, specOperation.responses[status]),
+    toHttpOutput(status, specOperation.responses[status], modelName),
   );
 
   const addTypeParser = Object.keys(operation.schemas).length > 1;
@@ -109,7 +110,11 @@ const bodyParser: Record<ResponseBody, Parser> = {
   sse: 'sse',
 };
 
-export function toHttpOutput(status: string, response: TunedResponseObject) {
+export function toHttpOutput(
+  status: string,
+  response: TunedResponseObject,
+  modelName: ModelNamer,
+) {
   const body = response['x-body'];
   const type = status.endsWith('XX')
     ? 'http.APIError'
@@ -117,14 +122,18 @@ export function toHttpOutput(status: string, response: TunedResponseObject) {
   if (status === '204') {
     return type;
   }
-  const data = dataType(status, response);
+  const data = dataType(status, response, modelName);
   const parser = bodyParser[body];
   return parser === 'buffered'
     ? `${type}<${data}>`
     : `{type: ${type}<${data}>, parser: ${parser}}`;
 }
 
-function dataType(status: string, response: TunedResponseObject) {
+function dataType(
+  status: string,
+  response: TunedResponseObject,
+  modelName: ModelNamer,
+) {
   switch (response['x-body']) {
     case 'empty':
       return 'null';
@@ -133,7 +142,7 @@ function dataType(status: string, response: TunedResponseObject) {
     case 'sse':
       return 'SSEListener';
     default:
-      return `outputs.${pascalcase(sanitizeTag(outputName(status, response)))}`;
+      return `outputs.${modelName(outputName(status, response))}`;
   }
 }
 

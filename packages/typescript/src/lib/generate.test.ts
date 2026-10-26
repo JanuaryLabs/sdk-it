@@ -2487,3 +2487,154 @@ describe('generate — transport-owned credentials', () => {
     }
   });
 });
+
+function specWithModels(names: string[]): OpenAPIObject {
+  return {
+    openapi: '3.1.0',
+    info: { title: 'Shop', version: '1.0.0' },
+    servers: [{ url: 'https://shop.example.com' }],
+    security: [{ bearerAuth: [] }],
+    components: {
+      securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer' } },
+      schemas: Object.fromEntries(
+        names.map((name) => [
+          name,
+          {
+            type: 'object',
+            required: ['kind'],
+            properties: { kind: { type: 'string', enum: [name] } },
+          },
+        ]),
+      ),
+    },
+    paths: Object.fromEntries(
+      names.map((name, index) => [
+        `/models/${index}`,
+        {
+          get: {
+            operationId: `read${index}`,
+            tags: ['models'],
+            responses: {
+              '200': {
+                description: name,
+                content: {
+                  'application/json': {
+                    schema: { $ref: `#/components/schemas/${name}` },
+                  },
+                },
+              },
+            },
+          },
+        },
+      ]),
+    ),
+  };
+}
+
+function rootExports(dir: string) {
+  const parsed = ts.parseJsonConfigFileContent(
+    ts.readConfigFile(join(dir, 'tsconfig.json'), ts.sys.readFile).config,
+    ts.sys,
+    dir,
+  );
+  const program = ts.createProgram(parsed.fileNames, parsed.options);
+  const checker = program.getTypeChecker();
+  const index = program.getSourceFile(join(dir, 'src', 'index.ts'));
+  assert.ok(index);
+  const module = checker.getSymbolAtLocation(index);
+  assert.ok(module);
+  return checker.getExportsOfModule(module).map((symbol) => symbol.name);
+}
+
+describe('generate — model names', () => {
+  test('a model named like a root runtime export is renamed with a trailing underscore and the runtime export keeps its name', async () => {
+    const plain = mkdtempSync(join(repoRoot, '.generate-root-exports-'));
+    const dir = mkdtempSync(join(repoRoot, '.generate-reserved-models-'));
+    try {
+      await generate(specWithModels(['Widget']), {
+        output: plain,
+        name: 'Shop',
+        readme: false,
+        mode: 'full',
+      });
+      const runtimeNames = rootExports(plain).filter(
+        (name) => /^[A-Z]/.test(name) && name !== 'Widget',
+      );
+      for (const name of ['Endpoints', 'NotFound', 'Ok', 'Servers', 'Shop']) {
+        assert.ok(runtimeNames.includes(name), `root exports ${name}`);
+      }
+
+      await generate(specWithModels(runtimeNames), {
+        output: dir,
+        name: 'Shop',
+        readme: false,
+        mode: 'full',
+      });
+      writeFileSync(
+        join(dir, 'src', 'consumer.ts'),
+        [
+          `import { APIError, NotFound, ParseError, Shop, type Endpoints, type NotFound_, type Ok_, type Shop_ } from './index.ts';`,
+          `const client = new Shop({ baseUrl: 'https://shop.test' });`,
+          ...runtimeNames.map(
+            (name, index) =>
+              `const read${index} = () => client.request('GET /models/${index}', {});\nexport const model${index}: Awaited<ReturnType<typeof read${index}>> = { kind: ${JSON.stringify(name)} };`,
+          ),
+          `export const ok: Ok_ = { kind: 'Ok' };`,
+          `export const notFound: NotFound_ = { kind: 'NotFound' };`,
+          `export const shop: Shop_ = { kind: 'Shop' };`,
+          `export type Routes = keyof Endpoints;`,
+          `void [APIError, NotFound, ParseError];`,
+        ].join('\n'),
+      );
+
+      assert.deepEqual(compileGeneratedProject(dir), []);
+    } finally {
+      rmSync(plain, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('lowercase and snake_case schema names that pascalcase into a runtime export or the client class are renamed', async () => {
+    const dir = mkdtempSync(join(repoRoot, '.generate-reserved-lowercase-'));
+    try {
+      await generate(specWithModels(['ok', 'not_found', 'client']), {
+        output: dir,
+        readme: false,
+        mode: 'full',
+      });
+      writeFileSync(
+        join(dir, 'src', 'consumer.ts'),
+        `
+import { Client, NotFound, type Client_, type NotFound_, type Ok_ } from './index.ts';
+export const ok: Ok_ = { kind: 'ok' };
+export const notFound: NotFound_ = { kind: 'not_found' };
+export const client: Client_ = { kind: 'client' };
+void [new Client({ baseUrl: 'https://shop.test' }), NotFound];
+`,
+      );
+
+      assert.deepEqual(compileGeneratedProject(dir), []);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('two schemas that become the same TypeScript type are rejected', async () => {
+    const dir = mkdtempSync(join(repoRoot, '.generate-duplicate-models-'));
+    try {
+      await assert.rejects(
+        generate(specWithModels(['pet', 'Pet']), {
+          output: dir,
+          readme: false,
+        }),
+        (error: unknown) =>
+          error instanceof TypeError &&
+          error.message.includes('"pet"') &&
+          error.message.includes('"Pet"') &&
+          /TypeScript type Pet\b/.test(error.message),
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

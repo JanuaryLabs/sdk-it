@@ -6,9 +6,10 @@ import {
   isEmpty,
   isRef,
   parseRef,
-  pascalcase,
 } from '@sdk-it/core';
-import { isPrimitiveSchema, sanitizeTag } from '@sdk-it/spec';
+import { isPrimitiveSchema } from '@sdk-it/spec';
+
+import type { ModelNamer } from '../model-name.ts';
 
 type OnRefCallback = (ref: string, content: string) => void;
 
@@ -18,10 +19,16 @@ type OnRefCallback = (ref: string, content: string) => void;
 export class ZodEmitter {
   #generatedRefs = new Set<string>();
   #spec: OpenAPIDocument;
+  #modelName: ModelNamer;
   #onRef?: OnRefCallback;
 
-  constructor(spec: OpenAPIDocument, onRef?: OnRefCallback) {
+  constructor(
+    spec: OpenAPIDocument,
+    modelName: ModelNamer,
+    onRef?: OnRefCallback,
+  ) {
     this.#spec = spec;
+    this.#modelName = modelName;
     this.#onRef = onRef;
   }
 
@@ -123,7 +130,7 @@ export class ZodEmitter {
   }
 
   #ref($ref: string, required: boolean) {
-    const schemaName = pascalcase(sanitizeTag(parseRef($ref).model));
+    const schemaName = this.#modelName(parseRef($ref).model);
     const schema = followRef(this.#spec, $ref);
 
     if (isPrimitiveSchema(schema)) {

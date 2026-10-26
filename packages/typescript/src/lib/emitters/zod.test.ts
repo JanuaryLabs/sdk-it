@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
+import { createModelNamer } from '@sdk-it/typescript';
+
 import { ZodEmitter } from './zod.ts';
 
 const emptySpec = {} as OpenAPIObject;
@@ -9,7 +11,7 @@ const emptySpec = {} as OpenAPIObject;
 describe('ZodEmitter date handling', () => {
   describe('plain string coercion', () => {
     test('coerce-string preserves basic string coercion', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'string', 'x-zod-type': 'coerce-string' }, true),
         'z.coerce.string()',
@@ -17,7 +19,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('coerce-string composes with string formats', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle(
           { type: 'string', format: 'email', 'x-zod-type': 'coerce-string' },
@@ -30,7 +32,7 @@ describe('ZodEmitter date handling', () => {
 
   describe('format: date-time (no x-zod-type)', () => {
     test('required', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       const result = emitter.handle(
         { type: 'string', format: 'date-time' },
         true,
@@ -39,7 +41,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('optional', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       const result = emitter.handle(
         { type: 'string', format: 'date-time' },
         false,
@@ -48,7 +50,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('with default', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       const result = emitter.handle(
         {
           type: 'string',
@@ -66,7 +68,7 @@ describe('ZodEmitter date handling', () => {
 
   describe('format: date-time with x-zod-type: date', () => {
     test('required', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       const result = emitter.handle(
         { type: 'string', format: 'date-time', 'x-zod-type': 'date' },
         true,
@@ -75,7 +77,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('optional', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       const result = emitter.handle(
         { type: 'string', format: 'date-time', 'x-zod-type': 'date' },
         false,
@@ -84,7 +86,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('with default wraps in new Date()', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       const result = emitter.handle(
         {
           type: 'string',
@@ -103,7 +105,7 @@ describe('ZodEmitter date handling', () => {
 
   describe('format: date-time with x-zod-type: coerce-date', () => {
     test('required', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       const result = emitter.handle(
         {
           type: 'string',
@@ -116,7 +118,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('optional', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       const result = emitter.handle(
         {
           type: 'string',
@@ -129,7 +131,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('with default wraps in new Date()', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       const result = emitter.handle(
         {
           type: 'string',
@@ -148,19 +150,19 @@ describe('ZodEmitter date handling', () => {
 
   describe('format: date', () => {
     test('required', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       const result = emitter.handle({ type: 'string', format: 'date' }, true);
       assert.equal(result, 'z.iso.date()');
     });
 
     test('optional', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       const result = emitter.handle({ type: 'string', format: 'date' }, false);
       assert.equal(result, 'z.iso.date().optional()');
     });
 
     test('with default stays as string', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       const result = emitter.handle(
         { type: 'string', format: 'date', default: '2024-01-01' },
         true,
@@ -171,7 +173,7 @@ describe('ZodEmitter date handling', () => {
 
   describe('nullable date via anyOf', () => {
     test('nullable z.date()', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       const result = emitter.handle(
         {
           anyOf: [
@@ -189,7 +191,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('nullable z.coerce.date()', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       const result = emitter.handle(
         {
           anyOf: [
@@ -209,7 +211,7 @@ describe('ZodEmitter date handling', () => {
 
   describe('external spec (no x-zod-type) defaults correctly', () => {
     test('format datetime from external spec', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       const result = emitter.handle(
         { type: 'string', format: 'date-time' },
         true,
@@ -218,7 +220,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('format date from external spec', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       const result = emitter.handle({ type: 'string', format: 'date' }, true);
       assert.equal(result, 'z.iso.date()');
     });
@@ -226,7 +228,7 @@ describe('ZodEmitter date handling', () => {
 
   describe('cidr formats', () => {
     test('emit semantic cidr validators', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'string', format: 'cidrv4' }, true),
         'z.cidrv4()',
@@ -240,7 +242,7 @@ describe('ZodEmitter date handling', () => {
 
   describe('uuid format', () => {
     test('emits z.guid() to keep v3 GUID semantics', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'string', format: 'uuid' }, true),
         'z.guid()',
@@ -250,7 +252,7 @@ describe('ZodEmitter date handling', () => {
 
   describe('enums', () => {
     test('integer enum emits a literal values array', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'integer', enum: [1, 2] }, true),
         'z.literal([1, 2])',
@@ -258,7 +260,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('numeric enum typed "number" emits a literal values array, not z.enum', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'number', enum: [1.5, 2.5] }, true),
         'z.literal([1.5, 2.5])',
@@ -266,12 +268,12 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('numeric enum with no declared type emits a literal values array', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(emitter.handle({ enum: [1, 2] }, true), 'z.literal([1, 2])');
     });
 
     test('string enum emits z.enum', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'string', enum: ['a', 'b'] }, true),
         'z.enum(["a", "b"])',
@@ -281,12 +283,12 @@ describe('ZodEmitter date handling', () => {
 
   describe('number types', () => {
     test('z.number() required', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(emitter.handle({ type: 'number' }, true), 'z.number()');
     });
 
     test('z.number() optional', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'number' }, false),
         'z.number().optional()',
@@ -294,7 +296,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('integer type appends .int()', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'integer' }, true),
         'z.number().int()',
@@ -302,7 +304,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('integer coerce appends .int()', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle(
           { type: 'integer', 'x-zod-type': 'coerce-number' },
@@ -313,7 +315,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('number with min/max', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'number', minimum: 0, maximum: 100 }, true),
         'z.number().min(0).max(100)',
@@ -321,7 +323,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('x-zod-type coerce-number produces z.coerce.number()', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'number', 'x-zod-type': 'coerce-number' }, true),
         'z.coerce.number()',
@@ -329,7 +331,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('x-zod-type coerce-number with min/max', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle(
           {
@@ -345,7 +347,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('x-zod-type coerce-number optional', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle(
           { type: 'number', 'x-zod-type': 'coerce-number' },
@@ -356,7 +358,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('nullable integer union keeps coerced numeric branch', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle(
           {
@@ -372,7 +374,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('merged coerced integer keeps default and constraints', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle(
           {
@@ -392,7 +394,7 @@ describe('ZodEmitter date handling', () => {
     // int64/uint64 stop being special: an integer on the wire is a plain
     // number, a string on the wire is a plain string. No bigint, no codec.
     test('integer int64 is a plain integer', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'integer', format: 'int64' }, true),
         'z.number().int()',
@@ -400,7 +402,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('integer uint64 is a plain integer', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'integer', format: 'uint64' }, true),
         'z.number().int()',
@@ -408,7 +410,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('integer int64 bounds emit as plain number literals', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle(
           { type: 'integer', format: 'int64', minimum: 5, maximum: 100 },
@@ -419,7 +421,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('string-encoded int64 is a plain string', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'string', format: 'int64' }, true),
         'z.string()',
@@ -427,7 +429,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('string-encoded uint64 is a plain string', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'string', format: 'uint64' }, true),
         'z.string()',
@@ -440,7 +442,7 @@ describe('ZodEmitter date handling', () => {
   // for cross-realm/polyfill Blobs (see e62c4e1, docs/recipes/file-upload.md).
   describe('binary types', () => {
     test('contentEncoding binary emits z.custom<Blob>()', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'string', contentEncoding: 'binary' }, true),
         'z.custom<Blob>()',
@@ -448,7 +450,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('format byte emits z.custom<Blob>()', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'string', format: 'byte' }, true),
         'z.custom<Blob>()',
@@ -456,7 +458,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('format binary emits z.custom<Blob>()', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle({ type: 'string', format: 'binary' }, true),
         'z.custom<Blob>()',
@@ -466,7 +468,7 @@ describe('ZodEmitter date handling', () => {
 
   describe('boolean types', () => {
     test('coerce-boolean produces z.coerce.boolean()', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle(
           { type: 'boolean', 'x-zod-type': 'coerce-boolean' },
@@ -477,7 +479,7 @@ describe('ZodEmitter date handling', () => {
     });
 
     test('coerce-boolean keeps default and optional', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle(
           {
@@ -494,7 +496,7 @@ describe('ZodEmitter date handling', () => {
 
   describe('composition keywords', () => {
     test('oneOf emits z.xor (exclusive), anyOf emits z.union', () => {
-      const emitter = new ZodEmitter(emptySpec);
+      const emitter = new ZodEmitter(emptySpec, createModelNamer('Client'));
       assert.equal(
         emitter.handle(
           { oneOf: [{ type: 'string' }, { type: 'number' }] },

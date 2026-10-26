@@ -22,6 +22,7 @@ import {
 } from '@sdk-it/spec';
 
 import { ZodEmitter } from './emitters/zod.ts';
+import type { ModelNamer } from './model-name.ts';
 import { type OperationInput, type Spec, toEndpoint } from './sdk.ts';
 import type { Style } from './style.ts';
 import endpointsTxt from './styles/github/endpoints.txt';
@@ -84,19 +85,24 @@ export function generateCode(config: {
   spec: IR;
   style: Style;
   makeImport: (module: string) => string;
+  modelName: ModelNamer;
 }) {
   const commonZod = new Map<string, string>();
   const commonZodImports: Import[] = [];
-  const zodDeserialzer = new ZodEmitter(config.spec, (model, schema) => {
-    commonZod.set(model, schema);
-    commonZodImports.push({
-      defaultImport: undefined,
-      isTypeOnly: true,
-      moduleSpecifier: `./${config.makeImport(model)}`,
-      namedImports: [{ isTypeOnly: true, name: model }],
-      namespaceImport: undefined,
-    });
-  });
+  const zodDeserialzer = new ZodEmitter(
+    config.spec,
+    config.modelName,
+    (model, schema) => {
+      commonZod.set(model, schema);
+      commonZodImports.push({
+        defaultImport: undefined,
+        isTypeOnly: true,
+        moduleSpecifier: `./${config.makeImport(model)}`,
+        namedImports: [{ isTypeOnly: true, name: model }],
+        namespaceImport: undefined,
+      });
+    },
+  );
 
   const groups: Spec['operations'] = {};
   const endpoints: Record<string, ReturnType<typeof toEndpoint>[]> = {};
@@ -123,14 +129,19 @@ export function generateCode(config: {
       );
     }
     const details = buildInput(config.spec, operation);
-    const endpoint = toEndpoint(entry.tag, operation, {
-      method: entry.method,
-      path: entry.path,
-      operationId: operation.operationId,
-      schemas,
-      outgoingContentType: details.outgoingContentType,
-      inputs: details.inputs,
-    });
+    const endpoint = toEndpoint(
+      entry.tag,
+      operation,
+      {
+        method: entry.method,
+        path: entry.path,
+        operationId: operation.operationId,
+        schemas,
+        outgoingContentType: details.outgoingContentType,
+        inputs: details.inputs,
+      },
+      config.modelName,
+    );
 
     endpoints[entry.tag].push(endpoint);
 

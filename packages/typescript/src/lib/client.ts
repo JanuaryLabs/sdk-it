@@ -1,6 +1,7 @@
 import { toLitObject } from '@sdk-it/core';
 
 import type { Spec } from './sdk.ts';
+import { securityTypeExports } from './security.ts';
 
 export default (spec: Omit<Spec, 'operations'>) => {
   const callableString = `z.custom<() => string | Promise<string>>((value) => typeof value === 'function')`;
@@ -52,10 +53,7 @@ import { type ParseError, parseInput } from './http/${spec.makeImport('parser')}
       ? `
 import { credentialsSchema, createSecurityInterceptor } from './http/${spec.makeImport('security')}';
 export type {
-  SecurityContext,
-  SecurityCredential,
-  SecurityCredentialProvider,
-  SecurityCredentialValue,
+${securityTypeExports.map((name) => `  ${name},`).join('\n')}
 } from './http/${spec.makeImport('security')}';`
       : ''
   }

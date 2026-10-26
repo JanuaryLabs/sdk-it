@@ -17,7 +17,6 @@ import {
   cleanFiles,
   forEachOperation,
   readWriteMetadata,
-  sanitizeTag,
   toIR,
 } from '@sdk-it/spec';
 
@@ -35,6 +34,7 @@ import requestTxt from './http/request.txt';
 import responseTxt from './http/response.txt';
 import sseTxt from './http/sse.txt';
 import { type MakeImportFn } from './import-utilities.ts';
+import { type ModelNamer, createModelNamer } from './model-name.ts';
 import type { TypeScriptGeneratorOptions } from './options.ts';
 import cursorPaginationTxt from './paginations/cursor-pagination.txt';
 import offsetPaginationTxt from './paginations/offset-pagination.txt';
@@ -94,13 +94,14 @@ export async function generate(
   const makeImport = (moduleSpecifier: string) => {
     return settings.useTsExtension ? `${moduleSpecifier}.ts` : moduleSpecifier;
   };
+  const clientName = pascalcase((settings.name || 'client').trim());
+  const modelName = createModelNamer(clientName);
   const { endpoints, groups, commonZod } = generateCode({
     spec,
     style,
     makeImport,
+    modelName,
   });
-
-  const clientName = pascalcase((settings.name || 'client').trim());
 
   const packageName =
     settings.packageName ??
@@ -109,7 +110,7 @@ export async function generate(
       : 'sdk');
 
   const inputs = toInputs(groups, commonZod, makeImport);
-  const models = serializeModels(spec);
+  const models = serializeModels(spec, modelName);
 
   await settings.writer(output, {
     'outputs/.gitkeep': '',
@@ -324,7 +325,7 @@ ${template(dispatcherTxt, {})()}`,
   return { packageName };
 }
 
-function serializeModels(spec: IR) {
+function serializeModels(spec: IR, modelName: ModelNamer) {
   const filesMap: Record<string, string[]> = {};
   const files: Record<string, string> = {};
   const responseBodies = new Map<string, ResponseBody>();
@@ -357,7 +358,7 @@ function serializeModels(spec: IR) {
     } else if (body === 'stream') {
       typeContent = 'ReadableStream';
     } else {
-      typeContent = new TypeScriptEmitter(spec).handle(schema, true);
+      typeContent = new TypeScriptEmitter(spec, modelName).handle(schema, true);
     }
 
     const imports: string[] = [];
@@ -368,7 +369,7 @@ function serializeModels(spec: IR) {
     const fileContent = [
       ...imports,
       `\n${schema.description ? `\n/** \n * ${schema.description}\n */\n` : ''}`,
-      `export type ${pascalcase(sanitizeTag(name))} = ${typeContent};`,
+      `export type ${modelName(name)} = ${typeContent};`,
     ];
     const fileName = responseGroup
       ? join(folder, `${spinalcase(responseGroup)}.ts`)

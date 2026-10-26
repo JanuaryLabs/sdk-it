@@ -1,13 +1,18 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
+import { createModelNamer } from '@sdk-it/typescript';
+
 import { TypeScriptEmitter } from './interface.ts';
 
 const emptySpec = { components: { schemas: {} } } as any;
 
 describe('TypeScriptEmitter date handling', () => {
   test('format date-time returns string', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     assert.equal(
       emitter.handle({ type: 'string', format: 'date-time' }, true),
       'string',
@@ -15,7 +20,10 @@ describe('TypeScriptEmitter date handling', () => {
   });
 
   test('format datetime returns string', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     assert.equal(
       emitter.handle({ type: 'string', format: 'datetime' }, true),
       'string',
@@ -23,7 +31,10 @@ describe('TypeScriptEmitter date handling', () => {
   });
 
   test('format date returns string', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     assert.equal(
       emitter.handle({ type: 'string', format: 'date' }, true),
       'string',
@@ -31,7 +42,10 @@ describe('TypeScriptEmitter date handling', () => {
   });
 
   test('format date-time optional returns string | undefined', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     assert.equal(
       emitter.handle({ type: 'string', format: 'date-time' }, false),
       'string | undefined',
@@ -39,14 +53,20 @@ describe('TypeScriptEmitter date handling', () => {
   });
 
   test('string without format returns string', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     assert.equal(emitter.handle({ type: 'string' }, true), 'string');
   });
 });
 
 describe('TypeScriptEmitter union of string and string literals', () => {
   test('wraps bare string as (string & {}) when sibling literals are present', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     const out = emitter.handle(
       {
         anyOf: [
@@ -61,7 +81,10 @@ describe('TypeScriptEmitter union of string and string literals', () => {
   });
 
   test('does not wrap bare string when no literal siblings', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     const out = emitter.handle(
       { anyOf: [{ type: 'string' }, { type: 'number' }] },
       true,
@@ -70,7 +93,10 @@ describe('TypeScriptEmitter union of string and string literals', () => {
   });
 
   test('does not wrap when bare string has format', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     const out = emitter.handle(
       {
         anyOf: [
@@ -84,7 +110,10 @@ describe('TypeScriptEmitter union of string and string literals', () => {
   });
 
   test('emits a single (string & {}) when union has duplicate bare strings', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     const out = emitter.handle(
       {
         anyOf: [
@@ -99,7 +128,10 @@ describe('TypeScriptEmitter union of string and string literals', () => {
   });
 
   test('wraps bare string when sibling uses const (not enum)', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     const out = emitter.handle(
       {
         anyOf: [{ type: 'string' }, { const: 'Director', type: 'string' }],
@@ -110,7 +142,10 @@ describe('TypeScriptEmitter union of string and string literals', () => {
   });
 
   test('does not wrap when sibling literal is non-string (numeric const)', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     const out = emitter.handle(
       { anyOf: [{ type: 'string' }, { const: 1 }] },
       true,
@@ -126,7 +161,10 @@ describe('TypeScriptEmitter union of string and string literals', () => {
         },
       },
     } as any;
-    const emitter = new TypeScriptEmitter(specWithRefs);
+    const emitter = new TypeScriptEmitter(
+      specWithRefs,
+      createModelNamer('Client'),
+    );
     const out = emitter.handle(
       {
         anyOf: [
@@ -144,7 +182,10 @@ describe('TypeScriptEmitter 64-bit integers', () => {
   // int64 stops being special: a number on the wire is a number, a string on
   // the wire is a string. No bigint.
   test('integer int64 is a plain number', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     assert.equal(
       emitter.handle({ type: 'integer', format: 'int64' }, true),
       'number',
@@ -152,7 +193,10 @@ describe('TypeScriptEmitter 64-bit integers', () => {
   });
 
   test('integer uint64 is a plain number', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     assert.equal(
       emitter.handle({ type: 'integer', format: 'uint64' }, true),
       'number',
@@ -160,7 +204,10 @@ describe('TypeScriptEmitter 64-bit integers', () => {
   });
 
   test('string-encoded int64 and uint64 are plain strings', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     assert.equal(
       emitter.handle({ type: 'string', format: 'int64' }, true),
       'string',
@@ -174,7 +221,10 @@ describe('TypeScriptEmitter 64-bit integers', () => {
 
 describe('TypeScriptEmitter nullable unions', () => {
   test('anyOf with a leading null member keeps null', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     assert.equal(
       emitter.handle({ anyOf: [{ type: 'null' }, { type: 'string' }] }, true),
       'null | string',
@@ -182,7 +232,10 @@ describe('TypeScriptEmitter nullable unions', () => {
   });
 
   test('anyOf with a trailing null member keeps null and adds undefined when optional', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     assert.equal(
       emitter.handle({ anyOf: [{ type: 'string' }, { type: 'null' }] }, false),
       'string | null | undefined',
@@ -190,7 +243,10 @@ describe('TypeScriptEmitter nullable unions', () => {
   });
 
   test('type array with null does not add undefined to a required property', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     assert.equal(
       emitter.handle({ type: ['string', 'null'] }, true),
       'string | null',
@@ -198,7 +254,10 @@ describe('TypeScriptEmitter nullable unions', () => {
   });
 
   test('type array with null adds undefined only when optional', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     assert.equal(
       emitter.handle({ type: ['string', 'null'] }, false),
       'string | null | undefined',
@@ -206,7 +265,10 @@ describe('TypeScriptEmitter nullable unions', () => {
   });
 
   test('type array of two real types does not add undefined per member', () => {
-    const emitter = new TypeScriptEmitter(emptySpec);
+    const emitter = new TypeScriptEmitter(
+      emptySpec,
+      createModelNamer('Client'),
+    );
     assert.equal(
       emitter.handle({ type: ['string', 'number'] }, true),
       'string | number',

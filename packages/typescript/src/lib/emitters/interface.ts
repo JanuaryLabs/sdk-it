@@ -1,20 +1,17 @@
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
-import {
-  followRef,
-  isEmpty,
-  isRef,
-  parseRef,
-  pascalcase,
-  resolveRef,
-} from '@sdk-it/core';
-import { type IR, isPrimitiveSchema, sanitizeTag } from '@sdk-it/spec';
+import { followRef, isEmpty, isRef, parseRef, resolveRef } from '@sdk-it/core';
+import { type IR, isPrimitiveSchema } from '@sdk-it/spec';
+
+import type { ModelNamer } from '../model-name.ts';
 
 export class TypeScriptEmitter {
   #spec: IR;
+  #modelName: ModelNamer;
 
-  constructor(spec: IR) {
+  constructor(spec: IR, modelName: ModelNamer) {
     this.#spec = spec;
+    this.#modelName = modelName;
   }
   #stringifyKey = (value: string): string => {
     return `'${value}'`;
@@ -88,7 +85,7 @@ export class TypeScriptEmitter {
   }
 
   #ref($ref: string, required: boolean): string {
-    const schemaName = pascalcase(sanitizeTag(parseRef($ref).model));
+    const schemaName = this.#modelName(parseRef($ref).model);
     const schema = followRef(this.#spec, $ref);
     if (isPrimitiveSchema(schema)) {
       return this.handle(schema, required);

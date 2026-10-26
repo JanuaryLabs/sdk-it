@@ -1180,7 +1180,8 @@ app.get('/users/:userId', validate((payload) => ({
 
     // Full pipeline: analyze → toIR → generateCode → assert .int() in Zod output
     const { toIR } = await import('@sdk-it/spec');
-    const { generateCode } = await import('@sdk-it/typescript');
+    const { createModelNamer, generateCode } =
+      await import('@sdk-it/typescript');
 
     const spec = {
       openapi: '3.1.0' as const,
@@ -1198,6 +1199,7 @@ app.get('/users/:userId', validate((payload) => ({
       spec: ir,
       style: { name: 'github' },
       makeImport: (m: string) => m + '.ts',
+      modelName: createModelNamer('Client'),
     });
 
     // Find getUsers schema in generated output
@@ -1377,7 +1379,8 @@ app.get('/users/:userId', validate((payload) => ({
 
     // Full pipeline check
     const { toIR } = await import('@sdk-it/spec');
-    const { generateCode } = await import('@sdk-it/typescript');
+    const { createModelNamer, generateCode } =
+      await import('@sdk-it/typescript');
 
     const spec = {
       openapi: '3.1.0' as const,
@@ -1395,6 +1398,7 @@ app.get('/users/:userId', validate((payload) => ({
       spec: ir,
       style: { name: 'github' },
       makeImport: (m: string) => m + '.ts',
+      modelName: createModelNamer('Client'),
     });
 
     let getUsersZod = '';
