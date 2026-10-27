@@ -79,7 +79,6 @@ export async function generate(
 
   // Process each operation and group by tags
   forEachOperation(spec, (entry, operation) => {
-    console.log(`Processing ${entry.method} ${entry.path}`);
     const group = (groups[entry.tag] ??= {
       className: `${pascalcase(entry.tag)}Api`,
       methods: [],
