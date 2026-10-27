@@ -90,7 +90,6 @@ export async function generate(
     //   return;
     // }
 
-    console.log(`Processing ${entry.method} ${entry.path}`);
     const group = (groups[entry.tag] ??= {
       methods: [],
       use: `final ${entry.tag} = new ${pascalcase(entry.tag)}();`,
