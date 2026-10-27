@@ -1,8 +1,21 @@
 import { fileURLToPath } from 'node:url';
 
-import { loadFile } from './loaders/load-spec.js';
+import { loadLocal } from './loaders/local-loader.js';
+import { loadRemote } from './loaders/remote-loader.js';
 
 export type Documents = Map<string, Promise<unknown>>;
+
+export function loadFile<T>(location: string): Promise<T> {
+  if (isRemote(location)) {
+    return loadRemote(location);
+  }
+  return loadLocal(location);
+}
+
+export function isRemote(location: string) {
+  const [protocol] = location.split(':');
+  return protocol === 'http' || protocol === 'https';
+}
 
 export function documentUrl(location: string, base: string | undefined) {
   if (!base && !URL.canParse(location)) {

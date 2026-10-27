@@ -1,6 +1,7 @@
 import type { SecurityRequirementObject } from 'openapi3-ts/oas31';
 
 import {
+  type OpenAPIDocument,
   type OpenAPISecuritySchemeObject,
   followRef,
   isRef,
@@ -16,7 +17,6 @@ import {
 } from '../external-documents.js';
 import { iterateOperations } from '../for-each-operation.js';
 import type { ProcessingPlugin } from '../processing.js';
-import type { IR } from '../types.js';
 
 /**
  * OpenAPI 3.2 lets a security requirement key be a URI of a Security Scheme
@@ -28,57 +28,72 @@ export function resolveSecuritySchemeUris(): ProcessingPlugin {
   return {
     name: 'resolve-security-scheme-uris',
     async process({ spec, report }) {
-      const requirements = collectRequirements(spec);
-      const uris = new Set(
-        requirements
-          .flatMap((requirement) => Object.keys(requirement))
-          .filter(
-            (key) => !spec.components.securitySchemes[key] && isUriKey(key),
-          ),
-      );
-      if (!uris.size) {
-        return;
-      }
-
-      const documents = new Map<string, Promise<unknown>>();
-      const registered = new Map<string, string>();
-      for (const uri of uris) {
-        try {
-          const scheme = await resolveScheme(uri, spec, documents);
-          // A same-document pointer lands on an already registered object;
-          // reuse its name instead of registering a second copy.
-          const [alias] =
-            Object.entries(spec.components.securitySchemes).find(
-              ([, registeredScheme]) => registeredScheme === scheme,
-            ) ?? [];
-          const name =
-            alias ??
-            availableName(spec.components.securitySchemes, schemeName(uri));
-          spec.components.securitySchemes[name] = scheme;
-          registered.set(uri, name);
-        } catch (error) {
-          report({
-            code: 'unresolvable-security-scheme-uri',
-            severity: 'error',
-            path: uri,
-            message: `Could not resolve security scheme URI ${uri}: ${error instanceof Error ? error.message : String(error)}`,
-          });
-        }
-      }
-
-      for (const requirement of requirements) {
-        for (const [uri, name] of registered) {
-          if (Object.hasOwn(requirement, uri)) {
-            requirement[name] = requirement[uri];
-            delete requirement[uri];
-          }
-        }
+      const failures = await registerExternalSecuritySchemes(spec, new Map());
+      for (const { uri, error } of failures) {
+        report({
+          code: 'unresolvable-security-scheme-uri',
+          severity: 'error',
+          path: uri,
+          message: `Could not resolve security scheme URI ${uri}: ${error instanceof Error ? error.message : String(error)}`,
+        });
       }
     },
   };
 }
 
-function collectRequirements(spec: IR) {
+/**
+ * Registers the scheme behind each URI requirement key under a local name and
+ * rewrites the requirement to it. Every document read is recorded in
+ * `documents`; the URIs that could not be resolved are returned.
+ */
+export async function registerExternalSecuritySchemes(
+  spec: OpenAPIDocument,
+  documents: Documents,
+) {
+  const requirements = collectRequirements(spec);
+  const uris = new Set(
+    requirements
+      .flatMap((requirement) => Object.keys(requirement))
+      .filter(
+        (key) => !spec.components?.securitySchemes?.[key] && isUriKey(key),
+      ),
+  );
+  const failures: { uri: string; error: unknown }[] = [];
+  if (!uris.size) {
+    return failures;
+  }
+
+  const schemes = ((spec.components ??= {}).securitySchemes ??= {});
+  const registered = new Map<string, string>();
+  for (const uri of uris) {
+    try {
+      const scheme = await resolveScheme(uri, spec, documents);
+      // A same-document pointer lands on an already registered object;
+      // reuse its name instead of registering a second copy.
+      const [alias] =
+        Object.entries(schemes).find(
+          ([, registeredScheme]) => registeredScheme === scheme,
+        ) ?? [];
+      const name = alias ?? availableName(schemes, schemeName(uri));
+      schemes[name] = scheme;
+      registered.set(uri, name);
+    } catch (error) {
+      failures.push({ uri, error });
+    }
+  }
+
+  for (const requirement of requirements) {
+    for (const [uri, name] of registered) {
+      if (Object.hasOwn(requirement, uri)) {
+        requirement[name] = requirement[uri];
+        delete requirement[uri];
+      }
+    }
+  }
+  return failures;
+}
+
+function collectRequirements(spec: OpenAPIDocument) {
   const requirements: SecurityRequirementObject[] = [...(spec.security ?? [])];
   for (const { operation } of iterateOperations(spec)) {
     requirements.push(...(operation.security ?? []));
@@ -97,7 +112,7 @@ function isUriKey(key: string) {
 
 async function resolveScheme(
   uri: string,
-  spec: IR,
+  spec: OpenAPIDocument,
   documents: Documents,
 ): Promise<OpenAPISecuritySchemeObject> {
   const [location, fragment] = splitFragment(uri);
@@ -120,7 +135,11 @@ async function resolveScheme(
   return scheme as OpenAPISecuritySchemeObject;
 }
 
-function schemeDocument(location: string, spec: IR, documents: Documents) {
+function schemeDocument(
+  location: string,
+  spec: OpenAPIDocument,
+  documents: Documents,
+) {
   const url = documentUrl(location, spec.$self);
   return url.href === spec.$self ? spec : loadDocument(url, documents);
 }

@@ -1,5 +1,6 @@
 import type { OperationObject, PathItemObject } from 'openapi3-ts/oas31';
 
+import type { OpenAPIDocument } from '@sdk-it/core';
 import { type Method, methods } from '@sdk-it/core/paths.js';
 
 import type { IR, OperationEntry, TunedOperationObject } from './types.js';
@@ -13,8 +14,10 @@ export interface IteratedOperation {
   pathItem: PathItemObject;
 }
 
-export function* iterateOperations(spec: IR): Generator<IteratedOperation> {
-  for (const [path, pathItem] of Object.entries(spec.paths)) {
+export function* iterateOperations(
+  spec: Pick<OpenAPIDocument, 'paths'>,
+): Generator<IteratedOperation> {
+  for (const [path, pathItem] of Object.entries(spec.paths ?? {})) {
     for (const method of methods) {
       const operation = pathItem[method];
       if (!operation) {

@@ -1,9 +1,11 @@
+import { HttpServer } from '@zukhruf/testing/http';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
+import { pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import type {
   ParameterObject,
@@ -49,7 +51,9 @@ required: [id]
 `,
     });
 
-    const ir = await toIR({ spec: await loadSpec(join(dir, 'openapi.yaml')) });
+    const ir = await toIR({
+      spec: (await loadSpec(join(dir, 'openapi.yaml'))).spec,
+    });
     const response = (ir.paths['/pets/{id}']?.get as TunedOperationObject)
       .responses['200'];
 
@@ -98,7 +102,9 @@ Owner:
 `,
     });
 
-    const ir = await toIR({ spec: await loadSpec(join(dir, 'openapi.yaml')) });
+    const ir = await toIR({
+      spec: (await loadSpec(join(dir, 'openapi.yaml'))).spec,
+    });
     const pet = ir.components.schemas['pet'] as SchemaObject;
 
     assert.deepEqual(pet.properties?.['owner'], {
@@ -154,7 +160,9 @@ properties:
 `,
     });
 
-    const ir = await toIR({ spec: await loadSpec(join(dir, 'openapi.yaml')) });
+    const ir = await toIR({
+      spec: (await loadSpec(join(dir, 'openapi.yaml'))).spec,
+    });
 
     assert.deepEqual(
       Object.keys(ir.components.schemas).filter((name) =>
@@ -203,7 +211,7 @@ properties:
       `(async () => {
         const { parentPort, workerData } = await import('node:worker_threads');
         const { loadSpec, toIR } = await import('@sdk-it/spec');
-        const ir = await toIR({ spec: await loadSpec(workerData) });
+        const ir = await toIR({ spec: (await loadSpec(workerData)).spec });
         parentPort.postMessage(ir.components.schemas);
       })();`,
       { eval: true, workerData: join(dir, 'openapi.yaml') },
@@ -272,7 +280,9 @@ get:
 `,
     });
 
-    const ir = await toIR({ spec: await loadSpec(join(dir, 'openapi.yaml')) });
+    const ir = await toIR({
+      spec: (await loadSpec(join(dir, 'openapi.yaml'))).spec,
+    });
     const listPets = ir.paths['/pets']?.get as TunedOperationObject;
 
     assert.equal(
@@ -330,7 +340,9 @@ properties:
 `,
     });
 
-    const ir = await toIR({ spec: await loadSpec(join(dir, 'openapi.yaml')) });
+    const ir = await toIR({
+      spec: (await loadSpec(join(dir, 'openapi.yaml'))).spec,
+    });
 
     assert.deepEqual(
       (ir.components.schemas['wrapper'] as SchemaObject).properties?.['shared'],
@@ -368,7 +380,7 @@ paths:
     });
 
     await assert.rejects(
-      toIR({ spec: await loadSpec(join(dir, 'openapi.yaml')) }),
+      loadSpec(join(dir, 'openapi.yaml')),
       /Could not resolve \$ref \.\/missing\.yaml/,
     );
   } finally {
@@ -401,4 +413,180 @@ test('a relative external reference in a spec without $self rejects with a clear
     }),
     /Could not resolve \$ref \.\/pet\.yaml .*no \$self/,
   );
+});
+
+test('loadSpec lists every document the spec was read from, entry first', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'sdk-it-external-refs-'));
+  try {
+    await writeFiles(dir, {
+      'openapi.yaml': `
+openapi: 3.1.0
+info: { title: Pets, version: 1.0.0 }
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        '200':
+          description: Pets
+          content:
+            application/json:
+              schema: { $ref: './schemas/pet.yaml' }
+`,
+      'schemas/pet.yaml': `
+type: object
+properties:
+  owner: { $ref: './owner.yaml#/Owner' }
+`,
+      'schemas/owner.yaml': `
+Owner: { type: object, properties: { name: { type: string } } }
+`,
+    });
+
+    const { documents } = await loadSpec(join(dir, 'openapi.yaml'));
+
+    assert.deepEqual(documents, [
+      pathToFileURL(join(dir, 'openapi.yaml')).href,
+      pathToFileURL(join(dir, 'schemas/pet.yaml')).href,
+      pathToFileURL(join(dir, 'schemas/owner.yaml')).href,
+    ]);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadSpec returns a spec with no references to other files', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'sdk-it-external-refs-'));
+  try {
+    await writeFiles(dir, {
+      'openapi.yaml': `
+openapi: 3.1.0
+info: { title: Pets, version: 1.0.0 }
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        '200':
+          description: Pets
+          content:
+            application/json:
+              schema: { $ref: './schemas/pet.yaml' }
+`,
+      'schemas/pet.yaml': `
+type: object
+properties:
+  owner: { $ref: './owner.yaml#/Owner' }
+`,
+      'schemas/owner.yaml': `
+Owner: { type: object, properties: { name: { type: string } } }
+`,
+    });
+
+    const { spec } = await loadSpec(join(dir, 'openapi.yaml'));
+
+    const response = spec.paths?.['/pets']?.get?.responses?.[
+      '200'
+    ] as ResponseObject;
+    assert.deepEqual(response.content?.['application/json'].schema, {
+      $ref: '#/components/schemas/pet',
+    });
+    const pet = spec.components?.schemas?.['pet'] as SchemaObject;
+    assert.deepEqual(pet.properties?.['owner'], {
+      $ref: '#/components/schemas/Owner',
+    });
+    assert.ok(spec.components?.schemas?.['Owner']);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadSpec lists the document a security scheme URI points to', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'sdk-it-external-refs-'));
+  try {
+    await writeFiles(dir, {
+      'openapi.yaml': `
+openapi: 3.2.0
+info: { title: Records, version: 1.0.0 }
+paths:
+  /records:
+    get:
+      operationId: getRecords
+      security:
+        - './auth.yaml#/components/securitySchemes/key': []
+      responses:
+        '204': { description: OK }
+`,
+      'auth.yaml': `
+components:
+  securitySchemes:
+    key: { type: apiKey, in: header, name: X-Key }
+`,
+    });
+
+    const { spec, documents } = await loadSpec(join(dir, 'openapi.yaml'));
+
+    assert.deepEqual(documents, [
+      pathToFileURL(join(dir, 'openapi.yaml')).href,
+      pathToFileURL(join(dir, 'auth.yaml')).href,
+    ]);
+    assert.deepEqual(spec.components?.securitySchemes, {
+      key: { type: 'apiKey', in: 'header', name: 'X-Key' },
+    });
+    assert.deepEqual(spec.paths?.['/records']?.get?.security, [{ key: [] }]);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a document used by a $ref and a security scheme URI is fetched once across loadSpec and toIR', async () => {
+  const requested: (string | undefined)[] = [];
+  await using server = await new HttpServer().start((request, response) => {
+    requested.push(request.url);
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(
+      JSON.stringify(
+        request.url === '/openapi.json'
+          ? {
+              openapi: '3.2.0',
+              info: { title: 'Pets', version: '1.0.0' },
+              paths: {
+                '/pets': {
+                  get: {
+                    operationId: 'listPets',
+                    security: [
+                      { './shared.json#/components/securitySchemes/key': [] },
+                    ],
+                    responses: {
+                      '200': {
+                        description: 'Pets',
+                        content: {
+                          'application/json': {
+                            schema: { $ref: './shared.json#/Pet' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            }
+          : {
+              Pet: { type: 'object', properties: { id: { type: 'string' } } },
+              components: {
+                securitySchemes: {
+                  key: { type: 'apiKey', in: 'header', name: 'X-Key' },
+                },
+              },
+            },
+      ),
+    );
+  });
+
+  const { spec } = await loadSpec(`${server.origin}/openapi.json`);
+  const ir = await toIR({ spec });
+
+  assert.deepEqual(requested, ['/openapi.json', '/shared.json']);
+  assert.ok(ir.components.schemas['Pet']);
+  assert.ok(ir.components.securitySchemes['key']);
 });

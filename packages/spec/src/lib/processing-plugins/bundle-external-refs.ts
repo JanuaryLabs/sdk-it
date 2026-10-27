@@ -1,4 +1,4 @@
-import { isRef } from '@sdk-it/core';
+import { type OpenAPIDocument, isRef } from '@sdk-it/core';
 
 import {
   type Documents,
@@ -9,7 +9,6 @@ import {
   splitFragment,
 } from '../external-documents.js';
 import type { ProcessingPlugin } from '../processing.js';
-import type { IR } from '../types.js';
 
 type NodeType =
   | 'Schema'
@@ -77,7 +76,7 @@ const schemaDataKeys = new Set([
 ]);
 
 interface Bundle {
-  spec: IR;
+  spec: OpenAPIDocument;
   root: string | undefined;
   documents: Documents;
   hoisted: Map<string, string>;
@@ -86,30 +85,41 @@ interface Bundle {
 
 /**
  * The IR holds only local `#/…` references; every later plugin relies on it.
- * External references are brought in before anything else runs: each target
- * is hoisted into the components section its position calls for and the
- * reference rewritten to it, resolving relative references against the
- * document that holds them.
+ * External references are brought in before anything else runs. A spec from
+ * `loadSpec` is already bundled, so this only acts on a spec given as an object.
  */
 export function bundleExternalRefs(): ProcessingPlugin {
   return {
     name: 'bundle-external-refs',
-    async process({ spec }) {
-      const bundle: Bundle = {
-        spec,
-        root: spec.$self,
-        documents: new Map(),
-        hoisted: new Map(),
-        inlining: new Set(),
-      };
-      await visitMap(spec.paths, 'PathItem', bundle.root, bundle);
-      await visitMap(spec.webhooks, 'PathItem', bundle.root, bundle);
-      const components = spec.components as Record<string, Node | undefined>;
-      for (const [section, type] of Object.entries(componentTypes)) {
-        await visitMap(components[section], type, bundle.root, bundle);
-      }
+    process({ spec }) {
+      return bundleDocument(spec, new Map());
     },
   };
+}
+
+/**
+ * Hoists each external `$ref` target into the components section its
+ * position calls for and rewrites the reference to it, resolving relative
+ * references against the document that holds them. Every document read is
+ * recorded in `documents`.
+ */
+export async function bundleDocument(
+  spec: OpenAPIDocument,
+  documents: Documents,
+) {
+  const bundle: Bundle = {
+    spec,
+    root: spec.$self,
+    documents,
+    hoisted: new Map(),
+    inlining: new Set(),
+  };
+  await visitMap(spec.paths, 'PathItem', bundle.root, bundle);
+  await visitMap(spec.webhooks, 'PathItem', bundle.root, bundle);
+  const components = spec.components as Record<string, Node | undefined>;
+  for (const [section, type] of Object.entries(componentTypes)) {
+    await visitMap(components?.[section], type, bundle.root, bundle);
+  }
 }
 
 async function visit(
@@ -177,7 +187,10 @@ async function visitRef(
     return inlined;
   }
 
-  const components = bundle.spec.components as Record<string, Node | undefined>;
+  const components = (bundle.spec.components ??= {}) as Record<
+    string,
+    Node | undefined
+  >;
   const registry = (components[section] ??= {});
   const name = availableName(
     registry,

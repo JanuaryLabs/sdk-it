@@ -205,7 +205,7 @@ test('loadSpec stamps $self so a relative URI has a base to resolve against', as
     const location = join(directory, 'openapi.json');
     writeFileSync(location, JSON.stringify(specWith('bearer')));
 
-    const spec = (await loadSpec(location)) as OpenAPIDocument;
+    const spec = (await loadSpec(location)).spec as OpenAPIDocument;
 
     assert.equal(spec.$self, pathToFileURL(location).href);
   } finally {
