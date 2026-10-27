@@ -109,7 +109,6 @@ export function generateCode(config: {
   const endpoints: Record<string, ReturnType<typeof toEndpoint>[]> = {};
 
   forEachOperation(config.spec, (entry, operation) => {
-    console.log(`Processing ${entry.method} ${entry.path}`);
     groups[entry.tag] ??= [];
     endpoints[entry.tag] ??= [];
     const schemas: Record<string, string> = {};
