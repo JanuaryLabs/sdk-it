@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
-import { type Plugin } from 'vite';
+import { type FSWatcher, type Plugin, normalizePath } from 'vite';
 
 import { loadSpec } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
@@ -77,9 +77,24 @@ function functionPlugin(
 function filePlugin(openapi: string, settings: Settings): Omit<Plugin, 'name'> {
   let watchPath: string | null = null;
   let sourceRef: string | null = null;
+  let watcher: FSWatcher | undefined;
+  // Every local file the spec was read from; an edit to any of them regenerates.
+  let watched = new Set<string>();
+  let loads = 0;
+
+  const watch = (documents: string[]) => {
+    watched = new Set(
+      documents
+        .filter((document) => document.startsWith('file:'))
+        .map((document) => normalizePath(fileURLToPath(document))),
+    );
+    watcher?.add([...watched]);
+  };
 
   const generateIfNeeded = async (ref: string) => {
-    const spec = await loadSpec(ref);
+    const load = ++loads;
+    const { spec, documents } = await loadSpec(ref);
+    if (load === loads) watch(documents);
     return cachedGeneration(settings.output, hashSpec(spec), async () => {
       console.log(`${chalk.blue('SDKIT')}: Generating SDK.`);
       await generate(spec, settings);
@@ -89,20 +104,26 @@ function filePlugin(openapi: string, settings: Settings): Omit<Plugin, 'name'> {
 
   return {
     configureServer(server) {
-      if (!sourceRef) return;
+      const ref = sourceRef;
+      if (!ref) return;
 
       if (!watchPath) return;
       console.log(
         `${chalk.blue('SDKIT')}: Watching for spec changes in`,
         watchPath,
       );
-      server.watcher.add(watchPath);
-      server.watcher.on('change', async (file) => {
-        if (file === watchPath) {
-          console.log(`${chalk.blue('SDKIT')}: OpenAPI spec changed`, file);
-          await generateIfNeeded(sourceRef!);
-        }
-      });
+      watcher = server.watcher;
+      watcher.add([...watched]);
+      const regenerate = (file: string) => {
+        if (!watched.has(normalizePath(file))) return;
+        console.log(`${chalk.blue('SDKIT')}: OpenAPI spec changed`, file);
+        // A half-saved file fails to load; the next save tries again.
+        generateIfNeeded(ref).catch((error: unknown) =>
+          console.error(`${chalk.red('SDKIT')}: SDK generation failed.`, error),
+        );
+      };
+      watcher.on('change', regenerate);
+      watcher.on('add', regenerate);
     },
     async buildStart() {
       if (!sourceRef) return;
@@ -118,6 +139,7 @@ function filePlugin(openapi: string, settings: Settings): Omit<Plugin, 'name'> {
         watchPath = join(config.root, openapi);
         sourceRef = join(config.root, openapi);
       }
+      if (watchPath) watched = new Set([normalizePath(watchPath)]);
     },
   };
 }
