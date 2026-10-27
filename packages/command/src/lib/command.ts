@@ -15,9 +15,11 @@ export interface CommandOptions extends Partial<ClientOptions> {
   baseUrlEnv?: string;
 }
 
-function coerceSpec(spec: string | OpenAPIObject): Promise<OpenAPIObject> {
-  if (typeof spec === 'string') return loadSpec(spec);
-  return Promise.resolve(spec);
+async function coerceSpec(
+  spec: string | OpenAPIObject,
+): Promise<OpenAPIObject> {
+  if (typeof spec === 'string') return (await loadSpec(spec)).spec;
+  return spec;
 }
 
 export async function command(

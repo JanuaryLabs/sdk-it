@@ -242,7 +242,7 @@ export async function rpc(
   openapi: string,
   options?: Partial<ClientOptions>,
 ): Promise<Client> {
-  const spec = await loadSpec(openapi);
+  const { spec } = await loadSpec(openapi);
   const ir = await toIR({
     spec,
     responses: { flattenErrorResponses: true },
@@ -256,7 +256,7 @@ export async function toAgents(
     useTools?: 'defined';
   },
 ) {
-  const spec = await loadSpec(openapi);
+  const { spec } = await loadSpec(openapi);
   const ir = await toIR({
     spec,
     responses: { flattenErrorResponses: true },

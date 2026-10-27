@@ -35,7 +35,7 @@ export default new Command('dart')
   });
 
 async function runDart(options: Options) {
-  await generate(await loadSpec(options.spec), {
+  await generate((await loadSpec(options.spec)).spec, {
     output: options.output,
     mode: options.mode || 'full',
     name: options.name,

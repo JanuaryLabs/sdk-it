@@ -81,7 +81,7 @@ async function runTypescript(options: Options) {
   if (!options.publish && !options.output) {
     throw new Error('Error: --publish or --output option is required.');
   }
-  const spec = await loadSpec(options.spec);
+  const { spec } = await loadSpec(options.spec);
 
   if (options.output) {
     await emitLocal(spec, {

@@ -110,7 +110,7 @@ export async function loader({
         'https://api.openstatus.dev/v1/openapi'
       : // ?'https://raw.githubusercontent.com/readmeio/oas-examples/main/3.1/json/petstore.json'
         '');
-  const spec = await toIR({ spec: await loadSpec(specUrl) });
+  const spec = await toIR({ spec: (await loadSpec(specUrl)).spec });
 
   const operationsMap: Record<
     string,

@@ -6,9 +6,12 @@ import { writeFiles } from '@sdk-it/core/file-system.js';
 import { type NavItem, loadSpec, toIR } from '@sdk-it/spec';
 
 const spec = await toIR({
-  spec: await loadSpec(
-    process.env.VITE_SPEC || join(import.meta.dirname, '..', 'openapi.ci.json'),
-  ),
+  spec: (
+    await loadSpec(
+      process.env.VITE_SPEC ||
+        join(import.meta.dirname, '..', 'openapi.ci.json'),
+    )
+  ).spec,
 });
 
 const template = await readFile(

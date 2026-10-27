@@ -511,7 +511,7 @@ Owner:
 `,
     );
 
-    await generate(await loadSpec(join(specDir, 'openapi.yaml')), {
+    await generate((await loadSpec(join(specDir, 'openapi.yaml'))).spec, {
       output: dir,
       name: 'Pets',
       readme: false,
