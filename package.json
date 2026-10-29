@@ -158,5 +158,13 @@
     "vite-plugin-singlefile": "^2.2.0",
     "yaml": "^2.8.0",
     "zod": "^4.3.0"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "core-js": false,
+    "nx": false,
+    "unrs-resolver": false,
+    "@swc/core": false,
+    "@tailwindcss/oxide": false
   }
 }
