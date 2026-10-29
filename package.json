@@ -16,9 +16,6 @@
     "check:data": "node tools/check-data-files.mjs",
     "check:links": "node tools/check-markdown-links.mjs"
   },
-  "engines": {
-    "node": ">=24 <26"
-  },
   "repository": "https://github.com/JanuaryLabs/sdk-it",
   "private": true,
   "devDependencies": {

@@ -197,7 +197,6 @@ void invalid;
             bundle: true,
             platform: 'node',
             format: 'esm',
-            target: 'node24',
             logLevel: 'silent',
           });
           await using server = await new HttpServer().start(

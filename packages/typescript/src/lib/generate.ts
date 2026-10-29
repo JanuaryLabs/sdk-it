@@ -257,9 +257,6 @@ ${template(dispatcherTxt, {})()}`,
             name: packageName,
             version: '0.0.1',
             type: 'module',
-            ...(settings.agentTools === 'ai-sdk'
-              ? { engines: { node: '>=22' } }
-              : {}),
             main: './src/index.ts',
             module: './src/index.ts',
             types: './src/index.ts',

@@ -2,9 +2,6 @@
   "name": "@sdk-it/rpc",
   "version": "0.46.11",
   "type": "module",
-  "engines": {
-    "node": ">=22"
-  },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",

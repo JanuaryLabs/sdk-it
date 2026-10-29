@@ -1,18 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { promisify } from 'node:util';
-
-const require = createRequire(import.meta.url);
-
-test('the published package declares the Node requirement of AI SDK 7', () => {
-  const manifest = require('@sdk-it/rpc/package.json') as {
-    engines?: { node?: string };
-  };
-
-  assert.strictEqual(manifest.engines?.node, '>=22');
-});
 
 test('the package loads in a project without the TypeScript compiler installed', async () => {
   const withoutTypeScript = `

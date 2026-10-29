@@ -115,7 +115,6 @@ export async function exercise(baseUrl: string) {
         bundle: true,
         platform: 'node',
         format: 'esm',
-        target: 'node24',
         logLevel: 'silent',
       });
       const requests: string[] = [];

@@ -1,5 +1,6 @@
 #syntax=docker/dockerfile:1.7-labs
 FROM node:lts-alpine AS base
+RUN npm install -g npm@latest
 
 FROM base AS builder
 WORKDIR /app

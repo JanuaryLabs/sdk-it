@@ -346,7 +346,6 @@ export async function exercise(fetch: typeof globalThis.fetch, expected: unknown
             bundle: true,
             platform: 'node',
             format: 'esm',
-            target: 'node24',
             logLevel: 'silent',
           });
           await (

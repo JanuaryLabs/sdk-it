@@ -196,7 +196,6 @@ export type InferData<E extends keyof typeof schemas> =
       outfile: outFile,
       format: 'esm',
       platform: 'node',
-      target: 'node20',
       absWorkingDir: dir,
       nodePaths: [join(repoRoot, 'node_modules')],
       logLevel: 'silent',

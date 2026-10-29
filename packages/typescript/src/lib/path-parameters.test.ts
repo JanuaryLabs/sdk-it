@@ -75,7 +75,6 @@ void test.each(
           bundle: true,
           format: 'esm',
           platform: 'node',
-          target: 'node24',
           nodePaths: [
             fileURLToPath(new URL('../../../../node_modules', import.meta.url)),
           ],

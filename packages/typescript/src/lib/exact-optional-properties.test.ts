@@ -220,7 +220,6 @@ void invalid;
           bundle: true,
           platform: 'node',
           format: 'esm',
-          target: 'node24',
           logLevel: 'silent',
         });
         await (await import(pathToFileURL(bundle).href)).exercise();
