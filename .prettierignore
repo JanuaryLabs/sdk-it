@@ -4,3 +4,4 @@
 /.nx/cache
 /.nx/workspace-data
 /registry/verdaccio/storage
+/packages/apiref/.react-router
