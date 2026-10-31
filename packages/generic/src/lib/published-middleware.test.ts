@@ -32,7 +32,7 @@ test('published middleware preserves source error responses through client gener
     const packageRoot = dirname(require.resolve('@sdk-it/hono/package.json'));
     const modules = dirname(dirname(require.resolve('zod/package.json')));
     const installed = join(dir, 'node_modules/@sdk-it/hono');
-    const [packed] = JSON.parse(
+    const { '@sdk-it/hono': packed } = JSON.parse(
       execFileSync(
         'npm',
         [
