@@ -962,3 +962,87 @@ describe('Response Analyzer', () => {
     });
   });
 });
+
+describe('status and Content-Type constant resolution', () => {
+  test('rejects a status code that is not a numeric literal', async () => {
+    await assert.rejects(
+      analyzeHandler(`
+        (() => {
+          enum Status {
+            Created = 201,
+          }
+          return (c: any) => {
+            return c.json({ id: 1 }, Status.Created);
+          };
+        })()
+      `),
+      /Could not resolve status code/,
+    );
+  });
+
+  test('falls back to the method content type when Content-Type is not a constant', async () => {
+    const responses = await analyzeHandler(`
+      (c: any, contentType: string) => {
+        return c.body('a,b', 200, { 'Content-Type': contentType });
+      }
+    `);
+
+    assert.deepStrictEqual(
+      responses.map(({ contentType, statusCode }) => ({
+        contentType,
+        statusCode,
+      })),
+      [{ contentType: 'application/octet-stream', statusCode: '200' }],
+    );
+  });
+
+  test('resolves a Content-Type union whose members share one value', async () => {
+    const responses = await analyzeHandler(`
+      (() => {
+        enum ContentType {
+          Csv = 'text/csv',
+        }
+        const preferEnum = Math.random() > 0.5;
+        return (c: any) => {
+          const contentType = preferEnum ? ContentType.Csv : 'text/csv';
+          return c.body('a,b', 200, { 'Content-Type': contentType });
+        };
+      })()
+    `);
+
+    assert.deepStrictEqual(
+      responses.map(({ contentType }) => contentType),
+      ['text/csv'],
+    );
+  });
+
+  test('falls back to the method content type when a Content-Type union has different values', async () => {
+    const responses = await analyzeHandler(`
+      (() => {
+        const preferCsv = Math.random() > 0.5;
+        return (c: any) => {
+          const contentType = preferCsv ? 'text/csv' : 'application/pdf';
+          return c.body('a,b', 200, { 'Content-Type': contentType });
+        };
+      })()
+    `);
+
+    assert.deepStrictEqual(
+      responses.map(({ contentType }) => contentType),
+      ['application/octet-stream'],
+    );
+  });
+
+  test('resolves a Content-Type written as a template literal without substitutions', async () => {
+    const responses = await analyzeHandler(`
+      (c: any) => {
+        return c.body('a,b', 200, { 'Content-Type': \`text/csv\` });
+      }
+    `);
+
+    assert.deepStrictEqual(
+      responses.map(({ contentType }) => contentType),
+      ['text/csv'],
+    );
+  });
+});
