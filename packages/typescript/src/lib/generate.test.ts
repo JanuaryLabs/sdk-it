@@ -1,3 +1,4 @@
+import { API } from '@typescript/native/sync';
 import { describe, test } from '@zukhruf/testing/node';
 import { build as esbuild } from 'esbuild';
 import assert from 'node:assert/strict';
@@ -15,8 +16,8 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createContext, runInContext } from 'node:vm';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
-import ts from 'typescript';
 
+import { preEmitDiagnostics } from '@sdk-it/core/program.js';
 import { loadSpec } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
 
@@ -29,25 +30,13 @@ const repoRoot = join(
 );
 
 function compileGeneratedProject(dir: string) {
-  const configPath = join(dir, 'tsconfig.json');
-  const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
-  const parsedConfig = ts.parseJsonConfigFileContent(
-    configFile.config,
-    ts.sys,
-    dir,
-  );
-  const program = ts.createProgram(
-    parsedConfig.fileNames,
-    parsedConfig.options,
-  );
-  return ts.getPreEmitDiagnostics(program).map((diagnostic) => ({
-    file: diagnostic.file?.fileName,
-    line:
-      diagnostic.file && diagnostic.start !== undefined
-        ? diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start).line +
-          1
-        : undefined,
-    message: ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
+  using api = new API();
+  const parsed = api.parseConfigFile(join(dir, 'tsconfig.json'));
+  using program = api.createProgram(parsed.fileNames, parsed.options);
+  return preEmitDiagnostics(program).map((diagnostic) => ({
+    file: diagnostic.fileName,
+    line: diagnostic.startPosition && diagnostic.startPosition.line + 1,
+    message: diagnostic.text,
   }));
 }
 
@@ -2513,13 +2502,10 @@ function specWithModels(names: string[]): OpenAPIObject {
 }
 
 function rootExports(dir: string) {
-  const parsed = ts.parseJsonConfigFileContent(
-    ts.readConfigFile(join(dir, 'tsconfig.json'), ts.sys.readFile).config,
-    ts.sys,
-    dir,
-  );
-  const program = ts.createProgram(parsed.fileNames, parsed.options);
-  const checker = program.getTypeChecker();
+  using api = new API();
+  const parsed = api.parseConfigFile(join(dir, 'tsconfig.json'));
+  using program = api.createProgram(parsed.fileNames, parsed.options);
+  const checker = program.getProject().checker;
   const index = program.getSourceFile(join(dir, 'src', 'index.ts'));
   assert.ok(index);
   const module = checker.getSymbolAtLocation(index);

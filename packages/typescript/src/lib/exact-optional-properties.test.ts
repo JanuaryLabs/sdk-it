@@ -1,3 +1,7 @@
+import {
+  API,
+  formatDiagnosticsWithColorAndContext,
+} from '@typescript/native/sync';
 import { test } from '@zukhruf/testing/node';
 import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
@@ -5,8 +9,8 @@ import { mkdtempDisposable, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
-import ts from 'typescript';
 
+import { preEmitDiagnostics } from '@sdk-it/core/program.js';
 import { generate } from '@sdk-it/typescript';
 
 void test.each(['full', 'minimal'] as const, (mode) =>
@@ -182,7 +186,8 @@ function invalid(client: Exact) {
 void invalid;
 `,
         );
-        const config = ts.parseJsonConfigFileContent(
+        using api = new API();
+        const config = api.parseJsonConfigFileContent(
           {
             compilerOptions: {
               target: 'ESNext',
@@ -197,21 +202,15 @@ void invalid;
             },
             include: ['**/*.ts'],
           },
-          ts.sys,
-          source,
+          { configDirectory: source },
         );
         assert.deepEqual(config.errors, []);
-        const diagnostics = ts.getPreEmitDiagnostics(
-          ts.createProgram(config.fileNames, config.options),
-        );
+        using program = api.createProgram(config.fileNames, config.options);
+        const diagnostics = preEmitDiagnostics(program);
         assert.equal(
           diagnostics.length,
           0,
-          ts.formatDiagnosticsWithColorAndContext(diagnostics, {
-            getCanonicalFileName: (file) => file,
-            getCurrentDirectory: () => source,
-            getNewLine: () => '\n',
-          }),
+          formatDiagnosticsWithColorAndContext(diagnostics, program),
         );
         const bundle = join(workspace.path, 'consumer.mjs');
         await build({

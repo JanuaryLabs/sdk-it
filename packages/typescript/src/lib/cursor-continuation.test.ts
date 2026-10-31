@@ -1,3 +1,7 @@
+import {
+  API,
+  formatDiagnosticsWithColorAndContext,
+} from '@typescript/native/sync';
 import { HttpServer } from '@zukhruf/testing/http';
 import { test } from '@zukhruf/testing/node';
 import { build, stop } from 'esbuild';
@@ -6,8 +10,8 @@ import { mkdtempDisposable, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
-import ts from 'typescript';
 
+import { preEmitDiagnostics } from '@sdk-it/core/program.js';
 import { toIR } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
 
@@ -325,7 +329,8 @@ export async function exercise(baseUrl: string) {
 }
 `,
             );
-            const config = ts.parseJsonConfigFileContent(
+            using api = new API();
+            const config = api.parseJsonConfigFileContent(
               {
                 compilerOptions: {
                   target: 'ESNext',
@@ -340,21 +345,15 @@ export async function exercise(baseUrl: string) {
                 },
                 include: ['**/*.ts'],
               },
-              ts.sys,
-              source,
+              { configDirectory: source },
             );
             assert.deepEqual(config.errors, []);
-            const diagnostics = ts.getPreEmitDiagnostics(
-              ts.createProgram(config.fileNames, config.options),
-            );
+            using program = api.createProgram(config.fileNames, config.options);
+            const diagnostics = preEmitDiagnostics(program);
             assert.equal(
               diagnostics.length,
               0,
-              ts.formatDiagnosticsWithColorAndContext(diagnostics, {
-                getCanonicalFileName: (file) => file,
-                getCurrentDirectory: () => source,
-                getNewLine: () => '\n',
-              }),
+              formatDiagnosticsWithColorAndContext(diagnostics, program),
             );
             const bundle = join(workspace.path, 'consumer.mjs');
             await build({

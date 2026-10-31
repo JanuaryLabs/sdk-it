@@ -1,11 +1,15 @@
+import {
+  API,
+  formatDiagnosticsWithColorAndContext,
+} from '@typescript/native/sync';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
 import { mkdtempDisposable, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
-import ts from 'typescript';
 
+import { preEmitDiagnostics } from '@sdk-it/core/program.js';
 import { generate } from '@sdk-it/typescript';
 
 void test.each(
@@ -118,22 +122,17 @@ void [omitted, present, withNote, absent, nullValue, missingRequired, undefinedR
       const configPath = join(workspace.path, 'tsconfig.json');
       const config = JSON.parse(await readFile(configPath, 'utf8'));
       config.compilerOptions.strict = true;
-      const parsed = ts.parseJsonConfigFileContent(
-        config,
-        ts.sys,
-        workspace.path,
-      );
+      using api = new API();
+      const parsed = api.parseJsonConfigFileContent(config, {
+        configDirectory: workspace.path,
+      });
       assert.deepEqual(parsed.errors, []);
-      const program = ts.createProgram(parsed.fileNames, parsed.options);
-      const diagnostics = ts.getPreEmitDiagnostics(program);
+      using program = api.createProgram(parsed.fileNames, parsed.options);
+      const diagnostics = preEmitDiagnostics(program);
       assert.equal(
         diagnostics.length,
         0,
-        ts.formatDiagnosticsWithColorAndContext(diagnostics, {
-          getCanonicalFileName: (file) => file,
-          getCurrentDirectory: () => workspace.path,
-          getNewLine: () => '\n',
-        }),
+        formatDiagnosticsWithColorAndContext(diagnostics, program),
       );
     }),
 );

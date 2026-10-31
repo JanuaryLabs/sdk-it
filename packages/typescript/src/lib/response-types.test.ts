@@ -1,12 +1,13 @@
+import { API } from '@typescript/native/sync';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
-import ts from 'typescript';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
+import { preEmitDiagnostics } from '@sdk-it/core/program.js';
 
 /**
  * Compile a temporary TypeScript project and return diagnostics.
@@ -14,31 +15,18 @@ import { writeFiles } from '@sdk-it/core/file-system.js';
 async function compileProject(files: Record<string, string>) {
   const dir = join(tmpdir(), 'sdk-it-type-test', crypto.randomUUID());
   await writeFiles(dir, files);
-  const configPath = join(dir, 'tsconfig.json');
-
-  const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
-  const parsedConfig = ts.parseJsonConfigFileContent(
-    configFile.config,
-    ts.sys,
-    dir,
-  );
-
-  const program = ts.createProgram(
-    parsedConfig.fileNames,
-    parsedConfig.options,
-  );
-  const diagnostics = ts.getPreEmitDiagnostics(program);
+  using api = new API();
+  const parsed = api.parseConfigFile(join(dir, 'tsconfig.json'));
+  using program = api.createProgram(parsed.fileNames, parsed.options);
+  const diagnostics = preEmitDiagnostics(program).map((d) => ({
+    message: d.text,
+    file: d.fileName,
+    line: d.startPosition && d.startPosition.line + 1,
+  }));
 
   await rm(dir, { recursive: true, force: true });
 
-  return diagnostics.map((d) => ({
-    message: ts.flattenDiagnosticMessageText(d.messageText, '\n'),
-    file: d.file?.fileName,
-    line:
-      d.file && d.start !== undefined
-        ? d.file.getLineAndCharacterOfPosition(d.start).line + 1
-        : undefined,
-  }));
+  return diagnostics;
 }
 
 describe('RebindSuccessPayload type correctness', () => {
