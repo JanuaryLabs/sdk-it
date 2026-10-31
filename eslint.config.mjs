@@ -72,6 +72,25 @@ export default [
       '@typescript-eslint/no-empty-interface': 'off',
       '@typescript-eslint/no-empty-object-type': 'off',
       '@typescript-eslint/no-empty-function': 'off',
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'typescript',
+              message:
+                "Import TypeScript 7 from '@typescript/native/*'. The root 'typescript' package is the TypeScript 6 API that Nx and typescript-eslint load.",
+            },
+          ],
+          patterns: [
+            {
+              group: ['typescript/*'],
+              message:
+                "Import TypeScript 7 from '@typescript/native/*'. The root 'typescript' package is the TypeScript 6 API that Nx and typescript-eslint load.",
+            },
+          ],
+        },
+      ],
       '@typescript-eslint/no-unused-vars': [
         'warn',
         {
