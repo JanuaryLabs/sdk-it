@@ -1,3 +1,4 @@
+import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
 import { reactRouter } from '@react-router/dev/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
@@ -26,7 +27,7 @@ export default defineConfig((config) => ({
       'decode-named-character-reference': './entities.ts',
     },
   },
-  plugins: [tailwindcss(), reactRouter()],
+  plugins: [tailwindcss(), reactRouter(), nxReadySignal()],
   build: {
     sourcemap: true,
     outDir: './dist',
