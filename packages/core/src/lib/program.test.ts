@@ -1,342 +1,135 @@
-import { strict as assert } from 'node:assert';
-import { describe, it } from 'node:test';
-import ts from 'typescript';
+import { API } from '@typescript/native/sync';
+import assert from 'node:assert/strict';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { describe, test } from 'node:test';
 
-import { isInterfaceType } from '@sdk-it/core/program.js';
+import {
+  openAnalysisProject,
+  preEmitDiagnostics,
+  sourceFiles,
+} from '@sdk-it/core/program.js';
 
-describe('isInterfaceType Helper Function - Error-First Testing', () => {
-  // Phase 1: Error-First Testing - Attack Before You Defend
-  describe('Error Cases and Invalid Inputs', () => {
-    it('throws TypeError when type.symbol is undefined', () => {
-      const mockType = {
-        isClassOrInterface: () => true,
-        symbol: undefined,
-      } as unknown as ts.Type;
+async function writeProject(files: Record<string, string>) {
+  const dir = await realpath(
+    await mkdtemp(join(tmpdir(), 'sdk-it-program-test-')),
+  );
+  for (const [file, content] of Object.entries(files)) {
+    await mkdir(dirname(join(dir, file)), { recursive: true });
+    await writeFile(join(dir, file), content);
+  }
+  return dir;
+}
 
+describe('preEmitDiagnostics', () => {
+  test('reports every diagnostic exactly once', async () => {
+    const dir = await writeProject({
+      'tsconfig.json': JSON.stringify({
+        compilerOptions: { strict: true, emitDeclarationOnly: true },
+        include: ['src'],
+      }),
+      'src/index.ts': 'let target = { a: 1 };\ndelete target;\nexport {};\n',
+    });
+    try {
+      using api = new API();
+      const parsed = api.parseConfigFile(join(dir, 'tsconfig.json'));
+      using program = api.createProgram(parsed.fileNames, parsed.options, {
+        configFileParsingDiagnostics: parsed.errors,
+      });
+
+      const codes = preEmitDiagnostics(program).map(({ code }) => code);
+
+      assert.deepStrictEqual(codes.toSorted(), [1102, 2703, 5069]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('openAnalysisProject', () => {
+  test('rejects a tsconfig that does not parse and names it', async () => {
+    const dir = await writeProject({
+      'tsconfig.json': JSON.stringify({
+        compilerOptions: { notAnOption: true },
+      }),
+      'index.ts': 'export {};\n',
+    });
+    try {
       assert.throws(
-        () => {
-          isInterfaceType(mockType);
+        () => openAnalysisProject(join(dir, 'tsconfig.json')),
+        (error: Error) => {
+          assert.match(error.message, /^Failed to parse .*tsconfig\.json/);
+          assert.match(error.message, /notAnOption/);
+          return true;
         },
-        TypeError,
-        'Should throw TypeError when accessing flags on undefined symbol',
       );
-    });
-
-    it('throws TypeError when type.symbol is null', () => {
-      const mockType = {
-        isClassOrInterface: () => true,
-        symbol: null,
-      } as unknown as ts.Type;
-
-      assert.throws(
-        () => {
-          isInterfaceType(mockType);
-        },
-        TypeError,
-        'Should throw TypeError when accessing flags on null symbol',
-      );
-    });
-
-    it('handles malformed type object missing isClassOrInterface method', () => {
-      const mockType = {
-        // Missing isClassOrInterface method
-        symbol: {
-          flags: ts.SymbolFlags.Interface,
-        },
-      } as unknown as ts.Type;
-
-      assert.throws(
-        () => {
-          isInterfaceType(mockType);
-        },
-        TypeError,
-        'Should throw when isClassOrInterface is not a function',
-      );
-    });
-
-    it('handles type with symbol missing flags property', () => {
-      const mockType = {
-        isClassOrInterface: () => true,
-        symbol: {}, // Missing flags property
-      } as unknown as ts.Type;
-
-      // Should default to falsy flags (undefined & Interface === 0)
-      const result = isInterfaceType(mockType);
-      assert.strictEqual(
-        result,
-        false,
-        'Should return false when flags property is missing',
-      );
-    });
-
-    it('handles type with symbol having non-numeric flags', () => {
-      const mockType = {
-        isClassOrInterface: () => true,
-        symbol: {
-          flags: 'invalid' as unknown,
-        },
-      } as unknown as ts.Type;
-
-      // Bitwise AND with string should result in 0 (falsy)
-      const result = isInterfaceType(mockType);
-      assert.strictEqual(
-        result,
-        false,
-        'Should return false when flags is not a number',
-      );
-    });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
-  // Phase 2: System Invariants Testing
-  describe('System Invariants', () => {
-    it('INVARIANT: Interface flag must be present for true result', () => {
-      // Test that ONLY when Interface flag is present, result is true
-      const interfaceType = {
-        isClassOrInterface: () => true,
-        symbol: {
-          flags: ts.SymbolFlags.Interface,
+  test('resolves packages through their @sdk-it/source export condition', async () => {
+    const dir = await writeProject({
+      'tsconfig.json': JSON.stringify({
+        compilerOptions: {
+          module: 'esnext',
+          moduleResolution: 'bundler',
+          strict: true,
         },
-      } as unknown as ts.Type;
-
-      const result = isInterfaceType(interfaceType);
-      assert.strictEqual(
-        result,
-        true,
-        'INVARIANT VIOLATED: Interface flag present but function returned false',
-      );
-    });
-
-    it('INVARIANT: Non-interface flags must result in false', () => {
-      // Select a set of flags that are clearly not interface flags
-      const nonInterfaceFlags = [
-        ts.SymbolFlags.Class,
-        ts.SymbolFlags.Function,
-        ts.SymbolFlags.Variable,
-        ts.SymbolFlags.Property,
-        ts.SymbolFlags.Enum,
-        ts.SymbolFlags.Module,
-        ts.SymbolFlags.Namespace,
-        // Removed TypeAliasExcludes which seems to have the Interface bit
-      ];
-
-      nonInterfaceFlags.forEach((flag) => {
-        const mockType = {
-          isClassOrInterface: () => true,
-          symbol: {
-            flags: flag,
+        include: ['src'],
+      }),
+      'src/main.ts':
+        "import { fromSource } from 'lib';\nexport { fromSource };\n",
+      'node_modules/lib/package.json': JSON.stringify({
+        name: 'lib',
+        exports: {
+          '.': {
+            '@sdk-it/source': './src/index.ts',
+            types: './dist/index.d.ts',
+            default: './dist/index.js',
           },
-        } as unknown as ts.Type;
-
-        const result = isInterfaceType(mockType);
-        assert.strictEqual(
-          result,
-          false,
-          `INVARIANT VIOLATED: Non-interface flag ${ts.SymbolFlags[flag]} (${flag}) returned true`,
-        );
-      });
-    });
-
-    it('INVARIANT: isClassOrInterface() false must always result in false', () => {
-      // Even with Interface flag, if isClassOrInterface is false, result must be false
-      const mockType = {
-        isClassOrInterface: () => false,
-        symbol: {
-          flags: ts.SymbolFlags.Interface,
         },
-      } as unknown as ts.Type;
-
-      const result = isInterfaceType(mockType);
-      assert.strictEqual(
-        result,
-        false,
-        'INVARIANT VIOLATED: isClassOrInterface() false should always result in false',
-      );
+      }),
+      'node_modules/lib/src/index.ts': 'export const fromSource = 1;\n',
+      'node_modules/lib/dist/index.d.ts':
+        'export declare const fromDeclarations: number;\n',
     });
+    try {
+      using project = openAnalysisProject(join(dir, 'tsconfig.json'));
+
+      const fileNames: readonly string[] = project.program.getSourceFileNames();
+
+      assert.ok(fileNames.includes(join(dir, 'node_modules/lib/src/index.ts')));
+      assert.ok(
+        !fileNames.includes(join(dir, 'node_modules/lib/dist/index.d.ts')),
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
+});
 
-  // Phase 3: State Transitions and Complex Scenarios
-  describe('Complex Flag Combinations', () => {
-    it('correctly handles combined flags including Interface', () => {
-      const combinedFlags = [
-        ts.SymbolFlags.Interface | ts.SymbolFlags.Type,
-        ts.SymbolFlags.Interface | ts.SymbolFlags.Alias,
-        ts.SymbolFlags.Interface | ts.SymbolFlags.Class, // Edge case
-        ts.SymbolFlags.Interface | ts.SymbolFlags.Function,
-      ];
-
-      combinedFlags.forEach((flags, index) => {
-        const mockType = {
-          isClassOrInterface: () => true,
-          symbol: { flags },
-        } as unknown as ts.Type;
-
-        const result = isInterfaceType(mockType);
-        assert.strictEqual(
-          result,
-          true,
-          `Combined flags case ${index + 1}: Interface flag present, should return true`,
-        );
-      });
+describe('sourceFiles', () => {
+  test('yields the program source files without declaration files', async () => {
+    const dir = await writeProject({
+      'tsconfig.json': JSON.stringify({
+        compilerOptions: { strict: true },
+        include: ['src'],
+      }),
+      'src/routes.ts': 'export const routes = 1;\n',
+      'src/env.d.ts': 'declare const ENV: string;\n',
     });
+    try {
+      using project = openAnalysisProject(join(dir, 'tsconfig.json'));
 
-    it('correctly handles combined flags excluding Interface', () => {
-      const combinedFlagsNoInterface = [
-        ts.SymbolFlags.Function | ts.SymbolFlags.Variable,
-        ts.SymbolFlags.Enum | ts.SymbolFlags.Module,
-        // Removed Class | Type which seems to include the Interface bit
-      ];
-
-      combinedFlagsNoInterface.forEach((flags, index) => {
-        // Explicitly check that the flags don't include the Interface bit
-        if ((flags & ts.SymbolFlags.Interface) !== 0) {
-          // Skip this test case if it includes the Interface bit
-          return;
-        }
-
-        const mockType = {
-          isClassOrInterface: () => true,
-          symbol: { flags },
-        } as unknown as ts.Type;
-
-        const result = isInterfaceType(mockType);
-        assert.strictEqual(
-          result,
-          false,
-          `Combined flags case ${index + 1}: No Interface flag, should return false`,
-        );
-      });
-    });
-
-    it('handles edge case with maximum flag value', () => {
-      const mockType = {
-        isClassOrInterface: () => true,
-        symbol: {
-          flags: Number.MAX_SAFE_INTEGER,
-        },
-      } as unknown as ts.Type;
-
-      // If Interface flag bit is set in MAX_SAFE_INTEGER, result should be true
-      const hasInterfaceFlag =
-        (Number.MAX_SAFE_INTEGER & ts.SymbolFlags.Interface) !== 0;
-      const result = isInterfaceType(mockType);
-      assert.strictEqual(
-        result,
-        hasInterfaceFlag,
-        'Edge case with maximum flag value should follow bitwise logic',
+      const fileNames = [...sourceFiles(project.program)].map(
+        ({ fileName }) => fileName,
       );
-    });
 
-    it('handles zero flags correctly', () => {
-      const mockType = {
-        isClassOrInterface: () => true,
-        symbol: {
-          flags: 0,
-        },
-      } as unknown as ts.Type;
-
-      const result = isInterfaceType(mockType);
-      assert.strictEqual(result, false, 'Zero flags should result in false');
-    });
-  });
-
-  // Phase 4: Boundary Testing
-  describe('Boundary Conditions', () => {
-    it('tests exact Interface flag value', () => {
-      const mockType = {
-        isClassOrInterface: () => true,
-        symbol: {
-          flags: ts.SymbolFlags.Interface,
-        },
-      } as unknown as ts.Type;
-
-      const result = isInterfaceType(mockType);
-      assert.strictEqual(
-        result,
-        true,
-        'Exact Interface flag should return true',
-      );
-    });
-
-    it('tests Interface flag minus one', () => {
-      const mockType = {
-        isClassOrInterface: () => true,
-        symbol: {
-          flags: ts.SymbolFlags.Interface - 1,
-        },
-      } as unknown as ts.Type;
-
-      const result = isInterfaceType(mockType);
-      assert.strictEqual(
-        result,
-        false,
-        'Interface flag minus one should not match',
-      );
-    });
-
-    it('tests Interface flag plus one', () => {
-      const flagValue = ts.SymbolFlags.Interface + 1;
-      const mockType = {
-        isClassOrInterface: () => true,
-        symbol: {
-          flags: flagValue,
-        },
-      } as unknown as ts.Type;
-
-      // Depends on whether the +1 creates a different valid flag
-      const hasInterfaceFlag = (flagValue & ts.SymbolFlags.Interface) !== 0;
-      const result = isInterfaceType(mockType);
-      assert.strictEqual(
-        result,
-        hasInterfaceFlag,
-        'Interface flag plus one should follow bitwise logic',
-      );
-    });
-  });
-
-  // Phase 5: Happy Path Tests (Last)
-  describe('Happy Path Scenarios', () => {
-    it('correctly identifies interface types', () => {
-      const mockType = {
-        isClassOrInterface: () => true,
-        symbol: {
-          flags: ts.SymbolFlags.Interface,
-        },
-      } as unknown as ts.Type;
-
-      const result = isInterfaceType(mockType);
-      assert.strictEqual(
-        result,
-        true,
-        'Should correctly identify interface types',
-      );
-    });
-
-    it('correctly rejects class types', () => {
-      const mockType = {
-        isClassOrInterface: () => true,
-        symbol: {
-          flags: ts.SymbolFlags.Class,
-        },
-      } as unknown as ts.Type;
-
-      const result = isInterfaceType(mockType);
-      assert.strictEqual(result, false, 'Should correctly reject class types');
-    });
-
-    it('correctly rejects primitive types', () => {
-      const mockType = {
-        isClassOrInterface: () => false,
-        symbol: {
-          flags: ts.SymbolFlags.None,
-        },
-      } as unknown as ts.Type;
-
-      const result = isInterfaceType(mockType);
-      assert.strictEqual(
-        result,
-        false,
-        'Should correctly reject primitive types',
-      );
-    });
+      assert.deepStrictEqual(fileNames, [join(dir, 'src/routes.ts')]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

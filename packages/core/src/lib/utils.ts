@@ -1,10 +1,14 @@
+import type {
+  ArrowFunction,
+  FunctionExpression,
+  Node,
+} from '@typescript/native/ast';
 import {
   camelcase as _camelcase,
   pascalcase as _pascalcase,
   snakecase as _snakecase,
   spinalcase as _spinalcase,
 } from 'stringcase';
-import type ts from 'typescript';
 
 import type { TypeDeriver } from './deriver';
 import type { ResponseItem } from './paths';
@@ -28,14 +32,14 @@ export function toLitObject<T extends Record<string, any>>(
 }
 
 export type NaunceResponseAnalyzerFn = (
-  handler: ts.ArrowFunction | ts.FunctionExpression,
+  handler: ArrowFunction | FunctionExpression,
   deriver: TypeDeriver,
-  node: ts.Node,
+  node: Node,
 ) => ResponseItem[];
 export type NaunceResponseAnalyzer = Record<string, NaunceResponseAnalyzerFn>;
 
 export type ResponseAnalyzerFn = (
-  handler: ts.ArrowFunction | ts.FunctionExpression,
+  handler: ArrowFunction | FunctionExpression,
   deriver: TypeDeriver,
 ) => ResponseItem[];
 

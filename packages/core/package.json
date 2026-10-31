@@ -27,24 +27,17 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "debug": "^4.4.0",
+    "@typescript/native": "npm:typescript@7.1.0-beta",
     "stringcase": "^4.3.1",
     "lodash-es": "^4.17.21"
   },
   "peerDependencies": {
     "zod": "^4.3.0",
-    "typescript": "^6.0.0",
     "openapi3-ts": "^4.4.0"
   },
   "peerDependenciesMeta": {
     "openapi3-ts": {
       "optional": true
-    },
-    "typescript": {
-      "optional": true
     }
-  },
-  "devDependencies": {
-    "@types/debug": "^4.1.12"
   }
 }

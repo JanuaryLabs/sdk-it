@@ -1,38 +1,61 @@
+import type { Expression, Node } from '@typescript/native/ast';
+import {
+  isClassDeclaration,
+  isIdentifier,
+  isInterfaceDeclaration,
+  isTypeAliasDeclaration,
+  isVariableDeclaration,
+} from '@typescript/native/ast/is';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
-import ts from 'typescript';
 
 import { $types, deriveSymbol, toSchema } from '@sdk-it/core';
 import { TypeDeriver } from '@sdk-it/core/deriver.js';
+import { openAnalysisProject } from '@sdk-it/core/program.js';
 
 async function createTestProject(
   code: string,
-  compilerOptions: ts.CompilerOptions = {},
+  compilerOptions: Record<string, unknown> = {},
 ) {
   const testDir = await mkdtemp(join(tmpdir(), 'ts-deriver-test-'));
   const filePath = join(testDir, 'main.ts');
+  const removeTestDir = () => rm(testDir, { recursive: true, force: true });
 
   await writeFile(filePath, code);
+  await writeFile(
+    join(testDir, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        target: 'esnext',
+        module: 'esnext',
+        strict: true,
+        ...compilerOptions,
+      },
+      files: ['main.ts'],
+    }),
+  );
 
-  const program = ts.createProgram([filePath], {
-    target: ts.ScriptTarget.ESNext,
-    module: ts.ModuleKind.ESNext,
-    strict: true,
-    ...compilerOptions,
-  });
-
-  const checker = program.getTypeChecker();
-  const sourceFile = program.getSourceFile(filePath);
+  let project: ReturnType<typeof openAnalysisProject>;
+  try {
+    project = openAnalysisProject(join(testDir, 'tsconfig.json'));
+  } catch (error) {
+    await removeTestDir();
+    throw error;
+  }
+  const sourceFile = project.program.getSourceFile(filePath);
 
   if (!sourceFile) throw new Error('Could not load source file');
 
   return {
-    checker,
+    checker: project.checker,
     sourceFile,
-    cleanup: () => rm(testDir, { recursive: true, force: true }),
+    cleanup: async () => {
+      project[Symbol.dispose]();
+      await removeTestDir();
+    },
   };
 }
 
@@ -40,18 +63,18 @@ async function deriveTypeFromCode(code: string, targetName: string) {
   const { checker, sourceFile, cleanup } = await createTestProject(code);
   try {
     const deriver = new TypeDeriver(checker);
-    let targetNode: ts.Node | undefined;
+    let targetNode: Node | undefined;
 
-    function visit(node: ts.Node) {
+    function visit(node: Node) {
       if (
-        (ts.isTypeAliasDeclaration(node) ||
-          ts.isInterfaceDeclaration(node) ||
-          ts.isClassDeclaration(node)) &&
+        (isTypeAliasDeclaration(node) ||
+          isInterfaceDeclaration(node) ||
+          isClassDeclaration(node)) &&
         node.name?.text === targetName
       ) {
         targetNode = node;
       } else {
-        ts.forEachChild(node, visit);
+        node.forEachChild(visit);
       }
     }
     visit(sourceFile);
@@ -71,7 +94,7 @@ async function deriveExpressionFromCode(
   code: string,
   targetName: string,
   typesMap?: Record<string, string>,
-  compilerOptions?: ts.CompilerOptions,
+  compilerOptions?: Record<string, unknown>,
 ) {
   const { checker, sourceFile, cleanup } = await createTestProject(
     code,
@@ -79,18 +102,18 @@ async function deriveExpressionFromCode(
   );
   try {
     const deriver = new TypeDeriver(checker, typesMap);
-    let targetNode: ts.Expression | undefined;
+    let targetNode: Expression | undefined;
 
-    function visit(node: ts.Node) {
+    function visit(node: Node) {
       if (
-        ts.isVariableDeclaration(node) &&
-        ts.isIdentifier(node.name) &&
+        isVariableDeclaration(node) &&
+        isIdentifier(node.name) &&
         node.name.text === targetName &&
         node.initializer
       ) {
         targetNode = node.initializer;
       } else {
-        ts.forEachChild(node, visit);
+        node.forEachChild(visit);
       }
     }
     visit(sourceFile);
@@ -567,11 +590,20 @@ describe('Type Derivation', () => {
       // `__type` is TS's synthetic name for anonymous/empty object types — the
       // `& {}` member shows up as a placeholder. `paths.ts:toSchema` strips it
       // when emitting OpenAPI (see ANON_OBJECT there).
+      // Member order is TypeScript 7's stable type ordering: string literals
+      // alphabetically, the intersection last.
       assert.deepStrictEqual(result, {
         [deriveSymbol]: true,
         optional: false,
         kind: 'union',
         [$types]: [
+          literal('Analyst'),
+          literal('Associate'),
+          literal('Associate Director'),
+          literal('Delivery Leader'),
+          literal('Director'),
+          literal('Project Leader'),
+          literal('Unknown'),
           {
             [deriveSymbol]: true,
             optional: false,
@@ -581,13 +613,6 @@ describe('Type Derivation', () => {
               { [deriveSymbol]: true, optional: false, [$types]: ['__type'] },
             ],
           },
-          literal('Director'),
-          literal('Associate Director'),
-          literal('Project Leader'),
-          literal('Delivery Leader'),
-          literal('Associate'),
-          literal('Analyst'),
-          literal('Unknown'),
         ],
       });
     });
@@ -926,9 +951,7 @@ describe('Type Derivation', () => {
       `);
 
       try {
-        const declaration = sourceFile.statements.find(
-          ts.isTypeAliasDeclaration,
-        );
+        const declaration = sourceFile.statements.find(isTypeAliasDeclaration);
         assert.ok(declaration);
 
         const deriver = new TypeDeriver(checker, {});
