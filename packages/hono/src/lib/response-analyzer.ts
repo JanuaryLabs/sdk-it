@@ -1,4 +1,33 @@
-import ts from 'typescript';
+import type {
+  ArrowFunction,
+  Expression,
+  FunctionExpression,
+  Node,
+  ObjectLiteralExpression,
+  PropertyName,
+} from '@typescript/native/ast';
+import {
+  isArrowFunction,
+  isAsExpression,
+  isBlock,
+  isCallExpression,
+  isComputedPropertyName,
+  isExpression,
+  isFunctionExpression,
+  isIdentifier,
+  isNewExpression,
+  isNumericLiteral,
+  isObjectLiteralExpression,
+  isParenthesizedExpression,
+  isPropertyAccessExpression,
+  isPropertyAssignment,
+  isReturnStatement,
+  isShorthandPropertyAssignment,
+  isStringLiteral,
+  isTypeAssertion,
+  isVariableDeclaration,
+} from '@typescript/native/ast/is';
+import type { Checker } from '@typescript/native/sync';
 
 import {
   $types,
@@ -11,48 +40,43 @@ import { getConstantValue } from './constant-value.js';
 
 const handlerVisitor: (
   on: (
-    node: ts.Node | undefined,
-    statusCode: ts.Node | undefined,
-    headers: ts.Node | undefined,
+    node: Node | undefined,
+    statusCode: Node | undefined,
+    headers: Node | undefined,
     contentType: string,
   ) => void,
   contextVarName: string,
-) => ts.Visitor = (callback, contextVarName) => {
-  return (node: ts.Node) => {
-    if (ts.isReturnStatement(node) && node.expression) {
-      if (ts.isCallExpression(node.expression)) {
-        if (ts.isPropertyAccessExpression(node.expression.expression)) {
-          const propAccess = node.expression.expression;
-          if (
-            ts.isIdentifier(propAccess.expression) &&
-            propAccess.expression.text === contextVarName
-          ) {
-            const [body, statusCode, headers] = node.expression.arguments;
-            let contentType = 'application/json';
-            const callerMethod = propAccess.name.text;
-            if (callerMethod === 'body') {
-              contentType = 'application/octet-stream';
-            }
-            if (!body) {
-              contentType = 'empty';
-            }
-            callback(body, statusCode, headers, contentType);
-          }
+) => (node: Node) => void = (callback, contextVarName) => {
+  return (node: Node) => {
+    if (
+      isReturnStatement(node) &&
+      node.expression &&
+      isCallExpression(node.expression) &&
+      isPropertyAccessExpression(node.expression.expression)
+    ) {
+      const call = node.expression;
+      const propAccess = node.expression.expression;
+      if (
+        isIdentifier(propAccess.expression) &&
+        propAccess.expression.text === contextVarName
+      ) {
+        const [body, statusCode, headers] = call.arguments;
+        let contentType = 'application/json';
+        if (propAccess.name.text === 'body') {
+          contentType = 'application/octet-stream';
         }
-        // if (ts.isIdentifier(node.expression.expression)) {
-        //   console.log('streamText');
-        //   if (node.expression.expression.text === 'streamText') {
-        //     callback(undefined, undefined, undefined, 'text/plain');
-        //   }
-        // }
+        if (!body) {
+          contentType = 'empty';
+        }
+        callback(body, statusCode, headers, contentType);
       }
     }
-    return ts.forEachChild(node, handlerVisitor(callback, contextVarName));
+    node.forEachChild(handlerVisitor(callback, contextVarName));
   };
 };
 
-function resolveStatusCode(node: ts.Node) {
-  if (ts.isNumericLiteral(node)) {
+function resolveStatusCode(node: Node) {
+  if (isNumericLiteral(node)) {
     return node.text;
   }
   throw new Error(`Could not resolve status code`);
@@ -66,18 +90,15 @@ function normalizeContentType(value: string | undefined) {
 }
 
 function getPropertyNameText(
-  name: ts.PropertyName,
-  checker: ts.TypeChecker,
+  name: PropertyName,
+  checker: Checker,
 ): string | undefined {
-  if (ts.isIdentifier(name)) {
+  if (isIdentifier(name) || isStringLiteral(name) || isNumericLiteral(name)) {
     return name.text;
   }
-  if (ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
-    return name.text;
-  }
-  if (ts.isComputedPropertyName(name)) {
+  if (isComputedPropertyName(name)) {
     const expression = name.expression;
-    if (ts.isStringLiteral(expression) || ts.isNumericLiteral(expression)) {
+    if (isStringLiteral(expression) || isNumericLiteral(expression)) {
       return expression.text;
     }
     const value = getConstantValue(checker, expression);
@@ -89,81 +110,83 @@ function getPropertyNameText(
 }
 
 function resolveHeadersObject(
-  headersNode: ts.Node | undefined,
-  checker: ts.TypeChecker,
-): ts.ObjectLiteralExpression | undefined {
+  headersNode: Node | undefined,
+  checker: Checker,
+): ObjectLiteralExpression | undefined {
   if (!headersNode) {
     return undefined;
   }
   const unwrapObjectLiteral = (
-    expression: ts.Expression,
-  ): ts.ObjectLiteralExpression | undefined => {
-    if (ts.isObjectLiteralExpression(expression)) {
+    expression: Expression,
+  ): ObjectLiteralExpression | undefined => {
+    if (isObjectLiteralExpression(expression)) {
       return expression;
     }
     if (
-      ts.isParenthesizedExpression(expression) &&
-      ts.isObjectLiteralExpression(expression.expression)
+      isParenthesizedExpression(expression) &&
+      isObjectLiteralExpression(expression.expression)
     ) {
       return expression.expression;
     }
     return undefined;
   };
-  if (ts.isObjectLiteralExpression(headersNode)) {
+  if (isObjectLiteralExpression(headersNode)) {
     return headersNode;
   }
-  if (ts.isAsExpression(headersNode)) {
+  if (
+    isAsExpression(headersNode) ||
+    isTypeAssertion(headersNode) ||
+    isParenthesizedExpression(headersNode)
+  ) {
     return resolveHeadersObject(headersNode.expression, checker);
   }
-  if (ts.isTypeAssertionExpression(headersNode)) {
-    return resolveHeadersObject(headersNode.expression, checker);
-  }
-  if (ts.isParenthesizedExpression(headersNode)) {
-    return resolveHeadersObject(headersNode.expression, checker);
-  }
-  if (ts.isNewExpression(headersNode)) {
+  if (isNewExpression(headersNode)) {
     const exprName = headersNode.expression.getText();
     if (exprName === 'Headers') {
       const [init] = headersNode.arguments ?? [];
       return init ? resolveHeadersObject(init, checker) : undefined;
     }
   }
-  if (ts.isCallExpression(headersNode)) {
-    let callee: ts.Expression = headersNode.expression;
-    if (ts.isParenthesizedExpression(callee)) {
+  if (isCallExpression(headersNode)) {
+    let callee: Expression = headersNode.expression;
+    if (isParenthesizedExpression(callee)) {
       callee = callee.expression;
     }
-    if (ts.isArrowFunction(callee) || ts.isFunctionExpression(callee)) {
-      if (ts.isExpression(callee.body)) {
+    if (isArrowFunction(callee) || isFunctionExpression(callee)) {
+      if (isExpression(callee.body)) {
         const bodyLiteral = unwrapObjectLiteral(callee.body);
         if (bodyLiteral) {
           return bodyLiteral;
         }
       }
-      if (ts.isBlock(callee.body)) {
+      if (isBlock(callee.body)) {
         for (const statement of callee.body.statements) {
-          if (
-            ts.isReturnStatement(statement) &&
-            statement.expression &&
-            unwrapObjectLiteral(statement.expression)
-          ) {
-            return unwrapObjectLiteral(statement.expression);
+          const returned =
+            isReturnStatement(statement) && statement.expression
+              ? unwrapObjectLiteral(statement.expression)
+              : undefined;
+          if (returned) {
+            return returned;
           }
         }
       }
     }
   }
-  if (ts.isShorthandPropertyAssignment(headersNode)) {
+  if (isShorthandPropertyAssignment(headersNode)) {
     const symbol = checker.getShorthandAssignmentValueSymbol(headersNode);
-    const decl = symbol?.valueDeclaration ?? symbol?.declarations?.[0];
-    if (decl && ts.isVariableDeclaration(decl) && decl.initializer) {
+    const decl = (
+      symbol?.valueDeclaration ?? symbol?.declarations[0]
+    )?.resolve();
+    if (decl && isVariableDeclaration(decl) && decl.initializer) {
       return resolveHeadersObject(decl.initializer, checker);
     }
   }
-  if (ts.isIdentifier(headersNode)) {
+  if (isIdentifier(headersNode)) {
     const symbol = checker.getSymbolAtLocation(headersNode);
-    const decl = symbol?.valueDeclaration ?? symbol?.declarations?.[0];
-    if (decl && ts.isVariableDeclaration(decl) && decl.initializer) {
+    const decl = (
+      symbol?.valueDeclaration ?? symbol?.declarations[0]
+    )?.resolve();
+    if (decl && isVariableDeclaration(decl) && decl.initializer) {
       return resolveHeadersObject(decl.initializer, checker);
     }
   }
@@ -171,16 +194,16 @@ function resolveHeadersObject(
 }
 
 function getHeaderValue(
-  headersNode: ts.Node | undefined,
+  headersNode: Node | undefined,
   headerName: string,
-  checker: ts.TypeChecker,
+  checker: Checker,
 ) {
   const headersObject = resolveHeadersObject(headersNode, checker);
   if (!headersObject) {
     return undefined;
   }
   for (const prop of headersObject.properties) {
-    if (!ts.isPropertyAssignment(prop)) {
+    if (!isPropertyAssignment(prop)) {
       continue;
     }
     const key = getPropertyNameText(prop.name, checker);
@@ -194,16 +217,16 @@ function getHeaderValue(
 }
 
 function hasHeaderKey(
-  headersNode: ts.Node | undefined,
+  headersNode: Node | undefined,
   headerName: string,
-  checker: ts.TypeChecker,
+  checker: Checker,
 ) {
   const headersObject = resolveHeadersObject(headersNode, checker);
   if (!headersObject) {
     return false;
   }
   for (const prop of headersObject.properties) {
-    if (!ts.isPropertyAssignment(prop)) {
+    if (!isPropertyAssignment(prop)) {
       continue;
     }
     const key = getPropertyNameText(prop.name, checker);
@@ -223,10 +246,10 @@ function isTextContentTypeValue(contentType: string) {
 }
 
 function inferContentType(
-  body: ts.Node | undefined,
-  headers: ts.Node | undefined,
+  body: Node | undefined,
+  headers: Node | undefined,
   defaultContentType: string,
-  checker: ts.TypeChecker,
+  checker: Checker,
 ) {
   if (!body) {
     return 'empty';
@@ -243,7 +266,7 @@ function inferContentType(
   return defaultContentType;
 }
 
-function getHeaderKeys(headersNode: ts.Node | undefined, deriver: TypeDeriver) {
+function getHeaderKeys(headersNode: Node | undefined, deriver: TypeDeriver) {
   if (!headersNode) {
     return [];
   }
@@ -255,10 +278,7 @@ function getHeaderKeys(headersNode: ts.Node | undefined, deriver: TypeDeriver) {
   const names = deriver.checker
     .getPropertiesOfType(type)
     .map((prop) => prop.name);
-  if (!names.length) {
-    return [];
-  }
-  const sorted = [...names].sort((a, b) => a.localeCompare(b));
+  const sorted = names.sort((a, b) => a.localeCompare(b));
   return sorted.flatMap((name) =>
     name.includes('-') ? [`'${name}'`, name] : [name],
   );
@@ -269,7 +289,7 @@ export const newResponse: NaunceResponseAnalyzerFn = (
   deriver,
   node,
 ) => {
-  if (!ts.isNewExpression(node)) {
+  if (!isNewExpression(node)) {
     return [];
   }
   const exprName = node.expression.getText();
@@ -277,13 +297,13 @@ export const newResponse: NaunceResponseAnalyzerFn = (
     return [];
   }
   const [body, init] = node.arguments ?? [];
-  let statusNode: ts.Node | undefined;
-  let headersNode: ts.Node | undefined;
-  if (init && ts.isObjectLiteralExpression(init)) {
+  let statusNode: Node | undefined;
+  let headersNode: Node | undefined;
+  if (init && isObjectLiteralExpression(init)) {
     for (const prop of init.properties) {
-      if (!ts.isPropertyAssignment(prop)) {
-        if (ts.isShorthandPropertyAssignment(prop)) {
-          const key = prop.name.text;
+      if (!isPropertyAssignment(prop)) {
+        if (isShorthandPropertyAssignment(prop)) {
+          const key = prop.name.getText();
           if (key === 'headers') {
             headersNode = prop;
           }
@@ -325,7 +345,7 @@ export const newResponse: NaunceResponseAnalyzerFn = (
 };
 
 export function defaultResponseAnalyzer(
-  handler: ts.ArrowFunction | ts.FunctionExpression,
+  handler: ArrowFunction | FunctionExpression,
   deriver: TypeDeriver,
 ) {
   const responsesList: ResponseItem[] = [];
@@ -352,7 +372,7 @@ export function defaultResponseAnalyzer(
 }
 
 export function streamText(
-  _handler: ts.ArrowFunction | ts.FunctionExpression,
+  _handler: ArrowFunction | FunctionExpression,
   _deriver: TypeDeriver,
 ): ResponseItem[] {
   return [
@@ -370,7 +390,7 @@ export function streamText(
 }
 
 export function stream(
-  _handler: ts.ArrowFunction | ts.FunctionExpression,
+  _handler: ArrowFunction | FunctionExpression,
   _deriver: TypeDeriver,
 ): ResponseItem[] {
   return [
@@ -388,7 +408,7 @@ export function stream(
 }
 
 export function streamSSE(
-  _handler: ts.ArrowFunction | ts.FunctionExpression,
+  _handler: ArrowFunction | FunctionExpression,
   _deriver: TypeDeriver,
 ): ResponseItem[] {
   return [
@@ -410,25 +430,8 @@ export const httpException: NaunceResponseAnalyzerFn = (
   deriver,
   node,
 ) => {
-  if (ts.isNewExpression(node)) {
+  if (isNewExpression(node)) {
     const [status, options] = node.arguments ?? [];
-    // if (!ts.isObjectLiteralExpression(options)) {
-    //   return [];
-    // }
-    // const properties = options.properties.reduce<Record<string, string>>(
-    //   (acc, prop) => {
-    //     if (ts.isPropertyAssignment(prop)) {
-    //       const key = prop.name.getText();
-    //       if (ts.isLiteralExpression(prop.initializer)) {
-    //         acc[key] = prop.initializer.text;
-    //       } else {
-    //         acc[key] = prop.initializer.getText();
-    //       }
-    //     }
-    //     return acc;
-    //   },
-    //   {},
-    // );
     return [
       {
         contentType: 'application/json',

@@ -1,47 +1,75 @@
+import type {
+  ArrowFunction,
+  FunctionExpression,
+  NewExpression,
+  Node,
+  SourceFile,
+} from '@typescript/native/ast';
+import {
+  isArrowFunction,
+  isFunctionExpression,
+  isNewExpression,
+  isReturnStatement,
+} from '@typescript/native/ast/is';
 import { type Context, Hono } from 'hono';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
-import ts from 'typescript';
 
 import { $types, deriveSymbol, toSchema } from '@sdk-it/core';
 import { TypeDeriver } from '@sdk-it/core/deriver.js';
+import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { defaultResponseAnalyzer, newResponse, streamSSE } from '@sdk-it/hono';
 
 async function createTestProject(code: string) {
   const testDir = await mkdtemp(join(tmpdir(), 'hono-response-test-'));
   const filePath = join(testDir, 'route.ts');
+  const removeTestDir = () => rm(testDir, { recursive: true, force: true });
 
   await writeFile(filePath, code);
+  await writeFile(
+    join(testDir, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        target: 'esnext',
+        module: 'esnext',
+        strict: true,
+        skipLibCheck: true,
+      },
+      files: ['route.ts'],
+    }),
+  );
 
-  const program = ts.createProgram([filePath], {
-    target: ts.ScriptTarget.ESNext,
-    module: ts.ModuleKind.ESNext,
-    strict: true,
-    skipLibCheck: true,
-  });
-
-  const checker = program.getTypeChecker();
-  const sourceFile = program.getSourceFile(filePath);
+  let project: ReturnType<typeof openAnalysisProject>;
+  try {
+    project = openAnalysisProject(join(testDir, 'tsconfig.json'));
+  } catch (error) {
+    await removeTestDir();
+    throw error;
+  }
+  const sourceFile = project.program.getSourceFile(filePath);
 
   if (!sourceFile) throw new Error('Could not load source file');
 
   return {
-    checker,
+    checker: project.checker,
     sourceFile,
-    cleanup: () => rm(testDir, { recursive: true, force: true }),
+    cleanup: async () => {
+      project[Symbol.dispose]();
+      await removeTestDir();
+    },
   };
 }
 
 function findHandlerInRoute(
-  sourceFile: ts.SourceFile,
-): ts.ArrowFunction | ts.FunctionExpression | undefined {
-  let handler: ts.ArrowFunction | ts.FunctionExpression | undefined;
+  sourceFile: SourceFile,
+): ArrowFunction | FunctionExpression | undefined {
+  let handler: ArrowFunction | FunctionExpression | undefined;
 
-  function visit(node: ts.Node) {
-    if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
+  function visit(node: Node) {
+    if (isArrowFunction(node) || isFunctionExpression(node)) {
       if (node.parameters.length > 0) {
         const firstParam = node.parameters[0];
         if (firstParam.name.getText() === 'c') {
@@ -50,7 +78,7 @@ function findHandlerInRoute(
         }
       }
     }
-    ts.forEachChild(node, visit);
+    node.forEachChild(visit);
   }
 
   visit(sourceFile);
@@ -58,13 +86,13 @@ function findHandlerInRoute(
 }
 
 function findNewResponseExpression(
-  sourceFile: ts.SourceFile,
-): ts.NewExpression | undefined {
-  let responseNode: ts.NewExpression | undefined;
+  sourceFile: SourceFile,
+): NewExpression | undefined {
+  let responseNode: NewExpression | undefined;
 
-  function visit(node: ts.Node) {
-    if (ts.isReturnStatement(node) && node.expression) {
-      if (ts.isNewExpression(node.expression)) {
+  function visit(node: Node) {
+    if (isReturnStatement(node) && node.expression) {
+      if (isNewExpression(node.expression)) {
         const exprName = node.expression.expression.getText();
         if (exprName === 'Response') {
           responseNode = node.expression;
@@ -72,7 +100,7 @@ function findNewResponseExpression(
         }
       }
     }
-    ts.forEachChild(node, visit);
+    node.forEachChild(visit);
   }
 
   visit(sourceFile);

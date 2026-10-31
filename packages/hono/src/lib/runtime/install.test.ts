@@ -16,10 +16,11 @@ test('@sdk-it/hono/runtime does not require compiler dependencies', async () => 
     'function',
   );
   assert.equal(
-    manifest('@sdk-it/hono').peerDependenciesMeta.typescript.optional,
+    manifest('@sdk-it/hono').peerDependenciesMeta['@typescript/native']
+      .optional,
     true,
   );
   const core = manifest('@sdk-it/core');
-  assert.equal(core.peerDependenciesMeta.typescript.optional, true);
+  assert.equal(core.peerDependenciesMeta['@typescript/native'].optional, true);
   assert.equal(core.peerDependenciesMeta['openapi3-ts'].optional, true);
 });
