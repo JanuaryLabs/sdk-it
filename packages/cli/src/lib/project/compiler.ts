@@ -6,8 +6,6 @@ import {
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { preEmitDiagnostics } from '@sdk-it/core/program.js';
-
 interface GeneratedPackageManifest {
   name?: string;
   version?: string;
@@ -45,11 +43,9 @@ export async function compileGeneratedPackage(
   );
   using program = api.createProgram(config.fileNames, config.options);
   const result = program.emit();
-  const diagnostics = [
-    ...config.errors,
-    ...preEmitDiagnostics(program),
-    ...result.diagnostics,
-  ].filter((diagnostic) => diagnostic.category === DiagnosticCategory.Error);
+  const diagnostics = [...config.errors, ...result.diagnostics].filter(
+    (diagnostic) => diagnostic.category === DiagnosticCategory.Error,
+  );
   if (result.emitSkipped || diagnostics.length > 0) {
     throw new Error(
       `Failed to compile generated client:\n${formatDiagnosticsWithColorAndContext(diagnostics, program)}`,

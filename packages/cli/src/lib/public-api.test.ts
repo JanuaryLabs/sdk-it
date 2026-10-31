@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { stripVTControlCharacters } from 'node:util';
 
 import { generateProject, initializeProject } from '@sdk-it/cli';
 
@@ -712,6 +713,11 @@ test('generateProject rejects a generated client that does not compile and does 
       (error: Error) => {
         assert.match(error.message, /^Failed to compile generated client:/);
         assert.match(error.message, /TS2307/);
+        const headers =
+          stripVTControlCharacters(error.message).match(
+            /^.*error TS\d+:.*$/gm,
+          ) ?? [];
+        assert.deepEqual(headers, [...new Set(headers)]);
         return true;
       },
     );
