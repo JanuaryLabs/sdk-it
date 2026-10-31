@@ -83,6 +83,7 @@ Create a script to analyze the backend code and generate the TypeScript client S
 ```typescript
 import { resolve } from 'node:path';
 
+import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 import { generate } from '@sdk-it/typescript';
@@ -90,7 +91,8 @@ import { generate } from '@sdk-it/typescript';
 console.log('Analyzing backend code...');
 
 // Point to your backend's tsconfig.json
-const { paths, components } = await analyze('./tsconfig.json', {
+using project = openAnalysisProject('./tsconfig.json');
+const { paths, components } = await analyze(project, {
   responseAnalyzer,
 });
 

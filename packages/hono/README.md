@@ -14,7 +14,7 @@ client generation.
 
 ```bash
 npm install @sdk-it/hono hono zod
-npm install --save-dev @sdk-it/generic @sdk-it/typescript typescript@^6.0.3
+npm install --save-dev @sdk-it/core @sdk-it/generic @sdk-it/typescript
 ```
 
 ## Runtime primitives
@@ -235,16 +235,15 @@ Analyze the backend and generate the client:
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
+import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 import { generate } from '@sdk-it/typescript';
 
-const { paths, components, tags } = await analyze(
-  './apps/backend/tsconfig.app.json',
-  {
-    responseAnalyzer,
-  },
-);
+using project = openAnalysisProject('./apps/backend/tsconfig.app.json');
+const { paths, components, tags } = await analyze(project, {
+  responseAnalyzer,
+});
 
 const spec = {
   openapi: '3.1.0' as const,

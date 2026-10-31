@@ -81,6 +81,7 @@ to explicit recursive OpenAPI schemas:
 import { createRequire } from 'node:module';
 
 import { defaultTypesMap } from '@sdk-it/core/deriver.js';
+import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 import { generate } from '@sdk-it/typescript';
@@ -88,7 +89,8 @@ import { generate } from '@sdk-it/typescript';
 const require = createRequire(import.meta.url);
 const prismaClient = require.resolve('@prisma/client');
 
-const { paths, components } = await analyze('./tsconfig.json', {
+using project = openAnalysisProject('./tsconfig.json');
+const { paths, components } = await analyze(project, {
   responseAnalyzer,
   typesMap: {
     ...defaultTypesMap,

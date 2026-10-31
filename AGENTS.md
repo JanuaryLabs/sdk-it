@@ -23,6 +23,15 @@ Brief descriptions of each package in the monorepo. These summaries focus on pur
 
 - **64-bit integers are not special.** The generated type follows the wire encoding: `type: integer, format: int64/uint64` → `number` (`z.number().int()`), `type: string, format: int64/uint64` → `string` (`z.string()`). No `bigint`, no runtime revival machinery — a `type: integer` value past 2^53 is a lossy `number`, and the fix is to encode 64-bit IDs as strings (protobuf-JSON style). `z.int64()`/`z.bigint()` in server code still emit `format: int64` in the spec as documentation. See `docs/recipes/int64-bigint.md` before touching int64 handling.
 
+### TypeScript 7
+
+- **Two TypeScript packages.** The root `typescript` package is the TypeScript 6 API. Nx and typescript-eslint load it. The npm alias `@typescript/native` is the TypeScript 7.1 compiler and API. `npx tsc` runs TypeScript 7.1.
+- **Shipped code imports only `@typescript/native/*`.** The ESLint `no-restricted-imports` rule rejects imports of `typescript` and `typescript/*`.
+- **Dependency kind.** A package that runs the compiler (`generic`, `cli`) has `@typescript/native` as a regular dependency. `core` and `hono` declare it as an optional peer, so a runtime-only install (such as `@sdk-it/hono/runtime`) has no compiler.
+- **`@nx/dependency-checks` cannot read npm alias specs.** Each package that uses `@typescript/native` sets `ignoredDependencies: ['@typescript/native']` on that rule.
+- **`npx tsc -v` reports 6.x.** This can occur after an incremental install, because two packages ship a `tsc` bin. Run `npm ci`.
+- **Declarations.** The inferred `build-types` target (`tsc --build tsconfig.lib.json`) emits the published `.d.ts` files. esbuild emits only JavaScript.
+
 ### Notes & Next Refinements
 
 Planned follow-ups: add cross-package dependency graph, highlight shared IR flow (`spec` → generators), and document extension points (custom type maps, response analyzers).

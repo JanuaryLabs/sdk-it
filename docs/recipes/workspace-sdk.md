@@ -122,7 +122,7 @@ You still need to add `.sdk-it` to your workspace config and `.gitignore`. The i
 `npx @sdk-it/cli generate`:
 
 ```bash
-npm install --save-dev @sdk-it/cli typescript@^6.0.3
+npm install --save-dev @sdk-it/cli
 ```
 
 ```typescript

@@ -16,7 +16,7 @@ For a Hono project:
 
 ```bash
 npm install @sdk-it/hono hono zod
-npm install --save-dev @sdk-it/core @sdk-it/generic typescript@^6.0.3
+npm install --save-dev @sdk-it/core @sdk-it/generic
 ```
 
 ## Analyze a Hono project
@@ -57,10 +57,12 @@ Analyze the TypeScript project and write the resulting OpenAPI document:
 // openapi.ts
 import { writeFile } from 'node:fs/promises';
 
+import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 
-const { paths, components, tags } = await analyze('./tsconfig.json', {
+using project = openAnalysisProject('./tsconfig.json');
+const { paths, components, tags } = await analyze(project, {
   responseAnalyzer,
 });
 
@@ -77,6 +79,9 @@ const spec = {
 
 await writeFile('openapi.json', JSON.stringify(spec, null, 2));
 ```
+
+The project owns a native TypeScript process. `using` disposes the project when
+the scope ends.
 
 Run the script with Node.js 24 or newer:
 
@@ -95,19 +100,18 @@ file name as its tag:
 ```typescript
 import { basename } from 'node:path';
 
+import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 
-const { paths, components } = await analyze(
-  './apps/backend/tsconfig.app.json',
-  {
-    responseAnalyzer,
-    onOperation(sourceFile, _method, _path, operation) {
-      operation.tags = [basename(sourceFile, '.ts')];
-      return {};
-    },
+using project = openAnalysisProject('./apps/backend/tsconfig.app.json');
+const { paths, components } = await analyze(project, {
+  responseAnalyzer,
+  onOperation(sourceFile, _method, _path, operation) {
+    operation.tags = [basename(sourceFile, '.ts')];
+    return {};
   },
-);
+});
 ```
 
 ## Customize type mappings
@@ -118,10 +122,12 @@ the wire:
 
 ```typescript
 import { defaultTypesMap } from '@sdk-it/core/deriver.js';
+import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 
-const { paths, components } = await analyze('./tsconfig.json', {
+using project = openAnalysisProject('./tsconfig.json');
+const { paths, components } = await analyze(project, {
   responseAnalyzer,
   typesMap: {
     ...defaultTypesMap,
@@ -187,10 +193,12 @@ Then inject that namespace when analyzing the project:
 ```typescript
 import { fileURLToPath } from 'node:url';
 
+import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 
-const { paths, components } = await analyze('./tsconfig.json', {
+using project = openAnalysisProject('./tsconfig.json');
+const { paths, components } = await analyze(project, {
   responseAnalyzer,
   imports: [
     {
@@ -212,12 +220,14 @@ authorization middleware by its exported symbol and source file:
 ```typescript
 import { fileURLToPath } from 'node:url';
 
+import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 
 const authModule = fileURLToPath(new URL('./src/auth.ts', import.meta.url));
 
-const { paths, components } = await analyze('./tsconfig.json', {
+using project = openAnalysisProject('./tsconfig.json');
+const { paths, components } = await analyze(project, {
   responseAnalyzer,
   securitySchemes: {
     bearer: { type: 'http', scheme: 'bearer' },
