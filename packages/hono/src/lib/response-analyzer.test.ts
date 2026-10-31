@@ -1061,6 +1061,23 @@ describe('status and Content-Type constant resolution', () => {
     );
   });
 
+  test('falls back to the method content type when a Content-Type union includes a non-literal member', async () => {
+    const responses = await analyzeHandler(`
+      (() => {
+        const format = Math.random() > 0.5 ? 'csv' : 'json';
+        return (c: any) => {
+          const contentType = format === 'csv' ? 'text/csv' : undefined;
+          return c.body('a,b', 200, { 'Content-Type': contentType });
+        };
+      })()
+    `);
+
+    assert.deepStrictEqual(
+      responses.map(({ contentType }) => contentType),
+      ['application/octet-stream'],
+    );
+  });
+
   test('resolves a Content-Type written as a template literal without substitutions', async () => {
     const responses = await analyzeHandler(`
       (c: any) => {
