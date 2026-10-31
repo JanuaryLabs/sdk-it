@@ -149,7 +149,7 @@ for (const { spec, name, flags } of filtered) {
   ];
   // invoke TS compiler script via Node for cross‑platform compatibility
   const tsconfigPath = join(sdkOutput, 'tsconfig.json');
-  const tscScript = join('node_modules', 'typescript', 'bin', 'tsc');
+  const tscScript = join('node_modules', '@typescript', 'native', 'bin', 'tsc');
   const tsc = `node "${tscScript}" -p "${tsconfigPath}"`;
 
   runCommand(

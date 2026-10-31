@@ -29,7 +29,7 @@
           "targetName": "typecheck"
         },
         "build": {
-          "targetName": "build",
+          "targetName": "build-types",
           "configName": "tsconfig.lib.json",
           "buildDepsName": "build-deps",
           "watchDepsName": "watch-deps"
@@ -80,7 +80,8 @@
         "main": "{projectRoot}/src/index.ts",
         "tsConfig": "{projectRoot}/tsconfig.lib.json",
         "format": ["esm"],
-        "declarationRootDir": "{projectRoot}/src",
+        "declaration": false,
+        "skipTypeCheck": true,
         "deleteOutputPath": false,
         "minify": false,
         "sourcemap": true,
@@ -103,7 +104,7 @@
         ]
       },
       "cache": true,
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "build-types"],
       "inputs": ["production", "^production"]
     }
   },
