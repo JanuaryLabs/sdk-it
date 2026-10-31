@@ -1,6 +1,12 @@
+import {
+  API,
+  DiagnosticCategory,
+  formatDiagnosticsWithColorAndContext,
+} from '@typescript/native/sync';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import ts from 'typescript';
+
+import { preEmitDiagnostics } from '@sdk-it/core/program.js';
 
 interface GeneratedPackageManifest {
   name?: string;
@@ -18,47 +24,39 @@ export async function compileGeneratedPackage(
   output: string,
   packageName: string,
 ): Promise<void> {
-  const source = join(output, 'src');
-  const program = ts.createProgram({
-    rootNames: ts.sys.readDirectory(source, ['.ts']),
-    options: {
-      allowSyntheticDefaultImports: true,
-      declaration: true,
-      module: ts.ModuleKind.ESNext,
-      moduleResolution: ts.ModuleResolutionKind.Bundler,
-      noEmitOnError: true,
-      outDir: join(output, 'dist'),
-      rewriteRelativeImportExtensions: true,
-      rootDir: source,
-      skipLibCheck: true,
-      target: ts.ScriptTarget.ESNext,
-      verbatimModuleSyntax: true,
+  using api = new API();
+  const config = api.parseJsonConfigFileContent(
+    {
+      compilerOptions: {
+        declaration: true,
+        module: 'esnext',
+        moduleResolution: 'bundler',
+        noEmitOnError: true,
+        outDir: 'dist',
+        rewriteRelativeImportExtensions: true,
+        rootDir: 'src',
+        skipLibCheck: true,
+        target: 'esnext',
+        verbatimModuleSyntax: true,
+      },
+      include: ['src'],
     },
-  });
+    { configDirectory: output },
+  );
+  using program = api.createProgram(config.fileNames, config.options);
   const result = program.emit();
   const diagnostics = [
-    ...ts.getPreEmitDiagnostics(program),
+    ...config.errors,
+    ...preEmitDiagnostics(program),
     ...result.diagnostics,
-  ].filter((diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error);
+  ].filter((diagnostic) => diagnostic.category === DiagnosticCategory.Error);
   if (result.emitSkipped || diagnostics.length > 0) {
-    throw new Error(formatCompilationError(output, diagnostics));
+    throw new Error(
+      `Failed to compile generated client:\n${formatDiagnosticsWithColorAndContext(diagnostics, program)}`,
+    );
   }
 
   await synchronizeGeneratedManifest(output, packageName);
-}
-
-function formatCompilationError(
-  output: string,
-  diagnostics: readonly ts.Diagnostic[],
-): string {
-  return `Failed to compile generated client:\n${ts.formatDiagnosticsWithColorAndContext(
-    diagnostics,
-    {
-      getCanonicalFileName: (fileName) => fileName,
-      getCurrentDirectory: () => output,
-      getNewLine: () => '\n',
-    },
-  )}`;
 }
 
 async function synchronizeGeneratedManifest(

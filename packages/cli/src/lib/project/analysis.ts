@@ -1,30 +1,40 @@
+import type { Statement } from '@typescript/native/ast';
+import {
+  isImportDeclaration,
+  isNamedImports,
+  isStringLiteral,
+} from '@typescript/native/ast/is';
 import { createRequire } from 'node:module';
-import ts from 'typescript';
 
 import { type InjectImport } from '@sdk-it/core';
 import { defaultTypesMap } from '@sdk-it/core/deriver.js';
-import { getProgram } from '@sdk-it/core/program.js';
+import {
+  type AnalysisProject,
+  openAnalysisProject,
+  sourceFiles,
+} from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer as honoResponseAnalyzer } from '@sdk-it/hono';
 
 import type { ProjectConfig } from './config.ts';
 
 export async function analyzeProject(tsconfig: string, config: ProjectConfig) {
-  const framework = resolveFramework(tsconfig, config.framework);
+  using project = openAnalysisProject(tsconfig);
+  const framework = resolveFramework(project, config.framework);
   if (framework === 'auto') {
     throw new Error(
       `Could not detect a supported framework from ${config.tsconfig}. Set framework to 'hono' to select it explicitly.`,
     );
   }
 
-  const prisma = config.preset === 'none' ? undefined : detectPrisma(tsconfig);
+  const prisma = config.preset === 'none' ? undefined : detectPrisma(project);
   if (config.preset === 'prisma' && !prisma) {
     throw new Error(
       `Prisma preset was requested, but no Prisma client import was found in ${tsconfig}. Run prisma generate or set preset to 'none'.`,
     );
   }
 
-  const { paths, components } = await analyze(tsconfig, {
+  const { paths, components } = await analyze(project, {
     responseAnalyzer: honoResponseAnalyzer,
     securitySchemes: config.securitySchemes,
     middlewareSecurity: config.middlewareSecurity,
@@ -51,22 +61,20 @@ export async function analyzeProject(tsconfig: string, config: ProjectConfig) {
 }
 
 function resolveFramework(
-  tsconfig: string,
+  project: AnalysisProject,
   configured: ProjectConfig['framework'],
 ): 'hono' | 'auto' {
   return configured === undefined || configured === 'auto'
-    ? detectFramework(tsconfig)
+    ? detectFramework(project)
     : configured;
 }
 
-function detectFramework(tsconfig: string): 'hono' | 'auto' {
-  const program = getProgram(tsconfig);
-  for (const sourceFile of program.getSourceFiles()) {
-    if (sourceFile.isDeclarationFile) continue;
+function detectFramework(project: AnalysisProject): 'hono' | 'auto' {
+  for (const sourceFile of sourceFiles(project.program)) {
     for (const statement of sourceFile.statements) {
       if (
-        ts.isImportDeclaration(statement) &&
-        ts.isStringLiteral(statement.moduleSpecifier) &&
+        isImportDeclaration(statement) &&
+        isStringLiteral(statement.moduleSpecifier) &&
         (statement.moduleSpecifier.text === 'hono' ||
           statement.moduleSpecifier.text.startsWith('@sdk-it/hono'))
       ) {
@@ -78,28 +86,25 @@ function detectFramework(tsconfig: string): 'hono' | 'auto' {
 }
 
 function detectPrisma(
-  tsconfig: string,
+  project: AnalysisProject,
 ): { imports: InjectImport[] } | undefined {
-  const program = getProgram(tsconfig);
   const imports: InjectImport[] = [];
   const reportedModules = new Set<string>();
-  for (const sourceFile of program.getSourceFiles()) {
-    if (sourceFile.isDeclarationFile) continue;
+  for (const sourceFile of sourceFiles(project.program)) {
     for (const statement of sourceFile.statements) {
       const prismaImport = getPrismaImport(statement);
       if (!prismaImport) continue;
-      const resolvedModule = ts.resolveModuleName(
-        prismaImport.moduleSpecifier,
-        sourceFile.fileName,
-        program.getCompilerOptions(),
-        ts.sys,
-      );
-      if (!resolvedModule.resolvedModule) continue;
+      const resolvedModule =
+        project.program.getResolvedModuleFromModuleSpecifier(
+          prismaImport.moduleSpecifier,
+          sourceFile.fileName,
+        );
+      if (!resolvedModule) continue;
 
       let runtimeModule: string;
       try {
         runtimeModule = createRequire(sourceFile.fileName).resolve(
-          prismaImport.moduleSpecifier,
+          prismaImport.moduleSpecifier.text,
         );
       } catch {
         continue;
@@ -127,17 +132,12 @@ function detectPrisma(
   return imports.length > 0 ? { imports } : undefined;
 }
 
-function getPrismaImport(statement: ts.Statement):
-  | {
-      moduleSpecifier: string;
-      bindings: Array<{ imported: string; local: string }>;
-    }
-  | undefined {
+function getPrismaImport(statement: Statement) {
   if (
-    !ts.isImportDeclaration(statement) ||
-    !ts.isStringLiteral(statement.moduleSpecifier) ||
+    !isImportDeclaration(statement) ||
+    !isStringLiteral(statement.moduleSpecifier) ||
     !statement.importClause?.namedBindings ||
-    !ts.isNamedImports(statement.importClause.namedBindings)
+    !isNamedImports(statement.importClause.namedBindings)
   ) {
     return undefined;
   }
@@ -148,6 +148,9 @@ function getPrismaImport(statement: ts.Statement):
     }))
     .filter(({ imported }) => imported === 'Prisma' || imported === '$Enums');
   return bindings.length > 0
-    ? { moduleSpecifier: statement.moduleSpecifier.text, bindings }
+    ? {
+        moduleSpecifier: statement.moduleSpecifier,
+        bindings,
+      }
     : undefined;
 }

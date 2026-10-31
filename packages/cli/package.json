@@ -22,6 +22,7 @@
     "!**/*.test.*"
   ],
   "dependencies": {
+    "@typescript/native": "npm:typescript@7.1.0-beta",
     "@sdk-it/typescript": "0.46.11",
     "@sdk-it/dart": "0.46.11",
     "@sdk-it/spec": "0.46.11",
@@ -35,9 +36,6 @@
     "@sdk-it/python": "0.46.11",
     "execa": "^9.6.0",
     "@sdk-it/readme": "0.46.11"
-  },
-  "peerDependencies": {
-    "typescript": "^6.0.0"
   },
   "publishConfig": {
     "access": "public"

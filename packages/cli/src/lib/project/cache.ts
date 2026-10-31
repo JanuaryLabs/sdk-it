@@ -1,15 +1,15 @@
+import { version as compilerVersion } from '@typescript/native';
 import { createHash } from 'node:crypto';
 import { access, readFile, readdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
-import ts from 'typescript';
 
 import type { generate } from '@sdk-it/typescript';
 
 const require = createRequire(import.meta.url);
 const projectGeneratorVersions = {
   cli: require('@sdk-it/cli/package.json').version,
-  compiler: ts.version,
+  compiler: compilerVersion,
   typescript: require('@sdk-it/typescript/package.json').version,
 };
 
