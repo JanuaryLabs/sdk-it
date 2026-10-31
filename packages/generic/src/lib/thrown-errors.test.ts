@@ -1,3 +1,7 @@
+import {
+  API,
+  formatDiagnosticsWithColorAndContext,
+} from '@typescript/native/sync';
 import { test } from '@zukhruf/testing/node';
 import { build, stop } from 'esbuild';
 import type { Hono } from 'hono';
@@ -5,8 +9,11 @@ import assert from 'node:assert/strict';
 import { mkdtempDisposable, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import ts from 'typescript';
 
+import {
+  openAnalysisProject,
+  preEmitDiagnostics,
+} from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 import { generate } from '@sdk-it/typescript';
@@ -118,7 +125,10 @@ ${['/first', '/second'].map((path) => `app.get('${path}', validate(() => ({})), 
         for (const path of ['/first', '/second']) {
           assert.equal((await app.request(path)).status, status);
         }
-        const spec = await analyze(join(workspace.path, 'tsconfig.json'), {
+        using project = openAnalysisProject(
+          join(workspace.path, 'tsconfig.json'),
+        );
+        const spec = await analyze(project, {
           responseAnalyzer,
         });
         for (const path of ['/first', '/second']) {
@@ -242,7 +252,10 @@ app.get('/items', validate((payload) => ({
               message: 'Item already exists',
               cause: { code: 'api/conflict', itemId: 'item-1' },
             });
-          const spec = await analyze(join(workspace.path, 'tsconfig.json'), {
+          using project = openAnalysisProject(
+            join(workspace.path, 'tsconfig.json'),
+          );
+          const spec = await analyze(project, {
             responseAnalyzer,
           });
           assert.ok(
@@ -308,7 +321,8 @@ export async function exercise(fetch: typeof globalThis.fetch, expected: unknown
 }
 `,
           );
-          const config = ts.parseJsonConfigFileContent(
+          using api = new API();
+          const config = api.parseJsonConfigFileContent(
             {
               compilerOptions: {
                 target: 'ESNext',
@@ -323,21 +337,15 @@ export async function exercise(fetch: typeof globalThis.fetch, expected: unknown
               },
               include: ['**/*.ts'],
             },
-            ts.sys,
-            source,
+            { configDirectory: source },
           );
           assert.deepEqual(config.errors, []);
-          const diagnostics = ts.getPreEmitDiagnostics(
-            ts.createProgram(config.fileNames, config.options),
-          );
+          using program = api.createProgram(config.fileNames, config.options);
+          const diagnostics = preEmitDiagnostics(program);
           assert.equal(
             diagnostics.length,
             0,
-            ts.formatDiagnosticsWithColorAndContext(diagnostics, {
-              getCanonicalFileName: (file) => file,
-              getCurrentDirectory: () => source,
-              getNewLine: () => '\n',
-            }),
+            formatDiagnosticsWithColorAndContext(diagnostics, program),
           );
           const bundle = join(workspace.path, 'consumer.mjs');
           await build({

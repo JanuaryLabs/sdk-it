@@ -1,25 +1,40 @@
-import ts from 'typescript';
+import type {
+  ArrowFunction,
+  FunctionExpression,
+  Node,
+} from '@typescript/native/ast';
+import {
+  isCallExpression,
+  isIdentifier,
+  isLiteralExpression,
+  isNewExpression,
+  isNumericLiteral,
+  isObjectLiteralExpression,
+  isPropertyAccessExpression,
+  isPropertyAssignment,
+  isReturnStatement,
+} from '@typescript/native/ast/is';
 
 import type { NaunceResponseAnalyzer, ResponseItem } from '@sdk-it/core';
 import type { TypeDeriver } from '@sdk-it/core/deriver.js';
 
 const handlerVisitor: (
   on: (
-    node: ts.Node | undefined,
-    statusCode: ts.Node | undefined,
-    headers: ts.Node | undefined,
+    node: Node | undefined,
+    statusCode: Node | undefined,
+    headers: Node | undefined,
     contentType: string,
   ) => void,
-) => ts.Visitor = (callback) => {
-  return (node: ts.Node) => {
-    if (ts.isReturnStatement(node) && node.expression) {
+) => (node: Node) => void = (callback) => {
+  return (node: Node) => {
+    if (isReturnStatement(node) && node.expression) {
       if (
-        ts.isCallExpression(node.expression) &&
-        ts.isPropertyAccessExpression(node.expression.expression)
+        isCallExpression(node.expression) &&
+        isPropertyAccessExpression(node.expression.expression)
       ) {
         const propAccess = node.expression.expression;
         if (
-          ts.isIdentifier(propAccess.expression) &&
+          isIdentifier(propAccess.expression) &&
           propAccess.expression.text === 'output'
         ) {
           let contentType = 'application/json';
@@ -35,12 +50,12 @@ const handlerVisitor: (
         }
       }
     }
-    return ts.forEachChild(node, handlerVisitor(callback));
+    node.forEachChild(handlerVisitor(callback));
   };
 };
 
 function toResponses(
-  handler: ts.ArrowFunction | ts.FunctionExpression,
+  handler: ArrowFunction | FunctionExpression,
   deriver: TypeDeriver,
 ) {
   const responsesList: ResponseItem[] = [];
@@ -56,15 +71,15 @@ function toResponses(
   return responsesList;
 }
 
-function resolveStatusCode(node: ts.Node) {
-  if (ts.isNumericLiteral(node)) {
+function resolveStatusCode(node: Node) {
+  if (isNumericLiteral(node)) {
     return node.text;
   }
   throw new Error(`Could not resolve status code`);
 }
 
 export function defaultResponseAnalyzer(
-  handler: ts.ArrowFunction | ts.FunctionExpression,
+  handler: ArrowFunction | FunctionExpression,
   deriver: TypeDeriver,
 ) {
   try {
@@ -77,16 +92,16 @@ export function defaultResponseAnalyzer(
 
 export const responseAnalyzer: NaunceResponseAnalyzer = {
   'throw.new.ProblemDetailsException': (handler, deriver, node) => {
-    if (ts.isNewExpression(node)) {
+    if (isNewExpression(node)) {
       const [problem] = node.arguments ?? [];
-      if (!ts.isObjectLiteralExpression(problem)) {
+      if (!isObjectLiteralExpression(problem)) {
         return [];
       }
       const properties = problem.properties.reduce<Record<string, string>>(
         (acc, prop) => {
-          if (ts.isPropertyAssignment(prop)) {
+          if (isPropertyAssignment(prop)) {
             const key = prop.name.getText();
-            if (ts.isLiteralExpression(prop.initializer)) {
+            if (isLiteralExpression(prop.initializer)) {
               acc[key] = prop.initializer.text;
             } else {
               acc[key] = prop.initializer.getText();

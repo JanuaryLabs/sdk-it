@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
+import { openAnalysisProject } from '@sdk-it/core/program.js';
 
 import { analyze } from './generic.ts';
 import { responseAnalyzer } from './response-analyzer.ts';
@@ -85,7 +86,8 @@ async function analyzeUIMessage() {
     join(dirname(workspace.tsconfig), 'node_modules'),
     'dir',
   );
-  return analyze(workspace.tsconfig, { responseAnalyzer });
+  using project = openAnalysisProject(workspace.tsconfig);
+  return await analyze(project, { responseAnalyzer });
 }
 
 describe('analyze function tests', () => {
@@ -115,7 +117,8 @@ app.post('/users/:id/profile', validate(({ query, body, params }) => ({
 `,
     });
 
-    const result1 = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result1 = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
     });
 
@@ -169,7 +172,8 @@ app.get('/resource/:id', validate(({ params }) => ({
 `,
     });
 
-    const result2 = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result2 = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
     });
 
@@ -227,7 +231,8 @@ app.get('/items', validate((payload) => ({
 `,
     });
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
     });
 
@@ -296,7 +301,8 @@ app.post(
 `,
     });
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
     });
 
@@ -343,7 +349,8 @@ app.get('/status', validate(() => ({})), () => ({ ok: true }));
 `,
     });
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer,
       securitySchemes: {
         bearer: { type: 'http', scheme: 'bearer' },
@@ -384,7 +391,8 @@ app.get('/account', authenticate, validate(() => ({})), () => ({ ok: true }));
 `,
     });
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer,
       securitySchemes: {
         bearer: { type: 'http', scheme: 'bearer' },
@@ -428,7 +436,8 @@ app.get(
 `,
     });
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer,
       securitySchemes: {
         bearer: { type: 'http', scheme: 'bearer' },
@@ -486,7 +495,8 @@ app.get(
     });
     const authModule = join(dirname(workspace.tsconfig), 'src/auth.ts');
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer,
       securitySchemes: {
         bearer: { type: 'http', scheme: 'bearer' },
@@ -536,7 +546,8 @@ app.get(
     });
     const authModule = join(dirname(workspace.tsconfig), 'src/auth.ts');
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer,
       securitySchemes: {
         bearer: { type: 'http', scheme: 'bearer' },
@@ -582,8 +593,9 @@ app.get(
 `,
     });
 
+    using project = openAnalysisProject(workspace.tsconfig);
     await assert.rejects(
-      analyze(workspace.tsconfig, {
+      analyze(project, {
         responseAnalyzer,
         securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } },
         middlewareSecurity: [
@@ -654,7 +666,8 @@ app.post(
 `,
     });
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
     });
 
@@ -711,7 +724,8 @@ app.post('/events', validate((payload) => ({
 `,
     });
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
     });
 
@@ -791,7 +805,8 @@ app.post('/events/:id', validate((payload) => ({
 `,
     });
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
     });
 
@@ -859,7 +874,8 @@ app.get('/events', validate((payload) => ({
 `,
     });
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
     });
 
@@ -937,7 +953,8 @@ app.get(
 `,
     });
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
     });
 
@@ -986,7 +1003,8 @@ app.post('/users', authenticate(), validate((p) => ({
 `,
     });
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
     });
 
@@ -1046,7 +1064,8 @@ app.get('/items',
 `,
     });
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
     });
 
@@ -1113,7 +1132,8 @@ app.get('/users/:userId', validate((payload) => ({
 `,
     });
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
     });
 
@@ -1308,7 +1328,8 @@ app.get('/users/:userId', validate((payload) => ({
     await symlink(workspaceNodeModules, nodeModulesPath, 'dir');
 
     const inputsPath = join(workspace.tsconfig, '..', 'src', 'inputs.ts');
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
       imports: [
         {
@@ -1465,7 +1486,8 @@ app.get('/employee', validate(() => ({})), (c) => {
 `,
     });
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
     });
 
@@ -1506,7 +1528,8 @@ app.get('/employee', validate(() => ({})), (c) => {
 `,
     });
 
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
     });
 
@@ -1570,7 +1593,8 @@ app.get('/employee', validate(() => ({})), (c) => {
 async function analyzeRequestBody(source: string) {
   const workspace = await tsworkspace(tsconfig, { 'index.ts': source });
   try {
-    const result = await analyze(workspace.tsconfig, {
+    using project = openAnalysisProject(workspace.tsconfig);
+    const result = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
     });
     const op = result.paths['/x']?.post;
@@ -2043,8 +2067,9 @@ app.post('/x', validate((p) => ({
 `,
     });
     try {
+      using project = openAnalysisProject(workspace.tsconfig);
       await assert.rejects(
-        analyze(workspace.tsconfig, {
+        analyze(project, {
           responseAnalyzer: responseAnalyzer,
         }),
         /nodeSchema is not defined/,

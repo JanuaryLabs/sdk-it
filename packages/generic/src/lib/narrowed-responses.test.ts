@@ -1,3 +1,4 @@
+import { API } from '@typescript/native/sync';
 import type { Hono } from 'hono';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
@@ -6,8 +7,11 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
-import ts from 'typescript';
 
+import {
+  openAnalysisProject,
+  preEmitDiagnostics,
+} from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 import { generate } from '@sdk-it/typescript';
@@ -91,7 +95,8 @@ app.get('/compare', validate((payload) => ({
       404,
     );
 
-    const spec = await analyze(join(dir, 'tsconfig.json'), {
+    using project = openAnalysisProject(join(dir, 'tsconfig.json'));
+    const spec = await analyze(project, {
       responseAnalyzer,
     });
     const output = join(dir, 'client');
@@ -124,20 +129,15 @@ const unguardedOptionalId: string = value.optional.id;
 void [baselineId, candidateId, optionalId, unguardedOptionalId];
 `,
     );
-    const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
-    assert.equal(configFile.error, undefined);
-    const parsed = ts.parseJsonConfigFileContent(
-      configFile.config,
-      ts.sys,
-      output,
-    );
+    using api = new API();
+    const parsed = api.parseConfigFile(configPath);
     assert.deepEqual(parsed.errors, []);
-    const program = ts.createProgram(parsed.fileNames, parsed.options);
+    using program = api.createProgram(parsed.fileNames, parsed.options);
     assert.ok(program.getSourceFile(consumerPath));
     assert.deepEqual(
-      ts.getPreEmitDiagnostics(program).map((diagnostic) => ({
-        file: diagnostic.file?.fileName,
-        message: ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
+      preEmitDiagnostics(program).map((diagnostic) => ({
+        file: diagnostic.fileName,
+        message: diagnostic.text,
       })),
       [],
     );

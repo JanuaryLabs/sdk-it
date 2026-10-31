@@ -22,12 +22,10 @@
     "!**/*.test.*"
   ],
   "dependencies": {
+    "@typescript/native": "npm:typescript@7.1.0-beta",
     "@sdk-it/core": "0.46.11",
     "stringcase": "^4.3.1",
     "debug": "^4.4.0",
     "openapi3-ts": "^4.4.0"
-  },
-  "peerDependencies": {
-    "typescript": "^6.0.0"
   }
 }

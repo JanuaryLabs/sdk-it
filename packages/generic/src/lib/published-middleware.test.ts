@@ -1,3 +1,4 @@
+import { API } from '@typescript/native/sync';
 import type { Hono } from 'hono';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -16,9 +17,11 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
-import ts from 'typescript';
 
-import { getProgram } from '@sdk-it/core/program.js';
+import {
+  openAnalysisProject,
+  preEmitDiagnostics,
+} from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 import { generate } from '@sdk-it/typescript';
@@ -128,16 +131,18 @@ app.post('/items', validate('application/json', (payload) => ({
           include: ['route.ts'],
         }),
       );
-      return analyze(configPath, { responseAnalyzer });
+      using project = openAnalysisProject(configPath);
+      return await analyze(project, { responseAnalyzer });
     };
     const source = await analyzeRoute({
       '@sdk-it/hono/runtime': [join(packageRoot, 'src/lib/runtime/index.ts')],
     });
     const published = await analyzeRoute({});
-    assert.deepEqual(
-      getProgram(configPath).getCompilerOptions().customConditions,
-      ['@sdk-it/source', 'consumer-condition'],
-    );
+    using project = openAnalysisProject(configPath);
+    assert.deepEqual(project.program.getCompilerOptions().customConditions, [
+      '@sdk-it/source',
+      'consumer-condition',
+    ]);
     const responses = published.paths['/items']?.post?.responses;
     assert.ok(responses);
     assert.deepEqual(Object.keys(responses), ['200', '400', '415']);
@@ -154,16 +159,17 @@ app.post('/items', validate('application/json', (payload) => ({
           include: ['route.ts'],
         }),
       );
-      assert.deepEqual(await analyze(configPath, { responseAnalyzer }), source);
+      using project = openAnalysisProject(configPath);
+      assert.deepEqual(await analyze(project, { responseAnalyzer }), source);
     }
 
     // Ordinary consumers still compile against declarations, and execute built JS.
-    const parsed = ts.parseJsonConfigFileContent(
+    using api = new API();
+    const parsed = api.parseJsonConfigFileContent(
       JSON.parse(await readFile(configPath, 'utf8')),
-      ts.sys,
-      dir,
+      { configDirectory: dir },
     );
-    const program = ts.createProgram(parsed.fileNames, parsed.options);
+    using program = api.createProgram(parsed.fileNames, parsed.options);
     assert.ok(
       program.getSourceFile(join(installed, 'dist/lib/runtime/validator.d.ts')),
     );
@@ -172,9 +178,7 @@ app.post('/items', validate('application/json', (payload) => ({
       undefined,
     );
     assert.deepEqual(
-      ts
-        .getPreEmitDiagnostics(program)
-        .map((d) => ts.flattenDiagnosticMessageText(d.messageText, '\n')),
+      preEmitDiagnostics(program).map(({ text }) => text),
       [],
     );
 
@@ -226,26 +230,14 @@ function describe(error: ErrorResponse): string {
 void [statuses, describe];
 `,
     );
-    const clientConfig = ts.readConfigFile(
-      join(output, 'tsconfig.json'),
-      ts.sys.readFile,
-    );
-    assert.equal(clientConfig.error, undefined);
-    const clientParsed = ts.parseJsonConfigFileContent(
-      clientConfig.config,
-      ts.sys,
-      output,
-      { strict: true },
-    );
+    const clientParsed = api.parseConfigFile(join(output, 'tsconfig.json'));
     assert.deepEqual(clientParsed.errors, []);
-    const clientProgram = ts.createProgram(
-      clientParsed.fileNames,
-      clientParsed.options,
-    );
+    using clientProgram = api.createProgram(clientParsed.fileNames, {
+      strict: true,
+      ...clientParsed.options,
+    });
     assert.deepEqual(
-      ts
-        .getPreEmitDiagnostics(clientProgram)
-        .map((d) => ts.flattenDiagnosticMessageText(d.messageText, '\n')),
+      preEmitDiagnostics(clientProgram).map(({ text }) => text),
       [],
     );
   } finally {

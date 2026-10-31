@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
 
+import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze, responseAnalyzer } from '@sdk-it/generic';
 
 async function analyzeWorkspace(
@@ -30,7 +31,8 @@ async function analyzeWorkspace(
       await mkdir(dirname(path), { recursive: true });
       await writeFile(path, content);
     }
-    const { paths, components } = await analyze(join(dir, 'tsconfig.json'), {
+    using project = openAnalysisProject(join(dir, 'tsconfig.json'));
+    const { paths, components } = await analyze(project, {
       responseAnalyzer,
       ...(typesMap ? { typesMap } : {}),
     });
@@ -454,12 +456,13 @@ export {};
 `,
     });
 
+    // Member order is TypeScript 7's stable type ordering.
     assert.deepStrictEqual(
       paths['/x'].get.responses,
       jsonResponse({
         anyOf: [
-          { enum: [1], type: 'number' },
           { enum: ['none'], type: 'string' },
+          { enum: [1], type: 'number' },
         ],
       }),
     );
@@ -672,7 +675,7 @@ export {};
     );
   });
 
-  test('JSDoc description containing an inline {@link} tag is dropped', async () => {
+  test('JSDoc description keeps an inline {@link} tag as written', async () => {
     const { paths } = await analyzeWorkspace({
       'index.ts': `
 const app = { get: (..._args: unknown[]) => undefined };
@@ -696,6 +699,7 @@ export {};
       parameters: [],
       tags: [],
       summary: 'Read one book',
+      description: 'Returns a {@link Book} by id',
       responses: jsonResponse({
         type: 'object',
         properties: { title: { type: 'string' } },

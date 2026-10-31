@@ -12,6 +12,9 @@ export default [
             '{projectRoot}/eslint.config.{js,cjs,mjs}',
             '{projectRoot}/esbuild.config.{js,ts,mjs,mts}',
           ],
+          // The rule compares versions with semver, which cannot read the
+          // npm alias spec of TypeScript 7 (`npm:typescript@…`).
+          ignoredDependencies: ['@typescript/native'],
         },
       ],
     },

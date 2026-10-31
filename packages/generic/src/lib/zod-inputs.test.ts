@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 
+import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 
@@ -76,7 +77,8 @@ app.post('/settings', validate((payload) => ({
       assert.equal(response.status, 400);
     }
 
-    const spec = await analyze(join(dir, 'tsconfig.json'), {
+    using project = openAnalysisProject(join(dir, 'tsconfig.json'));
+    const spec = await analyze(project, {
       responseAnalyzer,
     });
     const requestBody = spec.paths['/settings']?.post?.requestBody;
