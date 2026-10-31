@@ -633,7 +633,6 @@ export class TypeDeriver {
         [deriveSymbol]: true,
         optional: false,
         [$types]: [`#/components/schemas/${node.name.text}`],
-        $ref: `#/components/schemas/${node.name.text}`,
       };
     }
     if (isVariableDeclaration(node)) {
