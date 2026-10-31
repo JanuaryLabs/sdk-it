@@ -62,10 +62,9 @@ export function openAnalysisProject(tsconfigPath: string): AnalysisProject {
 export function preEmitDiagnostics(
   program: AnalysisProgram,
 ): readonly Diagnostic[] {
-  // Global diagnostics already carry the options diagnostics, and semantic
-  // diagnostics the binder's, so neither is requested separately.
+  // Global diagnostics already carry the config file and options diagnostics,
+  // and semantic diagnostics the binder's, so none is requested separately.
   return [
-    ...program.getConfigFileParsingDiagnostics(),
     ...program.getGlobalDiagnostics(),
     ...program.getSyntacticDiagnostics(),
     ...program.getSemanticDiagnostics(),

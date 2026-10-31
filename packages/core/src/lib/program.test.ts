@@ -26,7 +26,11 @@ describe('preEmitDiagnostics', () => {
   test('reports every diagnostic exactly once', async () => {
     const dir = await writeProject({
       'tsconfig.json': JSON.stringify({
-        compilerOptions: { strict: true, emitDeclarationOnly: true },
+        compilerOptions: {
+          strict: true,
+          emitDeclarationOnly: true,
+          notAnOption: true,
+        },
         include: ['src'],
       }),
       'src/index.ts': 'let target = { a: 1 };\ndelete target;\nexport {};\n',
@@ -40,7 +44,7 @@ describe('preEmitDiagnostics', () => {
 
       const codes = preEmitDiagnostics(program).map(({ code }) => code);
 
-      assert.deepStrictEqual(codes.toSorted(), [1102, 2703, 5069]);
+      assert.deepStrictEqual(codes.toSorted(), [1102, 2703, 5023, 5069]);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
