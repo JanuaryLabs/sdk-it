@@ -1,6 +1,10 @@
 import { mergeWith, uniq } from 'lodash-es';
 import assert from 'node:assert';
-import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
+import type {
+  ReferenceObject,
+  SchemaObject,
+  SchemaObjectType,
+} from 'openapi3-ts/oas31';
 
 import { isEmpty, isRef, notRef, resolveRef, snakecase } from '@sdk-it/core';
 
@@ -182,7 +186,8 @@ function normalizeSchemaObjects(
           if (droppedNull && notRef(only)) {
             const types = coerceTypes(only, false);
             if (types.length) {
-              schema.type = uniq([...types, 'null']);
+              const typesWithNull: SchemaObjectType[] = [...types, 'null'];
+              schema.type = uniq(typesWithNull);
             }
           }
           continue;
