@@ -27,15 +27,18 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "@typescript/native": "npm:typescript@7.1.0-beta",
     "stringcase": "^4.3.1",
     "lodash-es": "^4.17.21"
   },
   "peerDependencies": {
+    "@typescript/native": "npm:typescript@7.1.0-beta",
     "zod": "^4.3.0",
     "openapi3-ts": "^4.4.0"
   },
   "peerDependenciesMeta": {
+    "@typescript/native": {
+      "optional": true
+    },
     "openapi3-ts": {
       "optional": true
     }
