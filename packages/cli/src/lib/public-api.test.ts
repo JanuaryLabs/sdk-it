@@ -702,3 +702,51 @@ test('generateProject synchronizes generated package metadata on regeneration', 
     zod: '^4.3.0',
   });
 });
+
+test('generateProject rejects a generated client that does not compile and does not cache it', async () => {
+  const { tsconfig, workspace } = createHonoWorkspace();
+  const output = mkdtempSync(join(tmpdir(), 'sdk-it-unresolvable-output-'));
+  try {
+    await assert.rejects(
+      generateProject({ tsconfig, output }),
+      (error: Error) => {
+        assert.match(error.message, /^Failed to compile generated client:/);
+        assert.match(error.message, /TS2307/);
+        return true;
+      },
+    );
+    assert.equal(existsSync(join(output, '.project-hash')), false);
+    assert.equal(existsSync(join(output, 'dist')), false);
+  } finally {
+    rmSync(output, { recursive: true, force: true });
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test('sdk-it generate exits non-zero when the generated client does not compile', () => {
+  const { workspace } = createHonoWorkspace();
+  const output = mkdtempSync(join(tmpdir(), 'sdk-it-unresolvable-output-'));
+  try {
+    writeFileSync(
+      join(workspace, 'sdk-it.config.ts'),
+      `
+import { defineConfig } from '@sdk-it/cli';
+
+export default defineConfig({
+  tsconfig: './tsconfig.json',
+  output: ${JSON.stringify(output)},
+});
+`,
+    );
+
+    const result = runCli(workspace, 'generate');
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Failed to compile generated client:/);
+    assert.match(result.stderr, /TS2307/);
+    assert.doesNotMatch(result.stdout, /Client generated successfully!/);
+  } finally {
+    rmSync(output, { recursive: true, force: true });
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
