@@ -1,3 +1,4 @@
+import { notInstalled } from '@zukhruf/testing/preload';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -27,21 +28,11 @@ test('@sdk-it/hono/runtime does not require compiler dependencies', async () => 
 });
 
 test('@sdk-it/hono/runtime and @sdk-it/core load without the TypeScript compiler', () => {
-  const blockCompiler = `import { registerHooks } from 'node:module';
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === 'typescript' || specifier.startsWith('typescript/') || specifier.startsWith('@typescript/native')) {
-      throw new Error(\`compiler loaded: \${specifier}\`);
-    }
-    return nextResolve(specifier, context);
-  },
-});`;
-
   const result = spawnSync(
     process.execPath,
     [
       '--import',
-      `data:text/javascript,${encodeURIComponent(blockCompiler)}`,
+      notInstalled('typescript', '@typescript/native'),
       '--input-type=module',
       '-e',
       "await import('@sdk-it/hono/runtime'); await import('@sdk-it/core');",
