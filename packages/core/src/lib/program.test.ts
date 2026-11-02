@@ -1,15 +1,33 @@
 import { API } from '@typescript/native/sync';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import {
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
+import { promisify } from 'node:util';
 
 import {
   openAnalysisProject,
   preEmitDiagnostics,
   sourceFiles,
 } from '@sdk-it/core/program.js';
+
+const execFileAsync = promisify(execFile);
+const tsc = join(
+  dirname(
+    createRequire(import.meta.url).resolve('@typescript/native/package.json'),
+  ),
+  'bin/tsc',
+);
 
 async function writeProject(files: Record<string, string>) {
   const dir = await realpath(
@@ -109,6 +127,114 @@ describe('openAnalysisProject', () => {
         !fileNames.includes(join(dir, 'node_modules/lib/dist/index.d.ts')),
       );
     } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('reads a referenced package as source when the tsconfig path goes through a symlink', async () => {
+    const compilerOptions = {
+      module: 'esnext',
+      moduleResolution: 'bundler',
+      strict: true,
+      skipLibCheck: true,
+    };
+    const dir = await writeProject({
+      'tsconfig.json': JSON.stringify({
+        compilerOptions,
+        include: ['src'],
+        references: [{ path: './packages/runs' }],
+      }),
+      'src/main.ts': "import { ensureRun } from '@ws/runs';\nensureRun();\n",
+      'packages/runs/package.json': JSON.stringify({
+        name: '@ws/runs',
+        type: 'module',
+        exports: {
+          '.': { types: './dist/index.d.ts', default: './dist/index.js' },
+        },
+      }),
+      'packages/runs/tsconfig.json': JSON.stringify({
+        compilerOptions: {
+          ...compilerOptions,
+          composite: true,
+          declaration: true,
+          rootDir: 'src',
+          outDir: 'dist',
+        },
+        include: ['src'],
+      }),
+      'packages/runs/src/index.ts': 'export function ensureRun(): void {}\n',
+    });
+    const links = await mkdtemp(join(tmpdir(), 'sdk-it-program-link-'));
+    try {
+      await mkdir(join(dir, 'node_modules/@ws'), { recursive: true });
+      await symlink(
+        join(dir, 'packages/runs'),
+        join(dir, 'node_modules/@ws/runs'),
+        'dir',
+      );
+      // The app imports the built declarations, as after the monorepo's build.
+      await execFileAsync(process.execPath, [
+        tsc,
+        '--build',
+        join(dir, 'packages/runs'),
+      ]);
+      const link = join(links, 'workspace');
+      await symlink(dir, link, 'dir');
+
+      using throughLink = openAnalysisProject(join(link, 'tsconfig.json'));
+      using throughRealPath = openAnalysisProject(join(dir, 'tsconfig.json'));
+
+      const fileNames: readonly string[] =
+        throughLink.program.getSourceFileNames();
+      assert.ok(fileNames.includes(join(dir, 'packages/runs/src/index.ts')));
+      assert.ok(
+        !fileNames.some((name) =>
+          name.endsWith('packages/runs/dist/index.d.ts'),
+        ),
+      );
+      assert.deepStrictEqual(
+        [...fileNames].sort(),
+        [...throughRealPath.program.getSourceFileNames()].sort(),
+      );
+    } finally {
+      await rm(links, { recursive: true, force: true });
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('a missing tsconfig fails with an error that names it', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'sdk-it-program-missing-'));
+    try {
+      const missing = join(dir, 'app', 'tsconfig.json');
+
+      assert.throws(() => openAnalysisProject(missing), {
+        message: `Failed to read ${missing}: the file does not exist`,
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('names the tsconfig as the caller passed it when it does not parse', async () => {
+    const dir = await writeProject({
+      'tsconfig.json': JSON.stringify({
+        compilerOptions: { notAnOption: true },
+      }),
+      'index.ts': 'export {};\n',
+    });
+    const links = await mkdtemp(join(tmpdir(), 'sdk-it-program-link-'));
+    try {
+      const link = join(links, 'workspace');
+      await symlink(dir, link, 'dir');
+      const passed = join(link, 'tsconfig.json');
+
+      assert.throws(
+        () => openAnalysisProject(passed),
+        (error: Error) =>
+          error.message.startsWith(`Failed to parse ${passed}:`),
+      );
+    } finally {
+      await rm(links, { recursive: true, force: true });
       await rm(dir, { recursive: true, force: true });
     }
   });

@@ -10,6 +10,7 @@ import {
   type Program,
   formatDiagnosticsWithColorAndContext,
 } from '@typescript/native/sync';
+import { realpathSync } from 'node:fs';
 
 /** A program opened to read source. It never emits. */
 export type AnalysisProgram = Omit<
@@ -22,14 +23,32 @@ export interface AnalysisProject extends Disposable {
   readonly checker: Checker;
 }
 
+function realTsconfigPath(tsconfigPath: string): string {
+  try {
+    return realpathSync(tsconfigPath);
+  } catch (error) {
+    // realpath names the first missing directory, not the file the caller passed.
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      throw new Error(
+        `Failed to read ${tsconfigPath}: the file does not exist`,
+        { cause: error },
+      );
+    }
+    throw error;
+  }
+}
+
 /**
  * Opens the project a tsconfig describes for static analysis. The project owns
- * a native TypeScript process: dispose it once analysis is done.
+ * a native TypeScript process: dispose it once analysis is done. The program
+ * names its files by real path, even when `tsconfigPath` goes through a symlink.
  */
 export function openAnalysisProject(tsconfigPath: string): AnalysisProject {
   using stack = new DisposableStack();
   const api = stack.use(new API());
-  const parsed = api.parseConfigFile(tsconfigPath);
+  // A referenced project maps to its source only when its path matches the
+  // real path that module resolution reaches, so the config opens by real path.
+  const parsed = api.parseConfigFile(realTsconfigPath(tsconfigPath));
   if (parsed.errors.length > 0) {
     throw new Error(
       `Failed to parse ${tsconfigPath}:\n${formatDiagnosticsWithColorAndContext(parsed.errors, api)}`,

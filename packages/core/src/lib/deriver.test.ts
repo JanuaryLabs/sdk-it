@@ -7,7 +7,7 @@ import {
   isVariableDeclaration,
 } from '@typescript/native/ast/is';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
@@ -20,7 +20,9 @@ async function createTestProject(
   code: string,
   compilerOptions: Record<string, unknown> = {},
 ) {
-  const testDir = await mkdtemp(join(tmpdir(), 'ts-deriver-test-'));
+  const testDir = await realpath(
+    await mkdtemp(join(tmpdir(), 'ts-deriver-test-')),
+  );
   const filePath = join(testDir, 'main.ts');
   const removeTestDir = () => rm(testDir, { recursive: true, force: true });
 
