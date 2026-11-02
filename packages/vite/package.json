@@ -27,6 +27,7 @@
     "!**/*.test.*"
   ],
   "devDependencies": {
+    "@sdk-it/core": "0.46.11",
     "chalk": "^5.6.0"
   },
   "peerDependencies": {
