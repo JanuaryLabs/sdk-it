@@ -27,13 +27,14 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "stringcase": "^4.3.1",
-    "lodash-es": "^4.17.21"
+    "@zukhruf/fs": "^0.6.15",
+    "lodash-es": "^4.17.21",
+    "stringcase": "^4.3.1"
   },
   "peerDependencies": {
     "@typescript/native": "npm:typescript@7.1.0-beta",
-    "zod": "^4.3.0",
-    "openapi3-ts": "^4.4.0"
+    "openapi3-ts": "^4.4.0",
+    "zod": "^4.3.0"
   },
   "peerDependenciesMeta": {
     "@typescript/native": {

@@ -1,4 +1,5 @@
-import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { atomicWrite, createExclusive } from '@zukhruf/fs';
+import { mkdir, readFile, readdir, stat } from 'node:fs/promises';
 import {
   dirname,
   extname,
@@ -69,26 +70,11 @@ export async function writeFiles(dir: string, contents: WriteContent) {
       const filePath = isAbsolute(file) ? file : join(dir, file);
       await mkdir(dirname(filePath), { recursive: true });
       if (typeof content === 'string') {
-        await writeFile(filePath, content, 'utf-8');
+        await atomicWrite(filePath, content, { clock: globalThis });
+      } else if (content.ignoreIfExists) {
+        await createExclusive(filePath, content.content, { clock: globalThis });
       } else {
-        if (content.ignoreIfExists) {
-          try {
-            await writeFile(filePath, content.content, {
-              encoding: 'utf-8',
-              flag: 'wx',
-            });
-          } catch (error) {
-            if (!(
-              error instanceof Error &&
-              'code' in error &&
-              error.code === 'EEXIST'
-            )) {
-              throw error;
-            }
-          }
-        } else {
-          await writeFile(filePath, content.content, 'utf-8');
-        }
+        await atomicWrite(filePath, content.content, { clock: globalThis });
       }
     }),
   );
