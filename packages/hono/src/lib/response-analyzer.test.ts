@@ -13,7 +13,7 @@ import {
 } from '@typescript/native/ast/is';
 import { type Context, Hono } from 'hono';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
@@ -24,7 +24,9 @@ import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { defaultResponseAnalyzer, newResponse, streamSSE } from '@sdk-it/hono';
 
 async function createTestProject(code: string) {
-  const testDir = await mkdtemp(join(tmpdir(), 'hono-response-test-'));
+  const testDir = await realpath(
+    await mkdtemp(join(tmpdir(), 'hono-response-test-')),
+  );
   const filePath = join(testDir, 'route.ts');
   const removeTestDir = () => rm(testDir, { recursive: true, force: true });
 
@@ -852,6 +854,60 @@ describe('Response Analyzer', () => {
           headers: ["'Content-Type'", 'Content-Type'],
           contentType: 'application/pdf',
           statusCode: '200',
+          response: undefined,
+        },
+      ]);
+    });
+
+    test('new Response(null, { status: 204 }) sends no body', async () => {
+      const responses = await analyzeNewResponse(`
+        (c: any) => {
+          return new Response(null, { status: 204 });
+        }
+      `);
+
+      assert.deepStrictEqual(responses, [
+        {
+          headers: [],
+          contentType: 'empty',
+          statusCode: '204',
+          response: undefined,
+        },
+      ]);
+    });
+
+    test('new Response(null) sends no body', async () => {
+      const responses = await analyzeNewResponse(`
+        (c: any) => {
+          return new Response(null);
+        }
+      `);
+
+      assert.deepStrictEqual(responses, [
+        {
+          headers: [],
+          contentType: 'empty',
+          statusCode: '200',
+          response: undefined,
+        },
+      ]);
+    });
+
+    test('new Response(null, { status, headers }) sends no body and keeps its status and headers', async () => {
+      const responses = await analyzeNewResponse(`
+        (c: any) => {
+          return new Response(null, {
+            status: 301,
+            headers: { Location: '/runs' },
+          });
+        }
+      `);
+
+      assert.deepStrictEqual(responses, [
+        {
+          headers: ['Location'],
+          contentType: 'empty',
+          statusCode: '301',
           response: undefined,
         },
       ]);

@@ -64,6 +64,7 @@ const handlerVisitor: (
         const [argument, statusCode, headers] = call.arguments;
         const rawBody = propAccess.name.text === 'body';
         // A raw body of null sends nothing; c.json(null) still sends the JSON text null.
+        // newResponse repeats this rule for new Response(null).
         const body =
           rawBody && argument && isNullLiteral(argument) ? undefined : argument;
         let contentType = rawBody
@@ -300,7 +301,9 @@ export const newResponse: NaunceResponseAnalyzerFn = (
   if (exprName !== 'Response') {
     return [];
   }
-  const [body, init] = node.arguments ?? [];
+  const [argument, init] = node.arguments ?? [];
+  // A body of null sends nothing, as for c.body(null) in handlerVisitor.
+  const body = argument && isNullLiteral(argument) ? undefined : argument;
   let statusNode: Node | undefined;
   let headersNode: Node | undefined;
   if (init && isObjectLiteralExpression(init)) {
