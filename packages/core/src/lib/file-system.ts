@@ -80,47 +80,6 @@ export async function writeFiles(dir: string, contents: WriteContent) {
   );
 }
 
-/**
- * @deprecated use getFolderExportsV2 instead
- */
-export async function getFolderExports(
-  folder: string,
-  readFolder: ReadFolderFn,
-  includeExtension = true,
-  extensions = ['ts'],
-  ignore: (config: {
-    filePath: string;
-    fileName: string;
-    isFolder: boolean;
-  }) => boolean = () => false,
-) {
-  const files = await readFolder(folder);
-  const exports: string[] = [];
-  for (const file of files) {
-    if (ignore(file)) {
-      continue;
-    }
-    if (file.isFolder) {
-      if (
-        (await exist(`${file.filePath}/index.ts`)) &&
-        (await readFile(`${file.filePath}/index.ts`, 'utf-8')) !== ''
-      ) {
-        exports.push(
-          `export * from './${file.fileName}/index${includeExtension ? '.ts' : ''}';`,
-        );
-      }
-    } else if (
-      file.fileName !== 'index.ts' &&
-      extensions.includes(getExt(file.fileName))
-    ) {
-      exports.push(
-        `export * from './${includeExtension ? file.fileName : file.fileName.replace(extname(file.fileName), '')}';`,
-      );
-    }
-  }
-  return exports.join('\n');
-}
-
 export async function getFolderExportsV2(
   folder: string,
   readFolder: ReadFolderFn,

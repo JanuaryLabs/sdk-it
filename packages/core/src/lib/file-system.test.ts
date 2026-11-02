@@ -10,7 +10,6 @@ import {
   exist,
   getExt,
   getFile,
-  getFolderExports,
   isNullOrUndefined,
   readFolder,
   removeTrialingSlashes,
@@ -187,52 +186,6 @@ describe('File System Utilities - Error-First Testing', () => {
         join(testDir, 'deep/nested/structure/file.txt'),
       );
       assert.strictEqual(result, 'content');
-    });
-  });
-
-  describe('getFolderExports - Attack Phase: Invalid Folder States', () => {
-    const mockReadFolder = async (folder: string) => {
-      if (folder === nonExistentPath) {
-        return [];
-      }
-      return [
-        {
-          filePath: join(folder, 'valid.ts'),
-          fileName: 'valid.ts',
-          isFolder: false,
-        },
-        {
-          filePath: join(folder, 'index.ts'),
-          fileName: 'index.ts',
-          isFolder: false,
-        },
-        {
-          filePath: join(folder, 'subfolder'),
-          fileName: 'subfolder',
-          isFolder: true,
-        },
-      ];
-    };
-
-    it('should handle non-existent folder gracefully', async () => {
-      const result = await getFolderExports(nonExistentPath, mockReadFolder);
-      assert.strictEqual(result, '');
-    });
-
-    it('should ignore files with unsupported extensions', async () => {
-      const mockReadFolderWithJs = async () => [
-        { filePath: 'test.js', fileName: 'test.js', isFolder: false },
-        { filePath: 'test.ts', fileName: 'test.ts', isFolder: false },
-      ];
-
-      const result = await getFolderExports(
-        testDir,
-        mockReadFolderWithJs,
-        true,
-        ['ts'],
-      );
-      assert.ok(!result.includes('test.js'));
-      assert.ok(result.includes('test.ts'));
     });
   });
 
