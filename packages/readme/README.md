@@ -18,7 +18,7 @@ import { writeFile } from 'node:fs/promises';
 import { toReadme } from '@sdk-it/readme';
 import { loadSpec, toIR } from '@sdk-it/spec';
 
-const spec = await loadSpec('./openapi.yaml');
+const { spec } = await loadSpec('./openapi.yaml');
 const ir = await toIR({ spec });
 const markdown = toReadme(ir);
 

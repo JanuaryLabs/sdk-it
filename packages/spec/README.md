@@ -14,7 +14,7 @@ npm install @sdk-it/spec
 ```typescript
 import { loadSpec, toIR } from '@sdk-it/spec';
 
-const spec = await loadSpec('./openapi.yaml');
+const { spec } = await loadSpec('./openapi.yaml');
 const ir = await toIR({
   spec,
   responses: { flattenErrorResponses: true },
@@ -24,8 +24,12 @@ console.log(ir.paths);
 ```
 
 `loadSpec` accepts local JSON or YAML paths and HTTP(S) URLs. It also detects
-Postman collections and converts them to OpenAPI. `toIR` runs the default
-ordered processing pipeline and returns the normalized `IR`.
+Postman collections and converts them to OpenAPI. When the specification
+refers to other files through `$ref`, `loadSpec` reads those files too. It
+returns `spec`, one document in which every reference is local, and
+`documents`, the URI of each file that it read. The first URI is the location
+that you gave. `toIR` runs the default ordered processing pipeline and returns
+the normalized `IR`.
 
 ## Add a processing plugin
 
@@ -37,7 +41,7 @@ import {
   toIR,
 } from '@sdk-it/spec';
 
-const spec = await loadSpec('./openapi.yaml');
+const { spec } = await loadSpec('./openapi.yaml');
 const plugins = createDefaultProcessingPlugins();
 
 plugins.splice(-1, 0, {

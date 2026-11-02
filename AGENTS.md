@@ -15,7 +15,7 @@ Brief descriptions of each package in the monorepo. These summaries focus on pur
 | `@sdk-it/rpc`        | Runtime RPC client & agent tool builder – turns OpenAPI operations into dispatchable endpoints and optionally AI agent tool definitions with Zod-validated inputs.                                    |
 | `@sdk-it/spec`       | Spec processing/tuning layer: loads local/remote OpenAPI, builds intermediate representation (IR), normalizes operations, names, polymorphism, security, sidebar metadata. Foundation for generators. |
 | `@sdk-it/typescript` | OpenAPI → TypeScript SDK generator producing a cross-runtime, fully typed client; configurable output structure & optional post-generation formatting hooks.                                          |
-| `@sdk-it/vite`       | Vite plugin that watches an OpenAPI spec (local or remote) and auto-generates/refreshes a TypeScript SDK during dev & build (single-flight generation).                                               |
+| `@sdk-it/vite`       | Vite plugin that generates a TypeScript SDK from a local OpenAPI spec at build start and again in dev when the spec or a file it references through `$ref` changes (single-flight generation).        |
 
 ### Cross-package invariants
 

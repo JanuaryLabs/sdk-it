@@ -19,7 +19,7 @@ generated in `minimal` mode.
 import { loadSpec } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
 
-const spec = await loadSpec('https://api.openstatus.dev/openapi.yaml');
+const { spec } = await loadSpec('https://api.openstatus.dev/openapi.yaml');
 
 await generate(spec, {
   output: './src/generated/openstatus',

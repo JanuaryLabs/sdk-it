@@ -26,10 +26,11 @@ export default defineConfig({
 });
 ```
 
-Relative paths are resolved from Vite's project root. Local specification
-files are watched during development, and generation also runs at build
-start. You can pass an OpenAPI object or a function that resolves to an
-OpenAPI object or local path instead.
+Relative paths are resolved from Vite's project root. Generation runs at build
+start. During development, the plugin watches the specification file and each
+local file that it refers to through `$ref`. When one of these files changes,
+the plugin generates the SDK again. You can pass an OpenAPI object or a
+function that resolves to an OpenAPI object or local path instead.
 
 ## Use a TypeScript backend project
 

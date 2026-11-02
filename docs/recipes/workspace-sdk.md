@@ -26,7 +26,7 @@ Create a script that generates the SDK to `.sdk-it/`:
 import { loadSpec } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
 
-const spec = await loadSpec('./openapi.json');
+const { spec } = await loadSpec('./openapi.json');
 
 await generate(spec, {
   output: '.sdk-it',
