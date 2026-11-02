@@ -15,6 +15,8 @@
     "@fontsource/geist-sans": "^5.2.5",
     "@react-router/node": "^7.18.1",
     "@react-router/serve": "^7.18.1",
+    "@sdk-it/core": "*",
+    "@sdk-it/typescript": "*",
     "@streamdown/code": "^1.1.1",
     "@zukhruf/shadcn": "^0.3.49",
     "ai": "^7.0.29",
