@@ -1,7 +1,14 @@
 import { API } from '@typescript/native/sync';
 import type { Hono } from 'hono';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -17,7 +24,9 @@ import { responseAnalyzer } from '@sdk-it/hono';
 import { generate } from '@sdk-it/typescript';
 
 test('generated comparison clients preserve guarded response fields and optional siblings', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'sdk-it-narrowed-response-'));
+  const dir = await realpath(
+    await mkdtemp(join(tmpdir(), 'sdk-it-narrowed-response-')),
+  );
   try {
     const require = createRequire(import.meta.url);
     await symlink(
