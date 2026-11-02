@@ -1,5 +1,5 @@
 import { template } from 'lodash-es';
-import { readdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
 import { camelcase, spinalcase } from 'stringcase';
@@ -7,12 +7,13 @@ import { camelcase, spinalcase } from 'stringcase';
 import { type OpenAPIDocument, pascalcase, toLitObject } from '@sdk-it/core';
 import {
   type WriteContent,
-  createWriterProxy,
-  getFolderExports,
+  addLeadingSlash,
+  readFolder,
   writeFiles,
 } from '@sdk-it/core/file-system.js';
 import {
   type IR,
+  type PaginationConfig,
   type ResponseBody,
   cleanFiles,
   forEachOperation,
@@ -25,6 +26,7 @@ import { generateOpenAIAgentTools } from './agent/openai-agents.ts';
 import utilsTxt from './agent/utils.txt';
 import backend from './client.ts';
 import { TypeScriptEmitter } from './emitters/interface.ts';
+import { indexFiles } from './folder-index.ts';
 import { generateCode } from './generator.ts';
 import dispatcherTxt from './http/dispatcher.txt';
 import interceptors from './http/interceptors.txt';
@@ -44,132 +46,52 @@ import { toReadme } from './readme/readme.ts';
 import type { Operation } from './sdk.ts';
 import security from './security.ts';
 import { expandServerUrls } from './server-urls.ts';
+import type { Style } from './style.ts';
 import { TypeScriptSnippet } from './typescript-snippet.ts';
 
-// FIXME: there should not be default here
-// instead export this function from the cli package with
-// defaults for programmatic usage
+export interface RenderOptions {
+  name: string;
+  style: Style;
+  useTsExtension: boolean;
+  pagination?: PaginationConfig | false;
+  agentTools?: 'ai-sdk' | 'openai-agents';
+}
+
+/**
+ * The SDK's source files, keyed by path relative to the SDK source root,
+ * index files included. Reads and writes nothing on disk.
+ */
+export async function render(
+  openapi: OpenAPIDocument,
+  options: RenderOptions,
+): Promise<Record<string, string>> {
+  return renderFiles(await toSdkIR(openapi, options), options);
+}
+
 export async function generate(
   openapi: OpenAPIDocument,
   settings: TypeScriptGeneratorOptions,
 ): Promise<{ packageName: string }> {
-  // A requirement with no local scheme leaves the client unable to authenticate,
-  // so refuse rather than emit an SDK that always gets a 401.
-  const unresolvedSecuritySchemes = new Set<string>();
-  const spec = await toIR(
-    {
-      spec: openapi,
-      responses: { flattenErrorResponses: true },
-      pagination: settings.pagination,
-      onDiagnostic: ({ code, message }) => {
-        if (code === 'unresolved-security-scheme') {
-          unresolvedSecuritySchemes.add(message);
-        }
-      },
-    },
-    false,
-  );
-  if (unresolvedSecuritySchemes.size) {
-    throw new TypeError([...unresolvedSecuritySchemes].join('\n'));
-  }
-
-  const style = Object.assign({}, { name: 'github' }, settings.style ?? {});
+  const options: RenderOptions = {
+    name: settings.name || 'client',
+    style: { name: 'github', ...settings.style },
+    useTsExtension: settings.useTsExtension ?? true,
+    pagination: settings.pagination,
+    agentTools: settings.agentTools,
+  };
+  const spec = await toSdkIR(openapi, options);
+  const files = renderFiles(spec, options);
   const output =
     settings.mode === 'full' ? join(settings.output, 'src') : settings.output;
-
-  settings.useTsExtension ??= true;
-  settings.readme ??= true;
-  const { writer, files: writtenFiles } = createWriterProxy(
-    settings.writer ?? writeFiles,
-    output,
-  );
-  settings.writer = writer;
-  settings.readFolder ??= async (folder: string) => {
-    const files = await readdir(folder, { withFileTypes: true });
-    return files.map((file) => ({
-      fileName: file.name,
-      filePath: join(file.parentPath, file.name),
-      isFolder: file.isDirectory(),
-    }));
-  };
-  const makeImport = (moduleSpecifier: string) => {
-    return settings.useTsExtension ? `${moduleSpecifier}.ts` : moduleSpecifier;
-  };
-  const clientName = pascalcase((settings.name || 'client').trim());
-  const modelName = createModelNamer(clientName);
-  const { endpoints, groups, commonZod } = generateCode({
-    spec,
-    style,
-    makeImport,
-    modelName,
-  });
-
-  const packageName =
-    settings.packageName ??
-    (settings.name
-      ? `@${spinalcase(settings.name.trim().toLowerCase())}/sdk`
-      : 'sdk');
-
-  const inputs = toInputs(groups, commonZod, makeImport);
-  const models = serializeModels(spec, modelName);
-
-  await settings.writer(output, {
-    'outputs/.gitkeep': '',
-    'inputs/.gitkeep': '',
-    'models/.getkeep': '',
-  });
-
-  await settings.writer(join(output, 'http'), {
-    'parse-response.ts': parseResponse,
-    'response.ts': responseTxt,
-    'parser.ts': parserTxt,
-    'request.ts': requestTxt,
-    'sse.ts': sseTxt,
-    'dispatcher.ts': `import { z } from 'zod';
-import { type Interceptor } from '${makeImport('../http/interceptors')}';
-import { type RequestConfig } from '${makeImport('../http/request')}';
-import { buffered } from '${makeImport('./parse-response')}';
-import { type SSEListener } from '${makeImport('./sse')}';
-import { APIError, APIResponse, type SuccessfulResponse, type RebindSuccessPayload } from '${makeImport('./response')}';
-
-${template(dispatcherTxt, {})()}`,
-
-    'interceptors.ts': `
-    import type { RequestConfig, HeadersInit } from './${makeImport('request')}';
-    ${interceptors}`,
-    'security.ts': Object.keys(spec.components.securitySchemes).length
-      ? security({
-          makeImport,
-          securitySchemes: spec.components.securitySchemes,
-        })
-      : null,
-  });
-
-  await settings.writer(output, {
-    'client.ts': backend({
-      name: clientName,
-      servers: expandServerUrls(spec.servers ?? []),
-      securitySchemes: spec.components.securitySchemes,
-      makeImport,
-    }),
-    ...inputs,
-    ...endpoints,
-  });
-
-  await settings.writer(output, models);
-
-  await settings.writer(join(output, 'pagination'), {
-    'cursor-pagination.ts': cursorPaginationTxt,
-    'offset-pagination.ts': offsetPaginationTxt,
-    'page-pagination.ts': paginationTxt,
-  });
+  const writer = settings.writer ?? writeFiles;
+  await writer(output, files);
 
   const metadata = await readWriteMetadata(
     output,
-    Array.from(writtenFiles),
-    settings.writer,
+    Object.keys(files).map(addLeadingSlash),
+    writer,
   );
-  if (settings.cleanup !== false && writtenFiles.size > 0) {
+  if (settings.cleanup !== false) {
     await cleanFiles(metadata, output, [
       '/tsconfig*.json',
       '/package.json',
@@ -178,80 +100,38 @@ ${template(dispatcherTxt, {})()}`,
     ]);
   }
 
-  const folders = [
-    getFolderExports(
-      join(output, 'outputs'),
-      settings.readFolder,
-      settings.useTsExtension,
+  // Index files also export what the output folder holds beyond this run's
+  // files: files a user added, and stale files when cleanup is off.
+  const listed = await readFolder(output, true);
+  const userIndexes = new Map(
+    await Promise.all(
+      listed
+        .filter((path) => path.endsWith('/index.ts') && !(path in files))
+        .map(
+          async (path) =>
+            [path, await readFile(join(output, path), 'utf-8')] as const,
+        ),
     ),
-    getFolderExports(
-      join(output, 'inputs'),
-      settings.readFolder,
-      settings.useTsExtension,
-      ['ts'],
-      (dirent) => dirent.isFolder && ['schemas'].includes(dirent.fileName),
+  );
+  const indexes = indexFiles(
+    new Set([...Object.keys(files), ...listed]),
+    (path) => files[path] ?? userIndexes.get(path),
+    options.useTsExtension,
+  );
+  const changedIndexes = Object.fromEntries(
+    Object.entries(indexes).filter(
+      ([path, content]) => files[path] !== content,
     ),
-    getFolderExports(
-      join(output, 'api'),
-      settings.readFolder,
-      settings.useTsExtension,
-    ),
-    getFolderExports(
-      join(output, 'http'),
-      settings.readFolder,
-      settings.useTsExtension,
-      ['ts'],
-      (dirent) => !['response.ts', 'parser.ts'].includes(dirent.fileName),
-    ),
-    getFolderExports(
-      join(output, 'models'),
-      settings.readFolder,
-      settings.useTsExtension,
-    ),
-  ];
-  const [outputIndex, inputsIndex, apiIndex, httpIndex, modelsIndex] =
-    await Promise.all(folders);
-
-  await settings.writer(join(output, 'pagination'), {
-    'index.ts': await getFolderExports(
-      join(output, 'pagination'),
-      settings.readFolder,
-      settings.useTsExtension,
-      ['ts'],
-    ),
-  });
-  await settings.writer(output, {
-    'api/index.ts': apiIndex,
-    'outputs/index.ts': outputIndex,
-    'inputs/index.ts': inputsIndex || null,
-    'http/index.ts': httpIndex,
-    'models/index.ts': modelsIndex,
-    // ...(modelsImports.length ? { 'models/index.ts': modelsIndex } : {}),
-  });
-
-  switch (settings.agentTools) {
-    case 'openai-agents':
-      await settings.writer(output, {
-        'agents.ts': `${generateOpenAIAgentTools(spec)}\n${utilsTxt}`,
-      });
-      break;
-    case 'ai-sdk':
-      await settings.writer(output, {
-        'agents.ts': `${generateAISDKTools(spec)}\n${utilsTxt}`,
-      });
-      break;
+  );
+  if (Object.keys(changedIndexes).length) {
+    await writer(output, changedIndexes);
   }
-  await settings.writer(output, {
-    'index.ts': await getFolderExports(
-      output,
-      settings.readFolder,
-      settings.useTsExtension,
-      ['ts'],
-      (config) =>
-        config.fileName.endsWith('pagination') ||
-        config.fileName.endsWith('agents'),
-    ),
-  });
+
+  const packageName =
+    settings.packageName ??
+    (settings.name
+      ? `@${spinalcase(settings.name.trim().toLowerCase())}/sdk`
+      : 'sdk');
   if (settings.mode === 'full') {
     const configFiles: WriteContent = {
       'package.json': {
@@ -308,13 +188,13 @@ ${template(dispatcherTxt, {})()}`,
         ),
       },
     };
-    await settings.writer(settings.output, configFiles);
+    await writer(settings.output, configFiles);
   }
 
-  if (settings.readme) {
-    const path =
-      typeof settings.readme === 'string' ? settings.readme : 'README.md';
-    await settings.writer(settings.output, {
+  const readme = settings.readme ?? true;
+  if (readme) {
+    const path = typeof readme === 'string' ? readme : 'README.md';
+    await writer(settings.output, {
       [path]: toReadme(spec, new TypeScriptSnippet(spec, settings)),
     });
   }
@@ -325,6 +205,98 @@ ${template(dispatcherTxt, {})()}`,
   });
 
   return { packageName };
+}
+
+async function toSdkIR(openapi: OpenAPIDocument, options: RenderOptions) {
+  // A requirement with no local scheme leaves the client unable to authenticate,
+  // so refuse rather than emit an SDK that always gets a 401.
+  const unresolvedSecuritySchemes = new Set<string>();
+  const spec = await toIR(
+    {
+      spec: openapi,
+      responses: { flattenErrorResponses: true },
+      pagination: options.pagination,
+      onDiagnostic: ({ code, message }) => {
+        if (code === 'unresolved-security-scheme') {
+          unresolvedSecuritySchemes.add(message);
+        }
+      },
+    },
+    false,
+  );
+  if (unresolvedSecuritySchemes.size) {
+    throw new TypeError([...unresolvedSecuritySchemes].join('\n'));
+  }
+  return spec;
+}
+
+const agentTools = {
+  'ai-sdk': generateAISDKTools,
+  'openai-agents': generateOpenAIAgentTools,
+};
+
+function renderFiles(spec: IR, options: RenderOptions) {
+  const { style, useTsExtension } = options;
+  const makeImport = (moduleSpecifier: string) => {
+    return useTsExtension ? `${moduleSpecifier}.ts` : moduleSpecifier;
+  };
+  const clientName = pascalcase(options.name.trim());
+  const modelName = createModelNamer(clientName);
+  const { endpoints, groups, commonZod } = generateCode({
+    spec,
+    style,
+    makeImport,
+    modelName,
+  });
+
+  const files: Record<string, string> = {
+    'http/parse-response.ts': parseResponse,
+    'http/response.ts': responseTxt,
+    'http/parser.ts': parserTxt,
+    'http/request.ts': requestTxt,
+    'http/sse.ts': sseTxt,
+    'http/dispatcher.ts': `import { z } from 'zod';
+import { type Interceptor } from '${makeImport('../http/interceptors')}';
+import { type RequestConfig } from '${makeImport('../http/request')}';
+import { buffered } from '${makeImport('./parse-response')}';
+import { type SSEListener } from '${makeImport('./sse')}';
+import { APIError, APIResponse, type SuccessfulResponse, type RebindSuccessPayload } from '${makeImport('./response')}';
+
+${template(dispatcherTxt, {})()}`,
+
+    'http/interceptors.ts': `
+    import type { RequestConfig, HeadersInit } from './${makeImport('request')}';
+    ${interceptors}`,
+    ...(Object.keys(spec.components.securitySchemes).length
+      ? {
+          'http/security.ts': security({
+            makeImport,
+            securitySchemes: spec.components.securitySchemes,
+          }),
+        }
+      : {}),
+    'client.ts': backend({
+      name: clientName,
+      servers: expandServerUrls(spec.servers ?? []),
+      securitySchemes: spec.components.securitySchemes,
+      makeImport,
+    }),
+    ...toInputs(groups, commonZod, makeImport),
+    ...endpoints,
+    ...serializeModels(spec, modelName),
+    'pagination/cursor-pagination.ts': cursorPaginationTxt,
+    'pagination/offset-pagination.ts': offsetPaginationTxt,
+    'pagination/page-pagination.ts': paginationTxt,
+    ...(options.agentTools
+      ? {
+          'agents.ts': `${agentTools[options.agentTools](spec)}\n${utilsTxt}`,
+        }
+      : {}),
+  };
+  return {
+    ...files,
+    ...indexFiles(Object.keys(files), (path) => files[path], useTsExtension),
+  };
 }
 
 function serializeModels(spec: IR, modelName: ModelNamer) {
@@ -340,9 +312,6 @@ function serializeModels(spec: IR, modelName: ModelNamer) {
     }
   });
   for (const [name, schema] of Object.entries(spec.components.schemas)) {
-    // if (isRef(schema)) {
-    //  continue;
-    // }
     const isResponseBody = (schema as any)['x-responsebody'];
     const isRequestBody = (schema as any)['x-requestbody'];
     const responseGroup = (schema as any)['x-response-group'];
