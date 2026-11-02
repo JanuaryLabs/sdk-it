@@ -3,6 +3,7 @@ import type {
   OperationObject,
   ParameterObject,
   PathsObject,
+  ReferenceObject,
   ResponseObject,
   ResponsesObject,
   SchemaObject,
@@ -123,18 +124,17 @@ export class Paths {
         schema = { $ref: `#/components/schemas/${sharedKey}` };
       }
 
-      if (!responsesObject[item.statusCode]) {
+      const contentSchema: SchemaObject | ReferenceObject =
+        ct === 'application/octet-stream'
+          ? { type: 'string', format: 'binary' }
+          : schema;
+
+      const existingResponse = responsesObject[item.statusCode];
+      if (!existingResponse) {
         responsesObject[item.statusCode] = {
           description: `Response for ${item.statusCode}`,
           content:
-            ct !== 'empty'
-              ? {
-                  [ct]:
-                    ct === 'application/octet-stream'
-                      ? { schema: { type: 'string', format: 'binary' } }
-                      : { schema },
-                }
-              : undefined,
+            ct !== 'empty' ? { [ct]: { schema: contentSchema } } : undefined,
           headers: item.headers.length
             ? item.headers.reduce<HeadersObject>((acc, current) => {
                 const headers =
@@ -157,26 +157,25 @@ export class Paths {
               }, {})
             : undefined,
         } satisfies ResponseObject;
-      } else {
-        if (!responsesObject[item.statusCode].content[ct]) {
-          responsesObject[item.statusCode].content[ct] = { schema };
-        } else {
-          const existing = responsesObject[item.statusCode].content[ct]
-            .schema as SchemaObject;
-          if (existing.oneOf) {
-            if (
-              !existing.oneOf.find(
-                (it) => JSON.stringify(it) === JSON.stringify(schema),
-              )
-            ) {
-              existing.oneOf.push(schema);
-            }
-          } else if (JSON.stringify(existing) !== JSON.stringify(schema)) {
-            responsesObject[item.statusCode].content[ct].schema = {
-              oneOf: [existing, schema],
-            };
-          }
+        continue;
+      }
+      if (ct === 'empty') {
+        continue;
+      }
+      existingResponse.content ??= {};
+      const media = existingResponse.content[ct];
+      if (!media) {
+        existingResponse.content[ct] = { schema: contentSchema };
+        continue;
+      }
+      const existing = media.schema as SchemaObject;
+      const incoming = JSON.stringify(contentSchema);
+      if (existing.oneOf) {
+        if (!existing.oneOf.some((it) => JSON.stringify(it) === incoming)) {
+          existing.oneOf.push(contentSchema);
         }
+      } else if (JSON.stringify(existing) !== incoming) {
+        media.schema = { oneOf: [existing, contentSchema] };
       }
     }
     return responsesObject;
