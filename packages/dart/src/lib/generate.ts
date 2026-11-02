@@ -187,10 +187,11 @@ class Options {
   const metadata = await readWriteMetadata(
     settings.output,
     Array.from(writtenFiles),
+    settings.writer,
   );
 
   if (settings.cleanup !== false) {
-    await cleanFiles(metadata.content, settings.output, [
+    await cleanFiles(metadata, settings.output, [
       '/package.dart',
       '/**/index.dart',
       '/pubspec.yaml',

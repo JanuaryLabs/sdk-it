@@ -164,9 +164,13 @@ ${template(dispatcherTxt, {})()}`,
     'page-pagination.ts': paginationTxt,
   });
 
-  const metadata = await readWriteMetadata(output, Array.from(writtenFiles));
+  const metadata = await readWriteMetadata(
+    output,
+    Array.from(writtenFiles),
+    settings.writer,
+  );
   if (settings.cleanup !== false && writtenFiles.size > 0) {
-    await cleanFiles(metadata.content, output, [
+    await cleanFiles(metadata, output, [
       '/tsconfig*.json',
       '/package.json',
       '/metadata.json',

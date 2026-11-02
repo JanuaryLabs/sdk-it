@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
-import { cleanFiles, readWriteJson, readWriteMetadata } from './metadata.ts';
+import { writeFiles } from '@sdk-it/core/file-system.js';
+import { cleanFiles, readWriteMetadata } from '@sdk-it/spec';
 
 describe('Metadata File Management - Error-First Testing', () => {
   let testDir: string;
@@ -18,99 +19,67 @@ describe('Metadata File Management - Error-First Testing', () => {
     await rm(testDir, { recursive: true, force: true });
   });
 
-  describe('readWriteJson - Attack Phase: Malformed JSON & File System Errors', () => {
-    it('should throw error for malformed JSON file', async () => {
-      const malformedJsonPath = join(testDir, 'malformed.json');
-      await writeFile(malformedJsonPath, '{ invalid json }', 'utf-8');
+  describe('readWriteMetadata - Attack Phase: Unreadable metadata.json', () => {
+    for (const [name, content] of [
+      ['malformed JSON', '{ invalid json }'],
+      ['binary content', Buffer.from([0x00, 0x01, 0xff, 0xfe])],
+      ['an empty file', ''],
+    ] as const) {
+      it(`should reject a metadata.json holding ${name}`, async () => {
+        const dir = await mkdtemp(join(tmpdir(), 'metadata-unreadable-'));
+        try {
+          await writeFile(join(dir, 'metadata.json'), content);
 
-      await assert.rejects(() => readWriteJson(malformedJsonPath), {
-        name: 'SyntaxError',
+          await assert.rejects(
+            () => readWriteMetadata(dir, ['a.ts'], writeFiles),
+            { name: 'SyntaxError' },
+          );
+        } finally {
+          await rm(dir, { recursive: true, force: true });
+        }
       });
-    });
+    }
 
-    it('should throw error for binary file disguised as JSON', async () => {
-      const binaryPath = join(testDir, 'binary.json');
-      const binaryData = Buffer.from([0x00, 0x01, 0xff, 0xfe]);
-      await writeFile(binaryPath, binaryData);
+    it('should reject when the writer cannot write metadata.json', async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'metadata-writer-fails-'));
+      try {
+        const failure = new Error('disk full');
 
-      await assert.rejects(() => readWriteJson(binaryPath), {
-        name: 'SyntaxError',
-      });
-    });
-
-    it('should handle permission denied on read', async () => {
-      const permissionPath = '/root/protected.json';
-
-      const result = await readWriteJson(permissionPath);
-      // Should return empty object when file doesn't exist or can't be read
-      assert.deepStrictEqual(result.content, {});
-    });
-
-    it('should handle empty file gracefully', async () => {
-      const emptyPath = join(testDir, 'empty.json');
-      await writeFile(emptyPath, '', 'utf-8');
-
-      await assert.rejects(() => readWriteJson(emptyPath), {
-        name: 'SyntaxError',
-      });
-    });
-    it('should handle null byte in path gracefully', async () => {
-      const nullBytePath = join(testDir, 'file\0null.json');
-
-      // On most systems, null byte in path returns empty object rather than throwing
-      const result = await readWriteJson(nullBytePath);
-      assert.deepStrictEqual(result.content, {});
-    });
-
-    it('should throw error when write fails due to read-only directory', async () => {
-      const readOnlyDir = join(testDir, 'readonly');
-      await mkdir(readOnlyDir);
-
-      const result = await readWriteJson(join(readOnlyDir, 'test.json'));
-
-      // First write should work
-      await result.write({ test: 'value' });
-
-      // Verify write worked
-      const content = await readFile(join(readOnlyDir, 'test.json'), 'utf-8');
-      assert.strictEqual(JSON.parse(content).test, 'value');
-    });
-  });
-
-  describe('readWriteJson - Invariant Testing: Data Integrity', () => {
-    it('should preserve exact data types through read-write cycle', async () => {
-      const testPath = join(testDir, 'types.json');
-      const testData = {
-        string: 'test',
-        number: 42,
-        boolean: true,
-        null_value: null,
-        array: [1, 2, 3],
-        nested: { deep: { value: 'nested' } },
-      };
-
-      const rw = await readWriteJson(testPath);
-      await rw.write(testData);
-
-      const rw2 = await readWriteJson(testPath);
-      assert.deepStrictEqual(rw2.content, testData);
-    });
-
-    it('should maintain Partial<T> type constraint invariant', async () => {
-      interface TestInterface {
-        required: string;
-        optional?: number;
+        await assert.rejects(
+          () =>
+            readWriteMetadata(dir, ['a.ts'], async () => {
+              throw failure;
+            }),
+          failure,
+        );
+      } finally {
+        await rm(dir, { recursive: true, force: true });
       }
+    });
 
-      const testPath = join(testDir, 'partial.json');
-      const rw = await readWriteJson<TestInterface>(testPath);
+    it('should reject an output path with a null byte', async () => {
+      await assert.rejects(
+        () =>
+          readWriteMetadata(join(tmpdir(), 'file\0null'), ['a.ts'], writeFiles),
+        { code: 'ERR_INVALID_ARG_VALUE' },
+      );
+    });
 
-      // Should accept partial data
-      await rw.write({ required: 'test' });
+    it('should write metadata.json when none exists', async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'metadata-new-'));
+      try {
+        await readWriteMetadata(dir, ['/a.ts'], writeFiles);
 
-      const rw2 = await readWriteJson<TestInterface>(testPath);
-      assert.strictEqual(rw2.content.required, 'test');
-      assert.strictEqual(rw2.content.optional, undefined);
+        assert.deepStrictEqual(
+          JSON.parse(await readFile(join(dir, 'metadata.json'), 'utf-8')),
+          {
+            generatedFiles: ['/a.ts'],
+            userFiles: ['/dist/**', '/build/**', '/readme.md'],
+          },
+        );
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
     });
   });
 
@@ -125,14 +94,15 @@ describe('Metadata File Management - Error-First Testing', () => {
         'utf-8',
       );
 
-      const result = await readWriteMetadata(testDir, ['file1.ts', 'file2.ts']);
+      const result = await readWriteMetadata(
+        testDir,
+        ['file1.ts', 'file2.ts'],
+        writeFiles,
+      );
 
-      assert.deepStrictEqual(result.content.generatedFiles, [
-        'file1.ts',
-        'file2.ts',
-      ]);
+      assert.deepStrictEqual(result.generatedFiles, ['file1.ts', 'file2.ts']);
       // userFiles gets defaults added, so it should include the existing plus defaults
-      assert.deepStrictEqual(result.content.userFiles, [
+      assert.deepStrictEqual(result.userFiles, [
         '/dist/**',
         '/build/**',
         '/readme.md',
@@ -143,10 +113,14 @@ describe('Metadata File Management - Error-First Testing', () => {
       const emptyMetadataDir = join(testDir, 'empty-metadata');
       await mkdir(emptyMetadataDir);
 
-      const result = await readWriteMetadata(emptyMetadataDir, ['new-file.ts']);
+      const result = await readWriteMetadata(
+        emptyMetadataDir,
+        ['new-file.ts'],
+        writeFiles,
+      );
 
-      assert.deepStrictEqual(result.content.generatedFiles, ['new-file.ts']);
-      assert.deepStrictEqual(result.content.userFiles, [
+      assert.deepStrictEqual(result.generatedFiles, ['new-file.ts']);
+      assert.deepStrictEqual(result.userFiles, [
         '/dist/**',
         '/build/**',
         '/readme.md',
@@ -158,27 +132,29 @@ describe('Metadata File Management - Error-First Testing', () => {
       await mkdir(preserveDir);
 
       // First write
-      const result1 = await readWriteMetadata(preserveDir, [
-        'old1.ts',
-        'old2.ts',
-      ]);
-      result1.content.userFiles = ['/custom/**', '/special.md'];
-      await result1.write();
+      const result1 = await readWriteMetadata(
+        preserveDir,
+        ['old1.ts', 'old2.ts'],
+        writeFiles,
+      );
+      // A user adds userFiles by editing metadata.json; no operation exposes it.
+      await writeFile(
+        join(preserveDir, 'metadata.json'),
+        JSON.stringify({
+          ...result1,
+          userFiles: ['/custom/**', '/special.md'],
+        }),
+      );
 
       // Second write should preserve userFiles
-      const result2 = await readWriteMetadata(preserveDir, [
-        'new1.ts',
-        'new2.ts',
-      ]);
+      const result2 = await readWriteMetadata(
+        preserveDir,
+        ['new1.ts', 'new2.ts'],
+        writeFiles,
+      );
 
-      assert.deepStrictEqual(result2.content.generatedFiles, [
-        'new1.ts',
-        'new2.ts',
-      ]);
-      assert.deepStrictEqual(result2.content.userFiles, [
-        '/custom/**',
-        '/special.md',
-      ]);
+      assert.deepStrictEqual(result2.generatedFiles, ['new1.ts', 'new2.ts']);
+      assert.deepStrictEqual(result2.userFiles, ['/custom/**', '/special.md']);
     });
   });
 
@@ -419,30 +395,17 @@ describe('Metadata File Management - Error-First Testing', () => {
   });
 
   describe('Happy Path - Normal Operation Verification', () => {
-    it('should successfully read and write valid JSON', async () => {
-      const happyPath = join(testDir, 'happy.json');
-      const testData = { message: 'success', count: 1 };
-
-      const rw = await readWriteJson(happyPath);
-      await rw.write(testData);
-
-      const rw2 = await readWriteJson(happyPath);
-      assert.deepStrictEqual(rw2.content, testData);
-    });
-
     it('should successfully manage metadata lifecycle', async () => {
       const lifecycleDir = join(testDir, 'lifecycle');
       await mkdir(lifecycleDir);
 
-      const result = await readWriteMetadata(lifecycleDir, [
-        'app.ts',
-        'utils.ts',
-      ]);
-      assert.deepStrictEqual(result.content.generatedFiles, [
-        'app.ts',
-        'utils.ts',
-      ]);
-      assert.deepStrictEqual(result.content.userFiles, [
+      const result = await readWriteMetadata(
+        lifecycleDir,
+        ['app.ts', 'utils.ts'],
+        writeFiles,
+      );
+      assert.deepStrictEqual(result.generatedFiles, ['app.ts', 'utils.ts']);
+      assert.deepStrictEqual(result.userFiles, [
         '/dist/**',
         '/build/**',
         '/readme.md',

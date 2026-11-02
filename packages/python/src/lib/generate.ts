@@ -288,10 +288,11 @@ python-dateutil>=2.8.0
   const metadata = await readWriteMetadata(
     settings.output,
     Array.from(writtenFiles),
+    settings.writer,
   );
 
   if (settings.cleanup !== false && writtenFiles.size > 0) {
-    await cleanFiles(metadata.content, settings.output, [
+    await cleanFiles(metadata, settings.output, [
       '/__init__.py',
       'requirements.txt',
       '/metadata.json',

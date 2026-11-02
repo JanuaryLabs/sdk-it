@@ -1,39 +1,47 @@
-import deubg from 'debug';
-import { readFile, unlink, writeFile } from 'node:fs/promises';
+import { isErrno } from '@zukhruf/fs';
+import debug from 'debug';
+import { readFile, unlink } from 'node:fs/promises';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import pLimit from 'p-limit';
 
 import {
+  type Writer,
   addLeadingSlash,
-  exist,
   readFolder,
 } from '@sdk-it/core/file-system.js';
 
-const log = deubg('sdk-it:metdata');
-
-export async function readWriteJson<T = Record<string, unknown>>(path: string) {
-  const content = (
-    (await exist(path)) ? JSON.parse(await readFile(path, 'utf-8')) : {}
-  ) as Partial<T>;
-  return {
-    content,
-    write: (value: Record<string, unknown> = content) =>
-      writeFile(path, JSON.stringify(value, null, 2), 'utf-8'),
-  };
-}
+const log = debug('sdk-it:metadata');
 
 interface Metadata {
   generatedFiles: string[];
-  userFiles?: string[];
+  userFiles: string[];
 }
 
-export async function readWriteMetadata(output: string, files: string[]) {
-  const metadata = await readWriteJson<Metadata>(join(output, 'metadata.json'));
-  metadata.content.generatedFiles = files;
-  metadata.content.userFiles ??= ['/dist/**', '/build/**', '/readme.md'];
-  await metadata.write(metadata.content);
+export async function readWriteMetadata(
+  output: string,
+  files: string[],
+  writer: Writer,
+): Promise<Metadata> {
+  const previous = await readMetadata(join(output, 'metadata.json'));
+  const metadata: Metadata = {
+    ...previous,
+    generatedFiles: files,
+    userFiles: previous.userFiles ?? ['/dist/**', '/build/**', '/readme.md'],
+  };
+  await writer(output, {
+    'metadata.json': JSON.stringify(metadata, null, 2),
+  });
   return metadata;
+}
+
+async function readMetadata(path: string): Promise<Partial<Metadata>> {
+  try {
+    return JSON.parse(await readFile(path, 'utf-8'));
+  } catch (error) {
+    if (isErrno(error, 'ENOENT')) return {};
+    throw error;
+  }
 }
 
 /**
@@ -71,8 +79,7 @@ export async function cleanFiles(
           await unlink(filePath);
           log(`Deleted file: ${filePath}`);
         } catch (error: unknown) {
-          // Ignore ENOENT errors - file was already deleted or doesn't exist
-          if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
+          if (isErrno(error, 'ENOENT')) {
             log(`File already deleted or doesn't exist: ${filePath}`);
           } else {
             throw error;
@@ -81,13 +88,4 @@ export async function cleanFiles(
       }),
     ),
   );
-
-  // for (const file of actualFiles) {
-  //   if (micromatch.isMatch(addLeadingSlash(file), keep)) {
-  //     continue;
-  //   }
-  //   const filePath = join(output, file);
-  //   await unlink(filePath);
-  //   log(`Deleted file: ${filePath}`);
-  // }
 }
