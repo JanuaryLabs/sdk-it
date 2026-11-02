@@ -32,6 +32,25 @@ await generate(spec, {
 controls the generated client class name. `minimal` mode writes client source
 files directly to `output`.
 
+## Render the SDK in memory
+
+`render` returns the SDK source files and does not read or write the disk. Use
+it when a tool needs the code but not the files, for example a compiler plugin.
+
+```typescript
+import { render } from '@sdk-it/typescript';
+
+const files = await render(spec, {
+  name: 'OpenStatus',
+  style: { name: 'github' },
+  useTsExtension: true,
+});
+// files['client.ts'], files['index.ts'], files['models/index.ts'], …
+```
+
+The keys are paths relative to the SDK source folder. The result contains the
+index files. `generate` writes the same source files to `output`.
+
 ## Use the generated client
 
 ```typescript
