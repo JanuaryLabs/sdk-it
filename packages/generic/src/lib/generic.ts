@@ -17,7 +17,10 @@ import {
   isArrayLiteralExpression,
   isArrowFunction,
   isAsExpression,
+  isAwaitExpression,
+  isBlock,
   isCallExpression as isCall,
+  isConditionalExpression,
   isConstructorDeclaration,
   isEnumMember,
   isFunctionDeclaration,
@@ -329,13 +332,87 @@ function requirementKey(requirement: SecurityRequirementObject) {
   );
 }
 
+/**
+ * The calls whose value a returned expression passes on as the response:
+ * through await, parentheses, type assertions, satisfies and non-null, and
+ * both branches of a conditional.
+ */
+function returnedCalls(expression: Expression): CallExpression[] {
+  if (
+    isAwaitExpression(expression) ||
+    isParenthesizedExpression(expression) ||
+    isAsExpression(expression) ||
+    isTypeAssertion(expression) ||
+    isSatisfiesExpression(expression) ||
+    isNonNullExpression(expression)
+  ) {
+    return returnedCalls(expression.expression);
+  }
+  if (isConditionalExpression(expression)) {
+    return [
+      ...returnedCalls(expression.whenTrue),
+      ...returnedCalls(expression.whenFalse),
+    ];
+  }
+  return isCall(expression) ? [expression] : [];
+}
+
+/**
+ * Collects the tokens that become a handler's responses. In returned mode a
+ * return statement is a response; in discarded mode only throws are, because
+ * the caller drops the value. A call is followed in returned mode only when
+ * its value is returned, so a helper that the handler calls for its side
+ * effects adds its throws but never its returns.
+ */
 function returnTokens(node: Node, typeChecker: Checker) {
   const tokens: { token: string; node: Expression }[] = [];
   const maxDepth = 5;
-  // Track visited function declarations to prevent infinite recursion
-  const visitedFunctions = new Set<Node>();
+  // A function is read once per mode: a discarded visit skips its returns,
+  // so a later returned call to it must read it again.
+  const visitedFunctions = {
+    returned: new Set<Node>(),
+    discarded: new Set<Node>(),
+  };
 
-  const visitor = (node: Node, depth: number): void => {
+  const follow = (
+    callExpression: CallExpression,
+    depth: number,
+    returned: boolean,
+  ): void => {
+    if (depth >= maxDepth) {
+      return;
+    }
+
+    let symbol: TsSymbol | undefined;
+    if (isIdentifier(callExpression.expression)) {
+      symbol = typeChecker.getSymbolAtLocation(callExpression.expression);
+    } else if (isPropertyAccessExpression(callExpression.expression)) {
+      symbol = typeChecker.getSymbolAtLocation(callExpression.expression.name);
+    }
+    if (symbol && symbol.flags & SymbolFlags.Alias) {
+      symbol = typeChecker.getAliasedSymbol(symbol);
+    }
+
+    // Third-party functions are not followed
+    if (!symbol || !isLocalFunction(symbol)) {
+      return;
+    }
+    const visited = returned
+      ? visitedFunctions.returned
+      : visitedFunctions.discarded;
+    for (const handle of symbol.declarations) {
+      const declaration = handle.resolve();
+      if (!declaration || visited.has(declaration)) {
+        continue;
+      }
+      if (isFunctionWithBody(declaration) && declaration.body) {
+        visited.add(declaration);
+        visitor(declaration.body, depth + 1, returned);
+      }
+    }
+  };
+
+  const visitor = (node: Node, depth: number, returned: boolean): void => {
     // Skip if we've exceeded max depth
     if (depth > maxDepth) {
       return;
@@ -394,66 +471,60 @@ function returnTokens(node: Node, typeChecker: Checker) {
     }
 
     if (isReturnStatement(node) && node.expression) {
-      if (isCall(node.expression)) {
-        tokens.push({
-          token: node.expression.expression.getText(),
-          node: node.expression,
-        });
-      }
-      if (isNewExpression(node.expression)) {
-        tokens.push({
-          token: `new.${node.expression.expression.getText()}`,
-          node: node.expression,
-        });
-      }
-      // Continue traversing into the returned expression (e.g., arrow functions)
-      // This handles: return async (c, next) => { throw ... }
-      node.expression.forEachChild((child) => visitor(child, depth));
+      visitReturned(node.expression, depth, returned);
       return;
     }
 
-    // If we encounter a call expression, follow it
-    if (isCall(node) && depth < maxDepth) {
-      const callExpression = node;
-
-      // Try to resolve the function being called
-      let symbol: TsSymbol | undefined;
-
-      if (isIdentifier(callExpression.expression)) {
-        symbol = typeChecker.getSymbolAtLocation(callExpression.expression);
-      } else if (isPropertyAccessExpression(callExpression.expression)) {
-        symbol = typeChecker.getSymbolAtLocation(
-          callExpression.expression.name,
-        );
+    // A concise arrow body is the function's return value: () => (c) => { ... }
+    if (isArrowFunction(node) && !isBlock(node.body)) {
+      for (const parameter of node.parameters) {
+        visitor(parameter, depth, false);
       }
-
-      // Resolve aliases
-      if (symbol && symbol.flags & SymbolFlags.Alias) {
-        symbol = typeChecker.getAliasedSymbol(symbol);
-      }
-
-      // Third-party functions are not followed
-      if (symbol && isLocalFunction(symbol)) {
-        for (const handle of symbol.declarations) {
-          const declaration = handle.resolve();
-          // Skip if we've already visited this function (prevent infinite recursion)
-          if (!declaration || visitedFunctions.has(declaration)) {
-            continue;
-          }
-
-          if (isFunctionWithBody(declaration) && declaration.body) {
-            visitedFunctions.add(declaration);
-            // Recursively visit the function body with incremented depth
-            visitor(declaration.body, depth + 1);
-          }
-        }
-      }
+      visitReturned(node.body, depth, returned);
+      return;
     }
 
-    node.forEachChild((child) => visitor(child, depth));
+    if (isCall(node)) {
+      follow(node, depth, false);
+    }
+
+    // A nested function's returns answer its own caller, not this one.
+    node.forEachChild((child) =>
+      visitor(child, depth, returned && !isFunctionWithBody(child)),
+    );
   };
 
-  visitor(node, 0);
+  const visitReturned = (
+    expression: Expression,
+    depth: number,
+    returned: boolean,
+  ): void => {
+    if (returned) {
+      if (isCall(expression)) {
+        tokens.push({
+          token: expression.expression.getText(),
+          node: expression,
+        });
+      }
+      if (isNewExpression(expression)) {
+        tokens.push({
+          token: `new.${expression.expression.getText()}`,
+          node: expression,
+        });
+      }
+    }
+    for (const call of returnedCalls(expression)) {
+      follow(call, depth, returned);
+    }
+    // A returned function keeps the mode: return async (c, next) => { ... }
+    if (isFunctionWithBody(expression)) {
+      visitor(expression, depth, returned);
+    } else {
+      expression.forEachChild((child) => visitor(child, depth, returned));
+    }
+  };
+
+  visitor(node, 0, true);
   return tokens;
 }
 
