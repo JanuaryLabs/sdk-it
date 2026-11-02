@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { test } from 'node:test';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
+import { writeFiles } from '@sdk-it/core/file-system.js';
 import { generate } from '@sdk-it/dart';
 
 test('generates Never for impossible response schemas', async () => {
@@ -143,6 +144,42 @@ test('generates schemas with common properties and inline oneOf variants', async
     };
 
     await generate(spec, { output, name: 'Subscriptions' });
+  } finally {
+    rmSync(output, { recursive: true, force: true });
+  }
+});
+
+test('generate writes metadata.json through the caller writer', async () => {
+  const output = mkdtempSync(join(tmpdir(), 'dart-metadata-writer-'));
+  try {
+    const written: string[] = [];
+
+    await generate(
+      {
+        openapi: '3.1.0',
+        info: { title: 'Pets', version: '1.0.0' },
+        paths: {
+          '/pets': {
+            get: {
+              operationId: 'listPets',
+              tags: ['pets'],
+              responses: { '200': { description: 'OK' } },
+            },
+          },
+        },
+      },
+      {
+        output,
+        writer: async (folder, contents) => {
+          for (const file of Object.keys(contents)) {
+            written.push(relative(output, join(folder, file)));
+          }
+          await writeFiles(folder, contents);
+        },
+      },
+    );
+
+    assert.ok(written.includes('metadata.json'), written.join('\n'));
   } finally {
     rmSync(output, { recursive: true, force: true });
   }
