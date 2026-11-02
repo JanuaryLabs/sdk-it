@@ -626,7 +626,7 @@ describe('Response Analyzer', () => {
         ]);
       });
 
-      test('extracts octet-stream content-type for c.body(null)', async () => {
+      test('c.body(null) sends no body', async () => {
         const responses = await analyzeHandler(`
           (c: any) => {
             return c.body(null, 204);
@@ -636,13 +636,9 @@ describe('Response Analyzer', () => {
         assert.deepStrictEqual(responses, [
           {
             headers: [],
-            contentType: 'application/octet-stream',
+            contentType: 'empty',
             statusCode: '204',
-            response: {
-              [deriveSymbol]: true,
-              [$types]: ['null'],
-              optional: false,
-            },
+            response: undefined,
           },
         ]);
       });

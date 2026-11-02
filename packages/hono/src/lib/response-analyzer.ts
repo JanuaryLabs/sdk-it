@@ -16,6 +16,7 @@ import {
   isFunctionExpression,
   isIdentifier,
   isNewExpression,
+  isNullLiteral,
   isNumericLiteral,
   isObjectLiteralExpression,
   isParenthesizedExpression,
@@ -60,11 +61,14 @@ const handlerVisitor: (
         isIdentifier(propAccess.expression) &&
         propAccess.expression.text === contextVarName
       ) {
-        const [body, statusCode, headers] = call.arguments;
-        let contentType = 'application/json';
-        if (propAccess.name.text === 'body') {
-          contentType = 'application/octet-stream';
-        }
+        const [argument, statusCode, headers] = call.arguments;
+        const rawBody = propAccess.name.text === 'body';
+        // A raw body of null sends nothing; c.json(null) still sends the JSON text null.
+        const body =
+          rawBody && argument && isNullLiteral(argument) ? undefined : argument;
+        let contentType = rawBody
+          ? 'application/octet-stream'
+          : 'application/json';
         if (!body) {
           contentType = 'empty';
         }
