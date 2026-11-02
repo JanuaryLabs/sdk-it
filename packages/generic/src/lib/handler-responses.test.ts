@@ -1,13 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import {
-  mkdir,
-  mkdtemp,
-  realpath,
-  rm,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -237,6 +230,21 @@ export {};
     });
   }
 
+  test('return new Response(null, { status: 204 }) documents 204 without content', async () => {
+    const paths = await analyzeWorkspace({
+      'index.ts': `${routing}
+app.delete('/runs/:id', validate(() => ({})), (c: Ctx) => {
+  return new Response(null, { status: 204 });
+});
+export {};
+`,
+    });
+
+    assert.deepStrictEqual(paths['/runs/{id}'].delete.responses, {
+      '204': { description: 'Response for 204' },
+    });
+  });
+
   test('return c.json(null) still documents a JSON body', async () => {
     const paths = await analyzeWorkspace({
       'index.ts': `${routing}
@@ -434,13 +442,13 @@ export {};
  * dist folder that is never built, so the analyzer can only reach the
  * package through its source.
  */
-async function analyzeWithReference(app: string, library: string) {
-  // TypeScript maps a reference's declarations back to its source only when
-  // the reference and the resolved module agree on the path, so the workspace
-  // is opened through its real path (tmpdir() is a symlink on macOS).
-  const dir = await realpath(
-    await mkdtemp(join(tmpdir(), 'sdk-it-handler-references-')),
-  );
+async function analyzeWithReference(
+  app: string,
+  library: string,
+  through: 'directory' | 'symlink' = 'directory',
+) {
+  const dir = await mkdtemp(join(tmpdir(), 'sdk-it-handler-references-'));
+  const links = await mkdtemp(join(tmpdir(), 'sdk-it-handler-links-'));
   try {
     const compilerOptions = {
       target: 'ES2022',
@@ -492,10 +500,16 @@ async function analyzeWithReference(app: string, library: string) {
       '--build',
       join(dir, 'packages/runs'),
     ]);
-    using project = openAnalysisProject(join(dir, 'tsconfig.json'));
+    let root = dir;
+    if (through === 'symlink') {
+      root = join(links, 'workspace');
+      await symlink(dir, root, 'dir');
+    }
+    using project = openAnalysisProject(join(root, 'tsconfig.json'));
     const { paths } = await analyze(project, { responseAnalyzer });
     return JSON.parse(JSON.stringify(paths));
   } finally {
+    await rm(links, { recursive: true, force: true });
     await rm(dir, { recursive: true, force: true });
   }
 }
@@ -537,6 +551,25 @@ app.post('/sql-agent', validate(() => ({})), async (c: Ctx) => {
 
     assert.deepStrictEqual(contentTypes(paths['/sql-agent'].post.responses), {
       '200': ['application/json'],
+    });
+  });
+
+  test('a throw in a package helper is documented when the workspace is opened through a symlink', async () => {
+    const paths = await analyzeWithReference(
+      `${routing}
+import { ensureRun } from '@ws/runs';
+app.delete('/runs/:id', validate(() => ({})), (c: Ctx) => {
+  ensureRun(flag());
+  return c.json({ deleted: true });
+});
+`,
+      library,
+      'symlink',
+    );
+
+    assert.deepStrictEqual(contentTypes(paths['/runs/{id}'].delete.responses), {
+      '200': ['application/json'],
+      '404': ['application/json'],
     });
   });
 
