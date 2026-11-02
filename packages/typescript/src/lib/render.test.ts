@@ -94,9 +94,12 @@ function sourceFiles(dir: string) {
   );
 }
 
-test('render writes nothing to disk', () => {
-  const script = `
-    import { render } from '@sdk-it/typescript';
+test('render reads and writes nothing outside the code it loads', () => {
+  const workingFolder = mkdtempSync(join(tmpdir(), 'render-no-disk-'));
+  try {
+    writeFileSync(join(workingFolder, 'index.ts'), 'export {};');
+    const script = `
+    const { render } = await import(${JSON.stringify(import.meta.resolve('@sdk-it/typescript'))});
     const files = await render(${JSON.stringify(petStore(['Pet']))}, {
       name: 'Pets',
       style: { name: 'github' },
@@ -105,20 +108,23 @@ test('render writes nothing to disk', () => {
     process.stdout.write(String(Object.keys(files).length));
   `;
 
-  const result = spawnSync(
-    process.execPath,
-    [
-      '--permission',
-      `--allow-fs-read=${repoRoot}`,
-      '--input-type=module',
-      '--eval',
-      script,
-    ],
-    { cwd: packageDir, encoding: 'utf8' },
-  );
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--permission',
+        `--allow-fs-read=${repoRoot}`,
+        '--input-type=module',
+        '--eval',
+        script,
+      ],
+      { cwd: workingFolder, encoding: 'utf8' },
+    );
 
-  assert.equal(result.status, 0, result.stderr);
-  assert.ok(Number(result.stdout) > 0, result.stdout);
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(Number(result.stdout) > 0, result.stdout);
+  } finally {
+    rmSync(workingFolder, { recursive: true, force: true });
+  }
 });
 
 test('generate writes metadata.json through a writer that keeps files in memory', async () => {
