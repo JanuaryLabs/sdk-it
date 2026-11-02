@@ -1,3 +1,4 @@
+import { API } from '@typescript/native/sync';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -16,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
+import { preEmitDiagnostics } from '@sdk-it/core/program.js';
 import { generate, render } from '@sdk-it/typescript';
 
 const packageDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -126,6 +128,47 @@ test('render reads and writes nothing outside the code it loads', () => {
     rmSync(workingFolder, { recursive: true, force: true });
   }
 });
+
+for (const agentTools of ['ai-sdk', 'openai-agents'] as const) {
+  test(`render output without .ts extensions compiles where .ts imports are not allowed (${agentTools})`, async () => {
+    const dir = mkdtempSync(join(repoRoot, '.render-no-ts-extension-'));
+    try {
+      const files = await render(petStore(['Pet', 'Tag']), {
+        name: 'Pets',
+        style: { name: 'github' },
+        useTsExtension: false,
+        agentTools,
+      });
+      await writeFiles(dir, files);
+      writeFileSync(
+        join(dir, 'tsconfig.json'),
+        JSON.stringify({
+          compilerOptions: {
+            target: 'ESNext',
+            moduleResolution: 'bundler',
+            skipLibCheck: true,
+            noEmit: true,
+            verbatimModuleSyntax: true,
+          },
+          include: ['**/*.ts'],
+        }),
+      );
+
+      using api = new API();
+      const config = api.parseConfigFile(join(dir, 'tsconfig.json'));
+      using program = api.createProgram(config.fileNames, config.options);
+      const diagnostics = preEmitDiagnostics(program).map(
+        (diagnostic) =>
+          `${diagnostic.fileName}:${diagnostic.startPosition && diagnostic.startPosition.line + 1} ${diagnostic.text}`,
+      );
+
+      assert.ok(config.fileNames.length > 0);
+      assert.deepStrictEqual(diagnostics, []);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+}
 
 test('generate writes metadata.json through a writer that keeps files in memory', async () => {
   const output = join(

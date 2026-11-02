@@ -7,7 +7,9 @@ import {
   forEachOperation,
 } from '@sdk-it/spec';
 
-export function generateOpenAIAgentTools(spec: IR) {
+import { type MakeImportFn } from '../import-utilities.ts';
+
+export function generateOpenAIAgentTools(spec: IR, makeImport: MakeImportFn) {
   const groups: Record<string, string[]> = {};
   forEachOperation(spec, (entry, operation) => {
     groups[entry.tag] ??= [];
@@ -16,7 +18,7 @@ export function generateOpenAIAgentTools(spec: IR) {
   const imports = [
     `import { z } from 'zod';`,
     `import { tool } from '@openai/agents';`,
-    `import * as schemas from './inputs/index.ts';`,
+    `import * as schemas from '${makeImport('./inputs/index')}';`,
   ];
   const tools = Object.entries(groups).map(([group, tools]) => {
     return `export const ${spinalcase(group)} = [${tools.join(', ')}];`;

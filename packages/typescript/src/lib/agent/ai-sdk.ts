@@ -8,8 +8,9 @@ import {
 } from '@sdk-it/spec';
 
 import { groupIdentifier } from '../group-identifier.ts';
+import { type MakeImportFn } from '../import-utilities.ts';
 
-export function generateAISDKTools(ir: IR) {
+export function generateAISDKTools(ir: IR, makeImport: MakeImportFn) {
   const groups: Record<
     string,
     {
@@ -40,7 +41,7 @@ export function generateAISDKTools(ir: IR) {
   const imports = [
     `import { z } from 'zod';`,
     `import { tool } from 'ai';`,
-    `import * as schemas from './inputs/index.ts';`,
+    `import * as schemas from '${makeImport('./inputs/index')}';`,
   ];
   const agent = Object.entries(groups).map(
     ([group, { instructions, tools, displayName }]) => {

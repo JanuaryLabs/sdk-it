@@ -289,7 +289,7 @@ ${template(dispatcherTxt, {})()}`,
     'pagination/page-pagination.ts': paginationTxt,
     ...(options.agentTools
       ? {
-          'agents.ts': `${agentTools[options.agentTools](spec)}\n${utilsTxt}`,
+          'agents.ts': `${agentTools[options.agentTools](spec, makeImport)}\n${utilsTxt}`,
         }
       : {}),
   };
