@@ -31,6 +31,7 @@ Brief descriptions of each package in the monorepo. These summaries focus on pur
 - **`@nx/dependency-checks` cannot read npm alias specs.** Each package that uses `@typescript/native` sets `ignoredDependencies: ['@typescript/native']` on that rule.
 - **`npx tsc -v` reports 6.x.** This can occur after an incremental install, because two packages ship a `tsc` bin. Run `npm ci`.
 - **Declarations.** The inferred `build-types` target (`tsc --build tsconfig.lib.json`) emits the published `.d.ts` files. esbuild emits only JavaScript.
+- **Project references.** When a tsconfig has `references`, the TypeScript 7.1 API program reads each referenced package as source, not as its `.d.ts` (`tsc` and TypeScript 6 read the `.d.ts`). So `analyze` follows calls into workspace packages: a call whose value the handler returns adds the callee's returns and throws, and any other call adds only its throws (`returnTokens` in `packages/generic/src/lib/generic.ts`). The redirect needs matching paths, so `openAnalysisProject` opens the tsconfig by its real path, and the program names its files by real path.
 
 ### Notes & Next Refinements
 
