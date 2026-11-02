@@ -75,8 +75,8 @@ function functionPlugin(
 }
 
 function filePlugin(openapi: string, settings: Settings): Omit<Plugin, 'name'> {
-  let watchPath: string | null = null;
-  let sourceRef: string | null = null;
+  let watchPath: string | undefined;
+  let sourceRef!: string;
   let watcher: FSWatcher | undefined;
   // Every local file the spec was read from; an edit to any of them regenerates.
   let watched = new Set<string>();
@@ -104,9 +104,6 @@ function filePlugin(openapi: string, settings: Settings): Omit<Plugin, 'name'> {
 
   return {
     configureServer(server) {
-      const ref = sourceRef;
-      if (!ref) return;
-
       if (!watchPath) return;
       console.log(
         `${chalk.blue('SDKIT')}: Watching for spec changes in`,
@@ -118,7 +115,7 @@ function filePlugin(openapi: string, settings: Settings): Omit<Plugin, 'name'> {
         if (!watched.has(normalizePath(file))) return;
         console.log(`${chalk.blue('SDKIT')}: OpenAPI spec changed`, file);
         // A half-saved file fails to load; the next save tries again.
-        generateIfNeeded(ref).catch((error: unknown) =>
+        generateIfNeeded(sourceRef).catch((error: unknown) =>
           console.error(`${chalk.red('SDKIT')}: SDK generation failed.`, error),
         );
       };
@@ -126,18 +123,15 @@ function filePlugin(openapi: string, settings: Settings): Omit<Plugin, 'name'> {
       watcher.on('add', regenerate);
     },
     async buildStart() {
-      if (!sourceRef) return;
       await generateIfNeeded(sourceRef);
     },
     async configResolved(config) {
       if (startsWithProtocol(openapi)) {
-        if (openapi.startsWith('file:')) {
-          watchPath = fileURLToPath(openapi);
-          sourceRef = openapi;
-        }
+        sourceRef = openapi;
+        if (openapi.startsWith('file:')) watchPath = fileURLToPath(openapi);
       } else {
-        watchPath = join(config.root, openapi);
         sourceRef = join(config.root, openapi);
+        watchPath = sourceRef;
       }
       if (watchPath) watched = new Set([normalizePath(watchPath)]);
     },
