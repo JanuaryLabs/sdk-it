@@ -40,6 +40,7 @@ Planned follow-ups: add cross-package dependency graph, highlight shared IR flow
 ### Dependencies
 
 - `.npmrc` sets `legacy-peer-deps=true`. evlog (a test-only dependency) declares optional framework peers such as `express@>=5.3.0` that the workspace cannot meet, because other tools still require express 4. As a result, npm does not install peer dependencies: declare any peer a package needs as a dependency of its own.
+- **A fresh resolve under npm 12.0.x fails with `EALLOWREMOTE`.** Without a lockfile, npm 12 opens the tarball of each package that declares `bundleDependencies` (here `@tailwindcss/oxide-wasm32-wasi`) and refuses it, because its new `allow-remote=none` default treats the registry URL as remote (npm/cli#9800). Pass `--allow-remote=all` to that one command until npm/cli#9818 ships. Do not set it in `.npmrc`: that turns off the protection for every install. An install from the committed lockfile is not affected.
 
 ### Releasing
 
