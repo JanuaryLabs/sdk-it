@@ -1,20 +1,16 @@
 import { readFile } from 'node:fs/promises';
+import { text } from 'node:stream/consumers';
 import type { ZodType } from 'zod';
 
 async function readStdinIfPiped(): Promise<unknown> {
   if (process.stdin.isTTY) return undefined;
-  const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  if (chunks.length === 0) return undefined;
-  const raw = Buffer.concat(chunks).toString('utf8').trim();
+  const raw = (await text(process.stdin)).trim();
   if (!raw) return undefined;
   try {
     return JSON.parse(raw);
   } catch (err) {
     throw new Error(
-      `Failed to parse JSON from stdin: ${(err as Error).message}`,
+      `Failed to parse JSON from stdin: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 }
@@ -25,7 +21,7 @@ async function readJsonFile(path: string): Promise<unknown> {
     return JSON.parse(raw);
   } catch (err) {
     throw new Error(
-      `Failed to read JSON from ${path}: ${(err as Error).message}`,
+      `Failed to read JSON from ${path}: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 }

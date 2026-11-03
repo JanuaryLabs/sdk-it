@@ -5,7 +5,7 @@ import { followRef, isRef } from '@sdk-it/core';
 import type { IR } from '@sdk-it/spec';
 
 function resolve(ir: IR, schema: SchemaObject | ReferenceObject): SchemaObject {
-  return isRef(schema) ? (followRef(ir, schema.$ref) as SchemaObject) : schema;
+  return isRef(schema) ? followRef(ir, schema.$ref) : schema;
 }
 
 function isPrimitiveType(type: unknown): boolean {
@@ -89,7 +89,7 @@ export function addFlagsFromSchema(
   const required = new Set(schema.required ?? []);
 
   for (const [name, propOrRef] of Object.entries(properties)) {
-    const prop = resolve(ir, propOrRef as SchemaObject | ReferenceObject);
+    const prop = resolve(ir, propOrRef);
     if (!canBeFlag(ir, prop)) {
       skipped.push({
         name,
@@ -121,9 +121,7 @@ export function addFlagsFromSchema(
 
     if (primaryType === 'array') {
       const items = Array.isArray(prop.items) ? prop.items[0] : prop.items;
-      const itemSchema = items
-        ? resolve(ir, items as SchemaObject | ReferenceObject)
-        : ({} as SchemaObject);
+      const itemSchema: SchemaObject = items ? resolve(ir, items) : {};
       const itemType = Array.isArray(itemSchema.type)
         ? itemSchema.type[0]
         : itemSchema.type;

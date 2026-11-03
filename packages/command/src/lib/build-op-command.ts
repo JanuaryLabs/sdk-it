@@ -66,7 +66,12 @@ export function buildOpCommand({
   const endpoint = `${method.toUpperCase()} ${path}`;
 
   cmd.action(async (_: unknown, thisCommand: Command) => {
-    const opts = thisCommand.optsWithGlobals() as Record<string, unknown>;
+    const opts: {
+      describe?: boolean;
+      output?: OutputMode;
+      inputFile?: string;
+      [flag: string]: unknown;
+    } = thisCommand.optsWithGlobals();
 
     if (opts.describe) {
       const desc = describeOperation(ir, operation, method, path);
@@ -74,8 +79,8 @@ export function buildOpCommand({
       return;
     }
 
-    const outputMode = (opts.output as OutputMode) ?? 'json';
-    const inputFile = opts.inputFile as string | undefined;
+    const outputMode = opts.output ?? 'json';
+    const inputFile = opts.inputFile;
 
     const flagValues: Record<string, unknown> = {};
     for (const n of flagMap.names) {
@@ -101,7 +106,7 @@ export function buildOpCommand({
     }
 
     try {
-      const response = await client.request(endpoint, input as never);
+      const response = await client.request(endpoint, input);
       writeOutput(response, outputMode);
     } catch (err) {
       writeError(err);

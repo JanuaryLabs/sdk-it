@@ -1,4 +1,8 @@
-import type { SchemaObject } from 'openapi3-ts/oas31';
+import type {
+  MediaTypeObject,
+  ReferenceObject,
+  SchemaObject,
+} from 'openapi3-ts/oas31';
 
 import {
   type IR,
@@ -17,7 +21,7 @@ export interface OperationDescriptor {
   summary?: string;
   description?: string;
   input: SchemaObject;
-  responses: Record<string, SchemaObject | undefined>;
+  responses: Record<string, SchemaObject | ReferenceObject | undefined>;
 }
 
 const CONTENT_TYPE_PRIORITY = [
@@ -30,8 +34,8 @@ const CONTENT_TYPE_PRIORITY = [
 ];
 
 function pickContentSchema(
-  content: Record<string, { schema?: SchemaObject }>,
-): SchemaObject | undefined {
+  content: Record<string, MediaTypeObject>,
+): SchemaObject | ReferenceObject | undefined {
   for (const ct of CONTENT_TYPE_PRIORITY) {
     if (content[ct]?.schema) return content[ct].schema;
   }
@@ -44,13 +48,10 @@ function pickContentSchema(
 
 function responseSchemas(
   operation: TunedOperationObject,
-): Record<string, SchemaObject | undefined> {
-  const out: Record<string, SchemaObject | undefined> = {};
+): Record<string, SchemaObject | ReferenceObject | undefined> {
+  const out: Record<string, SchemaObject | ReferenceObject | undefined> = {};
   for (const [status, response] of Object.entries(operation.responses ?? {})) {
-    const content = (
-      response as { content?: Record<string, { schema?: SchemaObject }> }
-    ).content;
-    out[status] = content ? pickContentSchema(content) : undefined;
+    out[status] = pickContentSchema(response.content);
   }
   return out;
 }

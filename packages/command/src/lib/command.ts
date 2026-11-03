@@ -70,7 +70,7 @@ export async function command(
   );
 
   program.hook('preAction', (thisCommand) => {
-    const opts = thisCommand.opts() as Record<string, unknown>;
+    const opts: Record<string, unknown> = thisCommand.opts();
     const override: Partial<ClientOptions> = {};
     if (typeof opts.token === 'string') override.token = opts.token;
     if (typeof opts.baseUrl === 'string') override.baseUrl = opts.baseUrl;

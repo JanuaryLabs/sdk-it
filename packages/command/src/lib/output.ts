@@ -1,11 +1,7 @@
 export type OutputMode = 'json' | 'raw';
 
 function hasData(value: unknown): value is { data: unknown } {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'data' in (value as Record<string, unknown>)
-  );
+  return typeof value === 'object' && value !== null && 'data' in value;
 }
 
 function stringifyJson(value: unknown): string {
@@ -35,14 +31,13 @@ export function writeOutput(value: unknown, mode: OutputMode): void {
 export function writeError(error: unknown): void {
   const payload: Record<string, unknown> = { error: true };
   if (error && typeof error === 'object') {
-    const err = error as Record<string, unknown>;
-    if ('status' in err) payload.status = err.status;
-    const hasData = 'data' in err;
-    if (hasData) payload.data = err.data;
-    if ('message' in err && !hasData) payload.message = err.message;
-    if (err instanceof Error) {
-      payload.message = err.message;
-      payload.name = err.name;
+    if ('status' in error) payload.status = error.status;
+    const hasData = 'data' in error;
+    if (hasData) payload.data = error.data;
+    if ('message' in error && !hasData) payload.message = error.message;
+    if (error instanceof Error) {
+      payload.message = error.message;
+      payload.name = error.name;
     }
   } else {
     payload.message = String(error);
