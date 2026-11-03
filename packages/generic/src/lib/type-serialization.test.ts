@@ -569,7 +569,7 @@ export {};
     );
   });
 
-  test('function reference takes the declared return type', async () => {
+  test('a function reference has no JSON form, so its response schema matches no value', async () => {
     const { paths } = await analyzeWorkspace({
       'index.ts': `
 const app = { get: (..._args: unknown[]) => undefined };
@@ -587,12 +587,7 @@ export {};
 
     assert.deepStrictEqual(
       paths['/x'].get.responses,
-      jsonResponse({
-        type: 'object',
-        properties: { title: { type: 'string' } },
-        required: ['title'],
-        additionalProperties: false,
-      }),
+      jsonResponse({ not: {} }),
     );
   });
 
