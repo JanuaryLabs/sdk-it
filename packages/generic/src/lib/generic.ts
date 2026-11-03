@@ -468,6 +468,14 @@ function returnTokens(node: Node, typeChecker: Checker) {
           token: `throw.new.${expression.expression.getText()}`,
           node: expression,
         });
+      } else if (isCall(expression)) {
+        // A factory call (e.g. an error catalog entry) is keyed by the type it returns.
+        const thrown = typeChecker
+          .getTypeAtLocation(expression)
+          .getSymbol()?.name;
+        if (thrown) {
+          tokens.push({ token: `throw.call.${thrown}`, node: expression });
+        }
       }
     }
 
@@ -891,11 +899,19 @@ export async function analyze(
       (handler, token, node) => {
         const responseAnalyzer = config.responseAnalyzer;
         if (typeof responseAnalyzer !== 'function') {
-          const naunce = responseAnalyzer[token] || responseAnalyzer['default'];
-          if (!naunce) {
+          const naunce = responseAnalyzer[token];
+          if (naunce) {
+            return naunce(handler, typeDeriver, node);
+          }
+          // A thrown value that no analyzer claims is not a documented response.
+          if (token.startsWith('throw.')) {
+            return [];
+          }
+          const fallback = responseAnalyzer['default'];
+          if (!fallback) {
             throw new Error(`No response analyzer for token ${token}`);
           }
-          return naunce(handler, typeDeriver, node);
+          return fallback(handler, typeDeriver, node);
         }
         return responseAnalyzer(handler, typeDeriver);
       },
