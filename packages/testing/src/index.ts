@@ -2,9 +2,74 @@ import {
   API,
   formatDiagnosticsWithColorAndContext,
 } from '@typescript/native/sync';
+import { type TemporaryDirectory, TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { preEmitDiagnostics } from '@sdk-it/core/program.js';
+
+// Both src/ and dist/ of this package sit three folders below the repository root.
+const workspaces = fileURLToPath(
+  new URL('../../../.test-workspaces/', import.meta.url),
+);
+
+/**
+ * A temporary directory below the repository's gitignored `.test-workspaces/`.
+ * Node and TypeScript resolve a package from the parent folders of the
+ * importing file, so a file in it imports the repository's packages (zod, hono,
+ * `@sdk-it/*`) from the root `node_modules`, as in the user's own app.
+ */
+export async function workspaceDirectory(
+  prefix: string,
+): Promise<TemporaryDirectory> {
+  await mkdir(workspaces, { recursive: true });
+  return new TemporaryFiles().directory(prefix, { parent: workspaces });
+}
+
+export interface AnalysisWorkspace extends TemporaryDirectory {
+  /** The app's tsconfig.json, for `openAnalysisProject`. */
+  tsconfig: string;
+}
+
+/**
+ * A TypeScript app in a workspace directory: an ES module `package.json`, a
+ * strict bundler `tsconfig.json` that includes each `.ts` file of `files`, and
+ * `files` (paths relative to the app, folders created).
+ */
+export async function analysisWorkspace(
+  prefix: string,
+  files: Record<string, string>,
+  compilerOptions: Record<string, unknown> = {},
+): Promise<AnalysisWorkspace> {
+  await using pending = new AsyncDisposableStack();
+  const directory = pending.use(await workspaceDirectory(prefix));
+  const tsconfig = join(directory.path, 'tsconfig.json');
+  await writeFile(join(directory.path, 'package.json'), '{"type":"module"}');
+  await writeFile(
+    tsconfig,
+    JSON.stringify({
+      compilerOptions: {
+        target: 'ESNext',
+        module: 'ESNext',
+        moduleResolution: 'bundler',
+        allowImportingTsExtensions: true,
+        strict: true,
+        skipLibCheck: true,
+        ...compilerOptions,
+      },
+      include: Object.keys(files).filter((name) => name.endsWith('.ts')),
+    }),
+  );
+  for (const [name, content] of Object.entries(files)) {
+    const path = join(directory.path, name);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, content);
+  }
+  pending.move();
+  return { ...directory, tsconfig };
+}
 
 /** A tsconfig.json path, or tsconfig content whose relative paths start at `directory`. */
 export type Project = string | { tsconfig: object; directory: string };

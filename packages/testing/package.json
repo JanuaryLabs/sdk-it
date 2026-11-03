@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@sdk-it/core": "*",
-    "@typescript/native": "npm:typescript@7.1.0-beta"
+    "@typescript/native": "npm:typescript@7.1.0-beta",
+    "@zukhruf/testing": "^0.6.16"
   }
 }
