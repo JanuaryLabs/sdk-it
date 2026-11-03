@@ -32,13 +32,30 @@ function spec(operationId: string): OpenAPIObject {
   };
 }
 
-function buildWith(plugin: Plugin, root: string, ...observers: Plugin[]) {
+// Rolldown (Vite 8) awaits buildStart hooks one by one, so another plugin's
+// hook cannot see that a queued sdkIt build has started; the wrapper can.
+function entering(plugin: Plugin, entered: () => void): Plugin {
+  const hook = plugin.buildStart;
+  if (typeof hook !== 'function') {
+    throw new Error(`${plugin.name} has no buildStart function`);
+  }
+  return {
+    ...plugin,
+    buildStart(options) {
+      const pending = hook.call(this, options);
+      entered();
+      return pending;
+    },
+  };
+}
+
+function buildWith(plugin: Plugin, root: string) {
   return build({
     configFile: false,
     root,
     logLevel: 'silent',
     build: { rollupOptions: { input: join(root, 'main.js') }, write: false },
-    plugins: [plugin, ...observers],
+    plugins: [plugin],
   });
 }
 
@@ -192,18 +209,13 @@ void test.each([false, true], (failFirst) =>
       for (const plugin of [beta, beta, alpha]) {
         const queued = Promise.withResolvers<void>();
         builds.push(
-          buildWith(plugin, workspace.path, {
-            name: 'observe-build-start',
-            buildStart: {
-              order: 'post',
-              handler() {
-                queued.resolve();
-              },
-            },
-          }),
+          buildWith(
+            entering(plugin, () => queued.resolve()),
+            workspace.path,
+          ),
         );
         settled = Promise.allSettled(builds);
-        await settleWithin(queued.promise, 'subsequent Vite build start');
+        await settleWithin(queued.promise, 'subsequent sdkIt build start');
       }
     } finally {
       release.resolve();
