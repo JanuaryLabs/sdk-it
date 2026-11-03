@@ -7,7 +7,7 @@ import type {
 } from 'openapi3-ts/oas31';
 
 import { isRef } from '@sdk-it/core';
-import { type TunedResponseObject, toIR } from '@sdk-it/spec';
+import { toIR } from '@sdk-it/spec';
 
 function buildSpec(options: {
   contentType: string;
@@ -50,8 +50,8 @@ function getResponseArtifacts(
   spec: Awaited<ReturnType<typeof toIR>>,
   contentType: string,
 ) {
-  const response: TunedResponseObject =
-    spec.paths['/text'].get?.responses?.['200'];
+  const response = spec.paths['/text'].get?.responses?.['200'];
+  assert.ok(response);
   const outputName = response['x-response-name'];
   assert.ok(outputName);
   const schemaRef = response.content[contentType].schema;

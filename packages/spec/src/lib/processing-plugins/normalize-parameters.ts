@@ -3,9 +3,9 @@ import type { ParameterObject, PathItemObject } from 'openapi3-ts/oas31';
 import { resolveRef } from '@sdk-it/core/ref.js';
 
 import { iterateOperations } from '../for-each-operation.js';
-import type { ProcessingPlugin } from '../processing.js';
+import type { DocumentPlugin } from '../processing.js';
 
-export function normalizeParameters(): ProcessingPlugin {
+export function normalizeParameters(): DocumentPlugin {
   return {
     name: 'normalize-parameters',
     process({ spec }) {

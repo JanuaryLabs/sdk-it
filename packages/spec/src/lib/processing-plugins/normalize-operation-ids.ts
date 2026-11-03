@@ -1,6 +1,6 @@
 import { iterateOperations } from '../for-each-operation.js';
 import { toResource } from '../guess/guess-resource.js';
-import type { ProcessingPlugin } from '../processing.js';
+import type { DocumentPlugin } from '../processing.js';
 
 function findUniqueOperationId(
   usedOperationIds: Set<string>,
@@ -43,7 +43,7 @@ function normalizeOperationIdentifier(value: string): string {
   return `operation${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}`;
 }
 
-export function normalizeOperationIds(): ProcessingPlugin {
+export function normalizeOperationIds(): DocumentPlugin {
   return {
     name: 'normalize-operation-ids',
     process({ spec, options, report }) {

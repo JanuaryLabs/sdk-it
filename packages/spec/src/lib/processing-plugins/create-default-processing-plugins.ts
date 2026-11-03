@@ -1,4 +1,4 @@
-import type { ProcessingPlugin } from '../processing.js';
+import type { DocumentPlugin, IRPlugin } from '../processing.js';
 import { bundleExternalRefs } from './bundle-external-refs.js';
 import { canonicalizeSpec } from './canonicalize-spec.js';
 import { extractInlineSchemas } from './extract-inline-schemas.js';
@@ -14,9 +14,7 @@ import { normalizeSecurity } from './normalize-security.js';
 import { normalizeTags } from './normalize-tags.js';
 import { resolveSecuritySchemeUris } from './resolve-security-scheme-uris.js';
 
-export function createDefaultProcessingPlugins(
-  options: { verbose?: boolean } = {},
-): ProcessingPlugin[] {
+export function createDefaultDocumentPlugins(): DocumentPlugin[] {
   return [
     bundleExternalRefs(),
     normalizePaths(),
@@ -27,6 +25,13 @@ export function createDefaultProcessingPlugins(
     resolveSecuritySchemeUris(),
     normalizeSecurity(),
     normalizeRequestBodies(),
+  ];
+}
+
+export function createDefaultIRPlugins(
+  options: { verbose?: boolean } = {},
+): IRPlugin[] {
+  return [
     inferPagination(),
     normalizeSchemas(),
     ...(options.verbose ? [extractInlineSchemas()] : []),

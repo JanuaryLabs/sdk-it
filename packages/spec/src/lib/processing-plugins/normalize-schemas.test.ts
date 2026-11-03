@@ -43,7 +43,7 @@ test('schema normalization preserves the established recursive IR repairs', asyn
       },
       paths: {},
     },
-    plugins: [normalizeSchemas()],
+    irPlugins: [normalizeSchemas()],
   });
 
   assert.deepStrictEqual(spec.components.schemas.Payload, {
@@ -90,7 +90,7 @@ test('schema normalization reports circular allOf references without overflowing
         },
         paths: {},
       },
-      plugins: [normalizeSchemas()],
+      irPlugins: [normalizeSchemas()],
     }),
     {
       name: 'Error',

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { normalizeOperationIds, processSpec } from '@sdk-it/spec';
+import { normalizeOperationIds, processDocument } from '@sdk-it/spec';
 
 test('custom operation ID formatting preserves the previous two-pass behavior', async () => {
   const seenOperationIds: Array<string | undefined> = [];
-  const { spec } = await processSpec({
+  const { spec } = await processDocument({
     spec: {
       openapi: '3.1.0',
       info: { title: 'Operations', version: '1.0.0' },

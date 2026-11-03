@@ -1,8 +1,8 @@
 import { forEachOperation } from '../for-each-operation.js';
 import { toPagination } from '../pagination/pagination.js';
-import type { ProcessingPlugin } from '../processing.js';
+import type { IRPlugin } from '../processing.js';
 
-export function inferPagination(): ProcessingPlugin {
+export function inferPagination(): IRPlugin {
   return {
     name: 'infer-pagination',
     process({ spec, options }) {

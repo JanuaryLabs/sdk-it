@@ -1,13 +1,14 @@
-import type { GenerateSdkConfig } from './options.js';
-import { createDefaultProcessingPlugins } from './processing-plugins/index.js';
-import { processSpec } from './processing.js';
+import { createDefaultIRPlugins } from './processing-plugins/create-default-processing-plugins.js';
+import { type ProcessSpecConfig, processSpec } from './processing.js';
 import type { IR } from './types.js';
 
 export async function toIR(
-  config: GenerateSdkConfig,
+  config: ProcessSpecConfig,
   verbose = false,
 ): Promise<IR> {
-  const plugins = config.plugins ?? createDefaultProcessingPlugins({ verbose });
-  const result = await processSpec({ ...config, plugins });
+  const result = await processSpec({
+    ...config,
+    irPlugins: config.irPlugins ?? createDefaultIRPlugins({ verbose }),
+  });
   return result.spec;
 }

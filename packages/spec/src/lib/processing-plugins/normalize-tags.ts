@@ -1,9 +1,9 @@
 import { snakecase } from '@sdk-it/core/utils.js';
 
 import { iterateOperations } from '../for-each-operation.js';
-import type { ProcessingPlugin } from '../processing.js';
+import type { DocumentPlugin } from '../processing.js';
 
-export function normalizeTags(): ProcessingPlugin {
+export function normalizeTags(): DocumentPlugin {
   return {
     name: 'normalize-tags',
     process({ spec, options }) {

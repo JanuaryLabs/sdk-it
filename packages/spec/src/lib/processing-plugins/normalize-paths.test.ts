@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { normalizeParameters, normalizePaths, processSpec } from '@sdk-it/spec';
+import {
+  normalizeParameters,
+  normalizePaths,
+  processDocument,
+} from '@sdk-it/spec';
 
 test('normalized paths keep source path parameters scoped to their operations', async () => {
-  const { spec } = await processSpec({
+  const { spec } = await processDocument({
     spec: {
       openapi: '3.1.0',
       info: { title: 'Paths', version: '1.0.0' },
@@ -52,7 +56,7 @@ test('normalized paths keep source path parameters scoped to their operations', 
 });
 
 test('path normalization resolves path item references and preserves metadata', async () => {
-  const { spec } = await processSpec({
+  const { spec } = await processDocument({
     spec: {
       openapi: '3.1.0',
       info: { title: 'Paths', version: '1.0.0' },
@@ -90,7 +94,7 @@ test('path normalization rejects operations that collapse onto the same method',
   const diagnostics: string[] = [];
 
   await assert.rejects(
-    processSpec({
+    processDocument({
       spec: {
         openapi: '3.1.0',
         info: { title: 'Paths', version: '1.0.0' },

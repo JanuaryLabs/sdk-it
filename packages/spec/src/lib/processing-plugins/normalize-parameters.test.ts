@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { normalizeParameters, processSpec } from '@sdk-it/spec';
+import { normalizeParameters, processDocument } from '@sdk-it/spec';
 
 test('operation parameters override path parameters with the same location and name', async () => {
-  const { spec } = await processSpec({
+  const { spec } = await processDocument({
     spec: {
       openapi: '3.1.0',
       info: { title: 'Parameters', version: '1.0.0' },

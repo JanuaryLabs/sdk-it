@@ -1,10 +1,15 @@
 import { untilAborted } from '@zukhruf/async';
 
+import { finalizeOperations } from './finalize-operations.js';
 import {
   type GenerateSdkConfig,
   coeraceConfig as coerceConfig,
 } from './options.js';
-import type { IR } from './types.js';
+import {
+  createDefaultDocumentPlugins,
+  createDefaultIRPlugins,
+} from './processing-plugins/create-default-processing-plugins.js';
+import type { IR, ProcessingDocument } from './types.js';
 
 export type ProcessingDiagnosticSeverity = 'info' | 'warning' | 'error';
 
@@ -18,8 +23,8 @@ export interface ProcessingDiagnostic {
 
 export type ProcessingOptions = Omit<ReturnType<typeof coerceConfig>, 'spec'>;
 
-export interface ProcessingContext {
-  spec: IR;
+export interface ProcessingContext<Spec> {
+  spec: Spec;
   options: ProcessingOptions;
   diagnostics: ProcessingDiagnostic[];
   signal?: AbortSignal;
@@ -28,42 +33,50 @@ export interface ProcessingContext {
   ): ProcessingDiagnostic;
 }
 
-export interface ProcessingPlugin {
+/** A plugin that rewrites the raw OpenAPI document before its operations are finalized. */
+export interface DocumentPlugin {
   name: string;
-  process(context: ProcessingContext): void | Promise<void>;
+  process(context: ProcessingContext<ProcessingDocument>): void | Promise<void>;
+}
+
+/** A plugin that works on the IR, whose operations are already tuned. */
+export interface IRPlugin {
+  name: string;
+  process(context: ProcessingContext<IR>): void | Promise<void>;
+}
+
+export interface ProcessDocumentConfig extends GenerateSdkConfig {
+  plugins: readonly DocumentPlugin[];
 }
 
 export interface ProcessSpecConfig extends GenerateSdkConfig {
-  plugins: readonly ProcessingPlugin[];
+  documentPlugins?: readonly DocumentPlugin[];
+  irPlugins?: readonly IRPlugin[];
+}
+
+export interface ProcessingResult<Spec> {
+  spec: Spec;
+  diagnostics: ProcessingDiagnostic[];
+}
+
+interface Run {
+  options: ProcessingOptions;
+  diagnostics: ProcessingDiagnostic[];
   signal?: AbortSignal;
   onDiagnostic?: (diagnostic: ProcessingDiagnostic) => void;
 }
 
-export interface ProcessingResult {
-  spec: IR;
-  diagnostics: ProcessingDiagnostic[];
-}
-
-export async function processSpec(
-  config: ProcessSpecConfig,
-): Promise<ProcessingResult> {
-  const { plugins, signal, onDiagnostic, ...generateConfig } = config;
-  signal?.throwIfAborted();
-  const coerced = coerceConfig({
-    ...generateConfig,
-    spec: structuredClone(generateConfig.spec),
-  });
-  const { spec, ...options } = coerced;
-  const diagnostics: ProcessingDiagnostic[] = [];
-  const pluginNames = plugins.map((plugin) => plugin.name);
-  const configuration = JSON.stringify({
-    pagination: options.pagination,
-    responses: options.responses,
-  });
-
+async function runPlugins<Spec>(
+  spec: Spec,
+  plugins: readonly {
+    name: string;
+    process(context: ProcessingContext<Spec>): void | Promise<void>;
+  }[],
+  { options, diagnostics, signal, onDiagnostic }: Run,
+) {
   for (const plugin of plugins) {
     signal?.throwIfAborted();
-    const context: ProcessingContext = {
+    const context: ProcessingContext<Spec> = {
       spec,
       options,
       diagnostics,
@@ -78,8 +91,65 @@ export async function processSpec(
     await untilAborted(Promise.resolve(plugin.process(context)), signal);
     signal?.throwIfAborted();
   }
+}
 
-  spec['x-sdk-processing'] = { plugins: pluginNames, configuration };
+async function runDocumentStage(
+  config: GenerateSdkConfig,
+  plugins: readonly DocumentPlugin[],
+) {
+  const { signal, onDiagnostic } = config;
+  signal?.throwIfAborted();
+  const { spec, ...options } = coerceConfig({
+    ...config,
+    spec: structuredClone(config.spec),
+  });
+  const run: Run = { options, diagnostics: [], signal, onDiagnostic };
+  await runPlugins(spec, plugins, run);
+  const configuration = JSON.stringify({
+    pagination: options.pagination,
+    responses: options.responses,
+  });
+  return { spec, run, configuration };
+}
 
-  return { spec, diagnostics };
+/** Runs document-stage plugins only; the result's operations are still raw. */
+export async function processDocument(
+  config: ProcessDocumentConfig,
+): Promise<ProcessingResult<ProcessingDocument>> {
+  const { plugins, ...generateConfig } = config;
+  const { spec, run, configuration } = await runDocumentStage(
+    generateConfig,
+    plugins,
+  );
+  spec['x-sdk-processing'] = {
+    plugins: plugins.map((plugin) => plugin.name),
+    configuration,
+  };
+  return { spec, diagnostics: run.diagnostics };
+}
+
+/**
+ * Runs the document-stage plugins, finalizes the operations into the IR, then
+ * runs the IR-stage plugins. Each omitted plugin list uses its defaults.
+ */
+export async function processSpec(
+  config: ProcessSpecConfig,
+): Promise<ProcessingResult<IR>> {
+  const {
+    documentPlugins = createDefaultDocumentPlugins(),
+    irPlugins = createDefaultIRPlugins(),
+    ...generateConfig
+  } = config;
+  const {
+    spec: document,
+    run,
+    configuration,
+  } = await runDocumentStage(generateConfig, documentPlugins);
+  const spec = finalizeOperations(document);
+  await runPlugins(spec, irPlugins, run);
+  spec['x-sdk-processing'] = {
+    plugins: [...documentPlugins, ...irPlugins].map((plugin) => plugin.name),
+    configuration,
+  };
+  return { spec, diagnostics: run.diagnostics };
 }

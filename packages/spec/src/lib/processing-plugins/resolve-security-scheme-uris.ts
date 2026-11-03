@@ -17,7 +17,7 @@ import {
   splitFragment,
 } from '../external-documents.js';
 import { iterateOperations } from '../for-each-operation.js';
-import type { ProcessingPlugin } from '../processing.js';
+import type { DocumentPlugin } from '../processing.js';
 
 /**
  * OpenAPI 3.2 lets a security requirement key be a URI of a Security Scheme
@@ -25,7 +25,7 @@ import type { ProcessingPlugin } from '../processing.js';
  * credentials by scheme name, so each URI is fetched, registered locally, and
  * the requirement rewritten to point at the registered name.
  */
-export function resolveSecuritySchemeUris(): ProcessingPlugin {
+export function resolveSecuritySchemeUris(): DocumentPlugin {
   return {
     name: 'resolve-security-scheme-uris',
     async process({ spec, report }) {
@@ -96,7 +96,7 @@ export async function registerExternalSecuritySchemes(
 
 function collectRequirements(spec: OpenAPIDocument) {
   const requirements: SecurityRequirementObject[] = [...(spec.security ?? [])];
-  for (const { operation } of iterateOperations(spec)) {
+  for (const { operation } of iterateOperations({ paths: spec.paths ?? {} })) {
     requirements.push(...(operation.security ?? []));
   }
   return requirements;

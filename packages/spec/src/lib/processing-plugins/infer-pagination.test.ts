@@ -36,7 +36,7 @@ test('pagination inference uses the actual successful response status', async ()
         },
       },
     },
-    plugins: [inferPagination()],
+    irPlugins: [inferPagination()],
   });
 
   assert.deepStrictEqual(spec.paths['/users'].get?.['x-pagination'], {

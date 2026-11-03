@@ -28,7 +28,7 @@ test('inline schema extraction never overwrites an authored component name', asy
       },
       paths: {},
     },
-    plugins: [extractInlineSchemas()],
+    irPlugins: [extractInlineSchemas()],
   });
 
   assert.strictEqual(

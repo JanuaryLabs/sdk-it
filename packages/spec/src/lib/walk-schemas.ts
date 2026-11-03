@@ -61,7 +61,9 @@ function* walkSchema(
   }
 }
 
-export function* walkSchemas(spec: IR): Generator<WalkedSchema> {
+export function* walkSchemas(
+  spec: Pick<IR, 'components'>,
+): Generator<WalkedSchema> {
   const visited = new WeakSet<SchemaObject>();
   for (const [name, schema] of Object.entries(spec.components.schemas)) {
     yield* walkSchema(

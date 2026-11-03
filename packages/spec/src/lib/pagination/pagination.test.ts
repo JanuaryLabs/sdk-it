@@ -26,9 +26,11 @@ function minimalResponse() {
 function createOperation(params: ParameterObject[]): TunedOperationObject {
   return {
     'x-fn-name': 'testFunction',
+    'x-fn-group': 'test',
     tags: ['test'],
     operationId: 'testOperation',
     parameters: params,
+    security: [],
     requestBody: { content: {} },
     responses: {},
   };

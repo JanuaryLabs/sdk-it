@@ -7,11 +7,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import type {
-  ReferenceObject,
-  ResponseObject,
-  SchemaObject,
-} from 'openapi3-ts/oas31';
+import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
 import { isRef } from '@sdk-it/core';
 import { loadSpec, toIR } from '@sdk-it/spec';
@@ -56,8 +52,8 @@ required: [id]
   const ir = await toIR({
     spec: (await loadSpec(join(dir, 'openapi.yaml'))).spec,
   });
-  const response: ResponseObject =
-    ir.paths['/pets/{id}']?.get?.responses?.['200'];
+  const response = ir.paths['/pets/{id}']?.get?.responses?.['200'];
+  assert.ok(response);
 
   assert.deepEqual(response.content?.['application/json'].schema, {
     $ref: '#/components/schemas/pet',
@@ -482,8 +478,8 @@ Owner: { type: object, properties: { name: { type: string } } }
 
   const { spec } = await loadSpec(join(dir, 'openapi.yaml'));
 
-  const response: ResponseObject =
-    spec.paths?.['/pets']?.get?.responses?.['200'];
+  const response = spec.paths?.['/pets']?.get?.responses?.['200'];
+  assert.ok(response);
   assert.deepEqual(response.content?.['application/json'].schema, {
     $ref: '#/components/schemas/pet',
   });

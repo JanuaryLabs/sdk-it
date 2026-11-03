@@ -4,7 +4,7 @@ import { isEmpty, isRef, joinSkipDigits, pascalcase } from '@sdk-it/core';
 
 import type { Varient } from '../find-polymorphic-varients.js';
 import { findUniqueSchemaName } from '../find-unique-schema-name.js';
-import type { ProcessingPlugin } from '../processing.js';
+import type { IRPlugin } from '../processing.js';
 import type { IR } from '../types.js';
 
 function extractInlineSchemaComponents(
@@ -187,7 +187,7 @@ function extractInlineUnion(
   });
 }
 
-export function extractInlineSchemas(): ProcessingPlugin {
+export function extractInlineSchemas(): IRPlugin {
   return {
     name: 'extract-inline-schemas',
     process({ spec }) {

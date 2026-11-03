@@ -1,6 +1,6 @@
 import type { SchemaObject } from 'openapi3-ts/oas31';
 
-import type { ProcessingPlugin } from '../processing.js';
+import type { IRPlugin } from '../processing.js';
 import { walkSchemas } from '../walk-schemas.js';
 
 function sortRecord<T>(record: Record<string, T>): Record<string, T> {
@@ -11,7 +11,7 @@ function sortRecord<T>(record: Record<string, T>): Record<string, T> {
   );
 }
 
-export function canonicalizeSpec(): ProcessingPlugin {
+export function canonicalizeSpec(): IRPlugin {
   return {
     name: 'canonicalize-spec',
     process({ spec }) {

@@ -3,10 +3,10 @@ import { test } from 'node:test';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import {
-  type ProcessingPlugin,
-  createDefaultProcessingPlugins,
+  type DocumentPlugin,
   enrichExamples,
   iterateOperations,
+  processDocument,
   processSpec,
   toIR,
   walkSchemas,
@@ -68,7 +68,7 @@ function createNormalizationSpec(): OpenAPIObject {
 
 test('processing plugins run in declared order across sync and async plugins', async () => {
   const calls: string[] = [];
-  const plugins: ProcessingPlugin[] = [
+  const plugins: DocumentPlugin[] = [
     {
       name: 'first',
       process({ spec }) {
@@ -86,7 +86,7 @@ test('processing plugins run in declared order across sync and async plugins', a
     },
   ];
 
-  const result = await processSpec({ spec: createSpec(), plugins });
+  const result = await processDocument({ spec: createSpec(), plugins });
 
   assert.deepStrictEqual(
     { calls, title: result.spec.info.title },
@@ -103,7 +103,7 @@ test('processing stops before executing a plugin when aborted', async () => {
   controller.abort();
 
   await assert.rejects(
-    processSpec({
+    processDocument({
       spec: createSpec(),
       signal: controller.signal,
       plugins: [
@@ -124,7 +124,7 @@ test('processing rejects when the final plugin aborts while executing', async ()
   const controller = new AbortController();
 
   await assert.rejects(
-    processSpec({
+    processDocument({
       spec: createSpec(),
       signal: controller.signal,
       plugins: [
@@ -142,7 +142,7 @@ test('processing rejects when the final plugin aborts while executing', async ()
 });
 
 test('operation iteration exposes each operation with its path item', async () => {
-  const { spec } = await processSpec({
+  const { spec } = await processDocument({
     spec: {
       ...createSpec(),
       paths: {
@@ -184,7 +184,7 @@ test('operation iteration exposes each operation with its path item', async () =
 });
 
 test('schema walking visits component schemas and their nested schemas', async () => {
-  const { spec } = await processSpec({
+  const { spec } = await processDocument({
     spec: {
       ...createSpec(),
       components: {
@@ -219,7 +219,6 @@ test('schema walking visits component schemas and their nested schemas', async (
 test('the default pipeline normalizes operations, responses, and schema order', async () => {
   const { spec } = await processSpec({
     spec: createNormalizationSpec(),
-    plugins: createDefaultProcessingPlugins(),
   });
 
   const operation = spec.paths['/users/{id}'].get;
@@ -270,7 +269,6 @@ test('operation IDs are generated, identifier-safe, and unique', async () => {
         },
       },
     },
-    plugins: createDefaultProcessingPlugins(),
   });
 
   const operationIds = [...iterateOperations(spec)].map(
@@ -288,10 +286,11 @@ test('operation IDs are generated, identifier-safe, and unique', async () => {
   );
 });
 
-test('toIR uses a caller-supplied plugin list as the complete pipeline', async () => {
+test('toIR uses caller-supplied plugin lists as the complete pipeline', async () => {
   const spec = await toIR({
     spec: createSpec(),
-    plugins: [
+    irPlugins: [],
+    documentPlugins: [
       {
         name: 'rename-api',
         process({ spec: workingSpec }) {
@@ -306,7 +305,7 @@ test('toIR uses a caller-supplied plugin list as the complete pipeline', async (
 
 test('custom plugins execute again even when processing metadata has the same name', async () => {
   let executions = 0;
-  const plugins: ProcessingPlugin[] = [
+  const plugins: DocumentPlugin[] = [
     {
       name: 'count-execution',
       process() {
@@ -315,28 +314,22 @@ test('custom plugins execute again even when processing metadata has the same na
     },
   ];
 
-  const first = await processSpec({ spec: createSpec(), plugins });
-  await processSpec({ spec: first.spec, plugins });
+  const first = await processDocument({ spec: createSpec(), plugins });
+  await processDocument({ spec: first.spec, plugins });
 
   assert.strictEqual(executions, 2);
 });
 
 test('the default pipeline is idempotent across a real second pass', async () => {
-  const first = await processSpec({
-    spec: createNormalizationSpec(),
-    plugins: createDefaultProcessingPlugins(),
-  });
-  const second = await processSpec({
-    spec: first.spec,
-    plugins: createDefaultProcessingPlugins(),
-  });
+  const first = await processSpec({ spec: createNormalizationSpec() });
+  const second = await processSpec({ spec: first.spec });
 
   assert.deepStrictEqual(second.spec, first.spec);
 });
 
 test('example enrichment preserves authored examples and rejects invalid generated values', async () => {
   const generatedFor: string[] = [];
-  const { spec, diagnostics } = await processSpec({
+  const { spec, diagnostics } = await processDocument({
     spec: {
       ...createSpec(),
       paths: {
@@ -426,7 +419,7 @@ test('diagnostics are attributed before plugin failures propagate', async () => 
   const failure = new Error('processing failed');
 
   await assert.rejects(
-    processSpec({
+    processDocument({
       spec: createSpec(),
       onDiagnostic(diagnostic) {
         observed.push(diagnostic);

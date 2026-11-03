@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { type IR, normalizeRequestBodies, processSpec } from '@sdk-it/spec';
+import {
+  type ProcessingDocument,
+  normalizeRequestBodies,
+  processDocument,
+} from '@sdk-it/spec';
 
-function schemaForRef(spec: IR, ref: string | undefined) {
+function schemaForRef(spec: ProcessingDocument, ref: string | undefined) {
   assert.ok(ref);
   const name = ref.split('/').at(-1);
   assert.ok(name);
@@ -13,7 +17,7 @@ function schemaForRef(spec: IR, ref: string | undefined) {
 }
 
 test('request body media types receive independent component schemas', async () => {
-  const { spec } = await processSpec({
+  const { spec } = await processDocument({
     spec: {
       openapi: '3.1.0',
       info: { title: 'Requests', version: '1.0.0' },
@@ -62,7 +66,7 @@ test('request body media types receive independent component schemas', async () 
 });
 
 test('referenced request bodies are isolated per operation', async () => {
-  const { spec } = await processSpec({
+  const { spec } = await processDocument({
     spec: {
       openapi: '3.1.0',
       info: { title: 'Requests', version: '1.0.0' },
@@ -136,7 +140,7 @@ test('referenced request bodies are isolated per operation', async () => {
 });
 
 test('operations without bodies keep security credentials out of input schemas', async () => {
-  const { spec } = await processSpec({
+  const { spec } = await processDocument({
     spec: {
       openapi: '3.1.0',
       info: { title: 'Requests', version: '1.0.0' },
@@ -191,7 +195,7 @@ test('operations without bodies keep security credentials out of input schemas',
 });
 
 test('a referenced request body whose schema is already an input schema is inlined, not left as a $ref', async () => {
-  const { spec } = await processSpec({
+  const { spec } = await processDocument({
     spec: {
       openapi: '3.1.0',
       info: { title: 'Requests', version: '1.0.0' },

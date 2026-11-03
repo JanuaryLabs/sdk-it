@@ -2,9 +2,9 @@ import type { OpenAPISecuritySchemeObject } from '@sdk-it/core';
 
 import { isJsonObject } from '../external-documents.js';
 import { iterateOperations } from '../for-each-operation.js';
-import type { ProcessingPlugin } from '../processing.js';
+import type { DocumentPlugin } from '../processing.js';
 
-export function normalizeSecurity(): ProcessingPlugin {
+export function normalizeSecurity(): DocumentPlugin {
   return {
     name: 'normalize-security',
     process({ spec, report }) {

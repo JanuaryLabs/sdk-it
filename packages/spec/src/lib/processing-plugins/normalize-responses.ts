@@ -15,11 +15,11 @@ import {
   parseJsonContentType,
 } from '../is.js';
 import type { ResponsesConfig } from '../options.js';
-import type { ProcessingPlugin } from '../processing.js';
-import type { IR, ResponseBody } from '../types.js';
+import type { DocumentPlugin } from '../processing.js';
+import type { ProcessingDocument, ResponseBody } from '../types.js';
 
 function normalizeOperationResponses(
-  spec: IR,
+  spec: ProcessingDocument,
   operationId: string,
   operation: OperationObject,
   responsesConfig?: ResponsesConfig,
@@ -178,7 +178,7 @@ function hasHeader(headers: ResponseObject['headers'], name: string) {
   return Object.keys(headers).some((key) => key.toLowerCase() === target);
 }
 
-export function normalizeResponses(): ProcessingPlugin {
+export function normalizeResponses(): DocumentPlugin {
   return {
     name: 'normalize-responses',
     process({ spec, options, report }) {

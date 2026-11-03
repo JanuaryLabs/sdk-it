@@ -9,7 +9,7 @@ import {
   readPointer,
   splitFragment,
 } from '../external-documents.js';
-import type { ProcessingPlugin } from '../processing.js';
+import type { DocumentPlugin } from '../processing.js';
 
 type NodeType =
   | 'Schema'
@@ -89,7 +89,7 @@ interface Bundle {
  * External references are brought in before anything else runs. A spec from
  * `loadSpec` is already bundled, so this only acts on a spec given as an object.
  */
-export function bundleExternalRefs(): ProcessingPlugin {
+export function bundleExternalRefs(): DocumentPlugin {
   return {
     name: 'bundle-external-refs',
     process({ spec }) {

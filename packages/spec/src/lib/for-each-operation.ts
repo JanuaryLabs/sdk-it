@@ -1,9 +1,13 @@
 import type { OperationObject, PathItemObject } from 'openapi3-ts/oas31';
 
-import type { OpenAPIDocument } from '@sdk-it/core';
 import { type Method, methods } from '@sdk-it/core/paths.js';
 
-import type { IR, OperationEntry, TunedOperationObject } from './types.js';
+import type {
+  IR,
+  OperationEntry,
+  ProcessingDocument,
+  TunedOperationObject,
+} from './types.js';
 
 export interface IteratedOperation {
   entry: Omit<OperationEntry, 'method' | 'tag'> & {
@@ -14,10 +18,11 @@ export interface IteratedOperation {
   pathItem: PathItemObject;
 }
 
+/** Iterates the raw operations a document-stage plugin rewrites. */
 export function* iterateOperations(
-  spec: Pick<OpenAPIDocument, 'paths'>,
+  spec: Pick<ProcessingDocument, 'paths'>,
 ): Generator<IteratedOperation> {
-  for (const [path, pathItem] of Object.entries(spec.paths ?? {})) {
+  for (const [path, pathItem] of Object.entries(spec.paths)) {
     for (const method of methods) {
       const operation = pathItem[method];
       if (!operation) {
@@ -42,10 +47,15 @@ export function forEachOperation<T>(
   callback: (entry: OperationEntry, operation: TunedOperationObject) => T,
 ) {
   const result: T[] = [];
-  for (const { entry, operation } of iterateOperations(spec)) {
-    result.push(
-      callback(entry as OperationEntry, operation as TunedOperationObject),
-    );
+  for (const [path, pathItem] of Object.entries(spec.paths)) {
+    for (const method of methods) {
+      const operation = pathItem[method];
+      if (!operation) {
+        continue;
+      }
+      const [tag] = operation.tags;
+      result.push(callback({ method, path, tag }, operation));
+    }
   }
   return result;
 }

@@ -10,11 +10,11 @@ import { isEmpty } from '@sdk-it/core/utils.js';
 
 import { findUniqueSchemaName } from '../find-unique-schema-name.js';
 import { iterateOperations } from '../for-each-operation.js';
-import type { ProcessingPlugin } from '../processing.js';
-import type { IR, OurRequestBodyObject } from '../types.js';
+import type { DocumentPlugin } from '../processing.js';
+import type { IR, OurRequestBodyObject, ProcessingDocument } from '../types.js';
 
 export function patchParameters(
-  spec: IR,
+  spec: Pick<IR, 'components'>,
   schema: SchemaObject,
   parameters: ParameterObject[],
 ) {
@@ -55,7 +55,7 @@ export function withParameters(schema: SchemaObject): SchemaObject {
 }
 
 function normalizeRequestBody(
-  spec: IR,
+  spec: ProcessingDocument,
   operationId: string,
   operation: OperationObject,
   parameters: ParameterObject[],
@@ -132,7 +132,7 @@ function normalizeRequestBody(
   return { ...requestBody, content };
 }
 
-export function normalizeRequestBodies(): ProcessingPlugin {
+export function normalizeRequestBodies(): DocumentPlugin {
   return {
     name: 'normalize-request-bodies',
     process({ spec }) {

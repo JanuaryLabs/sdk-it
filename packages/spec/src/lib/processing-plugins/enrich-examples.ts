@@ -10,11 +10,11 @@ import type {
 import { resolveRef } from '@sdk-it/core/ref.js';
 
 import { iterateOperations } from '../for-each-operation.js';
-import type { ProcessingDiagnostic, ProcessingPlugin } from '../processing.js';
-import type { IR } from '../types.js';
+import type { DocumentPlugin, ProcessingDiagnostic } from '../processing.js';
+import type { ProcessingDocument } from '../types.js';
 
 export interface ExampleEnrichmentInput {
-  spec: IR;
+  spec: ProcessingDocument;
   operation: OperationObject;
   method: string;
   path: string;
@@ -92,7 +92,7 @@ async function enrichMediaType(
 
 export function enrichExamples(
   options: ExampleEnrichmentOptions,
-): ProcessingPlugin {
+): DocumentPlugin {
   return {
     name: options.name ?? 'enrich-examples',
     async process({ spec, report, signal }) {

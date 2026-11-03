@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { SecurityRequirementObject } from 'openapi3-ts/oas31';
 
-import { normalizeSecurity, processSpec } from '@sdk-it/spec';
+import { normalizeSecurity, processDocument } from '@sdk-it/spec';
 
 test('materializes effective operation security without losing AND, OR, or anonymous access', async () => {
   const rootSecurity: SecurityRequirementObject[] = [
@@ -10,7 +10,7 @@ test('materializes effective operation security without losing AND, OR, or anony
     { oidc: ['openid'] },
     {},
   ];
-  const { spec } = await processSpec({
+  const { spec } = await processDocument({
     spec: {
       openapi: '3.2.0',
       info: { title: 'Security', version: '1.0.0' },
@@ -74,7 +74,7 @@ test('materializes effective operation security without losing AND, OR, or anony
 });
 
 test('reports invalid OAuth scopes, conflicting AND credential targets, and unresolved schemes', async () => {
-  const { diagnostics } = await processSpec({
+  const { diagnostics } = await processDocument({
     spec: {
       openapi: '3.1.0',
       info: { title: 'Security diagnostics', version: '1.0.0' },
@@ -136,7 +136,7 @@ test('reports invalid OAuth scopes, conflicting AND credential targets, and unre
 });
 
 test('reports malformed security scheme fixed fields', async () => {
-  const { diagnostics } = await processSpec({
+  const { diagnostics } = await processDocument({
     spec: {
       openapi: '3.2.0',
       info: { title: 'Invalid schemes', version: '1.0.0' },

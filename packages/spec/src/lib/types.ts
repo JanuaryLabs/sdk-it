@@ -7,6 +7,7 @@ import type {
   RequestBodyObject,
   ResponseObject,
   SchemaObject,
+  SecurityRequirementObject,
   ServerObject,
   TagObject,
 } from 'openapi3-ts/oas31';
@@ -25,7 +26,7 @@ import type {
 } from './pagination/guess-pagination.js';
 import type { SidebarData, TagGroups } from './sidebar.js';
 
-export type IR = Omit<
+type SpecDocument<Paths> = Omit<
   OpenAPIDocument,
   'components' | 'paths' | 'servers' | 'tags'
 > & {
@@ -41,9 +42,20 @@ export type IR = Omit<
     schemas: Record<string, SchemaObject | ReferenceObject>;
     securitySchemes: Record<string, OpenAPISecuritySchemeObject>;
   };
-  paths: PathsObject;
+  paths: Paths;
   tags: TagObject[];
 };
+
+/** The document the document-stage plugins rewrite: its operations are still raw OpenAPI. */
+export type ProcessingDocument = SpecDocument<PathsObject>;
+
+export type IRPaths = Record<
+  string,
+  Partial<Record<Method, TunedOperationObject>>
+>;
+
+/** The processed spec: every operation is a {@link TunedOperationObject} built by `finalizeOperations`. */
+export type IR = SpecDocument<IRPaths>;
 
 export interface OurRequestBodyObject extends RequestBodyObject {
   content: Record<
@@ -52,8 +64,16 @@ export interface OurRequestBodyObject extends RequestBodyObject {
   >;
 }
 
-export type ResponseBody =
-  'json' | 'text' | 'binary' | 'stream' | 'sse' | 'empty';
+export const responseBodies = [
+  'json',
+  'text',
+  'binary',
+  'stream',
+  'sse',
+  'empty',
+] as const;
+
+export type ResponseBody = (typeof responseBodies)[number];
 
 export type TunedResponseObject = Omit<ResponseObject, 'content'> & {
   content: Record<string, MediaTypeObject>;
@@ -63,17 +83,31 @@ export type TunedResponseObject = Omit<ResponseObject, 'content'> & {
 
 export type TunedOperationObject = Omit<
   OperationObject,
-  'operationId' | 'tags' | 'parameters' | 'responses' | 'requestBody' | 'tags'
+  | 'operationId'
+  | 'tags'
+  | 'parameters'
+  | 'responses'
+  | 'requestBody'
+  | 'security'
+  | `x-${string}`
 > & {
-  tags: string[];
+  tags: [string];
   operationId: string;
   parameters: ParameterObject[];
+  security: SecurityRequirementObject[];
   ['x-fn-name']: string;
-  ['x-fn-group']?: string;
+  ['x-fn-group']: string;
   ['x-pagination']?: OperationPagination;
+  ['x-tool']?: OperationTool;
   responses: Record<string, TunedResponseObject>;
   requestBody: OurRequestBodyObject;
 };
+
+/** The agent tool an operation is exposed as (`x-tool`). */
+export interface OperationTool {
+  name?: string;
+  description?: string;
+}
 
 export interface OperationEntry {
   method: Method;

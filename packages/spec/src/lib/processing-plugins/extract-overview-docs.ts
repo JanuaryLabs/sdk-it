@@ -10,9 +10,10 @@ import {
   isSdkDoc,
   slugify,
 } from '../overview-docs/types.js';
-import type { ProcessingContext, ProcessingPlugin } from '../processing.js';
+import type { IRPlugin, ProcessingContext } from '../processing.js';
+import type { IR } from '../types.js';
 
-export function extractOverviewDocsPlugin(): ProcessingPlugin {
+export function extractOverviewDocsPlugin(): IRPlugin {
   return {
     name: 'extract-overview-docs',
     process(context) {
@@ -27,7 +28,7 @@ export function extractOverviewDocsPlugin(): ProcessingPlugin {
   };
 }
 
-function collectSdks({ options, report }: ProcessingContext): SdkDoc[] {
+function collectSdks({ options, report }: ProcessingContext<IR>): SdkDoc[] {
   const raw = options.docs.sdks;
   if (raw === undefined) return [];
   if (!Array.isArray(raw)) {
@@ -52,7 +53,10 @@ function collectSdks({ options, report }: ProcessingContext): SdkDoc[] {
   });
 }
 
-function collectDocs({ options, report }: ProcessingContext): ResolvedDoc[] {
+function collectDocs({
+  options,
+  report,
+}: ProcessingContext<IR>): ResolvedDoc[] {
   const raw = options.docs.entries;
   if (raw === undefined) return [];
   if (!Array.isArray(raw)) {

@@ -29,7 +29,7 @@ function pages(spec: IR) {
 test('generates overview, authorization, and errors pages whose urls agree with their ids', async () => {
   const { spec, diagnostics } = await processSpec({
     spec: acmeSpec(),
-    plugins: [extractOverviewDocsPlugin()],
+    irPlugins: [extractOverviewDocsPlugin()],
   });
 
   const items = pages(spec);
@@ -71,7 +71,7 @@ test('an authored x-docs entry seeds the generated page it matches', async () =>
         },
       ],
     }),
-    plugins: [extractOverviewDocsPlugin()],
+    irPlugins: [extractOverviewDocsPlugin()],
   });
 
   const items = pages(spec);
@@ -104,7 +104,7 @@ test('an authored x-docs entry without a generated match becomes its own page', 
         { title: 'Changelog', description: 'What changed and when.' },
       ],
     }),
-    plugins: [extractOverviewDocsPlugin()],
+    irPlugins: [extractOverviewDocsPlugin()],
   });
 
   const items = pages(spec);
@@ -133,7 +133,7 @@ test('x-sdks renders an install box with a registry link per SDK', async () => {
   ];
   const { spec, diagnostics } = await processSpec({
     spec: acmeSpec({ 'x-sdks': sdks }),
-    plugins: [extractOverviewDocsPlugin()],
+    irPlugins: [extractOverviewDocsPlugin()],
   });
 
   const overview = pages(spec)[0].content ?? '';
@@ -163,7 +163,7 @@ test('a single SDK reads in the singular', async () => {
     spec: acmeSpec({
       'x-sdks': [{ language: 'typescript', package: '@acme/sdk' }],
     }),
-    plugins: [extractOverviewDocsPlugin()],
+    irPlugins: [extractOverviewDocsPlugin()],
   });
 
   const overview = pages(spec)[0].content ?? '';
@@ -190,7 +190,7 @@ test('invalid, reserved, and duplicate entries are reported and skipped', async 
         { language: 'typescript', package: '@acme/sdk' },
       ],
     }),
-    plugins: [extractOverviewDocsPlugin()],
+    irPlugins: [extractOverviewDocsPlugin()],
   });
 
   assert.deepEqual(
@@ -225,7 +225,7 @@ test('non-array x-docs and x-sdks are reported once and ignored', async () => {
       'x-docs': 'overview',
       'x-sdks': { language: 'typescript' },
     }),
-    plugins: [extractOverviewDocsPlugin()],
+    irPlugins: [extractOverviewDocsPlugin()],
   });
 
   assert.deepEqual(
@@ -245,7 +245,7 @@ test('non-array x-docs and x-sdks are reported once and ignored', async () => {
 test('toSidebar leaves the IR untouched', async () => {
   const { spec } = await processSpec({
     spec: acmeSpec(),
-    plugins: [extractOverviewDocsPlugin()],
+    irPlugins: [extractOverviewDocsPlugin()],
   });
 
   const first = toSidebar(spec);
@@ -267,7 +267,7 @@ test('an API without a title gets no invented heading or name', async () => {
       }),
       info: { title: '', version: '2.0.0', description: 'Acme lets you ship.' },
     },
-    plugins: [extractOverviewDocsPlugin()],
+    irPlugins: [extractOverviewDocsPlugin()],
   });
 
   const overview = pages(spec)[0].content ?? '';
@@ -309,7 +309,7 @@ test('an error response heads its section with its own description', async () =>
         },
       },
     }),
-    plugins: [extractOverviewDocsPlugin()],
+    irPlugins: [extractOverviewDocsPlugin()],
   });
 
   const errors = pages(spec)[2].content ?? '';

@@ -3,9 +3,9 @@ import type { PathItemObject, PathsObject } from 'openapi3-ts/oas31';
 import { methods } from '@sdk-it/core/paths.js';
 import { followRef } from '@sdk-it/core/ref.js';
 
-import type { ProcessingPlugin } from '../processing.js';
+import type { DocumentPlugin } from '../processing.js';
 
-export function normalizePaths(): ProcessingPlugin {
+export function normalizePaths(): DocumentPlugin {
   return {
     name: 'normalize-paths',
     process({ spec, report }) {

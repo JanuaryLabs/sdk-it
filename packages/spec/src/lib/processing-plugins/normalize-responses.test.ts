@@ -2,9 +2,13 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { ResponseObject } from 'openapi3-ts/oas31';
 
-import { type IR, normalizeResponses, processSpec } from '@sdk-it/spec';
+import {
+  type ProcessingDocument,
+  normalizeResponses,
+  processDocument,
+} from '@sdk-it/spec';
 
-function schemaForRef(spec: IR, ref: string | undefined) {
+function schemaForRef(spec: ProcessingDocument, ref: string | undefined) {
   assert.ok(ref);
   const name = ref.split('/').at(-1);
   assert.ok(name);
@@ -14,7 +18,7 @@ function schemaForRef(spec: IR, ref: string | undefined) {
 }
 
 test('response media types receive independent component schemas', async () => {
-  const { spec } = await processSpec({
+  const { spec } = await processDocument({
     spec: {
       openapi: '3.1.0',
       info: { title: 'Responses', version: '1.0.0' },
@@ -58,7 +62,7 @@ test('response media types receive independent component schemas', async () => {
 });
 
 test('success response ranges and default responses are preserved', async () => {
-  const { spec, diagnostics } = await processSpec({
+  const { spec, diagnostics } = await processDocument({
     spec: {
       openapi: '3.1.0',
       info: { title: 'Responses', version: '1.0.0' },
@@ -83,7 +87,7 @@ test('success response ranges and default responses are preserved', async () => 
 });
 
 test('flattenErrorResponses normalizes error payloads through the plugin options', async () => {
-  const { spec } = await processSpec({
+  const { spec } = await processDocument({
     spec: {
       openapi: '3.1.0',
       info: { title: 'Responses', version: '1.0.0' },

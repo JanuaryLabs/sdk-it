@@ -10,7 +10,7 @@ import type { OpenAPIDocument } from '@sdk-it/core';
 import {
   loadSpec,
   normalizeSecurity,
-  processSpec,
+  processDocument,
   resolveSecuritySchemeUris,
 } from '@sdk-it/spec';
 
@@ -35,7 +35,7 @@ function specWith(
 }
 
 test('resolves a same-document security scheme pointer to its registered name', async () => {
-  const { spec, diagnostics } = await processSpec({
+  const { spec, diagnostics } = await processDocument({
     spec: specWith('#/components/securitySchemes/bearer', {
       components: {
         securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } },
@@ -69,7 +69,7 @@ test('resolves a relative security scheme URI against the document $self', async
     }),
   );
 
-  const { spec, diagnostics } = await processSpec({
+  const { spec, diagnostics } = await processDocument({
     spec: specWith('./auth.json#/components/securitySchemes/apiKey', {
       $self: pathToFileURL(join(directory, 'openapi.json')).href,
     }),
@@ -98,7 +98,7 @@ test('resolves an absolute security scheme URI over http', async () => {
       }),
     );
   });
-  const { spec, diagnostics } = await processSpec({
+  const { spec, diagnostics } = await processDocument({
     spec: specWith(
       `${server.origin}/schemes.json#/components/securitySchemes/oauth`,
     ),
@@ -132,7 +132,7 @@ test('fetches each referenced document once when several schemes share it', asyn
     );
   });
   const base = `${server.origin}/schemes.json`;
-  const { spec } = await processSpec({
+  const { spec } = await processDocument({
     spec: specWith(`${base}#/components/securitySchemes/reader`, {
       security: [{ [`${base}#/components/securitySchemes/writer`]: [] }],
     }),
@@ -153,7 +153,7 @@ test('reports the URI that failed and leaves the requirement unresolved', async 
   const directory = workspace.path;
   writeFileSync(join(directory, 'auth.json'), JSON.stringify({}));
 
-  const { spec, diagnostics } = await processSpec({
+  const { spec, diagnostics } = await processDocument({
     spec: specWith('./auth.json#/components/securitySchemes/missing', {
       $self: pathToFileURL(join(directory, 'openapi.json')).href,
     }),
@@ -190,7 +190,7 @@ test('a URI whose target has no known scheme type is reported as not a Security 
     }),
   );
 
-  const { spec, diagnostics } = await processSpec({
+  const { spec, diagnostics } = await processDocument({
     spec: specWith('./auth.json#/components/securitySchemes/legacy', {
       $self: pathToFileURL(join(directory, 'openapi.json')).href,
     }),
@@ -221,7 +221,7 @@ test('treats a bare component-shaped name as a name, never as a document', async
     response.writeHead(200, { 'content-type': 'application/json' });
     response.end(JSON.stringify({ type: 'http', scheme: 'bearer' }));
   });
-  const { diagnostics } = await processSpec({
+  const { diagnostics } = await processDocument({
     spec: specWith('auth.json', {
       $self: `${server.origin}/openapi.json`,
     }),

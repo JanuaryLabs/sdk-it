@@ -12,7 +12,7 @@ import { findVarients } from '../find-polymorphic-varients.js';
 import { formatName } from '../format-name.js';
 import { isPrimitiveSchema } from '../is-primitive-schema.js';
 import { coerceTypes } from '../is.js';
-import type { ProcessingPlugin } from '../processing.js';
+import type { IRPlugin } from '../processing.js';
 import type { IR } from '../types.js';
 
 function normalizeSchemaObjects(
@@ -211,7 +211,7 @@ function unionRequired(target: unknown, source: unknown, key: string) {
   return undefined;
 }
 
-export function normalizeSchemas(): ProcessingPlugin {
+export function normalizeSchemas(): IRPlugin {
   return {
     name: 'normalize-schemas',
     process({ spec }) {

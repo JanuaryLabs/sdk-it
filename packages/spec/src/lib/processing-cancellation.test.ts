@@ -6,10 +6,10 @@ import type { ResponseObject } from 'openapi3-ts/oas31';
 
 import { resolveRef } from '@sdk-it/core/ref.js';
 import {
-  type IR,
   type ProcessingDiagnostic,
+  type ProcessingDocument,
   enrichExamples,
-  processSpec,
+  processDocument,
 } from '@sdk-it/spec';
 
 void test.each(
@@ -19,7 +19,7 @@ void test.each(
       const controller = new AbortController();
       const pending = Promise.withResolvers<void>();
       let nextPluginRan = false;
-      const processing = processSpec({
+      const processing = processDocument({
         spec: {
           openapi: '3.1.0',
           info: { title: 'Cancellation', version: '1' },
@@ -58,7 +58,7 @@ void test.each(['generate', 'validate'] as const, (phase) =>
       const pending = Promise.withResolvers<unknown>();
       const finished = Promise.withResolvers<void>();
       const diagnostics: ProcessingDiagnostic[] = [];
-      const observed: IR[] = [];
+      const observed: ProcessingDocument[] = [];
       let validations = 0;
       let nextPluginRan = false;
       const enrichment = enrichExamples({
@@ -78,7 +78,7 @@ void test.each(['generate', 'validate'] as const, (phase) =>
           return Boolean(await pending.promise);
         },
       });
-      const processing = processSpec({
+      const processing = processDocument({
         spec: {
           openapi: '3.1.0',
           info: { title: 'Examples', version: '1' },

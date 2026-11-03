@@ -7,9 +7,9 @@ import {
   resolveRef,
 } from '@sdk-it/core';
 
-import type { ProcessingDiagnostic, ProcessingPlugin } from './processing.js';
+import type { ProcessingDiagnostic } from './processing.js';
 import { determineGenericTag, sanitizeTag } from './tag.js';
-import type { IR } from './types.js';
+import type { ProcessingDocument } from './types.js';
 
 export interface GenerateSdkConfig {
   spec: OpenAPIDocument;
@@ -21,7 +21,6 @@ export interface GenerateSdkConfig {
     method: string,
   ) => string;
   tag?: (operation: OperationObject, path: string) => string;
-  plugins?: readonly ProcessingPlugin[];
   signal?: AbortSignal;
   onDiagnostic?: (diagnostic: ProcessingDiagnostic) => void;
 }
@@ -58,7 +57,7 @@ export const defaults: Partial<GenerateSdkConfig> &
 };
 
 export function coeraceConfig(config: GenerateSdkConfig) {
-  const spec: IR = {
+  const spec: ProcessingDocument = {
     ...config.spec,
     components: {
       ...config.spec.components,

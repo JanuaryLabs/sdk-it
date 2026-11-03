@@ -1,4 +1,4 @@
-export * from './lib/create-operation.js';
+export * from './lib/finalize-operations.js';
 export * from './lib/find-polymorphic-varients.js';
 export * from './lib/find-unique-schema-name.js';
 export * from './lib/for-each-operation.js';
