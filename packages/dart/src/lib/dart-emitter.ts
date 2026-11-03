@@ -25,26 +25,8 @@ import {
   getRefUsage,
   isPrimitiveSchema,
   sanitizeTag,
+  withParameters,
 } from '@sdk-it/spec';
-
-export function coearceObject(schema: SchemaObject): SchemaObject {
-  schema = structuredClone(schema);
-  if (schema['x-properties']) {
-    schema.properties = {
-      ...(schema.properties ?? {}),
-      ...(schema['x-properties'] ?? {}),
-    };
-  }
-  if (schema['x-required']) {
-    schema.required = Array.from(
-      new Set([
-        ...(Array.isArray(schema.required) ? schema.required : []),
-        ...(schema['x-required'] || []),
-      ]),
-    );
-  }
-  return schema;
-}
 
 type Context = Record<string, any>;
 type Serialized = {
@@ -97,7 +79,7 @@ export class DartSerializer {
     schema: SchemaObject,
     context: Context,
   ): Serialized {
-    const { properties = {}, required = [] } = coearceObject(schema);
+    const { properties = {}, required = [] } = withParameters(schema);
 
     if (schema.additionalProperties || isEmpty(properties)) {
       if (context.requestize) {
@@ -990,6 +972,6 @@ export function isObjectSchema(
 ): schema is SchemaObject {
   return (
     !isRef(schema) &&
-    (schema.type === 'object' || !!coearceObject(schema).properties)
+    (schema.type === 'object' || !!withParameters(schema).properties)
   );
 }
