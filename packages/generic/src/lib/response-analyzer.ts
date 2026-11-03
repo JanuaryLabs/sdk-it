@@ -1,8 +1,4 @@
-import type {
-  ArrowFunction,
-  FunctionExpression,
-  Node,
-} from '@typescript/native/ast';
+import type { Node } from '@typescript/native/ast';
 import {
   isCallExpression,
   isIdentifier,
@@ -15,7 +11,11 @@ import {
   isReturnStatement,
 } from '@typescript/native/ast/is';
 
-import type { NaunceResponseAnalyzer, ResponseItem } from '@sdk-it/core';
+import type {
+  FunctionWithBody,
+  NaunceResponseAnalyzer,
+  ResponseItem,
+} from '@sdk-it/core';
 import type { TypeDeriver } from '@sdk-it/core/deriver.js';
 
 const handlerVisitor: (
@@ -54,10 +54,7 @@ const handlerVisitor: (
   };
 };
 
-function toResponses(
-  handler: ArrowFunction | FunctionExpression,
-  deriver: TypeDeriver,
-) {
+function toResponses(handler: FunctionWithBody, deriver: TypeDeriver) {
   const responsesList: ResponseItem[] = [];
   const visit = handlerVisitor((node, statusCode, headers, contentType) => {
     responsesList.push({
@@ -79,7 +76,7 @@ function resolveStatusCode(node: Node) {
 }
 
 export function defaultResponseAnalyzer(
-  handler: ArrowFunction | FunctionExpression,
+  handler: FunctionWithBody,
   deriver: TypeDeriver,
 ) {
   try {

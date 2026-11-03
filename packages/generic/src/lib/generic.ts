@@ -1,16 +1,11 @@
 import {
-  type ArrowFunction,
-  type Block,
   type CallExpression,
   type Expression,
-  type FunctionExpression,
-  type FunctionLikeDeclaration,
-  type JSDocTag,
   type LeftHandSideExpression,
   type Node,
   NodeFlags,
   type PropertyAssignment,
-  getAllJSDocTags,
+  getJSDocTags,
   getTextOfJSDocComment,
 } from '@typescript/native/ast';
 import {
@@ -60,6 +55,7 @@ import type { SecurityRequirementObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
 import {
+  type FunctionWithBody,
   type InjectImport,
   type NaunceResponseAnalyzer,
   type OnOperation,
@@ -548,7 +544,6 @@ const jsDocsTags = [
   'tool',
   'toolDescription',
 ] as const;
-type JSDocsTags = (typeof jsDocsTags)[number];
 
 function parseJSDocComment(node: Node) {
   let tags: string[] = [];
@@ -559,14 +554,16 @@ function parseJSDocComment(node: Node) {
   let tool = '';
   let toolDescription = '';
 
-  for (const tag of getAllJSDocTags(node, (tag): tag is JSDocTag =>
-    jsDocsTags.includes(tag.tagName.text as JSDocsTags),
-  )) {
+  for (const tag of getJSDocTags(node)) {
+    const tagName = jsDocsTags.find((name) => name === tag.tagName.text);
+    if (tagName === undefined) {
+      continue;
+    }
     const comment = getTextOfJSDocComment(tag.comment);
     if (comment === undefined) {
       continue;
     }
-    switch (tag.tagName.text as JSDocsTags) {
+    switch (tagName) {
       case 'openapi':
         name = comment;
         break;
@@ -604,7 +601,7 @@ function parseJSDocComment(node: Node) {
 function visit(
   node: Node,
   responseAnalyzer: (
-    handler: ArrowFunction | FunctionExpression,
+    handler: FunctionWithBody,
     token: string,
     node: Node,
   ) => ResponseItem[],
@@ -672,7 +669,8 @@ function visit(
   }
 
   // Collect all middleware declarations for analysis
-  const middlewareDeclarations: { node: Node; name?: string }[] = [];
+  const middlewareDeclarations: { node: FunctionWithBody; name?: string }[] =
+    [];
 
   // slice(1, -1) to skip first (path) and last (handler) arguments
   // and skip the validate middleware - it's handled separately
@@ -745,7 +743,7 @@ function visit(
   // Analyze all middlewares for potential responses
   for (const middleware of middlewareDeclarations) {
     for (const { token, node } of returnTokens(middleware.node, typeChecker)) {
-      const items = responseAnalyzer(middleware.node as any, token, node);
+      const items = responseAnalyzer(middleware.node, token, node);
       if (middleware.name) {
         for (const item of items) {
           item.middlewareName = middleware.name;
@@ -950,9 +948,7 @@ export async function analyze(
 
 export type Serialized = ReturnType<typeof analyze>;
 
-function isFunctionWithBody(
-  node: Node | undefined,
-): node is FunctionLikeDeclaration & { body: Block | Expression } {
+function isFunctionWithBody(node: Node | undefined): node is FunctionWithBody {
   if (!node) {
     return false;
   }
