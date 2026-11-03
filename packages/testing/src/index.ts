@@ -35,8 +35,9 @@ export interface AnalysisWorkspace extends TemporaryDirectory {
 
 /**
  * A TypeScript app in a workspace directory: an ES module `package.json`, a
- * strict bundler `tsconfig.json` that includes each `.ts` file of `files`, and
- * `files` (paths relative to the app, folders created).
+ * bundler `tsconfig.json` that includes each `.ts` file of `files` (strict, as
+ * TypeScript 7 is without a `strict` key), and `files` (paths relative to the
+ * app, folders created).
  */
 export async function analysisWorkspace(
   prefix: string,
@@ -55,7 +56,7 @@ export async function analysisWorkspace(
         module: 'ESNext',
         moduleResolution: 'bundler',
         allowImportingTsExtensions: true,
-        strict: true,
+        noEmit: true,
         skipLibCheck: true,
         ...compilerOptions,
       },
