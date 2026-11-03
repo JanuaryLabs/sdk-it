@@ -22,6 +22,7 @@ import {
 } from '@sdk-it/core/file-system.js';
 import {
   type IR,
+  type TunedOperationObject,
   cleanFiles,
   forEachOperation,
   isSuccessStatusCode,
@@ -84,7 +85,7 @@ export async function generate(
       methods: [],
     });
 
-    const input = toInputs(spec, { entry, operation });
+    const input = toInputs(spec, { operation });
     const response = toOutput(spec, operation);
 
     // Generate method for this operation
@@ -115,8 +116,7 @@ ${docstring}
   });
 
   // Generate models using the Python emitter
-  const emitter = new PythonEmitter(spec);
-  const models = await serializeModels(spec, emitter);
+  const models = await serializeModels(spec);
 
   // Generate API group classes
   const apiClasses = Object.entries(groups).reduce<Record<string, string>>(
@@ -366,11 +366,8 @@ async function generateModuleInit(
   }
 }
 
-function toInputs(
-  spec: IR,
-  { entry, operation }: { entry: unknown; operation: OperationObject },
-) {
-  const inputName = (entry as { inputName?: string }).inputName || 'Input';
+function toInputs(spec: IR, { operation }: { operation: OperationObject }) {
+  const inputName = 'Input';
   const haveInput =
     !isEmpty(operation.parameters) || !isEmpty(operation.requestBody);
 
@@ -394,7 +391,7 @@ function toInputs(
   };
 }
 
-function toOutput(spec: IR, operation: OperationObject) {
+function toOutput(spec: IR, operation: TunedOperationObject) {
   if (!operation.responses) {
     return null;
   }
@@ -432,8 +429,7 @@ function toOutput(spec: IR, operation: OperationObject) {
   }
 
   const [, mediaType] = jsonContent;
-  const schema = (mediaType as { schema?: SchemaObject | ReferenceObject })
-    .schema;
+  const schema = mediaType.schema;
 
   if (!schema) {
     return { returnType: 'Any', successModel: null, errorModel: null };
@@ -477,10 +473,7 @@ function isBottomSchema(
   return !!resolved.not && isEmpty(resolved.not);
 }
 
-async function serializeModels(
-  spec: IR,
-  emitter: PythonEmitter,
-): Promise<Record<string, string>> {
+async function serializeModels(spec: IR): Promise<Record<string, string>> {
   const models: Record<string, string> = {};
 
   // Standard imports for all Python model files
@@ -499,7 +492,7 @@ async function serializeModels(
   ].join('\n');
 
   // Emit all schemas
-  emitter.onEmit((name: string, content: string, schema: SchemaObject) => {
+  const emitter = new PythonEmitter(spec, (name, content, schema) => {
     // Add imports to the content
     const fullContent = `${standardImports}
 ${schema['x-inputname'] ? 'from ..http.dispatcher import RequestConfig' : ''}

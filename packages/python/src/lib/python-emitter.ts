@@ -32,7 +32,7 @@ type Emit = (name: string, content: string, schema: SchemaObject) => void;
  */
 export class PythonEmitter {
   #spec: IR;
-  #emitHandler?: Emit;
+  #emitHandler: Emit;
   #emitHistory = new Set<string>();
   #typeCache = new Map<string, Serialized>(); // Cache for resolved types
 
@@ -41,14 +41,11 @@ export class PythonEmitter {
       return;
     }
     this.#emitHistory.add(content);
-    this.#emitHandler?.(name, content, schema);
+    this.#emitHandler(name, content, schema);
   }
 
-  constructor(spec: IR) {
+  constructor(spec: IR, emit: Emit = () => undefined) {
     this.#spec = spec;
-  }
-
-  onEmit(emit: Emit): void {
     this.#emitHandler = emit;
   }
 
@@ -315,7 +312,7 @@ ${docstring}${fields.length > 0 ? fields.join('\n') : '    pass'}${requestConfig
 
   #primitive(schema: SchemaObject): Serialized {
     const { type, format } = schema;
-    const nullable = (schema as { nullable?: boolean }).nullable; // Handle nullable as it may not be in the type definition
+    const nullable = 'nullable' in schema && schema.nullable === true;
 
     let pythonType = 'Any';
 
@@ -402,7 +399,7 @@ ${docstring}${fields.length > 0 ? fields.join('\n') : '    pass'}${requestConfig
       throw new Error('Enum schemas must have a name in context');
     }
 
-    const className = pascalcase(_context.name as string);
+    const className = pascalcase(_context.name);
 
     const enumItems = enumValues.map((value, index) => {
       const name =
@@ -505,7 +502,7 @@ ${enumItems.join('\n')}
       if (!context.name || typeof context.name !== 'string') {
         throw new Error('Object schemas must have a name in context');
       }
-      const className = pascalcase(context.name as string);
+      const className = pascalcase(context.name);
       return this.#object(className, schema, context);
     }
 
