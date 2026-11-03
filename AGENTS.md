@@ -54,6 +54,7 @@ nx run <package-name>:build
 ## Testing
 
 - Focus on **integration tests** that test entire flows, not unit tests for individual functions.
+- **Shared test helpers live in `@sdk-it/testing`** (private, never published). `typecheck(project)` type-checks a project the way its consumers compile it: workspace packages resolve to their declarations. `parseErrorFor(field)` is an `assert.rejects` matcher for a generated client's `ParseError`. Never type-check consumer code through `openAnalysisProject`; its `@sdk-it/source` condition reads source instead of declarations.
 
 ### Running Tests
 
