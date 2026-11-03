@@ -40,6 +40,24 @@ export function patchParameters(
   schema['x-required'] = [...required];
 }
 
+/**
+ * The object a generator types for a schema: its own properties plus the
+ * parameters {@link patchParameters} records beside them, every required name
+ * included.
+ */
+export function withParameters(schema: SchemaObject): SchemaObject {
+  const merged = structuredClone(schema);
+  if (merged['x-properties']) {
+    merged.properties = { ...merged.properties, ...merged['x-properties'] };
+  }
+  if (merged['x-required']) {
+    merged.required = [
+      ...new Set([...(merged.required ?? []), ...merged['x-required']]),
+    ];
+  }
+  return merged;
+}
+
 function normalizeRequestBody(
   spec: IR,
   operationId: string,
