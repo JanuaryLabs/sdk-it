@@ -1,7 +1,7 @@
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
 import { followRef, isEmpty, isRef, parseRef, resolveRef } from '@sdk-it/core';
-import { type IR, isPrimitiveSchema } from '@sdk-it/spec';
+import { type IR, isInlinable } from '@sdk-it/spec';
 
 import type { ModelNamer } from '../model-name.ts';
 
@@ -86,9 +86,8 @@ export class TypeScriptEmitter {
 
   #ref($ref: string, required: boolean): string {
     const schemaName = this.#modelName(parseRef($ref).model);
-    const schema = followRef(this.#spec, $ref);
-    if (isPrimitiveSchema(schema)) {
-      return this.handle(schema, required);
+    if (isInlinable(this.#spec, $ref)) {
+      return this.handle(followRef(this.#spec, $ref), required);
     }
 
     return `models.${appendOptional(schemaName, required)}`;

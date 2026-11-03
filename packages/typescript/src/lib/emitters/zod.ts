@@ -7,7 +7,7 @@ import {
   isRef,
   parseRef,
 } from '@sdk-it/core';
-import { isPrimitiveSchema } from '@sdk-it/spec';
+import { isInlinable } from '@sdk-it/spec';
 
 import type { ModelNamer } from '../model-name.ts';
 
@@ -133,7 +133,7 @@ export class ZodEmitter {
     const schemaName = this.#modelName(parseRef($ref).model);
     const schema = followRef(this.#spec, $ref);
 
-    if (isPrimitiveSchema(schema)) {
+    if (isInlinable(this.#spec, $ref)) {
       const result = this.handle(schema, required);
       this.#onRef?.(schemaName, result);
       return result;
