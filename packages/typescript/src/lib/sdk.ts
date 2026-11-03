@@ -3,7 +3,6 @@ import { camelcase } from 'stringcase';
 import { type OpenAPISecuritySchemeObject } from '@sdk-it/core';
 import {
   type OperationInput,
-  type OperationPagination,
   type ResponseBody,
   type TunedOperationObject,
   type TunedResponseObject,
@@ -84,7 +83,7 @@ export function toEndpoint(
             interceptors: Interceptor[];
             fetch: z.infer<typeof fetchType>;
             baseUrl: string;
-          })${specOperation['x-pagination'] ? paginationOperation(specOperation['x-pagination'] as OperationPagination) : normalOperation()}`,
+          })${specOperation['x-pagination'] ? paginationOperation(specOperation['x-pagination']) : normalOperation()}`,
     );
   }
   return { schemas };

@@ -46,7 +46,6 @@ function describe(p: OperationPagination): PaginationShape {
         nextPageMapping: `${p.pageNumberParamName}: nextPageParams.page, ${p.pageSizeParamName}: nextPageParams.pageSize`,
       };
   }
-  throw new Error(`Unknown pagination type: ${(p as { type: string }).type}`);
 }
 
 export function paginationOperation(pagination: OperationPagination): string {

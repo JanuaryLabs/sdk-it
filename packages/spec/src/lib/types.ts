@@ -18,7 +18,10 @@ import type {
 } from '@sdk-it/core';
 
 import type { SdkDoc } from './overview-docs/types.js';
-import type { PaginationGuess } from './pagination/guess-pagination.js';
+import type {
+  NoPaginationResult,
+  PaginationGuess,
+} from './pagination/guess-pagination.js';
 import type { SidebarData, TagGroups } from './sidebar.js';
 
 export type IR = Omit<
@@ -66,6 +69,7 @@ export type TunedOperationObject = Omit<
   parameters: ParameterObject[];
   ['x-fn-name']: string;
   ['x-fn-group']?: string;
+  ['x-pagination']?: OperationPagination;
   responses: Record<string, TunedResponseObject>;
   requestBody: OurRequestBodyObject;
 };
@@ -80,7 +84,11 @@ export type Operation = {
   operation: TunedOperationObject;
 };
 
-export type OperationPagination = PaginationGuess & {
+/** Spec processing stores a pagination only when one was configured or detected. */
+export type OperationPagination = Exclude<
+  PaginationGuess,
+  NoPaginationResult
+> & {
   items: string;
   statusCode: number;
 };

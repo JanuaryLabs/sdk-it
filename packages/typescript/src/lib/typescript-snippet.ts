@@ -11,7 +11,6 @@ import { type Generator } from '@sdk-it/readme';
 import {
   type IR,
   type OperationEntry,
-  type OperationPagination,
   type TunedOperationObject,
   forEachOperation,
   patchParameters,
@@ -115,36 +114,17 @@ export class TypeScriptSnippet implements Generator {
       }
     }
 
-    if (!isEmpty(operation['x-pagination'])) {
-      return this.#pagination(operation, entry, payload);
+    if (operation['x-pagination']) {
+      return this.#pagination(entry, payload);
     }
     return this.#normal(entry, payload);
   }
 
-  #pagination(
-    operation: TunedOperationObject,
-    entry: OperationEntry,
-    payload: string,
-  ) {
-    const pagination: OperationPagination = operation['x-pagination'];
-    switch (pagination.type) {
-      case 'page':
-        return {
-          content: `const controller = new AbortController();\nconst result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload}, { signal: controller.signal });`,
-          footer: `for await (const page of result.iter({ signal: controller.signal })) {\n\t\tconsole.log(page);\n}`,
-        };
-      case 'offset':
-        return {
-          content: `const controller = new AbortController();\nconst result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload}, { signal: controller.signal });`,
-          footer: `for await (const page of result.iter({ signal: controller.signal })) {\n\t\tconsole.log(page);\n}`,
-        };
-      case 'cursor':
-        return {
-          content: `const controller = new AbortController();\nconst result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload}, { signal: controller.signal });`,
-          footer: `for await (const page of result.iter({ signal: controller.signal })) {\n\t\tconsole.log(page);\n}`,
-        };
-    }
-    return this.#normal(entry, payload);
+  #pagination(entry: OperationEntry, payload: string) {
+    return {
+      content: `const controller = new AbortController();\nconst result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload}, { signal: controller.signal });`,
+      footer: `for await (const page of result.iter({ signal: controller.signal })) {\n\t\tconsole.log(page);\n}`,
+    };
   }
 
   #normal(entry: OperationEntry, payload: string) {
@@ -370,23 +350,13 @@ export class TypeScriptSnippet implements Generator {
 
     // Use the first available type for the main example
     const primaryPaginationType = availableTypes[0];
-    const mockPaginatedOperation = {
-      'x-pagination': { type: primaryPaginationType },
-      tags: ['Products'],
-      operationId: 'listProducts',
-      parameters: [],
-      'x-fn-name': 'listProducts',
-      responses: {},
-      requestBody: {} as TunedOperationObject['requestBody'],
-    } as TunedOperationObject;
-    const mockOperationEntry = {
-      method: 'get' as const,
+    const mockOperationEntry: OperationEntry = {
+      method: 'get',
       path: '/products',
       tag: 'Products',
-    } as OperationEntry;
+    };
     const initialRequestPayload = createObjectLiteral({ limit: 20 });
     const paginationExample = this.#pagination(
-      mockPaginatedOperation,
       mockOperationEntry,
       initialRequestPayload,
     );
@@ -415,7 +385,6 @@ export class TypeScriptSnippet implements Generator {
     sections.push('');
 
     const iterationExample = this.#pagination(
-      mockPaginatedOperation,
       mockOperationEntry,
       createObjectLiteral({ limit: 100 }),
     );
@@ -448,21 +417,11 @@ export class TypeScriptSnippet implements Generator {
 
     // Generate specific examples for each available pagination type
     for (const paginationType of availableTypes) {
-      const typeSpecificOperation = {
-        'x-pagination': { type: paginationType },
-        tags: ['Products'],
-        operationId: 'listProducts',
-        parameters: [],
-        'x-fn-name': 'listProducts',
-        responses: {},
-        requestBody: {} as TunedOperationObject['requestBody'],
-      } as TunedOperationObject;
-
-      const typeSpecificEntry = {
-        method: 'get' as const,
+      const typeSpecificEntry: OperationEntry = {
+        method: 'get',
         path: '/products',
         tag: 'Products',
-      } as OperationEntry;
+      };
 
       if (paginationType === 'cursor') {
         sections.push('#### Cursor Pagination');
@@ -471,7 +430,6 @@ export class TypeScriptSnippet implements Generator {
         sections.push('');
 
         const cursorPaginationExample = this.#pagination(
-          typeSpecificOperation,
           typeSpecificEntry,
           createObjectLiteral({ limit: 20 }),
         );
@@ -493,7 +451,6 @@ export class TypeScriptSnippet implements Generator {
         sections.push('');
 
         const offsetPaginationExample = this.#pagination(
-          typeSpecificOperation,
           typeSpecificEntry,
           createObjectLiteral({ limit: 20, offset: 0 }),
         );
@@ -515,7 +472,6 @@ export class TypeScriptSnippet implements Generator {
         sections.push('');
 
         const pagePaginationExample = this.#pagination(
-          typeSpecificOperation,
           typeSpecificEntry,
           createObjectLiteral({ page: 1, pageSize: 20 }),
         );
