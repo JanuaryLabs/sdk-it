@@ -34,8 +34,20 @@ export const methods = [
   'trace',
   'head',
 ] as const;
-export type SemanticSource =
-  'query' | 'queries' | 'body' | 'params' | 'headers';
+const semanticSources = [
+  'query',
+  'queries',
+  'body',
+  'params',
+  'headers',
+] as const;
+export type SemanticSource = (typeof semanticSources)[number];
+
+const semanticSourceSet: ReadonlySet<string> = new Set(semanticSources);
+
+export function isSemanticSource(value: string): value is SemanticSource {
+  return semanticSourceSet.has(value);
+}
 
 const semanticSourceToOpenAPI = {
   queries: 'query',
@@ -43,10 +55,48 @@ const semanticSourceToOpenAPI = {
   headers: 'header',
   params: 'path',
 } as const;
-export interface Selector {
+/** A validator entry that selects one named value, such as `payload.params.id`. */
+export interface FieldSelector {
+  kind: 'field';
+  source: SemanticSource;
   name: string;
   against: string;
-  source: SemanticSource;
+}
+
+/** A validator entry that selects the whole request body: `payload.body`. */
+export interface BodySelector {
+  kind: 'body';
+  against: string;
+}
+
+export type Selector = FieldSelector | BodySelector;
+
+interface RequestBody {
+  required: boolean;
+  schema: SchemaObject;
+}
+
+/** The object body a validator's body-field selections describe, if it selects any. */
+function fieldsBody(
+  fields: Record<string, RequestBody>,
+): RequestBody | undefined {
+  const entries = Object.entries(sortObjectKeys(fields));
+  if (entries.length === 0) {
+    return undefined;
+  }
+  const required = entries
+    .filter(([, field]) => field.required)
+    .map(([name]) => name);
+  return {
+    required: required.length > 0,
+    schema: {
+      required: required.length ? sortArray(required) : undefined,
+      type: 'object',
+      properties: Object.fromEntries(
+        entries.map(([name, field]) => [name, field.schema]),
+      ),
+    },
+  };
 }
 
 export interface ResponseItem {
@@ -181,19 +231,24 @@ export class Paths {
     return responsesObject;
   }
 
-  async #selectosToParameters(selectors: Selector[]) {
+  async #selectosToParameters(selectors: Selector[], operation: string) {
     const parameters: ParameterObject[] = [];
-    const bodySchemaProps: Record<
-      string,
-      { required: boolean; schema: SchemaObject }
-    > = {};
+    const bodyFields: Record<string, RequestBody> = {};
+    let wholeBody: RequestBody | undefined;
     for (const selector of selectors) {
       const { optional, schema } = await evalZod(
         selector.against,
         this.#imports,
       );
+      if (selector.kind === 'body') {
+        if (wholeBody) {
+          throw new Error(`${operation} selects payload.body more than once.`);
+        }
+        wholeBody = { required: !optional, schema };
+        continue;
+      }
       if (selector.source === 'body') {
-        bodySchemaProps[selector.name] = {
+        bodyFields[selector.name] = {
           required: !optional,
           schema,
         };
@@ -207,7 +262,12 @@ export class Paths {
       };
       parameters.push(parameter);
     }
-    return { parameters, bodySchemaProps };
+    if (wholeBody && Object.keys(bodyFields).length > 0) {
+      throw new Error(
+        `${operation} selects both payload.body and body fields; select one or the other.`,
+      );
+    }
+    return { parameters, body: wholeBody ?? fieldsBody(bodyFields) };
   }
 
   getTags(): string[] {
@@ -233,19 +293,10 @@ export class Paths {
 
     for (const operation of this.#operations) {
       const { path, method, selectors } = operation;
-      const { parameters, bodySchemaProps } =
-        await this.#selectosToParameters(selectors);
-      const bodySchema: Record<string, SchemaObject> = {};
-      const required: string[] = [];
-      const sortedBodySchemaProps = Object.entries(
-        sortObjectKeys(bodySchemaProps),
+      const { parameters, body } = await this.#selectosToParameters(
+        selectors,
+        `${method.toUpperCase()} ${path}`,
       );
-      for (const [key, value] of sortedBodySchemaProps) {
-        if (value.required) {
-          required.push(key);
-        }
-        bodySchema[key] = value.schema;
-      }
 
       const operationObject: OperationObject = {
         operationId: operation.name,
@@ -261,16 +312,12 @@ export class Paths {
               description: operation.info.toolDescription || undefined,
             }
           : undefined,
-        requestBody: Object.keys(bodySchema).length
+        requestBody: body
           ? {
-              required: required.length ? true : false,
+              required: body.required,
               content: {
                 [operation.contentType || 'application/json']: {
-                  schema: {
-                    required: required.length ? sortArray(required) : undefined,
-                    type: 'object',
-                    properties: bodySchema,
-                  },
+                  schema: body.schema,
                 },
               },
             }

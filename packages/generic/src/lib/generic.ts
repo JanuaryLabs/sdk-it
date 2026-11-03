@@ -22,6 +22,7 @@ import {
   isCallExpression as isCall,
   isConditionalExpression,
   isConstructorDeclaration,
+  isElementAccessExpression,
   isEnumMember,
   isFunctionDeclaration,
   isFunctionExpression,
@@ -68,8 +69,8 @@ import {
   type ResponseAnalyzerFn,
   type ResponseItem,
   type Selector,
-  type SemanticSource,
   isHttpMethod,
+  isSemanticSource,
   toSchema,
 } from '@sdk-it/core';
 import { TypeDeriver, nodeLocation } from '@sdk-it/core/deriver.js';
@@ -803,14 +804,59 @@ function toSelectors(props: PropertyAssignment[]) {
       );
       continue;
     }
-    const [, source, selectText] = select.initializer.getText().split('.');
-    selectors.push({
-      name: selectText,
-      against: against.initializer.getText(),
-      source: source as SemanticSource,
-    });
+    const selector = toSelector(
+      select.initializer,
+      against.initializer.getText(),
+    );
+    if (!selector) {
+      console.warn(
+        `⚠ Unsupported select in ${name}: ${select.initializer.getText()}. Select payload.body or one value, such as payload.params.id or payload.headers['x-id'].\n  at ${nodeLocation(prop) ?? 'unknown'}`,
+      );
+      continue;
+    }
+    selectors.push(selector);
   }
   return selectors;
+}
+
+/**
+ * `payload.body` selects the whole body; `payload.<source>.<name>` and
+ * `payload.<source>['<name>']` select one value.
+ */
+function toSelector(select: Expression, against: string): Selector | undefined {
+  if (isPropertyAccessExpression(select) && isIdentifier(select.expression)) {
+    return select.name.text === 'body' ? { kind: 'body', against } : undefined;
+  }
+  if (
+    !isPropertyAccessExpression(select) &&
+    !isElementAccessExpression(select)
+  ) {
+    return undefined;
+  }
+  const name = memberName(select);
+  const owner = select.expression;
+  if (
+    name === undefined ||
+    !isPropertyAccessExpression(owner) ||
+    !isIdentifier(owner.expression) ||
+    !isSemanticSource(owner.name.text)
+  ) {
+    return undefined;
+  }
+  return { kind: 'field', source: owner.name.text, name, against };
+}
+
+function memberName(node: Expression): string | undefined {
+  if (isPropertyAccessExpression(node)) {
+    return node.name.text;
+  }
+  if (
+    isElementAccessExpression(node) &&
+    isStringLiteralLikeNode(node.argumentExpression)
+  ) {
+    return node.argumentExpression.text;
+  }
+  return undefined;
 }
 
 export async function analyze(

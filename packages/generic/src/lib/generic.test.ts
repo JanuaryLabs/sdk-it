@@ -107,10 +107,10 @@ const app = {
  * @tags user
  * @description Get user profile information
  */
-app.post('/users/:id/profile', validate(({ query, body, params }) => ({
-  userId: { select: params.id, against: z.string() },
-  name: { select: body.name, against: z.string() },
-  email: { select: query.email, against: z.string().email().optional() }
+app.post('/users/:id/profile', validate((payload) => ({
+  userId: { select: payload.params.id, against: z.string() },
+  name: { select: payload.body.name, against: z.string() },
+  email: { select: payload.query.email, against: z.string().email().optional() }
 })), (c) => {
   return output.json({ success: true, user: c.get('input') });
 });
@@ -137,6 +137,35 @@ app.post('/users/:id/profile', validate(({ query, body, params }) => ({
       'Should have correct operation ID',
     );
     assert.ok(result1.tags.includes('user'), 'Should include user tag');
+    const { paths } = JSON.parse(JSON.stringify(result1)) as {
+      paths: Record<
+        string,
+        {
+          post: {
+            parameters: { in: string; name: string; required: boolean }[];
+            requestBody: {
+              content: Record<string, { schema: { properties: unknown } }>;
+            };
+          };
+        }
+      >;
+    };
+    const profile = paths['/users/{id}/profile'].post;
+    assert.deepStrictEqual(
+      profile.parameters.map(({ in: location, name, required }) => [
+        location,
+        name,
+        required,
+      ]),
+      [
+        ['path', 'id', true],
+        ['query', 'email', false],
+      ],
+    );
+    assert.deepStrictEqual(
+      profile.requestBody.content['application/json'].schema.properties,
+      { name: { type: 'string' } },
+    );
   });
 
   it('should handle error responses with ProblemDetailsException', async () => {
@@ -156,8 +185,8 @@ class ProblemDetailsException extends Error {}
  * @openapi getResource
  * @summary Get a resource that might not exist
  */
-app.get('/resource/:id', validate(({ params }) => ({
-  id: { select: params.id, against: z.string() }
+app.get('/resource/:id', validate((payload) => ({
+  id: { select: payload.params.id, against: z.string() }
 })), (c) => {
   const id = c.get('input').id;
   if (id === 'notfound') {
