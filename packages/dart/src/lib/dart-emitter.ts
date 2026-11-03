@@ -1,5 +1,3 @@
-import { merge } from 'lodash-es';
-import assert from 'node:assert';
 import type {
   ReferenceObject,
   SchemaObject,
@@ -12,7 +10,6 @@ import {
   isEmpty,
   isRef,
   joinSkipDigits,
-  notRef,
   parseRef,
   pascalcase,
   resolveRef,
@@ -467,28 +464,6 @@ ${toJsonProperties.join(',\n')}
     };
   }
 
-  // fixme: this method should no longer be needed because the logic in it is being preprocessed before emitting begins
-  #allOf(
-    className: string,
-    schemas: (SchemaObject | ReferenceObject)[],
-    context: Context,
-  ): Serialized {
-    const name = pascalcase(context.propName || className); // className in case is top level
-
-    const refs = schemas.filter(isRef);
-    const nonRefs = schemas.filter(notRef);
-    if (nonRefs.some((it) => it.type && it.type !== 'object')) {
-      assert(false, `allOf ${name} must be an object`);
-    }
-    const objectSchema = merge(
-      {},
-      ...nonRefs,
-      ...refs.map((ref) => followRef(this.#spec, ref.$ref)),
-    );
-    delete objectSchema.allOf;
-    return this.handle(name, objectSchema, true, context);
-  }
-
   #mixinise(name: string, context: Context) {
     const mixins = getRefUsage(this.#spec, name);
     if (context.mixin) {
@@ -900,11 +875,8 @@ return false;
     if (schema.enum && Array.isArray(schema.enum)) {
       return this.#enum(className, schema, context);
     }
-    // some schemas have decalres allof, oneof, anyOf at once or combinations of them
-    // so we need to process them in order
-    if (schema.allOf && Array.isArray(schema.allOf)) {
-      return this.#allOf(className, schema.allOf, context);
-    }
+    // some schemas declare oneOf and anyOf at once, so they are processed in order;
+    // allOf never reaches the emitter because spec flattens it (normalize-schemas)
     if (schema.oneOf && Array.isArray(schema.oneOf)) {
       return this.#oneOf(className, schema, context);
     }
