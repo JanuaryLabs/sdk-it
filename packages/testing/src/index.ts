@@ -2,6 +2,7 @@ import {
   API,
   formatDiagnosticsWithColorAndContext,
 } from '@typescript/native/sync';
+import assert from 'node:assert/strict';
 
 import { preEmitDiagnostics } from '@sdk-it/core/program.js';
 
@@ -46,5 +47,17 @@ export function typecheck(project: Project): Typecheck {
       line: diagnostic.startPosition && diagnostic.startPosition.line + 1,
       message: diagnostic.text,
     })),
+  };
+}
+
+/**
+ * An `assert.rejects` matcher: the generated client refused the input with a
+ * `ParseError` whose only field error is `field`.
+ */
+export function parseErrorFor(field: string) {
+  return (error: { name: string; data: { fieldErrors: object } }) => {
+    assert.equal(error.name, 'ParseError');
+    assert.deepEqual(Object.keys(error.data.fieldErrors), [field]);
+    return true;
   };
 }
