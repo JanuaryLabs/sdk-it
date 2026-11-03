@@ -23,6 +23,20 @@ function normalizeSchemaObjects(
   for (const schema of schemas) {
     if (isRef(schema)) continue;
 
+    // JSON Schema lists required names on the parent object. An OAS 3.0 style
+    // `required: true` on a property moves there; any other non-array
+    // `required` (a boolean on the schema itself) says nothing and goes.
+    if (schema.required !== undefined && !Array.isArray(schema.required)) {
+      delete schema.required;
+    }
+    for (const [key, property] of Object.entries(schema.properties ?? {})) {
+      // The document breaks its own type here, so read the value as it is.
+      const flag: unknown = notRef(property) ? property.required : undefined;
+      if (flag === true) {
+        schema.required = uniq([...(schema.required ?? []), key]);
+      }
+    }
+
     if (!isEmpty(schema.properties)) {
       schema.type ??= 'object';
       delete schema.oneOf;
