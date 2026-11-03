@@ -13,6 +13,37 @@ function escapePointerSegment(segment: string) {
   return segment.replaceAll('~', '~0').replaceAll('/', '~1');
 }
 
+/** Each schema `schema` nests directly, with its pointer segment. */
+export function* subschemas(
+  schema: SchemaObject,
+): Generator<[segment: string, child: SchemaObject | ReferenceObject]> {
+  for (const key of ['properties', 'x-properties'] as const) {
+    const properties = schema[key] as
+      Record<string, SchemaObject | ReferenceObject> | undefined;
+    for (const [name, property] of Object.entries(properties ?? {})) {
+      yield [`${key}/${escapePointerSegment(name)}`, property];
+    }
+  }
+
+  for (const key of [
+    'items',
+    'not',
+    'additionalProperties',
+    'propertyNames',
+  ] as const) {
+    const child = schema[key];
+    if (typeof child === 'object' && child !== null) {
+      yield [key, child];
+    }
+  }
+
+  for (const key of ['allOf', 'oneOf', 'anyOf', 'prefixItems'] as const) {
+    for (const [index, child] of (schema[key] ?? []).entries()) {
+      yield [`${key}/${index}`, child];
+    }
+  }
+}
+
 function* walkSchema(
   schema: SchemaObject | ReferenceObject,
   pointer: string,
@@ -25,34 +56,8 @@ function* walkSchema(
   visited.add(schema);
   yield { schema, pointer };
 
-  for (const key of ['properties', 'x-properties'] as const) {
-    const properties = schema[key] as
-      Record<string, SchemaObject | ReferenceObject> | undefined;
-    for (const [name, property] of Object.entries(properties ?? {})) {
-      yield* walkSchema(
-        property,
-        `${pointer}/${key}/${escapePointerSegment(name)}`,
-        visited,
-      );
-    }
-  }
-
-  for (const key of [
-    'items',
-    'not',
-    'additionalProperties',
-    'propertyNames',
-  ] as const) {
-    const child = schema[key];
-    if (typeof child === 'object' && child !== null) {
-      yield* walkSchema(child, `${pointer}/${key}`, visited);
-    }
-  }
-
-  for (const key of ['allOf', 'oneOf', 'anyOf', 'prefixItems'] as const) {
-    for (const [index, child] of (schema[key] ?? []).entries()) {
-      yield* walkSchema(child, `${pointer}/${key}/${index}`, visited);
-    }
+  for (const [segment, child] of subschemas(schema)) {
+    yield* walkSchema(child, `${pointer}/${segment}`, visited);
   }
 }
 
