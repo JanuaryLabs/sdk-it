@@ -6,10 +6,11 @@ import type {
 
 import {
   type IR,
+  type OperationInput,
   type TunedOperationObject,
   forEachOperation,
-  inputSchema,
-  operationInput,
+  inputName,
+  operationInputs,
 } from '@sdk-it/spec';
 
 export interface OperationDescriptor {
@@ -17,6 +18,8 @@ export interface OperationDescriptor {
   name: string;
   method: string;
   path: string;
+  /** The media type the command sends its body as. */
+  contentType: string;
   tag?: string;
   summary?: string;
   description?: string;
@@ -57,21 +60,21 @@ function responseSchemas(
 }
 
 export function describeOperation(
-  ir: IR,
   op: TunedOperationObject,
   method: string,
   path: string,
+  input: OperationInput,
 ): OperationDescriptor {
-  const input = inputSchema(ir, op, operationInput(ir, op).contentType);
   return {
     operationId: op.operationId,
-    name: op['x-fn-name'],
+    name: inputName(op['x-fn-name'], input),
     method: method.toUpperCase(),
     path,
+    contentType: input.contentType,
     tag: op.tags?.[0],
     summary: op.summary,
     description: op.description,
-    input,
+    input: input.schema,
     responses: responseSchemas(op),
   };
 }
@@ -81,12 +84,14 @@ export function describeAllOperations(
 ): Record<string, OperationDescriptor> {
   const descriptors: Record<string, OperationDescriptor> = {};
   forEachOperation(ir, (entry, op) => {
-    descriptors[op['x-fn-name']] = describeOperation(
-      ir,
-      op,
-      entry.method,
-      entry.path,
-    );
+    for (const input of operationInputs(ir, op)) {
+      descriptors[inputName(op['x-fn-name'], input)] = describeOperation(
+        op,
+        entry.method,
+        entry.path,
+        input,
+      );
+    }
   });
   return descriptors;
 }

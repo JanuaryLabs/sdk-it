@@ -5,9 +5,10 @@ import type { Client } from '@sdk-it/rpc';
 import { schemaToZod } from '@sdk-it/rpc';
 import {
   type IR,
+  type OperationInput,
   type TunedOperationObject,
-  inputSchema,
-  operationInput,
+  inputEndpoint,
+  inputName,
 } from '@sdk-it/spec';
 
 import { addFlagsFromSchema } from './flags.ts';
@@ -20,6 +21,8 @@ interface BuildOpCommandArgs {
   operation: TunedOperationObject;
   method: string;
   path: string;
+  /** The input this command sends; a variant input gets its own command. */
+  input: OperationInput;
   client: Client;
 }
 
@@ -28,18 +31,15 @@ export function buildOpCommand({
   operation,
   method,
   path,
+  input: sent,
   client,
 }: BuildOpCommandArgs): Command {
-  const name = operation['x-fn-name'] ?? operation.operationId;
+  const name = inputName(operation['x-fn-name'] ?? operation.operationId, sent);
   const summary = operation.summary ?? operation.description ?? '';
 
   const cmd = new Command(name).description(summary);
 
-  const inputJsonSchema = inputSchema(
-    ir,
-    operation,
-    operationInput(ir, operation).contentType,
-  );
+  const inputJsonSchema = sent.schema;
   const inputZodSchema = schemaToZod(inputJsonSchema, ir, { required: true });
   const flagMap = addFlagsFromSchema(cmd, inputJsonSchema, ir);
 
@@ -63,7 +63,7 @@ export function buildOpCommand({
     );
   }
 
-  const endpoint = `${method.toUpperCase()} ${path}`;
+  const endpoint = inputEndpoint(`${method.toUpperCase()} ${path}`, sent);
 
   cmd.action(async (_: unknown, thisCommand: Command) => {
     const opts: {
@@ -74,7 +74,7 @@ export function buildOpCommand({
     } = thisCommand.optsWithGlobals();
 
     if (opts.describe) {
-      const desc = describeOperation(ir, operation, method, path);
+      const desc = describeOperation(operation, method, path, sent);
       process.stdout.write(JSON.stringify(desc, null, 2) + '\n');
       return;
     }

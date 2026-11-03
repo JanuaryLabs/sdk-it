@@ -2,7 +2,12 @@ import { Command, Option } from 'commander';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { type ClientOptions, createRpc } from '@sdk-it/rpc';
-import { forEachOperation, loadSpec, toIR } from '@sdk-it/spec';
+import {
+  forEachOperation,
+  loadSpec,
+  operationInputs,
+  toIR,
+} from '@sdk-it/spec';
 
 import { buildOpCommand } from './build-op-command.ts';
 import { describeAllOperations } from './introspect.ts';
@@ -80,15 +85,18 @@ export async function command(
   });
 
   forEachOperation(ir, (entry, operation) => {
-    program.addCommand(
-      buildOpCommand({
-        ir,
-        operation,
-        method: entry.method,
-        path: entry.path,
-        client,
-      }),
-    );
+    for (const input of operationInputs(ir, operation)) {
+      program.addCommand(
+        buildOpCommand({
+          ir,
+          operation,
+          method: entry.method,
+          path: entry.path,
+          input,
+          client,
+        }),
+      );
+    }
   });
 
   program.addCommand(
