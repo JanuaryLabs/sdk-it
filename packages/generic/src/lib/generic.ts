@@ -928,6 +928,7 @@ export async function analyze(
     }
   }
 
+  const pathsObject = await paths.getPaths();
   const components: OpenAPIComponentsObject = {
     schemas: {
       ...paths.getSharedSchemas(),
@@ -940,7 +941,7 @@ export async function analyze(
   };
 
   return {
-    paths: await paths.getPaths(),
+    paths: pathsObject,
     tags: paths.getTags(),
     components,
   };
