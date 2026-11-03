@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import { execSync } from 'child_process';
+import { rmSync } from 'fs';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
 
@@ -120,9 +121,10 @@ for (const { spec, name, flags } of specs) {
   console.log(chalk.magenta.bold(`RUNNING TEST SUITE FOR: ${spec}`));
   console.log(chalk.magenta('='.repeat(80)) + '\n');
 
-  const cliPath = join(process.cwd(), 'packages', 'cli', 'src', 'index.ts');
+  const cliPath = join(process.cwd(), 'packages', 'cli', 'src', 'bin.ts');
 
   const sdkOutput = `./.client-dart-${name}`;
+  rmSync(sdkOutput, { recursive: true, force: true });
   const sdkFlags = [
     `-s ${spec}`,
     `-o ${sdkOutput}`,

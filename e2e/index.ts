@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import { execSync } from 'child_process';
+import { rmSync } from 'fs';
 import { join } from 'path';
 
 interface Failure {
@@ -72,7 +73,7 @@ const specs = [
     flags: [],
   },
   {
-    spec: 'https://machines-api-spec.fly.dev/spec/openapi3.json',
+    spec: 'https://docs.machines.dev/openapi.json',
     name: 'FlyMachines',
     flags: [],
   },
@@ -135,9 +136,10 @@ for (const { spec, name, flags } of filtered) {
   console.log(chalk.magenta.bold(`RUNNING TEST SUITE FOR: ${spec}`));
   console.log(chalk.magenta('='.repeat(80)) + '\n');
 
-  const cliPath = join(process.cwd(), 'packages', 'cli', 'src', 'index.ts');
+  const cliPath = join(process.cwd(), 'packages', 'cli', 'src', 'bin.ts');
 
   const sdkOutput = `./.client-${name}`;
+  rmSync(sdkOutput, { recursive: true, force: true });
   const sdkFlags = [
     `-s ${spec}`,
     `-o ${sdkOutput}`,
