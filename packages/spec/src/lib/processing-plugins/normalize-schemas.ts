@@ -178,9 +178,10 @@ function normalizeSchemaObjects(
         const otherTypes = schema[kind].filter(
           (item) => resolveRef<SchemaObject>(spec, item).type !== 'null',
         );
-        if (otherTypes.length === 1) {
-          const [only] = otherTypes;
-          const droppedNull = otherTypes.length !== schema[kind].length;
+        const [only] = otherTypes;
+        const droppedNull = otherTypes.length !== schema[kind].length;
+        // A $ref cannot carry null, so a nullable $ref keeps its union.
+        if (otherTypes.length === 1 && !(droppedNull && isRef(only))) {
           Object.assign(schema, only);
           delete schema[kind];
           if (droppedNull && notRef(only)) {
