@@ -36,13 +36,12 @@ describe('Dispatcher', () => {
   });
 
   test('fetchType accepts fetch funcs called with cross-realm Request/Response', async () => {
-    const wrapped = fetchType.parse(async () => {
-      return { ok: true, status: 200 } as unknown as Response;
-    });
+    const wrapped = fetchType.parse(async () => ({ ok: true, status: 200 }));
 
     assert.ok(wrapped, 'fetchType.parse should return the wrapped fetch');
     const pseudoRequest = { url: 'https://example.com', method: 'GET' };
-    const result = await wrapped(pseudoRequest as unknown as Request);
+    // @ts-expect-error a plain object stands in for a Request from another realm
+    const result = await wrapped(pseudoRequest);
     assert.deepStrictEqual(result, { ok: true, status: 200 });
   });
 

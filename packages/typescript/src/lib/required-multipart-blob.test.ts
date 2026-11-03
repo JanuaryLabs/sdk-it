@@ -1,15 +1,13 @@
 import { test } from '@zukhruf/testing/node';
 import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
-import { mkdtempDisposable, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import type { OpenAPIObject, ParameterObject } from 'openapi3-ts/oas31';
 
-import { parseErrorFor, typecheck } from '@sdk-it/testing';
+import { parseErrorFor, typecheck, workspaceDirectory } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
-
-const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 
 const variants = [
   {
@@ -72,8 +70,8 @@ const transcriptionSpec = (
 
 void test.each(variants, ({ variant, path, endpoint, params, parameters }) =>
   test(`a required multipart binary field ${variant} is required in the input type`, async () => {
-    await using workspace = await mkdtempDisposable(
-      join(repoRoot, '.required-multipart-types-'),
+    await using workspace = await workspaceDirectory(
+      'required-multipart-types-',
     );
     await generate(transcriptionSpec(path, [...parameters]), {
       output: workspace.path,
@@ -109,8 +107,8 @@ void client.request('${endpoint}', { ${paramFields} });
 
 void test.each(variants, ({ variant, path, endpoint, params, parameters }) =>
   test(`the generated client rejects a multipart body missing its required binary field ${variant} before fetch`, async () => {
-    await using workspace = await mkdtempDisposable(
-      join(repoRoot, '.required-multipart-runtime-'),
+    await using workspace = await workspaceDirectory(
+      'required-multipart-runtime-',
     );
     try {
       await generate(transcriptionSpec(path, [...parameters]), {
@@ -126,7 +124,6 @@ void test.each(variants, ({ variant, path, endpoint, params, parameters }) =>
         bundle: true,
         format: 'esm',
         platform: 'node',
-        nodePaths: [join(repoRoot, 'node_modules')],
         logLevel: 'silent',
       });
       const { Transcribe } = await import(pathToFileURL(bundle).href);
@@ -150,9 +147,11 @@ void test.each(variants, ({ variant, path, endpoint, params, parameters }) =>
         file: new Blob(['audio']),
       });
       const form = await requests[0].formData();
-      assert.equal(await (form.get('file') as Blob).text(), 'audio');
+      const file = form.get('file');
+      assert.ok(file instanceof Blob);
+      assert.equal(await file.text(), 'audio');
     } finally {
-      stop();
+      await stop();
     }
   }),
 );

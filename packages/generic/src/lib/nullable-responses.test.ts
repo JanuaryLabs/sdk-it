@@ -1,21 +1,12 @@
 import assert from 'node:assert/strict';
-import {
-  mkdtemp,
-  readFile,
-  realpath,
-  rm,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
-import { typecheck } from '@sdk-it/testing';
+import { analysisWorkspace, typecheck } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 const route = `import { Hono } from 'hono';
@@ -58,32 +49,12 @@ const strictness = {
   'no strict flags': {},
 } as const;
 
-async function workspace(compilerOptions: object) {
-  const dir = await realpath(
-    await mkdtemp(join(tmpdir(), 'sdk-it-nullable-responses-')),
+function workspace(compilerOptions: Record<string, unknown>) {
+  return analysisWorkspace(
+    'nullable-responses-',
+    { 'route.ts': route },
+    compilerOptions,
   );
-  const require = createRequire(import.meta.url);
-  await symlink(
-    dirname(dirname(require.resolve('zod/package.json'))),
-    join(dir, 'node_modules'),
-    'dir',
-  );
-  await writeFile(join(dir, 'package.json'), '{"type":"module"}');
-  await writeFile(
-    join(dir, 'tsconfig.json'),
-    JSON.stringify({
-      compilerOptions: {
-        target: 'ESNext',
-        module: 'ESNext',
-        moduleResolution: 'bundler',
-        skipLibCheck: true,
-        ...compilerOptions,
-      },
-      include: ['route.ts'],
-    }),
-  );
-  await writeFile(join(dir, 'route.ts'), route);
-  return dir;
 }
 
 function resolve(schema: any, schemas: Record<string, any>) {
@@ -102,89 +73,80 @@ function branches(schema: any): any[] {
 describe('nullable response types keep null', () => {
   for (const [label, compilerOptions] of Object.entries(strictness)) {
     test(`a handler returning AuthSession | null documents a nullable body (${label})`, async () => {
-      const dir = await workspace(compilerOptions);
-      try {
-        using project = openAnalysisProject(join(dir, 'tsconfig.json'));
-        const { paths, components } = JSON.parse(
-          JSON.stringify(await analyze(project, { responseAnalyzer })),
-        );
+      await using dir = await workspace(compilerOptions);
+      using project = openAnalysisProject(dir.tsconfig);
+      const { paths, components } = JSON.parse(
+        JSON.stringify(await analyze(project, { responseAnalyzer })),
+      );
 
-        const schema =
-          paths['/session'].get.responses['200'].content['application/json']
-            .schema;
-        const parts = branches(schema);
-        assert.ok(
-          parts.some((part) => part.type === 'null'),
-          `no null branch in ${JSON.stringify(schema)}`,
-        );
-        const session = parts.find((part) => part.type !== 'null');
-        assert.deepStrictEqual(resolve(session, components.schemas), {
-          type: 'object',
-          properties: { userId: { type: 'string' } },
-          required: ['userId'],
-          additionalProperties: false,
-        });
-      } finally {
-        await rm(dir, { recursive: true, force: true });
-      }
+      const schema =
+        paths['/session'].get.responses['200'].content['application/json']
+          .schema;
+      const parts = branches(schema);
+      assert.ok(
+        parts.some((part) => part.type === 'null'),
+        `no null branch in ${JSON.stringify(schema)}`,
+      );
+      const session = parts.find((part) => part.type !== 'null');
+      assert.deepStrictEqual(resolve(session, components.schemas), {
+        type: 'object',
+        properties: { userId: { type: 'string' } },
+        required: ['userId'],
+        additionalProperties: false,
+      });
     });
 
     test(`string | null fields stay required and nullable (${label})`, async () => {
-      const dir = await workspace(compilerOptions);
-      try {
-        using project = openAnalysisProject(join(dir, 'tsconfig.json'));
-        const { paths, components } = JSON.parse(
-          JSON.stringify(await analyze(project, { responseAnalyzer })),
-        );
+      await using dir = await workspace(compilerOptions);
+      using project = openAnalysisProject(dir.tsconfig);
+      const { paths, components } = JSON.parse(
+        JSON.stringify(await analyze(project, { responseAnalyzer })),
+      );
 
-        const message = resolve(
-          paths['/message'].get.responses['200'].content['application/json']
-            .schema,
-          components.schemas,
+      const message = resolve(
+        paths['/message'].get.responses['200'].content['application/json']
+          .schema,
+        components.schemas,
+      );
+      assert.deepStrictEqual(message.required, [
+        'id',
+        'replyToExcerpt',
+        'replyToMessageId',
+      ]);
+      for (const field of ['replyToMessageId', 'replyToExcerpt']) {
+        assert.deepStrictEqual(
+          branches(message.properties[field])
+            .map((part) => part.type)
+            .sort(),
+          ['null', 'string'],
+          `${field}: ${JSON.stringify(message.properties[field])}`,
         );
-        assert.deepStrictEqual(message.required, [
-          'id',
-          'replyToExcerpt',
-          'replyToMessageId',
-        ]);
-        for (const field of ['replyToMessageId', 'replyToExcerpt']) {
-          assert.deepStrictEqual(
-            branches(message.properties[field])
-              .map((part) => part.type)
-              .sort(),
-            ['null', 'string'],
-            `${field}: ${JSON.stringify(message.properties[field])}`,
-          );
-        }
-      } finally {
-        await rm(dir, { recursive: true, force: true });
       }
     });
   }
 
   test('generated client forces a null check on the session and types nullable fields as string | null', async () => {
-    const dir = await workspace({ strict: true });
-    try {
-      using project = openAnalysisProject(join(dir, 'tsconfig.json'));
-      const spec = await analyze(project, { responseAnalyzer });
-      const output = join(dir, 'client');
-      await generate(
-        {
-          openapi: '3.1.0',
-          info: { title: 'Chat', version: '1.0.0' },
-          paths: spec.paths,
-          components: spec.components,
-        },
-        { output, name: 'Chat', readme: false, mode: 'full' },
-      );
-      const configPath = join(output, 'tsconfig.json');
-      const config = JSON.parse(await readFile(configPath, 'utf8'));
-      config.compilerOptions.strict = true;
-      await writeFile(configPath, JSON.stringify(config));
-      const consumerPath = join(output, 'src', 'consumer.ts');
-      await writeFile(
-        consumerPath,
-        `import { Chat } from './index.ts';
+    await using dir = await workspace({ strict: true });
+    using project = openAnalysisProject(dir.tsconfig);
+    const spec = await analyze(project, { responseAnalyzer });
+    const output = join(dir.path, 'client');
+    await generate(
+      {
+        openapi: '3.1.0',
+        info: { title: 'Chat', version: '1.0.0' },
+        paths: spec.paths,
+        components: spec.components,
+      },
+      { output, name: 'Chat', readme: false, mode: 'full' },
+    );
+    const configPath = join(output, 'tsconfig.json');
+    const config = JSON.parse(await readFile(configPath, 'utf8'));
+    config.compilerOptions.strict = true;
+    await writeFile(configPath, JSON.stringify(config));
+    const consumerPath = join(output, 'src', 'consumer.ts');
+    await writeFile(
+      consumerPath,
+      `import { Chat } from './index.ts';
 const client = new Chat({ baseUrl: 'https://example.test' });
 const session = await client.request('GET /session', {});
 // @ts-expect-error session is null when nobody is signed in.
@@ -197,14 +159,11 @@ const e: string | null = msg.replyToExcerpt;
 const notNull: string = msg.replyToMessageId;
 void [unchecked, checked, r, e, notNull];
 `,
-      );
+    );
 
-      const { files, diagnostics } = typecheck(configPath);
+    const { files, diagnostics } = typecheck(configPath);
 
-      assert.ok(files.includes(consumerPath));
-      assert.deepStrictEqual(diagnostics, []);
-    } finally {
-      await rm(dir, { recursive: true, force: true });
-    }
+    assert.ok(files.includes(consumerPath));
+    assert.deepStrictEqual(diagnostics, []);
   });
 });

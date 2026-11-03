@@ -158,7 +158,7 @@ describe('expandServerUrls', () => {
       {
         url: 'https://api.example.com:{port}',
         variables: {
-          port: { default: 8080 as unknown as string },
+          port: { default: 8080 },
         },
       },
     ]);

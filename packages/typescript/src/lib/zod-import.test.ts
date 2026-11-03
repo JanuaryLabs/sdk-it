@@ -1,8 +1,8 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
-import { mkdtempDisposable, readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { generate } from '@sdk-it/typescript';
@@ -76,12 +76,7 @@ const spec: OpenAPIObject = {
 };
 
 test('generated SDK imports zod by name so bundlers can drop the parts it does not use', async () => {
-  await using workspace = await mkdtempDisposable(
-    join(
-      fileURLToPath(new URL('../../../../', import.meta.url)),
-      '.zod-import-',
-    ),
-  );
+  await using workspace = await new TemporaryFiles().directory('zod-import-');
   await generate(spec, {
     output: workspace.path,
     mode: 'minimal',

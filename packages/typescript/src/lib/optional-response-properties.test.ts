@@ -1,11 +1,10 @@
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
-import { mkdtempDisposable, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
-import { typecheck } from '@sdk-it/testing';
+import { typecheck, workspaceDirectory } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 void test.each(
@@ -18,12 +17,7 @@ void test.each(
   ] as const,
   (shape) =>
     test(`generated response preserves optional ${shape} properties`, async () => {
-      await using workspace = await mkdtempDisposable(
-        join(
-          fileURLToPath(new URL('../../../../', import.meta.url)),
-          '.optional-response-',
-        ),
-      );
+      await using workspace = await workspaceDirectory('optional-response-');
       const recordObject: SchemaObject = {
         type: 'object',
         properties: {

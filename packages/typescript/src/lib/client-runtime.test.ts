@@ -1,17 +1,17 @@
 import { build as esbuild } from 'esbuild';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { workspaceDirectory } from '@sdk-it/testing';
 
 import backend from './client.ts';
 import type { Spec } from './sdk.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const httpTemplatesDir = join(__dirname, 'http');
-const repoRoot = join(__dirname, '..', '..', '..', '..');
 
 const [
   dispatcherTxt,
@@ -49,8 +49,7 @@ interface BuildOptions {
 }
 
 // Identical inputs produce identical bundles, so cache compiled modules
-// instead of re-running esbuild for every test that shares a spec. The tmp
-// dir is removed as soon as the bundle is imported — no teardown needed.
+// instead of re-running esbuild for every test that shares a spec.
 const compiledSdks = new Map<string, Promise<any>>();
 
 function compileSdk(options: BuildOptions): Promise<any> {
@@ -69,18 +68,17 @@ function compileSdk(options: BuildOptions): Promise<any> {
 }
 
 async function bundleSdk(options: BuildOptions): Promise<any> {
-  const dir = await mkdtemp(join(tmpdir(), 'sdk-it-client-runtime-'));
-  try {
-    const clientSrc = backend({ securitySchemes: {}, ...options.spec });
+  await using directory = await workspaceDirectory('client-runtime-');
+  const clientSrc = backend({ securitySchemes: {}, ...options.spec });
 
-    const httpDir = join(dir, 'http');
-    const apiDir = join(dir, 'api');
-    await mkdir(httpDir, { recursive: true });
-    await mkdir(apiDir, { recursive: true });
+  const httpDir = join(directory.path, 'http');
+  const apiDir = join(directory.path, 'api');
+  await mkdir(httpDir, { recursive: true });
+  await mkdir(apiDir, { recursive: true });
 
-    await writeFile(
-      join(httpDir, 'dispatcher.ts'),
-      `import { z } from 'zod';
+  await writeFile(
+    join(httpDir, 'dispatcher.ts'),
+    `import { z } from 'zod';
 import { type Interceptor } from './interceptors';
 import { type RequestConfig } from './request';
 import { buffered } from './parse-response';
@@ -88,24 +86,24 @@ import { type SSEListener } from './sse';
 import { APIError, APIResponse, type SuccessfulResponse, type RebindSuccessPayload } from './response';
 
 ${dispatcherTxt}`,
-    );
-    await writeFile(
-      join(httpDir, 'interceptors.ts'),
-      `import type { RequestConfig, HeadersInit } from './request';\n${interceptorsTxt}`,
-    );
-    await writeFile(join(httpDir, 'parse-response.ts'), parseResponseTxt);
-    await writeFile(join(httpDir, 'parser.ts'), parserTxt);
-    await writeFile(join(httpDir, 'request.ts'), requestTxt);
-    await writeFile(join(httpDir, 'response.ts'), responseTxt);
-    await writeFile(join(httpDir, 'sse.ts'), sseTxt);
+  );
+  await writeFile(
+    join(httpDir, 'interceptors.ts'),
+    `import type { RequestConfig, HeadersInit } from './request';\n${interceptorsTxt}`,
+  );
+  await writeFile(join(httpDir, 'parse-response.ts'), parseResponseTxt);
+  await writeFile(join(httpDir, 'parser.ts'), parserTxt);
+  await writeFile(join(httpDir, 'request.ts'), requestTxt);
+  await writeFile(join(httpDir, 'response.ts'), responseTxt);
+  await writeFile(join(httpDir, 'sse.ts'), sseTxt);
 
-    const operationSchema =
-      options.extraSchema ??
-      `z.object({ limit: z.number().optional(), 'x-trace-id': z.string().optional() })`;
+  const operationSchema =
+    options.extraSchema ??
+    `z.object({ limit: z.number().optional(), 'x-trace-id': z.string().optional() })`;
 
-    await writeFile(
-      join(apiDir, 'schemas.ts'),
-      `import { z } from 'zod';
+  await writeFile(
+    join(apiDir, 'schemas.ts'),
+    `import { z } from 'zod';
 import { toRequest, json, empty } from '../http/request';
 import { Dispatcher, fetchType } from '../http/dispatcher';
 import { Ok, NoContent } from '../http/response';
@@ -165,11 +163,11 @@ export default {
   },
 };
 `,
-    );
+  );
 
-    await writeFile(
-      join(apiDir, 'endpoints.ts'),
-      `import type { z } from 'zod';
+  await writeFile(
+    join(apiDir, 'endpoints.ts'),
+    `import type { z } from 'zod';
 import type schemas from './schemas';
 import type { APIResponse, SuccessfulResponse } from '../http/response';
 import type { Unionize } from '../http/dispatcher';
@@ -180,33 +178,28 @@ type DispatchReturn<E extends keyof typeof schemas> = Awaited<
 export type InferData<E extends keyof typeof schemas> =
   DispatchReturn<E> extends APIResponse<infer D> ? D : DispatchReturn<E>;
 `,
-    );
+  );
 
-    const clientPath = join(dir, 'client.ts');
-    await writeFile(clientPath, clientSrc);
+  const clientPath = join(directory.path, 'client.ts');
+  await writeFile(clientPath, clientSrc);
 
-    const entryPath = join(dir, 'entry.ts');
-    await writeFile(
-      entryPath,
-      `export * from './client';\nexport * from './http/response';\nexport { default as schemas } from './api/schemas';\n`,
-    );
+  const entryPath = join(directory.path, 'entry.ts');
+  await writeFile(
+    entryPath,
+    `export * from './client';\nexport * from './http/response';\nexport { default as schemas } from './api/schemas';\n`,
+  );
 
-    const outFile = join(dir, 'bundle.mjs');
-    await esbuild({
-      entryPoints: [entryPath],
-      bundle: true,
-      outfile: outFile,
-      format: 'esm',
-      platform: 'node',
-      absWorkingDir: dir,
-      nodePaths: [join(repoRoot, 'node_modules')],
-      logLevel: 'silent',
-    });
+  const outFile = join(directory.path, 'bundle.mjs');
+  await esbuild({
+    entryPoints: [entryPath],
+    bundle: true,
+    outfile: outFile,
+    format: 'esm',
+    platform: 'node',
+    logLevel: 'silent',
+  });
 
-    return await import(pathToFileURL(outFile).href);
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
+  return await import(pathToFileURL(outFile).href);
 }
 
 async function buildSdk(options: BuildOptions): Promise<BuiltClient> {
@@ -479,7 +472,7 @@ describe('emitted client runtime', () => {
       skipValidation: true,
     });
 
-    await client.request('GET /users', { limit: 'not-a-number' as any });
+    await client.request('GET /users', { limit: 'not-a-number' });
 
     assert.strictEqual(fetchCalls.length, 1);
   });
@@ -649,8 +642,11 @@ describe('emitted client runtime: 204 No Content responses', () => {
       () => client.request('GET /users', {}),
       (error: unknown) => {
         assert.ok(error instanceof module.APIError);
-        assert.strictEqual((error as { status: number }).status, 304);
-        assert.strictEqual((error as { data: unknown }).data, null);
+        assert.ok(
+          error instanceof Error && 'status' in error && 'data' in error,
+        );
+        assert.strictEqual(error.status, 304);
+        assert.strictEqual(error.data, null);
         return true;
       },
     );

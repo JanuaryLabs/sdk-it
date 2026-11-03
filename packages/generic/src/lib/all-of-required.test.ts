@@ -1,52 +1,17 @@
 import assert from 'node:assert/strict';
-import {
-  mkdtemp,
-  readFile,
-  realpath,
-  rm,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
-import { typecheck } from '@sdk-it/testing';
+import { analysisWorkspace, typecheck } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 test('intersection response members and extended body fields stay required in the generated client', async () => {
-  const dir = await realpath(
-    await mkdtemp(join(tmpdir(), 'sdk-it-all-of-required-')),
-  );
-  try {
-    const require = createRequire(import.meta.url);
-    await symlink(
-      dirname(dirname(require.resolve('zod/package.json'))),
-      join(dir, 'node_modules'),
-      'dir',
-    );
-    await writeFile(join(dir, 'package.json'), '{"type":"module"}');
-    await writeFile(
-      join(dir, 'tsconfig.json'),
-      JSON.stringify({
-        compilerOptions: {
-          target: 'ESNext',
-          module: 'ESNext',
-          moduleResolution: 'bundler',
-          allowImportingTsExtensions: true,
-          strict: true,
-          skipLibCheck: true,
-        },
-        include: ['schemas.ts', 'route.ts'],
-      }),
-    );
-    await writeFile(
-      join(dir, 'schemas.ts'),
-      `import { z } from 'zod';
+  await using workspace = await analysisWorkspace('all-of-required-', {
+    'schemas.ts': `import { z } from 'zod';
 
 export const discoveredAccountSchema = z.object({
   detail: z.string(),
@@ -54,10 +19,7 @@ export const discoveredAccountSchema = z.object({
   externalId: z.string(),
 });
 `,
-    );
-    await writeFile(
-      join(dir, 'route.ts'),
-      `import { Hono } from 'hono';
+    'route.ts': `import { Hono } from 'hono';
 import { z } from 'zod';
 import { validate } from '@sdk-it/hono/runtime';
 import * as schemas from './schemas.ts';
@@ -114,31 +76,31 @@ app.post('/sources/:sourceId/links', validate('application/json', (payload) => (
   return c.json({ externalId: c.var.input.account.externalId });
 });
 `,
-    );
+  });
 
-    using project = openAnalysisProject(join(dir, 'tsconfig.json'));
-    const { paths, components } = await analyze(project, {
-      responseAnalyzer,
-      imports: [{ import: 'schemas', from: join(dir, 'schemas.ts') }],
-    });
-    const output = join(dir, 'client');
-    await generate(
-      {
-        openapi: '3.1.0',
-        info: { title: 'Sources', version: '1.0.0' },
-        paths,
-        components,
-      },
-      { output, name: 'Sources', readme: false, mode: 'full' },
-    );
-    const configPath = join(output, 'tsconfig.json');
-    const config = JSON.parse(await readFile(configPath, 'utf8'));
-    config.compilerOptions.strict = true;
-    await writeFile(configPath, JSON.stringify(config));
-    const consumerPath = join(output, 'src', 'consumer.ts');
-    await writeFile(
-      consumerPath,
-      `import type { Endpoints } from './index.ts';
+  using project = openAnalysisProject(workspace.tsconfig);
+  const { paths, components } = await analyze(project, {
+    responseAnalyzer,
+    imports: [{ import: 'schemas', from: join(workspace.path, 'schemas.ts') }],
+  });
+  const output = join(workspace.path, 'client');
+  await generate(
+    {
+      openapi: '3.1.0',
+      info: { title: 'Sources', version: '1.0.0' },
+      paths,
+      components,
+    },
+    { output, name: 'Sources', readme: false, mode: 'full' },
+  );
+  const configPath = join(output, 'tsconfig.json');
+  const config = JSON.parse(await readFile(configPath, 'utf8'));
+  config.compilerOptions.strict = true;
+  await writeFile(configPath, JSON.stringify(config));
+  const consumerPath = join(output, 'src', 'consumer.ts');
+  await writeFile(
+    consumerPath,
+    `import type { Endpoints } from './index.ts';
 declare const discovered: Endpoints['GET /sources/{sourceId}/accounts']['output'];
 const detail: string = discovered.found[0].detail;
 const displayName: string = discovered.found[0].displayName;
@@ -167,11 +129,8 @@ const missingLinkDetail: LinkAccount = {
 };
 void [detail, displayName, dataSourceId, notNumber, full, missingDetail, fullLink, missingLinkDetail];
 `,
-    );
-    const { files, diagnostics } = typecheck(configPath);
-    assert.ok(files.includes(consumerPath));
-    assert.deepEqual(diagnostics, []);
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
+  );
+  const { files, diagnostics } = typecheck(configPath);
+  assert.ok(files.includes(consumerPath));
+  assert.deepEqual(diagnostics, []);
 });

@@ -1,16 +1,7 @@
 import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
-import {
-  mkdtemp,
-  readFile,
-  realpath,
-  rm,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 import { createContext, runInContext } from 'node:vm';
@@ -18,6 +9,7 @@ import { createContext, runInContext } from 'node:vm';
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
+import { analysisWorkspace } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 const routes = `import { Hono } from 'hono';
@@ -35,32 +27,13 @@ app.get('/items', validate(() => ({})), (c) => {
 `;
 
 test('a relative baseUrl resolves against location in a browser-like realm', async () => {
-  const dir = await realpath(
-    await mkdtemp(join(tmpdir(), 'sdk-it-relative-base-url-')),
-  );
+  await using dir = await analysisWorkspace('relative-base-url-', {
+    'route.ts': routes,
+  });
   try {
-    const require = createRequire(import.meta.url);
-    const modules = dirname(dirname(require.resolve('zod/package.json')));
-    await symlink(modules, join(dir, 'node_modules'), 'dir');
-    await writeFile(join(dir, 'package.json'), '{"type":"module"}');
-    await writeFile(
-      join(dir, 'tsconfig.json'),
-      JSON.stringify({
-        compilerOptions: {
-          target: 'ESNext',
-          module: 'ESNext',
-          moduleResolution: 'bundler',
-          strict: true,
-          skipLibCheck: true,
-        },
-        include: ['route.ts'],
-      }),
-    );
-    await writeFile(join(dir, 'route.ts'), routes);
-
-    using project = openAnalysisProject(join(dir, 'tsconfig.json'));
+    using project = openAnalysisProject(dir.tsconfig);
     const { paths, components } = await analyze(project, { responseAnalyzer });
-    const output = join(dir, 'client');
+    const output = join(dir.path, 'client');
     await generate(
       {
         openapi: '3.1.0',
@@ -70,7 +43,7 @@ test('a relative baseUrl resolves against location in a browser-like realm', asy
       },
       { output, name: 'Items', readme: false, mode: 'full' },
     );
-    const bundle = join(dir, 'client.js');
+    const bundle = join(dir.path, 'client.js');
     await build({
       entryPoints: [join(output, 'src/index.ts')],
       outfile: bundle,
@@ -78,7 +51,6 @@ test('a relative baseUrl resolves against location in a browser-like realm', asy
       format: 'iife',
       globalName: 'sdk',
       platform: 'browser',
-      nodePaths: [modules],
       logLevel: 'silent',
     });
     const urls: string[] = [];
@@ -120,63 +92,37 @@ test('a relative baseUrl resolves against location in a browser-like realm', asy
 
     assert.deepEqual(urls, ['https://app.example.com/api/items']);
   } finally {
-    stop();
-    await rm(dir, { recursive: true, force: true });
+    await stop();
   }
 });
 
 test('a relative baseUrl without location rejects the request with a TypeError naming baseUrl', async () => {
-  const dir = await realpath(
-    await mkdtemp(join(tmpdir(), 'sdk-it-relative-base-url-node-')),
+  await using dir = await analysisWorkspace('relative-base-url-node-', {
+    'route.ts': routes,
+  });
+
+  using project = openAnalysisProject(dir.tsconfig);
+  const { paths, components } = await analyze(project, { responseAnalyzer });
+  const output = join(dir.path, 'client');
+  await generate(
+    {
+      openapi: '3.1.0',
+      info: { title: 'Items', version: '1.0.0' },
+      paths,
+      components,
+    },
+    { output, name: 'Items', readme: false, mode: 'full' },
   );
-  try {
-    const require = createRequire(import.meta.url);
-    await symlink(
-      dirname(dirname(require.resolve('zod/package.json'))),
-      join(dir, 'node_modules'),
-      'dir',
-    );
-    await writeFile(join(dir, 'package.json'), '{"type":"module"}');
-    await writeFile(
-      join(dir, 'tsconfig.json'),
-      JSON.stringify({
-        compilerOptions: {
-          target: 'ESNext',
-          module: 'ESNext',
-          moduleResolution: 'bundler',
-          strict: true,
-          skipLibCheck: true,
-        },
-        include: ['route.ts'],
-      }),
-    );
-    await writeFile(join(dir, 'route.ts'), routes);
+  const { Items } = await import(
+    pathToFileURL(join(output, 'src/index.ts')).href
+  );
+  assert.equal('location' in globalThis, false);
+  const fetch = async () => Response.json({ items: ['a'] });
 
-    using project = openAnalysisProject(join(dir, 'tsconfig.json'));
-    const { paths, components } = await analyze(project, { responseAnalyzer });
-    const output = join(dir, 'client');
-    await generate(
-      {
-        openapi: '3.1.0',
-        info: { title: 'Items', version: '1.0.0' },
-        paths,
-        components,
-      },
-      { output, name: 'Items', readme: false, mode: 'full' },
-    );
-    const { Items } = await import(
-      pathToFileURL(join(output, 'src/index.ts')).href
-    );
-    assert.equal('location' in globalThis, false);
-    const fetch = async () => Response.json({ items: ['a'] });
+  const client = new Items({ baseUrl: '/api', fetch });
 
-    const client = new Items({ baseUrl: '/api', fetch });
-
-    await assert.rejects(client.request('GET /items', {}), {
-      name: 'TypeError',
-      message: /baseUrl/,
-    });
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
+  await assert.rejects(client.request('GET /items', {}), {
+    name: 'TypeError',
+    message: /baseUrl/,
+  });
 });

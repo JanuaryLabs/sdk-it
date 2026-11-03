@@ -157,7 +157,7 @@ test('reports malformed security scheme fixed fields', async () => {
         },
       },
       paths: {},
-    } as never,
+    },
     plugins: [normalizeSecurity()],
   });
 

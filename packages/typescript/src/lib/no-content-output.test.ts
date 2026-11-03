@@ -1,15 +1,13 @@
 import { test } from '@zukhruf/testing/node';
 import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
-import { mkdtempDisposable, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
-import { typecheck } from '@sdk-it/testing';
+import { typecheck, workspaceDirectory } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
-
-const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 
 const spec: OpenAPIObject = {
   openapi: '3.1.0',
@@ -26,9 +24,7 @@ const spec: OpenAPIObject = {
 };
 
 void test('a 204 response is typed null, not never, in the Endpoints map and the request result', async () => {
-  await using workspace = await mkdtempDisposable(
-    join(repoRoot, '.no-content-types-'),
-  );
+  await using workspace = await workspaceDirectory('no-content-types-');
   await generate(spec, {
     output: workspace.path,
     name: 'Account',
@@ -77,9 +73,7 @@ void [
 });
 
 void test('a 204 response resolves to null at runtime', async () => {
-  await using workspace = await mkdtempDisposable(
-    join(repoRoot, '.no-content-runtime-'),
-  );
+  await using workspace = await workspaceDirectory('no-content-runtime-');
   try {
     await generate(spec, {
       output: workspace.path,
@@ -94,7 +88,6 @@ void test('a 204 response resolves to null at runtime', async () => {
       bundle: true,
       format: 'esm',
       platform: 'node',
-      nodePaths: [join(repoRoot, 'node_modules')],
       logLevel: 'silent',
     });
     const { Account } = await import(pathToFileURL(bundle).href);
@@ -105,6 +98,6 @@ void test('a 204 response resolves to null at runtime', async () => {
 
     assert.equal(await client.request('POST /me/password', {}), null);
   } finally {
-    stop();
+    await stop();
   }
 });

@@ -1,15 +1,13 @@
 import { test } from '@zukhruf/testing/node';
 import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
-import { mkdtempDisposable, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
-import { parseErrorFor, typecheck } from '@sdk-it/testing';
+import { parseErrorFor, typecheck, workspaceDirectory } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
-
-const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 
 const spec: OpenAPIObject = {
   openapi: '3.1.0',
@@ -90,9 +88,7 @@ const spec: OpenAPIObject = {
 };
 
 void test('required body properties stay required in the input type beside a path parameter', async () => {
-  await using workspace = await mkdtempDisposable(
-    join(repoRoot, '.required-body-types-'),
-  );
+  await using workspace = await workspaceDirectory('required-body-types-');
   await generate(spec, {
     output: workspace.path,
     name: 'Chat',
@@ -132,9 +128,7 @@ void client.request('PUT /group-templates/{templateId}', { templateId: 't1', nam
 });
 
 void test('the generated client rejects a body missing a required property before fetch and sends only body fields', async () => {
-  await using workspace = await mkdtempDisposable(
-    join(repoRoot, '.required-body-runtime-'),
-  );
+  await using workspace = await workspaceDirectory('required-body-runtime-');
   try {
     await generate(spec, {
       output: workspace.path,
@@ -149,7 +143,6 @@ void test('the generated client rejects a body missing a required property befor
       bundle: true,
       format: 'esm',
       platform: 'node',
-      nodePaths: [join(repoRoot, 'node_modules')],
       logLevel: 'silent',
     });
     const { Chat } = await import(pathToFileURL(bundle).href);
@@ -198,6 +191,6 @@ void test('the generated client rejects a body missing a required property befor
       ],
     );
   } finally {
-    stop();
+    await stop();
   }
 });

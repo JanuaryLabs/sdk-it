@@ -1,201 +1,198 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
 import { pathToFileURL } from 'node:url';
+
+import type { OperationPagination } from '@sdk-it/spec';
 
 const templatesDir = join(
   dirname(new URL(import.meta.url).pathname),
   'paginations',
 );
-async function loadPaginationModule(templateName: string) {
+async function loadPaginationModule(directory: string, templateName: string) {
   const source = await readFile(join(templatesDir, templateName), 'utf-8');
-  const tempDir = await mkdtemp(join(tmpdir(), 'sdk-it-pagination-'));
-  const modulePath = join(tempDir, templateName.replace('.txt', '.ts'));
+  const modulePath = join(directory, templateName.replace('.txt', '.ts'));
 
   await writeFile(modulePath, source);
 
-  const module = await import(pathToFileURL(modulePath).href);
-  return {
-    module,
-    cleanup: () => rm(tempDir, { recursive: true, force: true }),
-  };
+  return import(pathToFileURL(modulePath).href);
 }
 
 describe('pagination templates', () => {
   test('offset pagination lets callers override the signal for a page fetch', async () => {
-    const { module, cleanup } = await loadPaginationModule(
+    await using directory = await new TemporaryFiles().directory('pagination-');
+    const module = await loadPaginationModule(
+      directory.path,
       'offset-pagination.txt',
     );
 
-    try {
-      const { OffsetPagination } = module as {
-        OffsetPagination: new (
-          initialParams: { offset?: number; limit?: number },
-          fetchFn: (
-            input: { offset: number; limit: number },
-            requestOptions?: { signal?: AbortSignal },
-          ) => Promise<{ data: unknown[]; meta: { hasMore?: boolean } }>,
+    const {
+      OffsetPagination,
+    }: {
+      OffsetPagination: new (
+        initialParams: { offset?: number; limit?: number },
+        fetchFn: (
+          input: { offset: number; limit: number },
           requestOptions?: { signal?: AbortSignal },
-        ) => {
-          getNextPage: (requestOptions?: {
-            signal?: AbortSignal;
-          }) => Promise<unknown>;
-        };
+        ) => Promise<{ data: unknown[]; meta: { hasMore?: boolean } }>,
+        requestOptions?: { signal?: AbortSignal },
+      ) => {
+        getNextPage: (requestOptions?: {
+          signal?: AbortSignal;
+        }) => Promise<unknown>;
       };
+    } = module;
 
-      const defaultController = new AbortController();
-      const overrideController = new AbortController();
-      let receivedSignal: AbortSignal | undefined;
+    const defaultController = new AbortController();
+    const overrideController = new AbortController();
+    let receivedSignal: AbortSignal | undefined;
 
-      const pagination = new OffsetPagination(
-        { offset: 0, limit: 20 },
-        async (_input, requestOptions) => {
-          receivedSignal = requestOptions?.signal;
-          return { data: [], meta: { hasMore: false } };
-        },
-        { signal: defaultController.signal },
-      );
+    const pagination = new OffsetPagination(
+      { offset: 0, limit: 20 },
+      async (_input, requestOptions) => {
+        receivedSignal = requestOptions?.signal;
+        return { data: [], meta: { hasMore: false } };
+      },
+      { signal: defaultController.signal },
+    );
 
-      await pagination.getNextPage({ signal: overrideController.signal });
+    await pagination.getNextPage({ signal: overrideController.signal });
 
-      assert.strictEqual(receivedSignal, overrideController.signal);
-    } finally {
-      await cleanup();
-    }
+    assert.strictEqual(receivedSignal, overrideController.signal);
   });
 
   test('cursor pagination lets callers override the signal for a page fetch', async () => {
-    const { module, cleanup } = await loadPaginationModule(
+    await using directory = await new TemporaryFiles().directory('pagination-');
+    const module = await loadPaginationModule(
+      directory.path,
       'cursor-pagination.txt',
     );
 
-    try {
-      const { CursorPagination } = module as {
-        CursorPagination: new (
-          initialParams: { cursor?: string | null },
-          fetchFn: (
-            input: { cursor?: string },
-            requestOptions?: { signal?: AbortSignal },
-          ) => Promise<{
-            data: unknown[];
-            meta: { hasMore?: boolean; nextCursor?: string };
-          }>,
+    const {
+      CursorPagination,
+    }: {
+      CursorPagination: new (
+        initialParams: { cursor?: string | null },
+        fetchFn: (
+          input: { cursor?: string },
           requestOptions?: { signal?: AbortSignal },
-        ) => {
-          getNextPage: (requestOptions?: {
-            signal?: AbortSignal;
-          }) => Promise<unknown>;
-        };
+        ) => Promise<{
+          data: unknown[];
+          meta: { hasMore?: boolean; nextCursor?: string };
+        }>,
+        requestOptions?: { signal?: AbortSignal },
+      ) => {
+        getNextPage: (requestOptions?: {
+          signal?: AbortSignal;
+        }) => Promise<unknown>;
       };
+    } = module;
 
-      const defaultController = new AbortController();
-      const overrideController = new AbortController();
-      let receivedSignal: AbortSignal | undefined;
+    const defaultController = new AbortController();
+    const overrideController = new AbortController();
+    let receivedSignal: AbortSignal | undefined;
 
-      const pagination = new CursorPagination(
-        { cursor: null },
-        async (_input, requestOptions) => {
-          receivedSignal = requestOptions?.signal;
-          return {
-            data: [],
-            meta: { hasMore: false, nextCursor: undefined },
-          };
-        },
-        { signal: defaultController.signal },
-      );
+    const pagination = new CursorPagination(
+      { cursor: null },
+      async (_input, requestOptions) => {
+        receivedSignal = requestOptions?.signal;
+        return {
+          data: [],
+          meta: { hasMore: false, nextCursor: undefined },
+        };
+      },
+      { signal: defaultController.signal },
+    );
 
-      await pagination.getNextPage({ signal: overrideController.signal });
+    await pagination.getNextPage({ signal: overrideController.signal });
 
-      assert.strictEqual(receivedSignal, overrideController.signal);
-    } finally {
-      await cleanup();
-    }
+    assert.strictEqual(receivedSignal, overrideController.signal);
   });
 
   test('page pagination lets callers override the signal for a page fetch', async () => {
-    const { module, cleanup } = await loadPaginationModule(
+    await using directory = await new TemporaryFiles().directory('pagination-');
+    const module = await loadPaginationModule(
+      directory.path,
       'page-pagination.txt',
     );
 
-    try {
-      const { Pagination } = module as {
-        Pagination: new (
-          initialParams: { page?: number; pageSize?: number },
-          fetchFn: (
-            input: { page?: number; pageSize?: number },
-            requestOptions?: { signal?: AbortSignal },
-          ) => Promise<{ data: unknown[]; meta: { hasMore?: boolean } }>,
+    const {
+      Pagination,
+    }: {
+      Pagination: new (
+        initialParams: { page?: number; pageSize?: number },
+        fetchFn: (
+          input: { page?: number; pageSize?: number },
           requestOptions?: { signal?: AbortSignal },
-        ) => {
-          getNextPage: (requestOptions?: {
-            signal?: AbortSignal;
-          }) => Promise<unknown>;
-        };
+        ) => Promise<{ data: unknown[]; meta: { hasMore?: boolean } }>,
+        requestOptions?: { signal?: AbortSignal },
+      ) => {
+        getNextPage: (requestOptions?: {
+          signal?: AbortSignal;
+        }) => Promise<unknown>;
       };
+    } = module;
 
-      const defaultController = new AbortController();
-      const overrideController = new AbortController();
-      let receivedSignal: AbortSignal | undefined;
+    const defaultController = new AbortController();
+    const overrideController = new AbortController();
+    let receivedSignal: AbortSignal | undefined;
 
-      const pagination = new Pagination(
-        { page: 1, pageSize: 20 },
-        async (_input, requestOptions) => {
-          receivedSignal = requestOptions?.signal;
-          return { data: [], meta: { hasMore: false } };
-        },
-        { signal: defaultController.signal },
-      );
+    const pagination = new Pagination(
+      { page: 1, pageSize: 20 },
+      async (_input, requestOptions) => {
+        receivedSignal = requestOptions?.signal;
+        return { data: [], meta: { hasMore: false } };
+      },
+      { signal: defaultController.signal },
+    );
 
-      await pagination.getNextPage({ signal: overrideController.signal });
+    await pagination.getNextPage({ signal: overrideController.signal });
 
-      assert.strictEqual(receivedSignal, overrideController.signal);
-    } finally {
-      await cleanup();
-    }
+    assert.strictEqual(receivedSignal, overrideController.signal);
   });
 
   test('page pagination advances the page number across fetches', async () => {
-    const { module, cleanup } = await loadPaginationModule(
+    await using directory = await new TemporaryFiles().directory('pagination-');
+    const module = await loadPaginationModule(
+      directory.path,
       'page-pagination.txt',
     );
 
-    try {
-      const { Pagination } = module as {
-        Pagination: new (
-          initialParams: { page?: number; pageSize?: number },
-          fetchFn: (input: {
-            page?: number;
-            pageSize?: number;
-          }) => Promise<{ data: unknown[]; meta: { hasMore?: boolean } }>,
-        ) => {
-          getNextPage: () => Promise<unknown>;
-        };
+    const {
+      Pagination,
+    }: {
+      Pagination: new (
+        initialParams: { page?: number; pageSize?: number },
+        fetchFn: (input: {
+          page?: number;
+          pageSize?: number;
+        }) => Promise<{ data: unknown[]; meta: { hasMore?: boolean } }>,
+      ) => {
+        getNextPage: () => Promise<unknown>;
       };
+    } = module;
 
-      const seenPages: Array<number | undefined> = [];
-      const pagination = new Pagination(
-        { page: 1, pageSize: 20 },
-        async (input) => {
-          seenPages.push(input.page);
-          return { data: [], meta: { hasMore: seenPages.length < 2 } };
-        },
-      );
+    const seenPages: Array<number | undefined> = [];
+    const pagination = new Pagination(
+      { page: 1, pageSize: 20 },
+      async (input) => {
+        seenPages.push(input.page);
+        return { data: [], meta: { hasMore: seenPages.length < 2 } };
+      },
+    );
 
-      await pagination.getNextPage();
-      await pagination.getNextPage();
+    await pagination.getNextPage();
+    await pagination.getNextPage();
 
-      assert.deepStrictEqual(seenPages, [1, 2]);
-    } finally {
-      await cleanup();
-    }
+    assert.deepStrictEqual(seenPages, [1, 2]);
   });
 
   test('sdk pagination generation forwards default and per-page signals', async () => {
     const { paginationOperation } = await import('./pagination-emit.ts');
 
-    const cases = [
+    const cases: { className: string; pagination: OperationPagination }[] = [
       {
         className: 'OffsetPagination',
         pagination: {
@@ -204,7 +201,9 @@ describe('pagination templates', () => {
           hasMore: 'hasMore',
           statusCode: 200,
           limitParamName: 'limit',
+          limitKeyword: 'limit',
           offsetParamName: 'offset',
+          offsetKeyword: 'offset',
         },
       },
       {
@@ -215,6 +214,9 @@ describe('pagination templates', () => {
           hasMore: 'hasMore',
           statusCode: 200,
           cursorParamName: 'cursor',
+          cursorKeyword: 'cursor',
+          limitParamName: 'limit',
+          limitKeyword: 'limit',
         },
       },
       {
@@ -225,13 +227,15 @@ describe('pagination templates', () => {
           hasMore: 'hasMore',
           statusCode: 200,
           pageNumberParamName: 'page',
+          pageNumberKeyword: 'page',
           pageSizeParamName: 'pageSize',
+          pageSizeKeyword: 'pageSize',
         },
       },
-    ] as const;
+    ];
 
     for (const { className, pagination } of cases) {
-      const source = paginationOperation(pagination as never);
+      const source = paginationOperation(pagination);
       assert.match(
         source,
         new RegExp(

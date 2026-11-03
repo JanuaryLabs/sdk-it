@@ -1,11 +1,17 @@
 import { describe, test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
-import { type ZodObject, type ZodType } from 'zod';
+import { ZodObject } from 'zod';
 
+import type { OpenAPIDocument } from '@sdk-it/core';
 import { RuntimeZodConverter } from '@sdk-it/rpc';
 
+const document: OpenAPIDocument = {
+  openapi: '3.1.0',
+  info: { title: 'test', version: '1.0.0' },
+};
+
 describe('RuntimeZodConverter', () => {
-  const converter = new RuntimeZodConverter({} as never);
+  const converter = new RuntimeZodConverter(document);
 
   test('coerce-string preserves string coercion', () => {
     const result = converter
@@ -69,14 +75,15 @@ describe('RuntimeZodConverter', () => {
   });
 
   test('preserves description on $ref with sibling description', () => {
-    const spec = {
+    const spec: OpenAPIDocument = {
+      ...document,
       components: {
         schemas: {
           UserId: { type: 'string' },
         },
       },
     };
-    const refConverter = new RuntimeZodConverter(spec as never);
+    const refConverter = new RuntimeZodConverter(spec);
     const schema = refConverter.handle(
       { $ref: '#/components/schemas/UserId', description: 'User identifier' },
       true,
@@ -106,7 +113,8 @@ describe('RuntimeZodConverter', () => {
       true,
     );
 
-    const shape = (schema as ZodObject<Record<string, ZodType>>).shape;
+    assert.ok(schema instanceof ZodObject);
+    const shape = schema.shape;
     assert.equal(shape.name.description, 'The user name');
     assert.equal(shape.age.description, 'Age in years');
   });
@@ -195,7 +203,7 @@ describe('RuntimeZodConverter', () => {
 });
 
 describe('RuntimeZodConverter 64-bit integers', () => {
-  const converter = new RuntimeZodConverter({} as never);
+  const converter = new RuntimeZodConverter(document);
 
   // int64/uint64 stop being special: an integer on the wire is a plain
   // number, a string on the wire is a plain string. No bigint.

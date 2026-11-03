@@ -2,14 +2,14 @@ import { test } from '@zukhruf/testing/node';
 import { build, stop } from 'esbuild';
 import type { Hono } from 'hono';
 import assert from 'node:assert/strict';
-import { mkdtempDisposable, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
-import { typecheck } from '@sdk-it/testing';
+import { analysisWorkspace, typecheck } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 void test.each(
@@ -74,36 +74,10 @@ void test.each(
       `throw analysis safely handles ${name}`,
       { timeout: 15_000 },
       async () => {
-        await using workspace = await mkdtempDisposable(
-          join(
-            fileURLToPath(new URL('../../../../', import.meta.url)),
-            '.throw-boundaries-',
-          ),
-        );
-        await writeFile(
-          join(workspace.path, 'package.json'),
-          '{"type":"module"}',
-        );
-        await writeFile(
-          join(workspace.path, 'tsconfig.json'),
-          JSON.stringify({
-            compilerOptions: {
-              target: 'ESNext',
-              module: 'ESNext',
-              moduleResolution: 'bundler',
-              strict: true,
-              skipLibCheck: true,
-            },
-            include: ['route.ts'],
-          }),
-        );
-        await writeFile(
-          join(workspace.path, 'errors.ts'),
-          "import { HTTPException } from 'hono/http-exception'; export const conflict = new HTTPException(409);",
-        );
-        await writeFile(
-          join(workspace.path, 'route.ts'),
-          `
+        await using workspace = await analysisWorkspace('throw-boundaries-', {
+          'errors.ts':
+            "import { HTTPException } from 'hono/http-exception'; export const conflict = new HTTPException(409);",
+          'route.ts': `
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { validate } from '@sdk-it/hono/runtime';
@@ -112,16 +86,14 @@ export const app = new Hono();
 app.onError((error, c) => c.json({ message: error.message }, error instanceof HTTPException ? error.status : 500));
 ${['/first', '/second'].map((path) => `app.get('${path}', validate(() => ({})), (c) => { ${body} return c.json({ ok: true }); });`).join('\n')}
 `,
-        );
-        const { app } = (await import(
+        });
+        const { app }: { app: Hono } = await import(
           pathToFileURL(join(workspace.path, 'route.ts')).href
-        )) as { app: Hono };
+        );
         for (const path of ['/first', '/second']) {
           assert.equal((await app.request(path)).status, status);
         }
-        using project = openAnalysisProject(
-          join(workspace.path, 'tsconfig.json'),
-        );
+        using project = openAnalysisProject(workspace.tsconfig);
         const spec = await analyze(project, {
           responseAnalyzer,
         });
@@ -150,12 +122,6 @@ void test.each(['handler', 'middleware'] as const, (location) =>
     ] as const,
     (form) =>
       test(`generated clients document and handle ${form} HTTP errors from a ${location}`, async () => {
-        await using workspace = await mkdtempDisposable(
-          join(
-            fileURLToPath(new URL('../../../../', import.meta.url)),
-            '.thrown-errors-',
-          ),
-        );
         try {
           const construction = `new HTTPException(409, {
         message: 'Item already exists',
@@ -176,30 +142,9 @@ void test.each(['handler', 'middleware'] as const, (location) =>
           const status = form === 'runtime parse' ? 400 : 409;
           const reject = `if (c.req.query('conflict') === 'yes') { ${statement} }`;
           const mode = location === 'handler' ? 'full' : 'minimal';
-          await writeFile(
-            join(workspace.path, 'package.json'),
-            '{"type":"module"}',
-          );
-          await writeFile(
-            join(workspace.path, 'tsconfig.json'),
-            JSON.stringify({
-              compilerOptions: {
-                target: 'ESNext',
-                module: 'ESNext',
-                moduleResolution: 'bundler',
-                strict: true,
-                skipLibCheck: true,
-              },
-              include: ['route.ts'],
-            }),
-          );
-          await writeFile(
-            join(workspace.path, 'errors.ts'),
-            `import { HTTPException } from 'hono/http-exception'; export const conflict = ${construction};`,
-          );
-          await writeFile(
-            join(workspace.path, 'route.ts'),
-            `
+          await using workspace = await analysisWorkspace('thrown-errors-', {
+            'errors.ts': `import { HTTPException } from 'hono/http-exception'; export const conflict = ${construction};`,
+            'route.ts': `
 import { Hono, type Context, type Next } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
@@ -225,10 +170,10 @@ app.get('/items', validate((payload) => ({
   return c.json({ id: 'item-1' });
 });
 `,
-          );
-          const { app } = (await import(
+          });
+          const { app }: { app: Hono } = await import(
             pathToFileURL(join(workspace.path, 'route.ts')).href
-          )) as { app: Hono };
+          );
           const response = await app.request('/items?conflict=yes');
           assert.equal(response.status, status);
           const payload = await response.json();
@@ -246,9 +191,7 @@ app.get('/items', validate((payload) => ({
               message: 'Item already exists',
               cause: { code: 'api/conflict', itemId: 'item-1' },
             });
-          using project = openAnalysisProject(
-            join(workspace.path, 'tsconfig.json'),
-          );
+          using project = openAnalysisProject(workspace.tsconfig);
           const spec = await analyze(project, {
             responseAnalyzer,
           });
@@ -346,7 +289,7 @@ export async function exercise(fetch: typeof globalThis.fetch, expected: unknown
             await import(pathToFileURL(bundle).href)
           ).exercise((request: Request) => app.fetch(request), payload);
         } finally {
-          stop();
+          await stop();
         }
       }),
   ),

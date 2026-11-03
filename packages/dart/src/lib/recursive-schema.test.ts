@@ -1,15 +1,15 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
-import { mkdtempDisposable, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { generate } from '@sdk-it/dart';
 
 void test('a self-referencing array component generates instead of recursing forever', async () => {
-  await using workspace = await mkdtempDisposable(
-    join(tmpdir(), 'sdk-it-dart-recursive-'),
+  await using workspace = await new TemporaryFiles().directory(
+    'sdk-it-dart-recursive-',
   );
   const output = join(workspace.path, 'client');
   const spec: OpenAPIObject = {

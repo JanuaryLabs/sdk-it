@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { SchemaObject } from 'openapi3-ts/oas31';
 
+import { isRef } from '@sdk-it/core';
 import { toIR } from '@sdk-it/spec';
 
 test('allOf keeps the required properties of every part', async () => {
@@ -91,17 +91,12 @@ test('allOf keeps the required properties of every part', async () => {
       },
     },
   });
-  const schemas = ir.components.schemas as Record<string, SchemaObject>;
-  const owner = schemas['Team'].properties?.['owner'] as SchemaObject;
+  const { Space, Member, Team } = ir.components.schemas;
+  assert.ok(!isRef(Space) && !isRef(Member) && !isRef(Team));
+  const owner = Team.properties?.['owner'];
+  assert.ok(owner && !isRef(owner));
 
-  assert.deepEqual(schemas['Space'].required?.toSorted(), [
-    '_count',
-    'id',
-    'name',
-  ]);
-  assert.deepEqual(schemas['Member'].required?.toSorted(), [
-    'createdAt',
-    'email',
-  ]);
+  assert.deepEqual(Space.required?.toSorted(), ['_count', 'id', 'name']);
+  assert.deepEqual(Member.required?.toSorted(), ['createdAt', 'email']);
   assert.deepEqual(owner.required?.toSorted(), ['email', 'id']);
 });

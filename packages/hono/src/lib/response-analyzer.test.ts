@@ -11,10 +11,10 @@ import {
   isNewExpression,
   isReturnStatement,
 } from '@typescript/native/ast/is';
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import { type Context, Hono } from 'hono';
 import assert from 'node:assert/strict';
-import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
@@ -24,11 +24,9 @@ import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { defaultResponseAnalyzer, newResponse, streamSSE } from '@sdk-it/hono';
 
 async function createTestProject(code: string) {
-  const testDir = await realpath(
-    await mkdtemp(join(tmpdir(), 'hono-response-test-')),
-  );
+  const directory = await new TemporaryFiles().directory('hono-response-test-');
+  const testDir = directory.path;
   const filePath = join(testDir, 'route.ts');
-  const removeTestDir = () => rm(testDir, { recursive: true, force: true });
 
   await writeFile(filePath, code);
   await writeFile(
@@ -48,7 +46,7 @@ async function createTestProject(code: string) {
   try {
     project = openAnalysisProject(join(testDir, 'tsconfig.json'));
   } catch (error) {
-    await removeTestDir();
+    await directory.cleanup();
     throw error;
   }
   const sourceFile = project.program.getSourceFile(filePath);
@@ -60,7 +58,7 @@ async function createTestProject(code: string) {
     sourceFile,
     cleanup: async () => {
       project[Symbol.dispose]();
-      await removeTestDir();
+      await directory.cleanup();
     },
   };
 }
@@ -915,16 +913,16 @@ describe('Response Analyzer', () => {
   });
 
   describe('httpException analyzer', () => {
-    test.todo('extracts status code from HTTPException');
-    test.todo('extracts response body from HTTPException options');
-    test.todo('handles HTTPException with 409 conflict');
+    void test.todo('extracts status code from HTTPException');
+    void test.todo('extracts response body from HTTPException options');
+    void test.todo('handles HTTPException with 409 conflict');
   });
 
   describe('real-world route patterns', () => {
-    test.todo('extracts from GET route with c.json({ data })');
-    test.todo('extracts from POST route with c.json(data, 201)');
-    test.todo('extracts from route with HTTPException throw');
-    test.todo('extracts from route with multiple return paths and throws');
+    void test.todo('extracts from GET route with c.json({ data })');
+    void test.todo('extracts from POST route with c.json(data, 201)');
+    void test.todo('extracts from route with HTTPException throw');
+    void test.todo('extracts from route with multiple return paths and throws');
   });
 
   describe('streamSSE analyzer', () => {
@@ -1003,14 +1001,11 @@ describe('Response Analyzer', () => {
         const responses = defaultResponseAnalyzer(handler, deriver);
 
         assert.equal(responses.length, 1);
-        const response = responses[0].response as unknown as Record<
-          string | symbol,
-          unknown
-        >;
-
+        const response = responses[0].response;
+        assert.ok(response);
         assert.equal(response.kind, 'intersection');
 
-        const openApiSchema = toSchema(response as any);
+        const openApiSchema = toSchema(response);
 
         assert.ok(openApiSchema.allOf, 'Should have allOf');
         assert.equal(openApiSchema.allOf.length, 2);

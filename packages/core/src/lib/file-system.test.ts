@@ -1,8 +1,8 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
 import { chmod, mkdir, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { after, before, describe, it } from 'node:test';
+import { describe, it } from 'node:test';
 
 import {
   type WriteContent,
@@ -17,23 +17,10 @@ import {
 } from '@sdk-it/core/file-system.js';
 
 describe('File System Utilities - Error-First Testing', () => {
-  let testDir: string;
-  let nonExistentPath: string;
-
-  before(async () => {
-    testDir = join(tmpdir(), `fs-test-${Date.now()}`);
-    await mkdir(testDir, { recursive: true });
-    nonExistentPath = join(testDir, 'non-existent-directory', 'deep', 'path');
-  });
-
-  after(async () => {
-    const { rm } = await import('node:fs/promises');
-    await rm(testDir, { recursive: true, force: true });
-  });
-
   describe('getFile - Attack Phase: Invalid Inputs & File System Errors', () => {
     it('should return null for non-existent file', async () => {
-      const result = await getFile(join(testDir, 'does-not-exist.txt'));
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
+      const result = await getFile(join(workspace.path, 'does-not-exist.txt'));
       assert.strictEqual(result, null);
     });
 
@@ -43,7 +30,8 @@ describe('File System Utilities - Error-First Testing', () => {
     });
 
     it('should throw error when trying to read a directory path instead of file', async () => {
-      const dirPath = join(testDir, 'test-dir-for-getfile');
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
+      const dirPath = join(workspace.path, 'test-dir-for-getfile');
       await mkdir(dirPath);
 
       await assert.rejects(() => getFile(dirPath), {
@@ -52,7 +40,8 @@ describe('File System Utilities - Error-First Testing', () => {
     });
 
     it('rejects with EACCES for a file it cannot read', async () => {
-      const filePath = join(testDir, 'unreadable-file-for-getfile.txt');
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
+      const filePath = join(workspace.path, 'unreadable-file-for-getfile.txt');
       await writeFile(filePath, 'content');
       await chmod(filePath, 0o000);
 
@@ -79,7 +68,13 @@ describe('File System Utilities - Error-First Testing', () => {
 
   describe('exist - Attack Phase: Edge Cases & Invalid Paths', () => {
     it('should return false for non-existent paths', async () => {
-      assert.strictEqual(await exist(nonExistentPath), false);
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
+      assert.strictEqual(
+        await exist(
+          join(workspace.path, 'non-existent-directory', 'deep', 'path'),
+        ),
+        false,
+      );
     });
 
     it('should return false for empty string', async () => {
@@ -98,12 +93,16 @@ describe('File System Utilities - Error-First Testing', () => {
 
   describe('readFolder - Attack Phase: Directory Corruption & Invalid States', () => {
     it('should return empty array for non-existent directory', async () => {
-      const result = await readFolder(nonExistentPath);
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
+      const result = await readFolder(
+        join(workspace.path, 'non-existent-directory', 'deep', 'path'),
+      );
       assert.deepStrictEqual(result, []);
     });
 
     it('should throw error for file path instead of directory', async () => {
-      const filePath = join(testDir, 'test-file-for-readfolder.txt');
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
+      const filePath = join(workspace.path, 'test-file-for-readfolder.txt');
       await writeFile(filePath, 'content');
 
       // readFolder should throw an error when given a file path
@@ -113,7 +112,8 @@ describe('File System Utilities - Error-First Testing', () => {
     });
 
     it('rejects with EACCES for a directory it cannot read', async () => {
-      const dirPath = join(testDir, 'unreadable-dir-for-readfolder');
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
+      const dirPath = join(workspace.path, 'unreadable-dir-for-readfolder');
       await mkdir(dirPath);
       await chmod(dirPath, 0o000);
 
@@ -125,25 +125,27 @@ describe('File System Utilities - Error-First Testing', () => {
     });
 
     it('should handle recursive reading with circular symlinks gracefully', async () => {
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
       // This tests the function's resilience to infinite loops
-      const result = await readFolder(testDir, true);
+      const result = await readFolder(workspace.path, true);
       assert.ok(Array.isArray(result));
     });
   });
 
   describe('writeFiles - Attack Phase: Write Failures & State Corruption', () => {
     it('should handle null content gracefully', async () => {
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
       const content: WriteContent = {
         'test.txt': null,
         'valid.txt': 'content',
       };
 
-      await writeFiles(testDir, content);
+      await writeFiles(workspace.path, content);
 
       // Verify null content file was not created
-      assert.strictEqual(await exist(join(testDir, 'test.txt')), false);
+      assert.strictEqual(await exist(join(workspace.path, 'test.txt')), false);
       // Verify valid file was created
-      assert.strictEqual(await exist(join(testDir, 'valid.txt')), true);
+      assert.strictEqual(await exist(join(workspace.path, 'valid.txt')), true);
     });
 
     it('should fail gracefully when writing to read-only directory', async () => {
@@ -161,7 +163,8 @@ describe('File System Utilities - Error-First Testing', () => {
     });
 
     it('should handle ignoreIfExists flag correctly when file exists', async () => {
-      const filePath = join(testDir, 'existing.txt');
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
+      const filePath = join(workspace.path, 'existing.txt');
       await writeFile(filePath, 'original');
 
       const content: WriteContent = {
@@ -171,19 +174,20 @@ describe('File System Utilities - Error-First Testing', () => {
         },
       };
 
-      await writeFiles(testDir, content);
+      await writeFiles(workspace.path, content);
       const result = await getFile(filePath);
       assert.strictEqual(result, 'original');
     });
 
     it('should create deeply nested directories', async () => {
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
       const content: WriteContent = {
         'deep/nested/structure/file.txt': 'content',
       };
 
-      await writeFiles(testDir, content);
+      await writeFiles(workspace.path, content);
       const result = await getFile(
-        join(testDir, 'deep/nested/structure/file.txt'),
+        join(workspace.path, 'deep/nested/structure/file.txt'),
       );
       assert.strictEqual(result, 'content');
     });
@@ -284,6 +288,7 @@ describe('File System Utilities - Error-First Testing', () => {
 
   describe('State Transition Testing - File System Operations', () => {
     it('should maintain file system consistency during complex operations', async () => {
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
       const complexContent: WriteContent = {
         'folder1/file1.txt': 'content1',
         'folder1/file2.txt': null, // Should not be created
@@ -298,31 +303,32 @@ describe('File System Utilities - Error-First Testing', () => {
       };
 
       // Pre-create existing file
-      await mkdir(join(testDir, 'folder2'), { recursive: true });
-      await writeFile(join(testDir, 'folder2/existing.txt'), 'original');
+      await mkdir(join(workspace.path, 'folder2'), { recursive: true });
+      await writeFile(join(workspace.path, 'folder2/existing.txt'), 'original');
 
-      await writeFiles(testDir, complexContent);
+      await writeFiles(workspace.path, complexContent);
 
       // Verify final state
       assert.deepStrictEqual(
         await Promise.all([
-          getFile(join(testDir, 'folder1/file1.txt')),
-          exist(join(testDir, 'folder1/file2.txt')),
-          getFile(join(testDir, 'folder2/subfolder/file3.txt')),
-          getFile(join(testDir, 'folder2/existing.txt')),
+          getFile(join(workspace.path, 'folder1/file1.txt')),
+          exist(join(workspace.path, 'folder1/file2.txt')),
+          getFile(join(workspace.path, 'folder2/subfolder/file3.txt')),
+          getFile(join(workspace.path, 'folder2/existing.txt')),
         ]),
         ['content1', false, 'content3', 'original'],
       );
     });
 
     it('should maintain directory structure consistency during recursive operations', async () => {
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
       // Create nested structure
-      const nestedDir = join(testDir, 'nested/deep/structure');
+      const nestedDir = join(workspace.path, 'nested/deep/structure');
       await mkdir(nestedDir, { recursive: true });
       await writeFile(join(nestedDir, 'file.txt'), 'content');
-      await writeFile(join(testDir, 'nested/file2.txt'), 'content2');
+      await writeFile(join(workspace.path, 'nested/file2.txt'), 'content2');
 
-      const files = await readFolder(join(testDir, 'nested'), true);
+      const files = await readFolder(join(workspace.path, 'nested'), true);
 
       // Verify structure is maintained
       assert.deepStrictEqual(
@@ -342,7 +348,8 @@ describe('File System Utilities - Error-First Testing', () => {
 
   describe('Happy Path - Basic Functionality Confirmation', () => {
     it('should successfully read existing file', async () => {
-      const filePath = join(testDir, 'test-read.txt');
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
+      const filePath = join(workspace.path, 'test-read.txt');
       const content = 'test content';
       await writeFile(filePath, content);
 
@@ -351,8 +358,9 @@ describe('File System Utilities - Error-First Testing', () => {
     });
 
     it('should correctly identify existing files and directories', async () => {
-      const filePath = join(testDir, 'test-exist-unique.txt');
-      const dirPath = join(testDir, 'test-dir-unique');
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
+      const filePath = join(workspace.path, 'test-exist-unique.txt');
+      const dirPath = join(workspace.path, 'test-dir-unique');
 
       await writeFile(filePath, 'content');
       await mkdir(dirPath);
@@ -364,7 +372,8 @@ describe('File System Utilities - Error-First Testing', () => {
     });
 
     it('should read folder contents correctly', async () => {
-      const folderPath = join(testDir, 'read-test');
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
+      const folderPath = join(workspace.path, 'read-test');
       await mkdir(folderPath);
       await writeFile(join(folderPath, 'file1.txt'), 'content1');
       await writeFile(join(folderPath, 'file2.txt'), 'content2');
@@ -374,6 +383,7 @@ describe('File System Utilities - Error-First Testing', () => {
     });
 
     it('should write files correctly', async () => {
+      await using workspace = await new TemporaryFiles().directory('fs-test-');
       const content: WriteContent = {
         'simple.txt': 'simple content',
         'complex.txt': {
@@ -382,12 +392,12 @@ describe('File System Utilities - Error-First Testing', () => {
         },
       };
 
-      await writeFiles(testDir, content);
+      await writeFiles(workspace.path, content);
 
       assert.deepStrictEqual(
         await Promise.all([
-          getFile(join(testDir, 'simple.txt')),
-          getFile(join(testDir, 'complex.txt')),
+          getFile(join(workspace.path, 'simple.txt')),
+          getFile(join(workspace.path, 'complex.txt')),
         ]),
         ['simple content', 'complex content'],
       );

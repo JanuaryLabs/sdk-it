@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { SchemaObject } from 'openapi3-ts/oas31';
 
+import { isRef } from '@sdk-it/core';
 import { normalizeSchemas, processSpec } from '@sdk-it/spec';
 
 test('schema normalization preserves the established recursive IR repairs', async () => {
@@ -65,9 +65,10 @@ test('schema normalization preserves the established recursive IR repairs', asyn
     type: ['string', 'null'],
   });
 
-  const dictionary = spec.components.schemas.Dictionary as SchemaObject;
+  const dictionary = spec.components.schemas.Dictionary;
   assert.ok(
-    typeof dictionary.additionalProperties === 'object' &&
+    !isRef(dictionary) &&
+      typeof dictionary.additionalProperties === 'object' &&
       !('$ref' in dictionary.additionalProperties),
   );
   assert.deepStrictEqual(dictionary.additionalProperties.properties, {

@@ -1,8 +1,9 @@
 import { merge } from 'lodash-es';
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
+import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
+import { isRef } from '@sdk-it/core';
 import {
   type Varient,
   findPolymorphicVarients,
@@ -95,7 +96,7 @@ describe('findVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it.skip('names string based on enum values', async () => {
+    void it.skip('names string based on enum values', async () => {
       const spec = await createSpec();
       const result = findVarients(spec, [
         { type: 'string', enum: ['pending', 'completed', ''] },
@@ -123,7 +124,7 @@ describe('findVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it.skip('prioritizes const first', async () => {
+    void it.skip('prioritizes const first', async () => {
       const spec = await createSpec();
       const result = findVarients(spec, [
         { type: 'string', format: 'email' },
@@ -355,7 +356,7 @@ describe('findPolymorphicVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it.skip('returns first variant when multiple enums at same position', async () => {
+    void it.skip('returns first variant when multiple enums at same position', async () => {
       const spec = await createSpec();
       const result = findPolymorphicVarients(spec, [
         { type: 'string', enum: ['first', 'second', 'third'] },
@@ -371,7 +372,7 @@ describe('findPolymorphicVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it.skip('selects first variant from multiple at same position', async () => {
+    void it.skip('selects first variant from multiple at same position', async () => {
       const spec = await createSpec();
       const result = findPolymorphicVarients(spec, [
         { type: 'string', enum: ['option1', 'option2'] },
@@ -394,7 +395,7 @@ describe('findPolymorphicVarients', () => {
       ] satisfies Varient[]);
     });
 
-    it.skip('handles mixed types selecting one per position', async () => {
+    void it.skip('handles mixed types selecting one per position', async () => {
       const spec = await createSpec();
       const result = findPolymorphicVarients(spec, [
         { type: 'string', enum: ['a', 'b'] },
@@ -637,10 +638,9 @@ describe('findPolymorphicVarients', () => {
           },
         },
       });
-      const varients = findVarients(
-        spec,
-        (spec.components.schemas.RouteConfig as SchemaObject).anyOf ?? [],
-      );
+      const routeConfig = spec.components.schemas.RouteConfig;
+      assert.ok(!isRef(routeConfig));
+      const varients = findVarients(spec, routeConfig.anyOf ?? []);
 
       assert.deepStrictEqual(varients, [
         {

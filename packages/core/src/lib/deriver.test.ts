@@ -6,9 +6,9 @@ import {
   isTypeAliasDeclaration,
   isVariableDeclaration,
 } from '@typescript/native/ast/is';
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
-import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
@@ -20,11 +20,9 @@ async function createTestProject(
   code: string,
   compilerOptions: Record<string, unknown> = {},
 ) {
-  const testDir = await realpath(
-    await mkdtemp(join(tmpdir(), 'ts-deriver-test-')),
-  );
+  const directory = await new TemporaryFiles().directory('ts-deriver-test-');
+  const testDir = directory.path;
   const filePath = join(testDir, 'main.ts');
-  const removeTestDir = () => rm(testDir, { recursive: true, force: true });
 
   await writeFile(filePath, code);
   await writeFile(
@@ -44,7 +42,7 @@ async function createTestProject(
   try {
     project = openAnalysisProject(join(testDir, 'tsconfig.json'));
   } catch (error) {
-    await removeTestDir();
+    await directory.cleanup();
     throw error;
   }
   const sourceFile = project.program.getSourceFile(filePath);
@@ -56,7 +54,7 @@ async function createTestProject(
     sourceFile,
     cleanup: async () => {
       project[Symbol.dispose]();
-      await removeTestDir();
+      await directory.cleanup();
     },
   };
 }
@@ -291,14 +289,14 @@ describe('Type Derivation', () => {
   });
 
   describe('Complex Objects & Interfaces', () => {
-    test.todo('derives interface with nested properties');
-    test.todo('handles inheritance');
-    test.todo('derives class with properties');
-    test.todo('derives object literal type');
+    void test.todo('derives interface with nested properties');
+    void test.todo('handles inheritance');
+    void test.todo('derives class with properties');
+    void test.todo('derives object literal type');
   });
 
   describe('Collections', () => {
-    test.todo('handles arrays of primitives');
+    void test.todo('handles arrays of primitives');
     test('derives arrays of object literals from the item type, not the first element', async () => {
       const result = toSchema(
         await deriveExpressionFromCode(
@@ -469,7 +467,7 @@ describe('Type Derivation', () => {
       });
     });
 
-    test.todo('handles tuples');
+    void test.todo('handles tuples');
 
     test('widens const-asserted array values to their item type', async () => {
       const result = toSchema(
@@ -541,10 +539,10 @@ describe('Type Derivation', () => {
   });
 
   describe('Unions & Intersections', () => {
-    test.todo('collapses unions correctly');
-    test.todo('handles optional via union with undefined');
-    test.todo('handles intersection types');
-    test.todo('handles discriminated unions');
+    void test.todo('collapses unions correctly');
+    void test.todo('handles optional via union with undefined');
+    void test.todo('handles intersection types');
+    void test.todo('handles discriminated unions');
 
     // TS subsumes the literals into `string` here. See sibling test
     // "union of (string & {}) and string literals preserves literals" for the
@@ -621,12 +619,12 @@ describe('Type Derivation', () => {
   });
 
   describe('Type Mappings', () => {
-    test.todo('uses custom typesMap');
+    void test.todo('uses custom typesMap');
   });
 
   describe('AST Node Serialization', () => {
-    test.todo('handles typeof expressions');
-    test.todo('handles const assertions');
+    void test.todo('handles typeof expressions');
+    void test.todo('handles const assertions');
 
     test('derives satisfies expressions from the annotation', async () => {
       const code = `

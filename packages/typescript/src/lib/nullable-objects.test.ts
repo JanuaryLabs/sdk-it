@@ -1,12 +1,12 @@
 import { test } from '@zukhruf/testing/node';
 import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
-import { mkdtempDisposable, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import type { SchemaObject } from 'openapi3-ts/oas31';
 
-import { typecheck } from '@sdk-it/testing';
+import { typecheck, workspaceDirectory } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 void test.each(
@@ -14,12 +14,7 @@ void test.each(
   (shape) =>
     test.each([false, true], (nullFirst) =>
       test(`generated SDK preserves nullable ${shape} objects with null ${nullFirst ? 'first' : 'last'}`, async () => {
-        await using workspace = await mkdtempDisposable(
-          join(
-            fileURLToPath(new URL('../../../../', import.meta.url)),
-            '.nullable-objects-',
-          ),
-        );
+        await using workspace = await workspaceDirectory('nullable-objects-');
         try {
           const details: SchemaObject = {
             type: nullFirst ? ['null', 'object'] : ['object', 'null'],
@@ -177,7 +172,7 @@ void checkTypes;
           });
           await (await import(pathToFileURL(bundle).href)).exercise();
         } finally {
-          stop();
+          await stop();
         }
       }),
     ),

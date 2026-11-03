@@ -1,24 +1,14 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { after, before, describe, it } from 'node:test';
+import { describe, it } from 'node:test';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
 import { cleanFiles, readWriteMetadata } from '@sdk-it/spec';
 
 describe('Metadata File Management - Error-First Testing', () => {
-  let testDir: string;
-
-  before(async () => {
-    testDir = join(tmpdir(), `metadata-test-${Date.now()}`);
-    await mkdir(testDir, { recursive: true });
-  });
-
-  after(async () => {
-    await rm(testDir, { recursive: true, force: true });
-  });
-
   describe('readWriteMetadata - Attack Phase: Unreadable metadata.json', () => {
     for (const [name, content] of [
       ['malformed JSON', '{ invalid json }'],
@@ -26,35 +16,33 @@ describe('Metadata File Management - Error-First Testing', () => {
       ['an empty file', ''],
     ] as const) {
       it(`should reject a metadata.json holding ${name}`, async () => {
-        const dir = await mkdtemp(join(tmpdir(), 'metadata-unreadable-'));
-        try {
-          await writeFile(join(dir, 'metadata.json'), content);
+        await using workspace = await new TemporaryFiles().directory(
+          'metadata-unreadable-',
+        );
+        const dir = workspace.path;
+        await writeFile(join(dir, 'metadata.json'), content);
 
-          await assert.rejects(
-            () => readWriteMetadata(dir, ['a.ts'], writeFiles),
-            { name: 'SyntaxError' },
-          );
-        } finally {
-          await rm(dir, { recursive: true, force: true });
-        }
+        await assert.rejects(
+          () => readWriteMetadata(dir, ['a.ts'], writeFiles),
+          { name: 'SyntaxError' },
+        );
       });
     }
 
     it('should reject when the writer cannot write metadata.json', async () => {
-      const dir = await mkdtemp(join(tmpdir(), 'metadata-writer-fails-'));
-      try {
-        const failure = new Error('disk full');
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-writer-fails-',
+      );
+      const dir = workspace.path;
+      const failure = new Error('disk full');
 
-        await assert.rejects(
-          () =>
-            readWriteMetadata(dir, ['a.ts'], async () => {
-              throw failure;
-            }),
-          failure,
-        );
-      } finally {
-        await rm(dir, { recursive: true, force: true });
-      }
+      await assert.rejects(
+        () =>
+          readWriteMetadata(dir, ['a.ts'], async () => {
+            throw failure;
+          }),
+        failure,
+      );
     });
 
     it('should reject an output path with a null byte', async () => {
@@ -66,26 +54,28 @@ describe('Metadata File Management - Error-First Testing', () => {
     });
 
     it('should write metadata.json when none exists', async () => {
-      const dir = await mkdtemp(join(tmpdir(), 'metadata-new-'));
-      try {
-        await readWriteMetadata(dir, ['/a.ts'], writeFiles);
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-new-',
+      );
+      const dir = workspace.path;
+      await readWriteMetadata(dir, ['/a.ts'], writeFiles);
 
-        assert.deepStrictEqual(
-          JSON.parse(await readFile(join(dir, 'metadata.json'), 'utf-8')),
-          {
-            generatedFiles: ['/a.ts'],
-            userFiles: ['/dist/**', '/build/**', '/readme.md'],
-          },
-        );
-      } finally {
-        await rm(dir, { recursive: true, force: true });
-      }
+      assert.deepStrictEqual(
+        JSON.parse(await readFile(join(dir, 'metadata.json'), 'utf-8')),
+        {
+          generatedFiles: ['/a.ts'],
+          userFiles: ['/dist/**', '/build/**', '/readme.md'],
+        },
+      );
     });
   });
 
   describe('readWriteMetadata - Attack Phase: Corrupted Metadata States', () => {
     it('should handle missing generatedFiles array', async () => {
-      const corruptedPath = join(testDir, 'corrupted-metadata.json');
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-test-',
+      );
+      const corruptedPath = join(workspace.path, 'corrupted-metadata.json');
       await writeFile(
         corruptedPath,
         JSON.stringify({
@@ -95,7 +85,7 @@ describe('Metadata File Management - Error-First Testing', () => {
       );
 
       const result = await readWriteMetadata(
-        testDir,
+        workspace.path,
         ['file1.ts', 'file2.ts'],
         writeFiles,
       );
@@ -110,7 +100,10 @@ describe('Metadata File Management - Error-First Testing', () => {
     });
 
     it('should handle completely empty metadata file', async () => {
-      const emptyMetadataDir = join(testDir, 'empty-metadata');
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-test-',
+      );
+      const emptyMetadataDir = join(workspace.path, 'empty-metadata');
       await mkdir(emptyMetadataDir);
 
       const result = await readWriteMetadata(
@@ -128,7 +121,10 @@ describe('Metadata File Management - Error-First Testing', () => {
     });
 
     it('should overwrite generatedFiles but preserve existing userFiles', async () => {
-      const preserveDir = join(testDir, 'preserve-test');
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-test-',
+      );
+      const preserveDir = join(workspace.path, 'preserve-test');
       await mkdir(preserveDir);
 
       // First write
@@ -160,8 +156,11 @@ describe('Metadata File Management - Error-First Testing', () => {
 
   describe('cleanFiles - Attack Phase: Race Conditions & File System Chaos', () => {
     it('should handle empty metadata gracefully', async () => {
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-test-',
+      );
       const emptyMetadata = {};
-      const emptyDir = join(testDir, 'empty-clean');
+      const emptyDir = join(workspace.path, 'empty-clean');
       await mkdir(emptyDir);
 
       // Should not throw error
@@ -169,11 +168,14 @@ describe('Metadata File Management - Error-First Testing', () => {
     });
 
     it('should handle undefined metadata fields', async () => {
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-test-',
+      );
       const undefinedMetadata = {
         generatedFiles: undefined,
         userFiles: undefined,
       };
-      const undefinedDir = join(testDir, 'undefined-clean');
+      const undefinedDir = join(workspace.path, 'undefined-clean');
       await mkdir(undefinedDir);
 
       // Should not throw error and treat as empty arrays
@@ -181,12 +183,15 @@ describe('Metadata File Management - Error-First Testing', () => {
     });
 
     it('should handle attempts to delete non-existent files (ENOENT)', async () => {
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-test-',
+      );
       const metadata = {
         generatedFiles: ['/src/existing.ts'],
         userFiles: ['/dist/**'],
       };
 
-      const testCleanDir = join(testDir, 'clean-test');
+      const testCleanDir = join(workspace.path, 'clean-test');
       await mkdir(testCleanDir);
       await mkdir(join(testCleanDir, 'src'));
 
@@ -201,12 +206,15 @@ describe('Metadata File Management - Error-First Testing', () => {
     });
 
     it('should handle permission denied errors during deletion', async () => {
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-test-',
+      );
       const metadata = {
         generatedFiles: ['/protected/**'],
         userFiles: [],
       };
 
-      const protectedDir = join(testDir, 'protected-clean');
+      const protectedDir = join(workspace.path, 'protected-clean');
       await mkdir(protectedDir);
 
       // Create a file that should be deleted
@@ -217,7 +225,10 @@ describe('Metadata File Management - Error-First Testing', () => {
     });
 
     it('should deduplicate files to prevent double deletion attempts', async () => {
-      const dedupeDir = join(testDir, 'dedupe-test');
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-test-',
+      );
+      const dedupeDir = join(workspace.path, 'dedupe-test');
       await mkdir(dedupeDir);
 
       // Create test files
@@ -234,7 +245,10 @@ describe('Metadata File Management - Error-First Testing', () => {
     });
 
     it('should handle extremely large file lists without memory issues', async () => {
-      const largeListDir = join(testDir, 'large-list');
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-test-',
+      );
+      const largeListDir = join(workspace.path, 'large-list');
       await mkdir(largeListDir);
 
       // Create many files
@@ -258,7 +272,10 @@ describe('Metadata File Management - Error-First Testing', () => {
 
   describe('cleanFiles - Invariant Testing: File Protection Rules', () => {
     it('should never delete files matching generatedFiles patterns', async () => {
-      const protectionDir = join(testDir, 'protection-test');
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-test-',
+      );
+      const protectionDir = join(workspace.path, 'protection-test');
       await mkdir(protectionDir, { recursive: true });
       await mkdir(join(protectionDir, 'src'), { recursive: true });
 
@@ -282,7 +299,10 @@ describe('Metadata File Management - Error-First Testing', () => {
     });
 
     it('should never delete files matching userFiles patterns', async () => {
-      const userDir = join(testDir, 'user-protection');
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-test-',
+      );
+      const userDir = join(workspace.path, 'user-protection');
       await mkdir(userDir, { recursive: true });
       await mkdir(join(userDir, 'dist'), { recursive: true });
 
@@ -305,7 +325,10 @@ describe('Metadata File Management - Error-First Testing', () => {
     });
 
     it('should never delete files matching alwaysAvailableFiles patterns', async () => {
-      const alwaysDir = join(testDir, 'always-available');
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-test-',
+      );
+      const alwaysDir = join(workspace.path, 'always-available');
       await mkdir(alwaysDir, { recursive: true });
 
       await writeFile(join(alwaysDir, 'package.json'), '{"name": "test"}');
@@ -329,7 +352,10 @@ describe('Metadata File Management - Error-First Testing', () => {
 
   describe('cleanFiles - State Transition Testing: Before/After File States', () => {
     it('should properly transition from cluttered to clean directory state', async () => {
-      const transitionDir = join(testDir, 'transition-test');
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-test-',
+      );
+      const transitionDir = join(workspace.path, 'transition-test');
       await mkdir(transitionDir, { recursive: true });
       await mkdir(join(transitionDir, 'src'), { recursive: true });
 
@@ -371,12 +397,16 @@ describe('Metadata File Management - Error-First Testing', () => {
 
   describe('Combined Scenarios - Complex Real-World Edge Cases', () => {
     it('should handle metadata corruption + file system race conditions simultaneously', async () => {
-      const chaosDir = join(testDir, 'chaos-test');
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-test-',
+      );
+      const chaosDir = join(workspace.path, 'chaos-test');
       await mkdir(chaosDir, { recursive: true });
 
       // Corrupted metadata with valid patterns only (empty strings break micromatch)
+      const generatedFiles: string[] = [];
       const corruptedMetadata = {
-        generatedFiles: [] as string[], // Empty array instead of null
+        generatedFiles, // Empty array instead of null
         userFiles: ['/dist/**'], // Valid patterns only
       };
 
@@ -396,7 +426,10 @@ describe('Metadata File Management - Error-First Testing', () => {
 
   describe('Happy Path - Normal Operation Verification', () => {
     it('should successfully manage metadata lifecycle', async () => {
-      const lifecycleDir = join(testDir, 'lifecycle');
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-test-',
+      );
+      const lifecycleDir = join(workspace.path, 'lifecycle');
       await mkdir(lifecycleDir);
 
       const result = await readWriteMetadata(
@@ -413,7 +446,10 @@ describe('Metadata File Management - Error-First Testing', () => {
     });
 
     it('should successfully clean files while preserving protected ones', async () => {
-      const cleanDir = join(testDir, 'clean-happy');
+      await using workspace = await new TemporaryFiles().directory(
+        'metadata-test-',
+      );
+      const cleanDir = join(workspace.path, 'clean-happy');
       await mkdir(cleanDir, { recursive: true });
       await mkdir(join(cleanDir, 'src'), { recursive: true });
 

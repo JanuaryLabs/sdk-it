@@ -1,22 +1,16 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
-import {
-  mkdtempDisposable,
-  readFile,
-  readlink,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, readlink, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
 
 void test.each(['relative', 'absolute'] as const, (pathKind) =>
   test(`ignoreIfExists preserves a competing scaffold at a ${pathKind} path`, async () => {
-    await using workspace = await mkdtempDisposable(
-      join(tmpdir(), 'sdk-it-exclusive-'),
+    await using workspace = await new TemporaryFiles().directory(
+      'sdk-it-exclusive-',
     );
     const path = join(workspace.path, 'nested', 'package.json');
     const authored = '{"name":"user-owned"}';
@@ -38,8 +32,8 @@ void test.each(['relative', 'absolute'] as const, (pathKind) =>
 );
 
 test('concurrent scaffold writers leave one complete winner', async () => {
-  await using workspace = await mkdtempDisposable(
-    join(tmpdir(), 'sdk-it-writers-'),
+  await using workspace = await new TemporaryFiles().directory(
+    'sdk-it-writers-',
   );
   const candidates = Array.from({ length: 12 }, (_, index) =>
     JSON.stringify({
@@ -64,8 +58,8 @@ test('concurrent scaffold writers leave one complete winner', async () => {
 });
 
 test('ignoreIfExists preserves a dangling symlink without creating its target', async () => {
-  await using workspace = await mkdtempDisposable(
-    join(tmpdir(), 'sdk-it-symlink-'),
+  await using workspace = await new TemporaryFiles().directory(
+    'sdk-it-symlink-',
   );
   const path = join(workspace.path, 'package.json');
   const target = join(workspace.path, 'user-package.json');
@@ -80,8 +74,8 @@ test('ignoreIfExists preserves a dangling symlink without creating its target', 
 });
 
 test('ignoreIfExists propagates failures other than an occupied destination', async () => {
-  await using workspace = await mkdtempDisposable(
-    join(tmpdir(), 'sdk-it-write-error-'),
+  await using workspace = await new TemporaryFiles().directory(
+    'sdk-it-write-error-',
   );
   await writeFile(join(workspace.path, 'parent'), 'user-owned');
 

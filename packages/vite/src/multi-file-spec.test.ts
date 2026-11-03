@@ -1,7 +1,7 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
 import { EventEmitter, on } from 'node:events';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { type Plugin, build, createServer } from 'vite';
@@ -44,15 +44,24 @@ const objectWith = (...properties: string[]) =>
 
 // The spec lives outside the vite root, as in a monorepo whose backend owns
 // it, so vite's own watcher does not see its files.
-function workspace(files: Record<string, string>) {
-  const dir = mkdtempSync(join(tmpdir(), 'vite-multi-file-'));
+async function workspace(files: Record<string, string>) {
+  await using pending = new AsyncDisposableStack();
+  const directory = pending.use(
+    await new TemporaryFiles().directory('vite-multi-file-'),
+  );
+  const dir = directory.path;
   const app = join(dir, 'app');
   mkdirSync(app);
   writeFileSync(join(app, 'main.js'), '');
   for (const [path, content] of Object.entries(files)) {
     write(join(dir, 'api', path), content);
   }
-  return { dir, app, api: (path: string) => join(dir, 'api', path) };
+  pending.move();
+  return {
+    ...directory,
+    app,
+    api: (path: string) => join(dir, 'api', path),
+  };
 }
 
 function write(path: string, content: string) {
@@ -142,94 +151,82 @@ async function editUntil(path: string, content: string, done: Promise<void>) {
 }
 
 test('a build after a referenced file changes regenerates the SDK', async () => {
-  const { dir, app, api } = workspace({
+  await using project = await workspace({
     'openapi.yaml': rootSpec(petsPath),
     'schemas/pet.yaml': objectWith('name'),
   });
-  try {
-    const models = generatedModels();
-    const sdk = plugin(join(dir, 'sdk'), models);
-    await buildWith(sdk, app);
+  const { path: dir, app, api } = project;
+  const models = generatedModels();
+  const sdk = plugin(join(dir, 'sdk'), models);
+  await buildWith(sdk, app);
 
-    write(api('schemas/pet.yaml'), objectWith('name', 'nickname'));
-    await buildWith(sdk, app);
+  write(api('schemas/pet.yaml'), objectWith('name', 'nickname'));
+  await buildWith(sdk, app);
 
-    assert.match(models.latest.get('pet') ?? '', /nickname/);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  assert.match(models.latest.get('pet') ?? '', /nickname/);
 });
 
 test('a build with unchanged referenced files does not regenerate the SDK', async () => {
-  const { dir, app } = workspace({
+  await using project = await workspace({
     'openapi.yaml': rootSpec(petsPath),
     'schemas/pet.yaml': objectWith('name'),
   });
-  try {
-    const models = generatedModels();
-    const sdk = plugin(join(dir, 'sdk'), models);
-    await buildWith(sdk, app);
-    const firstWrites = models.writes;
+  const { path: dir, app } = project;
+  const models = generatedModels();
+  const sdk = plugin(join(dir, 'sdk'), models);
+  await buildWith(sdk, app);
+  const firstWrites = models.writes;
 
-    await buildWith(sdk, app);
+  await buildWith(sdk, app);
 
-    assert.ok(firstWrites > 0);
-    assert.equal(models.writes, firstWrites);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  assert.ok(firstWrites > 0);
+  assert.equal(models.writes, firstWrites);
 });
 
 test('the dev server regenerates the SDK when a referenced file changes', async () => {
-  const { dir, app, api } = workspace({
+  await using project = await workspace({
     'openapi.yaml': rootSpec(petsPath),
     'schemas/pet.yaml': objectWith('name'),
   });
+  const { path: dir, app, api } = project;
   const models = generatedModels();
   const generated = models.next('pet', 'name');
   const sdk = plugin(join(dir, 'sdk'), models);
   const server = await serveWith(sdk, app);
-  try {
-    await generated;
+  await using _server = { [Symbol.asyncDispose]: () => server.close() };
+  await generated;
 
-    await editUntil(
-      api('schemas/pet.yaml'),
-      objectWith('name', 'nickname'),
-      models.next('pet', 'nickname'),
-    );
-    await settle(sdk, app);
-  } finally {
-    await server.close();
-    rmSync(dir, { recursive: true, force: true });
-  }
+  await editUntil(
+    api('schemas/pet.yaml'),
+    objectWith('name', 'nickname'),
+    models.next('pet', 'nickname'),
+  );
+  await settle(sdk, app);
 });
 
 test('the dev server watches a file the spec starts to reference after an edit', async () => {
-  const { dir, app, api } = workspace({
+  await using project = await workspace({
     'openapi.yaml': rootSpec(petsPath),
     'schemas/pet.yaml': objectWith('name'),
     'schemas/tag.yaml': objectWith('label'),
   });
+  const { path: dir, app, api } = project;
   const models = generatedModels();
   const generated = models.next('pet', 'name');
   const sdk = plugin(join(dir, 'sdk'), models);
   const server = await serveWith(sdk, app);
-  try {
-    await generated;
-    await editUntil(
-      api('openapi.yaml'),
-      rootSpec(petsPath + tagsPath),
-      models.next('tag', 'label'),
-    );
+  await using _server = { [Symbol.asyncDispose]: () => server.close() };
+  await generated;
+  await editUntil(
+    api('openapi.yaml'),
+    rootSpec(petsPath + tagsPath),
+    models.next('tag', 'label'),
+  );
 
-    await editUntil(
-      api('schemas/tag.yaml'),
-      objectWith('label', 'color'),
-      models.next('tag', 'color'),
-    );
-    await settle(sdk, app);
-  } finally {
-    await server.close();
-    rmSync(dir, { recursive: true, force: true });
-  }
+  await editUntil(
+    api('schemas/tag.yaml'),
+    objectWith('label', 'color'),
+    models.next('tag', 'color'),
+  );
+  await settle(sdk, app);
 });

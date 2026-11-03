@@ -57,10 +57,10 @@ describe('hono validator: body validation', () => {
     const res = await postJson(app, {});
     assert.equal(res.status, 400);
 
-    const body = (await res.json()) as {
+    const body: {
       message: string;
       cause: ValidationCause;
-    };
+    } = await res.json();
     assert.equal(body.message, 'Validation failed');
     assert.equal(body.cause.code, 'api/validation-failed');
     assert.equal(body.cause.detail, 'The input data is invalid');
@@ -80,9 +80,9 @@ describe('hono validator: body validation', () => {
     const app = buildApp(middleware);
 
     const res = await postJson(app, {});
-    const body = (await res.json()) as {
+    const body: {
       cause: ValidationCause;
-    };
+    } = await res.json();
     const entry = body.cause.errors.name[0];
     assert.deepStrictEqual(Object.keys(entry).sort(), [
       'code',
@@ -99,7 +99,7 @@ describe('hono validator: body validation', () => {
 
     const res = await postJson(app, { age: 'not-a-number' });
     assert.equal(res.status, 400);
-    const body = (await res.json()) as { cause: ValidationCause };
+    const body: { cause: ValidationCause } = await res.json();
     const entry = body.cause.errors.age[0];
     assert.equal(entry.code, 'invalid_type');
     assert.equal(entry.path, 'age');
@@ -116,7 +116,7 @@ describe('hono validator: body validation', () => {
 
     const res = await postJson(app, { sort: 'bogus' });
     assert.equal(res.status, 400);
-    const body = (await res.json()) as { cause: ValidationCause };
+    const body: { cause: ValidationCause } = await res.json();
     assert.ok(Array.isArray(body.cause.errors.sort));
     assert.equal(body.cause.errors.sort.length, 1);
     const entry = body.cause.errors.sort[0];
@@ -140,7 +140,7 @@ describe('hono validator: body validation', () => {
 
     const res = await postJson(app, { profile: {} });
     assert.equal(res.status, 400);
-    const body = (await res.json()) as { cause: ValidationCause };
+    const body: { cause: ValidationCause } = await res.json();
     const entry = body.cause.errors.profile[0];
     assert.equal(entry.path, 'profile.email');
     assert.equal(entry.code, 'invalid_type');
@@ -155,7 +155,7 @@ describe('hono validator: body validation', () => {
 
     const res = await postJson(app, { age: 'no' });
     assert.equal(res.status, 400);
-    const body = (await res.json()) as { cause: ValidationCause };
+    const body: { cause: ValidationCause } = await res.json();
     assert.ok(body.cause.errors.name, 'name has errors');
     assert.ok(body.cause.errors.age, 'age has errors');
     assert.equal(body.cause.errors.name[0].code, 'invalid_type');
@@ -255,10 +255,10 @@ describe('hono validator: content-type handling', () => {
     });
 
     assert.equal(res.status, 415);
-    const body = (await res.json()) as {
+    const body: {
       message: string;
       cause: UnsupportedMediaCause;
-    };
+    } = await res.json();
     assert.equal(body.message, 'Unsupported Media Type');
     assert.equal(body.cause.code, 'api/unsupported-media-type');
     assert.match(body.cause.detail, /GET requests cannot have a content type/);
@@ -278,10 +278,10 @@ describe('hono validator: content-type handling', () => {
     });
 
     assert.equal(res.status, 415);
-    const body = (await res.json()) as {
+    const body: {
       message: string;
       cause: UnsupportedMediaCause;
-    };
+    } = await res.json();
     assert.equal(body.message, 'Unsupported Media Type');
     assert.equal(body.cause.code, 'api/unsupported-media-type');
     assert.match(body.cause.detail, /Expected content type: application\/json/);
@@ -297,9 +297,9 @@ describe('hono validator: content-type handling', () => {
     const res = await app.request('/things', { method: 'POST' });
 
     assert.equal(res.status, 415);
-    const body = (await res.json()) as {
+    const body: {
       cause: UnsupportedMediaCause;
-    };
+    } = await res.json();
     assert.equal(body.cause.detail, 'Missing content type header');
     assert.equal(Object.hasOwn(body.cause, 'details'), false);
   });
@@ -317,7 +317,7 @@ describe('hono validator: content-type handling', () => {
     });
 
     assert.equal(res.status, 400);
-    const body = (await res.json()) as { cause: ValidationCause };
+    const body: { cause: ValidationCause } = await res.json();
     assert.ok(body.cause.errors.name, 'name field error present');
     assert.equal(body.cause.errors.name[0].code, 'invalid_type');
     assert.equal(body.cause.errors.name[0].path, 'name');
@@ -535,11 +535,11 @@ describe('hono validator: canonical request handling', () => {
       body: '"unknown"',
     });
     assert.equal(rejected.status, 400);
-    const body = (await rejected.json()) as {
+    const body: {
       cause: ValidationCause & {
         formErrors: Array<{ message: string; code: string; path: string }>;
       };
-    };
+    } = await rejected.json();
     assert.equal(body.cause.code, 'api/validation-failed');
     assert.deepEqual(body.cause.errors, {});
     assert.equal(body.cause.formErrors.length, 1);
@@ -640,7 +640,7 @@ describe('hono validator: canonical request handling', () => {
       ]),
     });
     assert.equal(response.status, 400);
-    const body = (await response.json()) as { cause: ValidationCause };
+    const body: { cause: ValidationCause } = await response.json();
     assert.equal(body.cause.errors.name[0].code, 'invalid_type');
   });
 

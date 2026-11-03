@@ -1,17 +1,22 @@
 import { test } from '@zukhruf/testing/node';
 import type { Hono } from 'hono';
 import assert from 'node:assert/strict';
-import { mkdtempDisposable, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import type { SchemaObject } from 'openapi3-ts/oas31';
+import { pathToFileURL } from 'node:url';
+import {
+  type ResponsesObject,
+  type SchemaObject,
+  isReferenceObject,
+  isSchemaObject,
+} from 'openapi3-ts/oas31';
 
 import type { NaunceResponseAnalyzer } from '@sdk-it/core';
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 import { catalogError, evlogErrors } from '@sdk-it/hono/evlog';
-import { typecheck } from '@sdk-it/testing';
+import { analysisWorkspace, typecheck } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 const catalog = `import { defineErrorCatalog } from 'evlog';
@@ -72,46 +77,34 @@ app.post('/pay', validate((payload) => ({
 `;
 }
 
-async function workspace(onError: string) {
-  const dir = await mkdtempDisposable(
-    join(fileURLToPath(new URL('../../../../', import.meta.url)), '.evlog-'),
-  );
-  await writeFile(join(dir.path, 'package.json'), '{"type":"module"}');
-  await writeFile(
-    join(dir.path, 'tsconfig.json'),
-    JSON.stringify({
-      compilerOptions: {
-        target: 'ESNext',
-        module: 'ESNext',
-        moduleResolution: 'bundler',
-        allowImportingTsExtensions: true,
-        strict: true,
-        skipLibCheck: true,
-      },
-      include: ['route.ts', 'catalog.ts'],
-    }),
-  );
-  await writeFile(join(dir.path, 'catalog.ts'), catalog);
-  await writeFile(join(dir.path, 'route.ts'), route(onError));
-  return dir;
+function workspace(onError: string) {
+  return analysisWorkspace('evlog-', {
+    'route.ts': route(onError),
+    'catalog.ts': catalog,
+  });
 }
 
 function jsonSchema(
-  responses: Record<string, unknown> | undefined,
+  responses: ResponsesObject | undefined,
   status: string,
 ): SchemaObject {
-  const response = responses?.[status] as
-    { content?: Record<string, { schema: SchemaObject }> } | undefined;
-  const schema = response?.content?.['application/json']?.schema;
-  assert.ok(schema, `HTTP ${status} must be documented as JSON`);
+  const response = responses?.[status];
+  const schema =
+    response && !isReferenceObject(response)
+      ? response.content?.['application/json']?.schema
+      : undefined;
+  assert.ok(
+    schema && isSchemaObject(schema),
+    `HTTP ${status} must be documented as JSON`,
+  );
   return schema;
 }
 
 void test("evlogErrors documents each catalog throw at its status with evlog's wire shape", async () => {
   await using dir = await workspace('error');
-  const { app } = (await import(
+  const { app }: { app: Hono } = await import(
     pathToFileURL(join(dir.path, 'route.ts')).href
-  )) as { app: Hono };
+  );
   const wire: Record<
     string,
     { status: number; body: Record<string, unknown> }
@@ -135,7 +128,7 @@ void test("evlogErrors documents each catalog throw at its status with evlog's w
     },
   });
 
-  using project = openAnalysisProject(join(dir.path, 'tsconfig.json'));
+  using project = openAnalysisProject(dir.tsconfig);
   const spec = await analyze(project, {
     responseAnalyzer: { ...responseAnalyzer, ...evlogErrors },
   });
@@ -153,7 +146,8 @@ void test("evlogErrors documents each catalog throw at its status with evlog's w
       type: 'number',
       enum: [status],
     });
-    const data = schema.properties?.data as SchemaObject;
+    const data = schema.properties?.data;
+    assert.ok(data && isSchemaObject(data), `${mode}: data is a schema`);
     assert.deepEqual(data.properties?.code, { type: 'string', enum: [code] });
     for (const key of Object.keys(body)) {
       assert.ok(
@@ -202,9 +196,9 @@ void test('an app documents its own error body for catalog throws with catalogEr
   await using dir = await workspace(
     '{ error: error.message, cause: { code: error.code, detail: error.why } }',
   );
-  const { app } = (await import(
+  const { app }: { app: Hono } = await import(
     pathToFileURL(join(dir.path, 'route.ts')).href
-  )) as { app: Hono };
+  );
   const response = await app.request('/pay?mode=declined', { method: 'POST' });
   assert.equal(response.status, 402);
   assert.deepEqual(await response.json(), {
@@ -243,7 +237,7 @@ void test('an app documents its own error body for catalog throws with catalogEr
     },
   };
 
-  using project = openAnalysisProject(join(dir.path, 'tsconfig.json'));
+  using project = openAnalysisProject(dir.tsconfig);
   const spec = await analyze(project, {
     responseAnalyzer: { ...responseAnalyzer, ...custom },
   });
@@ -268,7 +262,7 @@ void test('an app documents its own error body for catalog throws with catalogEr
 void test('a thrown call with no registered analyzer documents no response', async () => {
   await using dir = await workspace('error');
 
-  using project = openAnalysisProject(join(dir.path, 'tsconfig.json'));
+  using project = openAnalysisProject(dir.tsconfig);
   const spec = await analyze(project, { responseAnalyzer });
 
   const statuses = Object.keys(spec.paths['/pay']?.post?.responses ?? {});

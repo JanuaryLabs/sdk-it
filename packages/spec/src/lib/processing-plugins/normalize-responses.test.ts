@@ -6,7 +6,9 @@ import { type IR, normalizeResponses, processSpec } from '@sdk-it/spec';
 
 function schemaForRef(spec: IR, ref: string | undefined) {
   assert.ok(ref);
-  const schema = spec.components.schemas[ref.split('/').at(-1) as string];
+  const name = ref.split('/').at(-1);
+  assert.ok(name);
+  const schema = spec.components.schemas[name];
   assert.ok(!('$ref' in schema));
   return schema;
 }
@@ -41,9 +43,8 @@ test('response media types receive independent component schemas', async () => {
     plugins: [normalizeResponses()],
   });
 
-  const response = spec.paths['/events'].get?.responses?.[
-    '200'
-  ] as ResponseObject;
+  const response: ResponseObject =
+    spec.paths['/events'].get?.responses?.['200'];
   const jsonSchema = response.content?.['application/json'].schema;
   const eventSchema = response.content?.['text/event-stream'].schema;
   assert.ok(jsonSchema && '$ref' in jsonSchema);
@@ -112,9 +113,7 @@ test('flattenErrorResponses normalizes error payloads through the plugin options
     plugins: [normalizeResponses()],
   });
 
-  const response = spec.paths['/jobs'].post?.responses?.[
-    '400'
-  ] as ResponseObject;
+  const response: ResponseObject = spec.paths['/jobs'].post?.responses?.['400'];
   const schemaRef = response.content?.['application/json'].schema;
   assert.ok(schemaRef && '$ref' in schemaRef);
   assert.deepStrictEqual(schemaForRef(spec, schemaRef.$ref), {

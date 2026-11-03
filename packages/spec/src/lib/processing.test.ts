@@ -392,7 +392,8 @@ test('example enrichment preserves authored examples and rejects invalid generat
           return (
             typeof value === 'object' &&
             value !== null &&
-            typeof (value as { id?: unknown }).id === 'string'
+            'id' in value &&
+            typeof value.id === 'string'
           );
         },
       }),

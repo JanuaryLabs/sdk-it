@@ -1,14 +1,8 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import {
-  mkdir,
-  mkdtempDisposable,
-  readFile,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,8 +13,8 @@ void test.each([false, true], (verbose) =>
     ['success', 'failure', 'cannot-start', 'disabled'] as const,
     (outcome) =>
       test(`TypeScript default formatter ${outcome}, verbose=${verbose}`, async () => {
-        await using workspace = await mkdtempDisposable(
-          join(tmpdir(), 'sdk-it-default-formatter-'),
+        await using workspace = await new TemporaryFiles().directory(
+          'sdk-it-default-formatter-',
         );
         const spec = join(workspace.path, 'openapi.json');
         const output = join(workspace.path, 'client');

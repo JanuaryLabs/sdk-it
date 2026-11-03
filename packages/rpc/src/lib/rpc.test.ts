@@ -1,25 +1,31 @@
-import { asSchema } from 'ai';
+import { TemporaryFiles } from '@zukhruf/testing/fs';
+import { type JSONSchema7, asSchema } from 'ai';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, describe, test } from 'node:test';
+import { describe, test } from 'node:test';
 
 import { rpc, toAgents } from './rpc.ts';
 
-let tempDir: string;
-
-function writeSpec(spec: object) {
-  tempDir = mkdtempSync(join(tmpdir(), 'rpc-test-'));
-  const specPath = join(tempDir, 'spec.json');
-  writeFileSync(specPath, JSON.stringify(spec));
-  return specPath;
+async function advertisedSchema(inputSchema: Parameters<typeof asSchema>[0]) {
+  const schema = await asSchema(inputSchema).jsonSchema;
+  const properties: Record<string, JSONSchema7> = {};
+  for (const [name, definition] of Object.entries(schema.properties ?? {})) {
+    assert.ok(typeof definition === 'object', `${name} is a schema object`);
+    properties[name] = definition;
+  }
+  return { properties, required: schema.required };
 }
 
-function cleanup() {
-  if (tempDir) {
-    rmSync(tempDir, { recursive: true, force: true });
-  }
+async function writeSpec(spec: object) {
+  await using pending = new AsyncDisposableStack();
+  const directory = pending.use(
+    await new TemporaryFiles().directory('rpc-test-'),
+  );
+  const specPath = join(directory.path, 'spec.json');
+  await writeFile(specPath, JSON.stringify(spec));
+  pending.move();
+  return { ...directory, specPath };
 }
 
 function makeSpec(
@@ -78,11 +84,10 @@ function makeSpec(
 }
 
 describe('toAgents', () => {
-  afterEach(() => cleanup());
-
   test('basic tool generation: returns agent with correct tool name and description', async () => {
     const spec = makeSpec();
-    const path = writeSpec(spec);
+    await using workspace = await writeSpec(spec);
+    const path = workspace.specPath;
 
     const agents = await toAgents(path, {
       baseUrl: 'http://localhost:3000',
@@ -157,13 +162,14 @@ describe('toAgents', () => {
         },
       },
     });
-    const path = writeSpec(spec);
+    await using workspace = await writeSpec(spec);
+    const path = workspace.specPath;
     const agents = await toAgents(path, {
       baseUrl: 'http://localhost:3000',
     });
 
     const toolDef = agents.users.tools.getUsers;
-    const jsonSchema = asSchema(toolDef.inputSchema).jsonSchema as any;
+    const jsonSchema = await advertisedSchema(toolDef.inputSchema);
 
     assert.equal(
       jsonSchema.properties.query.description,
@@ -242,13 +248,14 @@ describe('toAgents', () => {
         },
       },
     });
-    const path = writeSpec(spec);
+    await using workspace = await writeSpec(spec);
+    const path = workspace.specPath;
     const agents = await toAgents(path, {
       baseUrl: 'http://localhost:3000',
     });
 
     const toolDef = agents.users.tools.listItems;
-    const jsonSchema = asSchema(toolDef.inputSchema).jsonSchema as any;
+    const jsonSchema = await advertisedSchema(toolDef.inputSchema);
 
     assert.equal(jsonSchema.properties.name.type, 'string');
     assert.equal(jsonSchema.properties.count.type, 'integer');
@@ -256,6 +263,7 @@ describe('toAgents', () => {
     assert.deepEqual(jsonSchema.properties.sort.enum, ['asc', 'desc']);
     assert.equal(jsonSchema.properties.limit.default, 10);
     // required: name and count are required, others optional
+    assert.ok(jsonSchema.required, 'schema lists required properties');
     assert.ok(jsonSchema.required.includes('name'), 'name is required');
     assert.ok(jsonSchema.required.includes('count'), 'count is required');
     assert.ok(!jsonSchema.required?.includes('active'), 'active is optional');
@@ -315,7 +323,8 @@ describe('toAgents', () => {
         },
       },
     });
-    const path = writeSpec(spec);
+    await using workspace = await writeSpec(spec);
+    const path = workspace.specPath;
     const agents = await toAgents(path, {
       baseUrl: 'http://localhost:3000',
     });
@@ -383,7 +392,8 @@ describe('toAgents', () => {
         },
       },
     });
-    const path = writeSpec(spec);
+    await using workspace = await writeSpec(spec);
+    const path = workspace.specPath;
     const agents = await toAgents(path, {
       baseUrl: 'http://localhost:3000',
     });
@@ -395,7 +405,8 @@ describe('toAgents', () => {
 
   test('tag metadata maps to agent properties', async () => {
     const spec = makeSpec();
-    const path = writeSpec(spec);
+    await using workspace = await writeSpec(spec);
+    const path = workspace.specPath;
     const agents = await toAgents(path, {
       baseUrl: 'http://localhost:3000',
     });
@@ -460,7 +471,8 @@ describe('toAgents', () => {
         },
       },
     });
-    const path = writeSpec(spec);
+    await using workspace = await writeSpec(spec);
+    const path = workspace.specPath;
 
     const agentsFiltered = await toAgents(path, {
       baseUrl: 'http://localhost:3000',
@@ -541,7 +553,8 @@ describe('toAgents', () => {
         },
       },
     });
-    const path = writeSpec(spec);
+    await using workspace = await writeSpec(spec);
+    const path = workspace.specPath;
     const agents = await toAgents(path, {
       baseUrl: 'http://localhost:3000',
     });
@@ -585,7 +598,8 @@ describe('toAgents', () => {
         },
       },
     });
-    const path = writeSpec(spec);
+    await using workspace = await writeSpec(spec);
+    const path = workspace.specPath;
     const agents = await toAgents(path, {
       baseUrl: 'http://localhost:3000',
     });
@@ -602,7 +616,8 @@ describe('toAgents', () => {
 
   test('empty spec with no paths produces empty agents', async () => {
     const spec = makeSpec({ paths: {}, tags: [] });
-    const path = writeSpec(spec);
+    await using workspace = await writeSpec(spec);
+    const path = workspace.specPath;
     const agents = await toAgents(path, {
       baseUrl: 'http://localhost:3000',
     });
@@ -632,7 +647,8 @@ describe('toAgents', () => {
         },
       },
     });
-    const path = writeSpec(spec);
+    await using workspace = await writeSpec(spec);
+    const path = workspace.specPath;
     const agents = await toAgents(path, {
       baseUrl: 'http://localhost:3000',
     });
@@ -668,13 +684,14 @@ describe('toAgents', () => {
         },
       },
     });
-    const path = writeSpec(spec);
+    await using workspace = await writeSpec(spec);
+    const path = workspace.specPath;
     const agents = await toAgents(path, {
       baseUrl: 'http://localhost:3000',
     });
 
     const toolDef = agents.users.tools.getUser;
-    const jsonSchema = asSchema(toolDef.inputSchema).jsonSchema as any;
+    const jsonSchema = await advertisedSchema(toolDef.inputSchema);
     assert.ok(jsonSchema.properties.userId, 'path param in schema');
     assert.equal(
       jsonSchema.properties.userId.description,
@@ -695,10 +712,11 @@ describe('toAgents', () => {
     };
 
     const spec = makeSpec();
-    const path = writeSpec(spec);
+    await using workspace = await writeSpec(spec);
+    const path = workspace.specPath;
     const agents = await toAgents(path, {
       baseUrl: 'http://localhost:3000',
-      fetch: mockFetch as any,
+      fetch: mockFetch,
     });
 
     const toolDef = agents.users.tools.getUsers;
@@ -715,7 +733,8 @@ describe('toAgents', () => {
     assert.ok(req.url.includes('/users'), 'request URL includes /users');
     assert.equal(req.method, 'GET', 'request method is GET');
 
-    const parsed = JSON.parse(result as string);
+    assert.ok(typeof result === 'string', 'tool result is a JSON string');
+    const parsed = JSON.parse(result);
     assert.deepEqual(
       parsed.data,
       { users: [{ id: 1, name: 'Alice' }] },
@@ -736,10 +755,11 @@ describe('toAgents', () => {
     };
 
     const spec = makeSpec();
-    const path = writeSpec(spec);
+    await using workspace = await writeSpec(spec);
+    const path = workspace.specPath;
     const agents = await toAgents(path, {
       baseUrl: () => currentBaseUrl,
-      fetch: mockFetch as any,
+      fetch: mockFetch,
     });
 
     await agents.users.tools.getUsers.execute(
@@ -772,11 +792,10 @@ describe('toAgents', () => {
 });
 
 describe('rpc', () => {
-  afterEach(() => cleanup());
-
   test('passes AbortSignal from client.request to the transport request', async () => {
     const spec = makeSpec();
-    const path = writeSpec(spec);
+    await using workspace = await writeSpec(spec);
+    const path = workspace.specPath;
     let receivedRequest: Request | undefined;
 
     const client = await rpc(path, {
@@ -808,81 +827,75 @@ describe('rpc', () => {
 
 describe('toAgents — ai SDK schema serialization', () => {
   test('tool inputSchema with a date param serializes the way the ai SDK does, without throwing', async () => {
-    try {
-      const spec = makeSpec({
-        paths: {
-          '/ledger': {
-            get: {
-              operationId: 'getLedger',
-              'x-fn-name': 'getLedger',
-              'x-tool': { name: 'getLedger', description: 'Ledger lookup' },
-              tags: ['users'],
-              parameters: [
-                {
-                  name: 'accountId',
-                  in: 'query',
-                  required: true,
-                  schema: { type: 'integer', format: 'int64' },
+    const spec = makeSpec({
+      paths: {
+        '/ledger': {
+          get: {
+            operationId: 'getLedger',
+            'x-fn-name': 'getLedger',
+            'x-tool': { name: 'getLedger', description: 'Ledger lookup' },
+            tags: ['users'],
+            parameters: [
+              {
+                name: 'accountId',
+                in: 'query',
+                required: true,
+                schema: { type: 'integer', format: 'int64' },
+              },
+              {
+                name: 'since',
+                in: 'query',
+                required: false,
+                schema: {
+                  type: 'string',
+                  format: 'date-time',
+                  'x-zod-type': 'coerce-date',
                 },
-                {
-                  name: 'since',
-                  in: 'query',
-                  required: false,
-                  schema: {
-                    type: 'string',
-                    format: 'date-time',
-                    'x-zod-type': 'coerce-date',
-                  },
-                },
-              ],
-              responses: {
-                '200': {
-                  description: 'OK',
-                  content: {
-                    'application/json': { schema: { type: 'object' } },
-                  },
+              },
+            ],
+            responses: {
+              '200': {
+                description: 'OK',
+                content: {
+                  'application/json': { schema: { type: 'object' } },
                 },
               },
             },
           },
         },
-      });
-      const path = writeSpec(spec);
-      const agents = await toAgents(path, { baseUrl: 'http://localhost:3000' });
-      const toolDef = agents.users.tools.getLedger;
+      },
+    });
+    await using workspace = await writeSpec(spec);
+    const path = workspace.specPath;
+    const agents = await toAgents(path, { baseUrl: 'http://localhost:3000' });
+    const toolDef = agents.users.tools.getLedger;
 
-      // asSchema(...).jsonSchema is exactly what generateText/streamText do
-      // when preparing the provider request.
-      const serialized = asSchema(toolDef.inputSchema).jsonSchema as any;
-      // int64 is a plain integer now; the date (unrepresentable to JSON
-      // schema) is what toToolSchema must keep from throwing.
-      assert.equal(serialized.properties.accountId.type, 'integer');
-      assert.equal(serialized.properties.since.type, 'string');
-      assert.equal(serialized.properties.since.format, 'date-time');
-      assert.equal(
-        serialized.properties.since['x-sdkit-tool-coerce'],
-        undefined,
-        'internal coerce marker must not leak into the advertised schema',
-      );
-    } finally {
-      cleanup();
-    }
+    // asSchema(...).jsonSchema is exactly what generateText/streamText do
+    // when preparing the provider request.
+    const serialized = await advertisedSchema(toolDef.inputSchema);
+    // int64 is a plain integer now; the date (unrepresentable to JSON
+    // schema) is what toToolSchema must keep from throwing.
+    assert.equal(serialized.properties.accountId.type, 'integer');
+    assert.equal(serialized.properties.since.type, 'string');
+    assert.equal(serialized.properties.since.format, 'date-time');
+    assert.equal(
+      'x-sdkit-tool-coerce' in serialized.properties.since,
+      false,
+      'internal coerce marker must not leak into the advertised schema',
+    );
   });
 
   test('tool inputSchema still validates arguments after serialization-safe wrapping', async () => {
-    try {
-      const path = writeSpec(makeSpec());
-      const agents = await toAgents(path, { baseUrl: 'http://localhost:3000' });
-      const toolDef = agents.users.tools.getUsers;
+    await using workspace = await writeSpec(makeSpec());
+    const path = workspace.specPath;
+    const agents = await toAgents(path, { baseUrl: 'http://localhost:3000' });
+    const toolDef = agents.users.tools.getUsers;
 
-      const schema = asSchema(toolDef.inputSchema);
-      assert.equal(schema.validate === undefined, false, 'validator preserved');
-      const good = await schema.validate!({ query: 'hello' });
-      assert.equal(good.success, true);
-      const bad = await schema.validate!({ query: 42 });
-      assert.equal(bad.success, false, 'non-string query must fail validation');
-    } finally {
-      cleanup();
-    }
+    const schema = asSchema(toolDef.inputSchema);
+    assert.equal(schema.validate === undefined, false, 'validator preserved');
+    const good = await schema.validate!({ query: 'hello' });
+    assert.equal(good.success, true);
+    const bad = await schema.validate!({ query: 42 });
+    assert.equal(bad.success, false, 'non-string query must fail validation');
   });
 });

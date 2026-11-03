@@ -1,8 +1,8 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempDisposable, readFile, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, writeFile } from 'node:fs/promises';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -54,8 +54,8 @@ void test.each(
   (generator) =>
     test.each([0, 7, 'missing'] as const, (exitCode) =>
       test(`${generator.name} CLI handles custom formatter result ${exitCode}`, async () => {
-        await using workspace = await mkdtempDisposable(
-          join(tmpdir(), 'sdk-it-formatter-'),
+        await using workspace = await new TemporaryFiles().directory(
+          'sdk-it-formatter-',
         );
         const spec = join(workspace.path, 'openapi.json');
         const output = join(workspace.path, 'client');

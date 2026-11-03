@@ -1,51 +1,18 @@
 import assert from 'node:assert/strict';
-import crypto from 'node:crypto';
-import { rm, symlink } from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import {
+  type ReferenceObject,
+  type SchemaObject,
+  isReferenceObject,
+  isSchemaObject,
+} from 'openapi3-ts/oas31';
 
-import { writeFiles } from '@sdk-it/core/file-system.js';
 import { openAnalysisProject } from '@sdk-it/core/program.js';
+import { analysisWorkspace } from '@sdk-it/testing';
 
 import { analyze } from './generic.ts';
 import { responseAnalyzer } from './response-analyzer.ts';
-
-const tsconfig = {
-  compilerOptions: {
-    target: 'ES2022',
-    module: 'ESNext',
-    moduleResolution: 'bundler',
-    strict: true,
-    esModuleInterop: true,
-    skipLibCheck: true,
-    forceConsistentCasingInFileNames: true,
-  },
-  include: ['src/**/*'],
-};
-
-const require = createRequire(import.meta.url);
-const workspaceNodeModules = dirname(
-  dirname(require.resolve('zod/package.json')),
-);
-
-async function tsworkspace(
-  config: Record<string, unknown>,
-  files: Record<string, string>,
-) {
-  const dir = join(tmpdir(), 'sdk-it', crypto.randomUUID());
-  await writeFiles(join(dir, 'src'), files);
-  await writeFiles(dir, {
-    'tsconfig.json': JSON.stringify(config, null, 2),
-  });
-  return {
-    tsconfig: join(dir, 'tsconfig.json'),
-    [Symbol.asyncDispose]: async () => {
-      await rm(dir, { recursive: true, force: true });
-    },
-  };
-}
 
 function getNonNullBranch(schema: any) {
   if (Array.isArray(schema.anyOf)) {
@@ -58,11 +25,14 @@ function getNonNullBranch(schema: any) {
 }
 
 const uiMessageSource = `
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import type { UIMessage } from 'ai';
 
-const app = { get: (..._args: unknown[]) => undefined };
-const output = { json: (value: unknown) => value };
-const validate = (selector: unknown) => selector;
+const app = new Hono();
+const output = {
+  json: (value: unknown, status = 200) => Response.json(value, { status }),
+};
 
 const emptyMessages: UIMessage[] = [];
 
@@ -78,14 +48,9 @@ app.get('/second', validate(() => ({})), () => {
 `;
 
 async function analyzeUIMessage() {
-  await using workspace = await tsworkspace(tsconfig, {
+  await using workspace = await analysisWorkspace('generic-', {
     'index.ts': uiMessageSource,
   });
-  await symlink(
-    workspaceNodeModules,
-    join(dirname(workspace.tsconfig), 'node_modules'),
-    'dir',
-  );
   using project = openAnalysisProject(workspace.tsconfig);
   return await analyze(project, { responseAnalyzer });
 }
@@ -93,13 +58,15 @@ async function analyzeUIMessage() {
 describe('analyze function tests', () => {
   it('should parse basic validation middleware with selectors', async () => {
     // Test Case 1: Basic validation middleware with query and body selectors
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'test1.ts': `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { z } from 'zod';
 
-const app = {
-  post: (path: string, middleware: any, handler: any) => {}
+const app = new Hono();
+const output = {
+  json: (value: unknown, status = 200) => Response.json(value, { status }),
 };
 
 /**
@@ -137,7 +104,9 @@ app.post('/users/:id/profile', validate((payload) => ({
       'Should have correct operation ID',
     );
     assert.ok(result1.tags.includes('user'), 'Should include user tag');
-    const { paths } = JSON.parse(JSON.stringify(result1)) as {
+    const {
+      paths,
+    }: {
       paths: Record<
         string,
         {
@@ -149,7 +118,7 @@ app.post('/users/:id/profile', validate((payload) => ({
           };
         }
       >;
-    };
+    } = JSON.parse(JSON.stringify(result1));
     const profile = paths['/users/{id}/profile'].post;
     assert.deepStrictEqual(
       profile.parameters.map(({ in: location, name, required }) => [
@@ -170,16 +139,22 @@ app.post('/users/:id/profile', validate((payload) => ({
 
   it('should handle error responses with ProblemDetailsException', async () => {
     // Test Case 2: Error response handling with ProblemDetailsException
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'test2.ts': `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { z } from 'zod';
 
-const app = {
-  get: (path: string, middleware: any, handler: any) => {}
+const app = new Hono();
+const output = {
+  json: (value: unknown, status = 200) => Response.json(value, { status }),
 };
 
-class ProblemDetailsException extends Error {}
+class ProblemDetailsException extends Error {
+  constructor(readonly problem: { status: string; title: string; detail: string }) {
+    super(problem.title);
+  }
+}
 
 /**
  * @openapi getResource
@@ -222,16 +197,13 @@ app.get('/resource/:id', validate((payload) => ({
   });
 
   it('should handle multiple HTTP methods and content types', async () => {
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'index.ts': `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { z } from 'zod';
 
-const app = {
-  get: (path: string, middleware: any, handler: any) => {},
-  post: (path: string, middleware: any, handler: any) => {},
-  put: (path: string, middleware: any, handler: any) => {}
-};
+const app = new Hono();
 
 /**
  * @openapi listItems
@@ -274,38 +246,39 @@ app.get('/items', validate((payload) => ({
 
   it('should analyze responses from all middlewares', async () => {
     // Test Case 4: Middleware analysis with authenticate and ratelimit
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'test4.ts': `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono, type MiddlewareHandler } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 
-const app = {
-  post: (path: string, ...args: any[]) => {}
+const app = new Hono();
+const output = {
+  json: (value: unknown, status = 200) => Response.json(value, { status }),
 };
 
-class HTTPException extends Error {}
-
-const authenticate = () => (ctx: any) => {
-  const token = ctx.headers.get('Authorization');
+const authenticate = (): MiddlewareHandler => async (c, next) => {
+  const token = c.req.header('Authorization');
   if (!token) {
     throw new HTTPException(401, { message: 'Unauthorized' });
   }
-  return ctx;
+  await next();
 };
 
-const ratelimit = () => (ctx: any) => {
-  const limit = ctx.headers.get('X-RateLimit-Remaining');
+const ratelimit = (): MiddlewareHandler => async (c, next) => {
+  const limit = c.req.header('X-RateLimit-Remaining');
   if (limit === '0') {
     throw new HTTPException(429, { message: 'Too many requests' });
   }
-  return ctx;
+  await next();
 };
 
-const earlyReturn = () => (ctx: any) => {
-  if (ctx.query.get('skip') === 'true') {
+const earlyReturn = (): MiddlewareHandler => async (c, next) => {
+  if (c.req.query('skip') === 'true') {
     return output.json({ skipped: true }, 202);
   }
-  return ctx;
+  await next();
 };
 
 /**
@@ -355,26 +328,31 @@ app.post(
   });
 
   it('derives effective operation security from resolved middleware symbols', async () => {
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'auth.ts': `
-export const authenticate = () => (_ctx: unknown) => undefined;
+import type { MiddlewareHandler } from 'hono';
+
+export const authenticate = (): MiddlewareHandler => async (_c, next) => {
+  await next();
+};
 `,
       'routes.ts': `
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { authenticate as requireAuth } from './auth.js';
 
-const app = { get: (_path: string, ..._handlers: unknown[]) => undefined };
-const validate = (selector: unknown) => selector;
+const app = new Hono();
 
 /** @openapi getAccount */
 app.get(
   '/account',
   requireAuth(),
   validate(() => ({})),
-  () => ({ ok: true }),
+  (c) => c.json({ ok: true }),
 );
 
 /** @openapi getStatus */
-app.get('/status', validate(() => ({})), () => ({ ok: true }));
+app.get('/status', validate(() => ({})), (c) => c.json({ ok: true }));
 `,
     });
 
@@ -388,7 +366,7 @@ app.get('/status', validate(() => ({})), () => ({ ok: true }));
         {
           middleware: {
             import: 'authenticate',
-            from: join(dirname(workspace.tsconfig), 'src/auth.ts'),
+            from: join(workspace.path, 'auth.ts'),
           },
           security: [{ bearer: [] }],
         },
@@ -405,18 +383,23 @@ app.get('/status', validate(() => ({})), () => ({ ok: true }));
   });
 
   it('derives security from middleware passed by reference rather than called', async () => {
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'auth.ts': `
-export const authenticate = (_ctx: unknown) => undefined;
+import type { MiddlewareHandler } from 'hono';
+
+export const authenticate: MiddlewareHandler = async (_c, next) => {
+  await next();
+};
 `,
       'routes.ts': `
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { authenticate } from './auth.js';
 
-const app = { get: (_path: string, ..._handlers: unknown[]) => undefined };
-const validate = (selector: unknown) => selector;
+const app = new Hono();
 
 /** @openapi getAccount */
-app.get('/account', authenticate, validate(() => ({})), () => ({ ok: true }));
+app.get('/account', authenticate, validate(() => ({})), (c) => c.json({ ok: true }));
 `,
     });
 
@@ -430,7 +413,7 @@ app.get('/account', authenticate, validate(() => ({})), () => ({ ok: true }));
         {
           middleware: {
             import: 'authenticate',
-            from: join(dirname(workspace.tsconfig), 'src/auth.ts'),
+            from: join(workspace.path, 'auth.ts'),
           },
           security: [{ bearer: [] }],
         },
@@ -443,15 +426,22 @@ app.get('/account', authenticate, validate(() => ({})), () => ({ ok: true }));
   });
 
   it('resolves a constant referenced more than once in one expression', async () => {
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'auth.ts': `
-export const authorise = (_roles: readonly string[]) => (_ctx: unknown) => undefined;
+import type { MiddlewareHandler } from 'hono';
+
+export const authorise =
+  (_roles: readonly string[]): MiddlewareHandler =>
+  async (_c, next) => {
+    await next();
+  };
 `,
       'routes.ts': `
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { authorise } from './auth.js';
 
-const app = { get: (_path: string, ..._handlers: unknown[]) => undefined };
-const validate = (selector: unknown) => selector;
+const app = new Hono();
 const ADMIN = 'admin';
 const ROUTE_ROLES = [ADMIN, 'doctor'] as const;
 
@@ -460,7 +450,7 @@ app.get(
   '/cases',
   authorise([ADMIN, ...ROUTE_ROLES]),
   validate(() => ({})),
-  () => ({ ok: true }),
+  (c) => c.json({ ok: true }),
 );
 `,
     });
@@ -475,7 +465,7 @@ app.get(
         {
           middleware: {
             import: 'authorise',
-            from: join(dirname(workspace.tsconfig), 'src/auth.ts'),
+            from: join(workspace.path, 'auth.ts'),
           },
           security: [{ bearer: [] }],
           values: { scheme: 'bearer', argument: 0, mode: 'any' },
@@ -490,10 +480,18 @@ app.get(
   });
 
   it('combines middleware security and resolves any-role constants', async () => {
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'auth.ts': `
-export const authenticate = () => (_ctx: unknown) => undefined;
-export const authorise = (_roles: readonly string[]) => (_ctx: unknown) => undefined;
+import type { MiddlewareHandler } from 'hono';
+
+export const authenticate = (): MiddlewareHandler => async (_c, next) => {
+  await next();
+};
+export const authorise =
+  (_roles: readonly string[]): MiddlewareHandler =>
+  async (_c, next) => {
+    await next();
+  };
 `,
       'roles.ts': `
 export enum Role {
@@ -504,11 +502,12 @@ export enum Role {
 export const CARE_ROLES = [Role.Doctor, Role.Coordinator] as const;
 `,
       'routes.ts': `
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { authenticate, authorise as allowRoles } from './auth.js';
 import { CARE_ROLES } from './roles.js';
 
-const app = { get: (_path: string, ..._handlers: unknown[]) => undefined };
-const validate = (selector: unknown) => selector;
+const app = new Hono();
 const ADMIN = 'admin';
 const ROUTE_ROLES = [...CARE_ROLES, ADMIN] as const;
 
@@ -518,11 +517,11 @@ app.get(
   authenticate(),
   allowRoles([...ROUTE_ROLES]),
   validate(() => ({})),
-  () => ({ ok: true }),
+  (c) => c.json({ ok: true }),
 );
 `,
     });
-    const authModule = join(dirname(workspace.tsconfig), 'src/auth.ts');
+    const authModule = join(workspace.path, 'auth.ts');
 
     using project = openAnalysisProject(workspace.tsconfig);
     const result = await analyze(project, {
@@ -551,16 +550,25 @@ app.get(
   });
 
   it('combines schemes with AND and keeps all required values together', async () => {
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'auth.ts': `
-export const authorise = (_roles: readonly string[]) => (_ctx: unknown) => undefined;
-export const requireTenant = () => (_ctx: unknown) => undefined;
+import type { MiddlewareHandler } from 'hono';
+
+export const authorise =
+  (_roles: readonly string[]): MiddlewareHandler =>
+  async (_c, next) => {
+    await next();
+  };
+export const requireTenant = (): MiddlewareHandler => async (_c, next) => {
+  await next();
+};
 `,
       'routes.ts': `
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { authorise, requireTenant } from './auth.js';
 
-const app = { get: (_path: string, ..._handlers: unknown[]) => undefined };
-const validate = (selector: unknown) => selector;
+const app = new Hono();
 const ROLES = ['doctor', 'coordinator'] as const;
 
 /** @openapi getCases */
@@ -569,11 +577,11 @@ app.get(
   authorise(ROLES),
   requireTenant(),
   validate(() => ({})),
-  () => ({ ok: true }),
+  (c) => c.json({ ok: true }),
 );
 `,
     });
-    const authModule = join(dirname(workspace.tsconfig), 'src/auth.ts');
+    const authModule = join(workspace.path, 'auth.ts');
 
     using project = openAnalysisProject(workspace.tsconfig);
     const result = await analyze(project, {
@@ -601,15 +609,22 @@ app.get(
   });
 
   it('fails analysis when middleware security values are dynamic', async () => {
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'auth.ts': `
-export const authorise = (_roles: readonly string[]) => (_ctx: unknown) => undefined;
+import type { MiddlewareHandler } from 'hono';
+
+export const authorise =
+  (_roles: readonly string[]): MiddlewareHandler =>
+  async (_c, next) => {
+    await next();
+  };
 `,
       'routes.ts': `
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { authorise } from './auth.js';
 
-const app = { get: (_path: string, ..._handlers: unknown[]) => undefined };
-const validate = (selector: unknown) => selector;
+const app = new Hono();
 declare function rolesFromDatabase(): string[];
 
 /** @openapi getCases */
@@ -617,7 +632,7 @@ app.get(
   '/cases',
   authorise(rolesFromDatabase()),
   validate(() => ({})),
-  () => ({ ok: true }),
+  (c) => c.json({ ok: true }),
 );
 `,
     });
@@ -631,7 +646,7 @@ app.get(
           {
             middleware: {
               import: 'authorise',
-              from: join(dirname(workspace.tsconfig), 'src/auth.ts'),
+              from: join(workspace.path, 'auth.ts'),
             },
             security: [{ bearer: [] }],
             values: { scheme: 'bearer', argument: 0, mode: 'any' },
@@ -644,16 +659,17 @@ app.get(
 
   it('should follow call expressions into helper functions', async () => {
     // Test Case 5: Recursive call expression following
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'test5.ts': `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { type Context, Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 
-const app = {
-  post: (path: string, ...args: any[]) => {}
+const app = new Hono();
+const output = {
+  json: (value: unknown, status = 200) => Response.json(value, { status }),
 };
-
-class HTTPException extends Error {}
 
 // Helper function that throws
 function verifyContentType(contentType: string | undefined) {
@@ -666,10 +682,10 @@ function verifyContentType(contentType: string | undefined) {
 }
 
 // Helper function that calls another helper
-function parseJson(context: any) {
-  verifyContentType(context.headers.get('content-type'));
+function parseJson(c: Context) {
+  verifyContentType(c.req.header('content-type'));
   try {
-    return context.req.json();
+    return c.req.json();
   } catch (error) {
     throw new HTTPException(400, {
       message: 'Invalid JSON',
@@ -717,14 +733,13 @@ app.post(
   });
 
   it('should handle zod date and datetime validators', async () => {
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'index.ts': `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { z } from 'zod';
 
-const app = {
-  post: (path: string, middleware: any, handler: any) => {}
-};
+const app = new Hono();
 
 /**
  * @openapi createEvent
@@ -805,14 +820,13 @@ app.post('/events', validate((payload) => ({
   });
 
   it('should handle optional date validators', async () => {
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'index.ts': `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { z } from 'zod';
 
-const app = {
-  post: (path: string, middleware: any, handler: any) => {}
-};
+const app = new Hono();
 
 /**
  * @openapi updateEvent
@@ -849,7 +863,8 @@ app.post('/events/:id', validate((payload) => ({
         : undefined;
     assert.ok(body && 'properties' in body, 'Should have request body schema');
 
-    const props = body.properties as Record<string, unknown>;
+    const props = body.properties;
+    assert.ok(props, 'Should have properties');
 
     // optional z.date() preserves x-zod-type and is not required
     assert.deepStrictEqual(props.scheduledAt, {
@@ -858,7 +873,7 @@ app.post('/events/:id', validate((payload) => ({
       'x-zod-type': 'date',
     });
     assert.ok(
-      !((body as any).required ?? []).includes('scheduledAt'),
+      !(body.required ?? []).includes('scheduledAt'),
       'scheduledAt should not be required',
     );
 
@@ -869,20 +884,19 @@ app.post('/events/:id', validate((payload) => ({
       'x-zod-type': 'coerce-date',
     });
     assert.ok(
-      !((body as any).required ?? []).includes('coercedDate'),
+      !(body.required ?? []).includes('coercedDate'),
       'coercedDate should not be required',
     );
   });
 
   it('should handle date validators in query params', async () => {
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'index.ts': `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { z } from 'zod';
 
-const app = {
-  get: (path: string, middleware: any, handler: any) => {}
-};
+const app = new Hono();
 
 /**
  * @openapi listEvents
@@ -911,11 +925,9 @@ app.get('/events', validate((payload) => ({
     const operation = result.paths['/events']?.get;
     assert.ok(operation, 'Should have GET /events');
 
-    const params = (operation.parameters ?? []) as Array<{
-      name: string;
-      required: boolean;
-      schema: unknown;
-    }>;
+    const params = (operation.parameters ?? []).flatMap((parameter) =>
+      isReferenceObject(parameter) ? [] : [parameter],
+    );
     const since = params.find((p) => p.name === 'since');
     assert.ok(since, 'Should have since parameter');
     assert.equal(since.required, false);
@@ -935,16 +947,17 @@ app.get('/events', validate((payload) => ({
 
   it('should respect depth limits when following call expressions', async () => {
     // Test Case 6: Depth limiting
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'test6.ts': `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 
-const app = {
-  get: (path: string, ...args: any[]) => {}
+const app = new Hono();
+const output = {
+  json: (value: unknown, status = 200) => Response.json(value, { status }),
 };
-
-class HTTPException extends Error {}
 
 function level5() {
   throw new HTTPException(503, { message: 'Too deep' });
@@ -996,19 +1009,24 @@ app.get(
   });
 
   it('should deduplicate named middleware responses across operations', async () => {
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'test.ts': `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono, type MiddlewareHandler } from 'hono';
 import { z } from 'zod';
 
-const app = {
-  get: (path: string, ...args: any[]) => {},
-  post: (path: string, ...args: any[]) => {},
+const app = new Hono();
+const output = {
+  json: (value: unknown, status = 200) => Response.json(value, { status }),
 };
 
-class ProblemDetailsException extends Error {}
+class ProblemDetailsException extends Error {
+  constructor(readonly problem: { status: string; title: string; detail: string }) {
+    super(problem.title);
+  }
+}
 
-const authenticate = () => (ctx: any) => {
+const authenticate = (): MiddlewareHandler => async () => {
   throw new ProblemDetailsException({
     status: '401',
     title: 'Unauthorized',
@@ -1062,13 +1080,15 @@ app.post('/users', authenticate(), validate((p) => ({
   });
 
   it('should not deduplicate anonymous middleware responses', async () => {
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'test.ts': `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { z } from 'zod';
 
-const app = {
-  get: (path: string, ...args: any[]) => {},
+const app = new Hono();
+const output = {
+  json: (value: unknown, status = 200) => Response.json(value, { status }),
 };
 
 /** @openapi getItem @tags items */
@@ -1116,14 +1136,13 @@ app.get('/items',
   });
 
   it('should preserve integer type for z.number().int() in query and path params', async () => {
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'index.ts': `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { z } from 'zod';
 
-const app = {
-  get: (path: string, ...args: any[]) => {}
-};
+const app = new Hono();
 
 /**
  * @openapi getUsers
@@ -1170,10 +1189,9 @@ app.get('/users/:userId', validate((payload) => ({
     const getUsers = result.paths['/users']?.get;
     assert.ok(getUsers, 'Should have GET /users');
 
-    const params = (getUsers.parameters ?? []) as Array<{
-      name: string;
-      schema: any;
-    }>;
+    const params = (getUsers.parameters ?? []).flatMap((parameter) =>
+      isReferenceObject(parameter) ? [] : [parameter],
+    );
 
     const pageParam = params.find((p) => p.name === 'page');
     assert.ok(pageParam, 'Should have page parameter');
@@ -1210,19 +1228,23 @@ app.get('/users/:userId', validate((payload) => ({
     const getUserById = result.paths['/users/{userId}']?.get;
     assert.ok(getUserById, 'Should have GET /users/{userId}');
 
-    const byIdParams = (getUserById.parameters ?? []) as Array<{
-      name: string;
-      schema: any;
-    }>;
+    const byIdParams = (getUserById.parameters ?? []).flatMap((parameter) =>
+      isReferenceObject(parameter) ? [] : [parameter],
+    );
     const userIdParam = byIdParams.find((p) => p.name === 'userId');
     assert.ok(userIdParam, 'Should have userId parameter');
+    const userIdSchema = userIdParam.schema;
+    assert.ok(
+      userIdSchema && isSchemaObject(userIdSchema),
+      'userId parameter should have an inline schema',
+    );
     assert.strictEqual(
-      userIdParam.schema.type,
+      userIdSchema.type,
       'integer',
       'userId parameter should have type "integer" (from .int())',
     );
     assert.strictEqual(
-      userIdParam.schema['x-zod-type'],
+      userIdSchema['x-zod-type'],
       'coerce-number',
       'userId parameter should preserve x-zod-type',
     );
@@ -1256,7 +1278,7 @@ app.get('/users/:userId', validate((payload) => ({
     for (const ops of Object.values(groups)) {
       for (const op of ops) {
         if (op.operationId === 'getUsers') {
-          getUsersZod = Object.values(op.schemas)[0] as string;
+          getUsersZod = Object.values(op.schemas)[0] ?? '';
         }
       }
     }
@@ -1276,7 +1298,7 @@ app.get('/users/:userId', validate((payload) => ({
     for (const ops of Object.values(groups)) {
       for (const op of ops) {
         if (op.operationId === 'getUserById') {
-          getUserByIdZod = Object.values(op.schemas)[0] as string;
+          getUserByIdZod = Object.values(op.schemas)[0] ?? '';
         }
       }
     }
@@ -1289,7 +1311,7 @@ app.get('/users/:userId', validate((payload) => ({
   });
 
   it('should preserve integer type when using external imported schemas', async () => {
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'inputs.ts': `
 import { z } from 'zod';
 
@@ -1313,12 +1335,11 @@ export const pageSizeSchema = z.coerce
 export const intLikeSchema = z.coerce.number().int().positive();
 `,
       'index.ts': `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import * as inputs from './inputs';
 
-const app = {
-  get: (path: string, ...args: any[]) => {}
-};
+const app = new Hono();
 
 /**
  * @openapi getUsers
@@ -1352,11 +1373,7 @@ app.get('/users/:userId', validate((payload) => ({
 `,
     });
 
-    // Symlink node_modules so the imported inputs.ts can resolve 'zod'
-    const nodeModulesPath = join(dirname(workspace.tsconfig), 'node_modules');
-    await symlink(workspaceNodeModules, nodeModulesPath, 'dir');
-
-    const inputsPath = join(workspace.tsconfig, '..', 'src', 'inputs.ts');
+    const inputsPath = join(workspace.path, 'inputs.ts');
     using project = openAnalysisProject(workspace.tsconfig);
     const result = await analyze(project, {
       responseAnalyzer: responseAnalyzer,
@@ -1372,10 +1389,9 @@ app.get('/users/:userId', validate((payload) => ({
     const getUsers = result.paths['/users']?.get;
     assert.ok(getUsers, 'Should have GET /users');
 
-    const params = (getUsers.parameters ?? []) as Array<{
-      name: string;
-      schema: any;
-    }>;
+    const params = (getUsers.parameters ?? []).flatMap((parameter) =>
+      isReferenceObject(parameter) ? [] : [parameter],
+    );
 
     const pageParam = params.find((p) => p.name === 'page');
     assert.ok(pageParam, 'Should have page parameter');
@@ -1410,19 +1426,23 @@ app.get('/users/:userId', validate((payload) => ({
     const getUserById = result.paths['/users/{userId}']?.get;
     assert.ok(getUserById, 'Should have GET /users/{userId}');
 
-    const byIdParams = (getUserById.parameters ?? []) as Array<{
-      name: string;
-      schema: any;
-    }>;
+    const byIdParams = (getUserById.parameters ?? []).flatMap((parameter) =>
+      isReferenceObject(parameter) ? [] : [parameter],
+    );
     const userIdParam = byIdParams.find((p) => p.name === 'userId');
     assert.ok(userIdParam, 'Should have userId parameter');
+    const userIdSchema = userIdParam.schema;
+    assert.ok(
+      userIdSchema && isSchemaObject(userIdSchema),
+      'userId parameter should have an inline schema',
+    );
     assert.strictEqual(
-      userIdParam.schema.type,
+      userIdSchema.type,
       'integer',
       'userId parameter should have type "integer" when using external import',
     );
     assert.strictEqual(
-      userIdParam.schema['x-zod-type'],
+      userIdSchema['x-zod-type'],
       'coerce-number',
       'userId parameter should preserve x-zod-type when using external import',
     );
@@ -1455,7 +1475,7 @@ app.get('/users/:userId', validate((payload) => ({
     for (const ops of Object.values(groups)) {
       for (const op of ops) {
         if (op.operationId === 'getUsers') {
-          getUsersZod = Object.values(op.schemas)[0] as string;
+          getUsersZod = Object.values(op.schemas)[0] ?? '';
         }
       }
     }
@@ -1474,7 +1494,7 @@ app.get('/users/:userId', validate((payload) => ({
     for (const ops of Object.values(groups)) {
       for (const op of ops) {
         if (op.operationId === 'getUserById') {
-          getUserByIdZod = Object.values(op.schemas)[0] as string;
+          getUserByIdZod = Object.values(op.schemas)[0] ?? '';
         }
       }
     }
@@ -1487,13 +1507,15 @@ app.get('/users/:userId', validate((payload) => ({
   });
 
   it('characterizes union of string and string literals in response type', async () => {
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'index.ts': `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { z } from 'zod';
 
-const app = {
-  get: (path: string, ...args: any[]) => {},
+const app = new Hono();
+const output = {
+  json: (value: unknown, status = 200) => Response.json(value, { status }),
 };
 
 type EmployeePosition =
@@ -1520,8 +1542,10 @@ app.get('/employee', validate(() => ({})), (c) => {
       responseAnalyzer: responseAnalyzer,
     });
 
-    const schema = result.paths['/employee']?.get?.responses?.['200']
-      ?.content?.['application/json']?.schema as any;
+    const schema =
+      result.paths['/employee']?.get?.responses?.['200']?.content?.[
+        'application/json'
+      ]?.schema;
     assert.ok(schema, 'Should have 200 response schema');
 
     const positionSchema = schema.properties?.position;
@@ -1529,13 +1553,15 @@ app.get('/employee', validate(() => ({})), (c) => {
   });
 
   it('preserves literals when bare string is wrapped in (string & {})', async () => {
-    await using workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'index.ts': `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { z } from 'zod';
 
-const app = {
-  get: (path: string, ...args: any[]) => {},
+const app = new Hono();
+const output = {
+  json: (value: unknown, status = 200) => Response.json(value, { status }),
 };
 
 type EmployeePosition =
@@ -1562,8 +1588,10 @@ app.get('/employee', validate(() => ({})), (c) => {
       responseAnalyzer: responseAnalyzer,
     });
 
-    const schema = result.paths['/employee']?.get?.responses?.['200']
-      ?.content?.['application/json']?.schema as any;
+    const schema =
+      result.paths['/employee']?.get?.responses?.['200']?.content?.[
+        'application/json'
+      ]?.schema;
     assert.ok(schema, 'Should have 200 response schema');
 
     const positionSchema = schema.properties?.position;
@@ -1571,7 +1599,7 @@ app.get('/employee', validate(() => ({})), (c) => {
       Array.isArray(positionSchema?.anyOf),
       'position schema should be an anyOf union',
     );
-    const members = positionSchema.anyOf as any[];
+    const members: SchemaObject[] = positionSchema.anyOf;
     assert.ok(
       members.some(
         (m) => m.type === 'string' && !m.enum && !m.const && !m.format,
@@ -1601,11 +1629,9 @@ app.get('/employee', validate(() => ({})), (c) => {
     const reference = { $ref: '#/components/schemas/UIMessage' };
     const responseItems = ['/first', '/second'].map(
       (path) =>
-        (
-          result.paths[path]?.get?.responses?.['200']?.content?.[
-            'application/json'
-          ]?.schema as any
-        )?.properties?.messages?.items,
+        result.paths[path]?.get?.responses?.['200']?.content?.[
+          'application/json'
+        ]?.schema?.properties?.messages?.items,
     );
 
     assert.ok(result.components.schemas?.UIMessage);
@@ -1619,34 +1645,43 @@ app.get('/employee', validate(() => ({})), (c) => {
   });
 });
 
-async function analyzeRequestBody(source: string) {
-  const workspace = await tsworkspace(tsconfig, { 'index.ts': source });
-  try {
-    using project = openAnalysisProject(workspace.tsconfig);
-    const result = await analyze(project, {
-      responseAnalyzer: responseAnalyzer,
-    });
-    const op = result.paths['/x']?.post;
-    assert.ok(op, 'Should have POST /x');
-    const requestBody = op.requestBody;
-    const body =
-      requestBody && 'content' in requestBody
-        ? requestBody.content?.['application/json']?.schema
-        : undefined;
-    assert.ok(body && 'properties' in body, 'Should have request body schema');
-    return body as any;
-  } finally {
-    await workspace[Symbol.asyncDispose]();
-  }
+async function requestBodyField(source: string) {
+  await using workspace = await analysisWorkspace('generic-body-', {
+    'index.ts': source,
+  });
+  using project = openAnalysisProject(workspace.tsconfig);
+  const result = await analyze(project, {
+    responseAnalyzer: responseAnalyzer,
+  });
+  const op = result.paths['/x']?.post;
+  assert.ok(op, 'Should have POST /x');
+  const requestBody = op.requestBody;
+  const body =
+    requestBody && 'content' in requestBody
+      ? requestBody.content?.['application/json']?.schema
+      : undefined;
+  assert.ok(body && 'properties' in body, 'Should have request body schema');
+  return {
+    field: inlineSchema(body.properties?.field),
+    required: body.required ?? [],
+  };
+}
+
+function inlineSchema(
+  schema: SchemaObject | ReferenceObject | undefined,
+): SchemaObject {
+  assert.ok(schema && isSchemaObject(schema), 'Should have an inline schema');
+  return schema;
 }
 
 function bodySource(againstExpr: string, extraImports = '') {
   return `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { z } from 'zod';
 ${extraImports}
 
-const app = { post: (path: string, middleware: any, handler: any) => {} };
+const app = new Hono();
 
 /** @openapi op @tags x */
 app.post('/x', validate((p) => ({
@@ -1659,70 +1694,72 @@ app.post('/x', validate((p) => ({
 
 describe('zod v3 → v4 migration characterization: string formats', () => {
   it('z.string().email() emits format=email', async () => {
-    const body = await analyzeRequestBody(bodySource('z.string().email()'));
-    assert.deepStrictEqual(body.properties.field, {
+    const { field } = await requestBodyField(bodySource('z.string().email()'));
+    assert.deepStrictEqual(field, {
       type: 'string',
       format: 'email',
     });
   });
 
   it('z.string().uuid() emits format=uuid', async () => {
-    const body = await analyzeRequestBody(bodySource('z.string().uuid()'));
-    assert.deepStrictEqual(body.properties.field, {
+    const { field } = await requestBodyField(bodySource('z.string().uuid()'));
+    assert.deepStrictEqual(field, {
       type: 'string',
       format: 'uuid',
     });
   });
 
   it('z.string().url() emits format=uri', async () => {
-    const body = await analyzeRequestBody(bodySource('z.string().url()'));
-    assert.deepStrictEqual(body.properties.field, {
+    const { field } = await requestBodyField(bodySource('z.string().url()'));
+    assert.deepStrictEqual(field, {
       type: 'string',
       format: 'uri',
     });
   });
 
   it('z.string().datetime() emits format=date-time', async () => {
-    const body = await analyzeRequestBody(bodySource('z.string().datetime()'));
-    assert.deepStrictEqual(body.properties.field, {
+    const { field } = await requestBodyField(
+      bodySource('z.string().datetime()'),
+    );
+    assert.deepStrictEqual(field, {
       type: 'string',
       format: 'date-time',
     });
   });
 
   it('z.string().date() emits format=date', async () => {
-    const body = await analyzeRequestBody(bodySource('z.string().date()'));
-    assert.deepStrictEqual(body.properties.field, {
+    const { field } = await requestBodyField(bodySource('z.string().date()'));
+    assert.deepStrictEqual(field, {
       type: 'string',
       format: 'date',
     });
   });
 
   it('z.string().ip({ version: "v4" }) emits format=ipv4', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource(`z.string().ip({ version: 'v4' })`),
     );
-    assert.deepStrictEqual(body.properties.field, {
+    assert.deepStrictEqual(field, {
       type: 'string',
       format: 'ipv4',
     });
   });
 
   it('z.string().ip({ version: "v6" }) emits format=ipv6', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource(`z.string().ip({ version: 'v6' })`),
     );
-    assert.deepStrictEqual(body.properties.field, {
+    assert.deepStrictEqual(field, {
       type: 'string',
       format: 'ipv6',
     });
   });
 
   it('z.string().min(n).max(n) emits minLength/maxLength', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource('z.string().min(3).max(10)'),
     );
-    assert.deepStrictEqual(body.properties.field, {
+    assert.deepStrictEqual(field, {
       type: 'string',
       minLength: 3,
       maxLength: 10,
@@ -1732,63 +1769,65 @@ describe('zod v3 → v4 migration characterization: string formats', () => {
 
 describe('zod v3 → v4 migration characterization: primitives', () => {
   it('z.boolean() emits type=boolean', async () => {
-    const body = await analyzeRequestBody(bodySource('z.boolean()'));
-    assert.deepStrictEqual(body.properties.field, { type: 'boolean' });
+    const { field } = await requestBodyField(bodySource('z.boolean()'));
+    assert.deepStrictEqual(field, { type: 'boolean' });
   });
 
   it('z.bigint() is interpreted as int64', async () => {
-    const body = await analyzeRequestBody(bodySource('z.bigint()'));
-    assert.deepStrictEqual(body.properties.field, {
+    const { field } = await requestBodyField(bodySource('z.bigint()'));
+    assert.deepStrictEqual(field, {
       type: 'integer',
       format: 'int64',
     });
   });
 
   it('z.int64() emits integer with int64 format', async () => {
-    const body = await analyzeRequestBody(bodySource('z.int64()'));
-    assert.deepStrictEqual(body.properties.field, {
+    const { field } = await requestBodyField(bodySource('z.int64()'));
+    assert.deepStrictEqual(field, {
       type: 'integer',
       format: 'int64',
     });
   });
 
   it('z.literal(string) emits const string', async () => {
-    const body = await analyzeRequestBody(bodySource(`z.literal('foo')`));
-    assert.deepStrictEqual(body.properties.field, {
+    const { field } = await requestBodyField(bodySource(`z.literal('foo')`));
+    assert.deepStrictEqual(field, {
       type: 'string',
       const: 'foo',
     });
   });
 
   it('z.literal(number) emits const number', async () => {
-    const body = await analyzeRequestBody(bodySource('z.literal(42)'));
-    assert.deepStrictEqual(body.properties.field, {
+    const { field } = await requestBodyField(bodySource('z.literal(42)'));
+    assert.deepStrictEqual(field, {
       type: 'number',
       const: 42,
     });
   });
 
   it('z.literal(boolean) emits const boolean', async () => {
-    const body = await analyzeRequestBody(bodySource('z.literal(true)'));
-    assert.deepStrictEqual(body.properties.field, {
+    const { field } = await requestBodyField(bodySource('z.literal(true)'));
+    assert.deepStrictEqual(field, {
       type: 'boolean',
       const: true,
     });
   });
 
   it('z.enum([...]) emits string with enum members', async () => {
-    const body = await analyzeRequestBody(bodySource(`z.enum(['a','b','c'])`));
-    assert.deepStrictEqual(body.properties.field, {
+    const { field } = await requestBodyField(
+      bodySource(`z.enum(['a','b','c'])`),
+    );
+    assert.deepStrictEqual(field, {
       type: 'string',
       enum: ['a', 'b', 'c'],
     });
   });
 
   it('z.nativeEnum(inlineRecord) emits number with enum members', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource('z.nativeEnum({ A: 1, B: 2 })'),
     );
-    assert.deepStrictEqual(body.properties.field, {
+    assert.deepStrictEqual(field, {
       type: 'number',
       enum: [1, 2],
     });
@@ -1796,7 +1835,7 @@ describe('zod v3 → v4 migration characterization: primitives', () => {
 
   it('z.nativeEnum referencing a non-imported local identifier throws (analyzer requires self-contained expressions)', async () => {
     await assert.rejects(
-      analyzeRequestBody(
+      requestBodyField(
         bodySource('z.nativeEnum(MyEnum)', 'enum MyEnum { A = 1, B = 2 }'),
       ),
       /MyEnum is not defined/,
@@ -1805,7 +1844,7 @@ describe('zod v3 → v4 migration characterization: primitives', () => {
 
   it('against expression with TS-only syntax (as const) fails to evaluate', async () => {
     await assert.rejects(
-      analyzeRequestBody(bodySource('z.nativeEnum({ A: 1, B: 2 } as const)')),
+      requestBodyField(bodySource('z.nativeEnum({ A: 1, B: 2 } as const)')),
       /missing \) after argument list/,
     );
   });
@@ -1813,18 +1852,18 @@ describe('zod v3 → v4 migration characterization: primitives', () => {
 
 describe('zod v3 → v4 migration characterization: collections', () => {
   it('z.array(z.string()) emits array with items', async () => {
-    const body = await analyzeRequestBody(bodySource('z.array(z.string())'));
-    assert.deepStrictEqual(body.properties.field, {
+    const { field } = await requestBodyField(bodySource('z.array(z.string())'));
+    assert.deepStrictEqual(field, {
       type: 'array',
       items: { type: 'string' },
     });
   });
 
   it('z.tuple([...]) emits array with positional items', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource('z.tuple([z.string(), z.number()])'),
     );
-    assert.deepStrictEqual(body.properties.field, {
+    assert.deepStrictEqual(field, {
       type: 'array',
       minItems: 2,
       maxItems: 2,
@@ -1833,20 +1872,20 @@ describe('zod v3 → v4 migration characterization: collections', () => {
   });
 
   it('z.record(z.string(), z.number()) emits object with additionalProperties', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource('z.record(z.string(), z.number())'),
     );
-    assert.deepStrictEqual(body.properties.field, {
+    assert.deepStrictEqual(field, {
       type: 'object',
       additionalProperties: { type: 'number' },
     });
   });
 
   it('z.object({...}).catchall(z.number()) emits typed additionalProperties', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource('z.object({ a: z.string() }).catchall(z.number())'),
     );
-    assert.deepStrictEqual(body.properties.field, {
+    assert.deepStrictEqual(field, {
       type: 'object',
       properties: { a: { type: 'string' } },
       required: ['a'],
@@ -1855,10 +1894,10 @@ describe('zod v3 → v4 migration characterization: collections', () => {
   });
 
   it('z.object({...}).strict() emits additionalProperties=false', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource('z.object({ a: z.string() }).strict()'),
     );
-    assert.deepStrictEqual(body.properties.field, {
+    assert.deepStrictEqual(field, {
       type: 'object',
       properties: { a: { type: 'string' } },
       required: ['a'],
@@ -1867,10 +1906,10 @@ describe('zod v3 → v4 migration characterization: collections', () => {
   });
 
   it('z.object({...}).passthrough() emits permissive additionalProperties (zod v4 emits {} instead of true — semantically identical)', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource('z.object({ a: z.string() }).passthrough()'),
     );
-    assert.deepStrictEqual(body.properties.field, {
+    assert.deepStrictEqual(field, {
       type: 'object',
       properties: { a: { type: 'string' } },
       required: ['a'],
@@ -1879,12 +1918,12 @@ describe('zod v3 → v4 migration characterization: collections', () => {
   });
 
   it('nested z.object schemas preserve structure', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource(
         'z.object({ inner: z.object({ x: z.string(), y: z.number() }) })',
       ),
     );
-    assert.deepStrictEqual(body.properties.field, {
+    assert.deepStrictEqual(field, {
       type: 'object',
       properties: {
         inner: {
@@ -1905,21 +1944,24 @@ describe('zod v3 → v4 migration characterization: collections', () => {
 
 describe('zod v3 → v4 migration characterization: composition', () => {
   it('z.union([string, number]) emits a union', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource('z.union([z.string(), z.number()])'),
     );
-    const field = body.properties.field;
     const variants = field.anyOf ?? field.oneOf;
     if (variants) {
       const types = variants.map((v: any) => v.type).sort();
       assert.deepStrictEqual(types, ['number', 'string']);
     } else {
+      assert.ok(
+        Array.isArray(field.type),
+        'union -> anyOf, oneOf or type array',
+      );
       assert.deepStrictEqual([...field.type].sort(), ['number', 'string']);
     }
   });
 
   it('z.discriminatedUnion emits anyOf of object schemas', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource(
         `z.discriminatedUnion('kind', [
           z.object({ kind: z.literal('a'), x: z.string() }),
@@ -1927,20 +1969,24 @@ describe('zod v3 → v4 migration characterization: composition', () => {
         ])`,
       ),
     );
-    const field = body.properties.field;
     assert.ok(Array.isArray(field.anyOf), 'discriminatedUnion -> anyOf');
     assert.strictEqual(field.anyOf.length, 2);
-    assert.strictEqual(field.anyOf[0].properties.kind.const, 'a');
-    assert.strictEqual(field.anyOf[1].properties.kind.const, 'b');
+    assert.strictEqual(
+      inlineSchema(inlineSchema(field.anyOf[0]).properties?.kind).const,
+      'a',
+    );
+    assert.strictEqual(
+      inlineSchema(inlineSchema(field.anyOf[1]).properties?.kind).const,
+      'b',
+    );
   });
 
   it('z.intersection emits allOf', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource(
         'z.intersection(z.object({ a: z.string() }), z.object({ b: z.number() }))',
       ),
     );
-    const field = body.properties.field;
     assert.ok(
       Array.isArray(field.allOf) ||
         (field.type === 'object' && field.properties),
@@ -1954,17 +2000,17 @@ describe('zod v3 → v4 migration characterization: composition', () => {
 
 describe('zod v3 → v4 migration characterization: modifiers', () => {
   it('.optional() marks the field as not required', async () => {
-    const body = await analyzeRequestBody(bodySource('z.string().optional()'));
-    assert.deepStrictEqual(body.properties.field, { type: 'string' });
-    assert.ok(
-      !(body.required ?? []).includes('field'),
-      'field should not be required',
+    const { field, required } = await requestBodyField(
+      bodySource('z.string().optional()'),
     );
+    assert.deepStrictEqual(field, { type: 'string' });
+    assert.ok(!required.includes('field'), 'field should not be required');
   });
 
   it('.nullable() emits anyOf with null branch', async () => {
-    const body = await analyzeRequestBody(bodySource('z.string().nullable()'));
-    const field = body.properties.field;
+    const { field } = await requestBodyField(
+      bodySource('z.string().nullable()'),
+    );
     const hasNull =
       (Array.isArray(field.anyOf) &&
         field.anyOf.some((c: any) => c.type === 'null')) ||
@@ -1975,10 +2021,11 @@ describe('zod v3 → v4 migration characterization: modifiers', () => {
   });
 
   it('.nullish() makes field optional with null branch', async () => {
-    const body = await analyzeRequestBody(bodySource('z.string().nullish()'));
-    const field = body.properties.field;
+    const { field, required } = await requestBodyField(
+      bodySource('z.string().nullish()'),
+    );
     assert.ok(
-      !(body.required ?? []).includes('field'),
+      !required.includes('field'),
       'nullish field should not be required',
     );
     const hasNull =
@@ -1991,40 +2038,39 @@ describe('zod v3 → v4 migration characterization: modifiers', () => {
   });
 
   it('.default(value) emits default key', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource(`z.string().default('hi')`),
     );
-    assert.strictEqual(body.properties.field.default, 'hi');
-    assert.strictEqual(body.properties.field.type, 'string');
+    assert.strictEqual(field.default, 'hi');
+    assert.strictEqual(field.type, 'string');
   });
 
   it('.describe("...") emits description', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource(`z.string().describe('a name')`),
     );
-    assert.strictEqual(body.properties.field.description, 'a name');
-    assert.strictEqual(body.properties.field.type, 'string');
+    assert.strictEqual(field.description, 'a name');
+    assert.strictEqual(field.type, 'string');
   });
 
   it('.refine(...) does not add to the emitted schema (passes through)', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource('z.string().refine((v) => v.length > 0)'),
     );
-    assert.deepStrictEqual(body.properties.field, { type: 'string' });
+    assert.deepStrictEqual(field, { type: 'string' });
   });
 
   it('.transform(...) keeps the input schema type (effectStrategy: input)', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource('z.string().transform((v) => v.length)'),
     );
-    assert.deepStrictEqual(body.properties.field, { type: 'string' });
+    assert.deepStrictEqual(field, { type: 'string' });
   });
 
   it('.pipe(...) preserves the chained input shape', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource('z.string().pipe(z.string().min(1))'),
     );
-    const field = body.properties.field;
     const isAllOf = Array.isArray(field.allOf);
     const isMergedString = field.type === 'string' && field.minLength === 1;
     assert.ok(
@@ -2034,39 +2080,39 @@ describe('zod v3 → v4 migration characterization: modifiers', () => {
   });
 
   it('.brand("...") is transparent in the JSON schema', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource(`z.string().brand('UserId')`),
     );
-    assert.deepStrictEqual(body.properties.field, { type: 'string' });
+    assert.deepStrictEqual(field, { type: 'string' });
   });
 });
 
 describe('zod v3 → v4 migration characterization: coerce variants', () => {
   it('z.coerce.string() carries x-zod-type=coerce-string', async () => {
-    const body = await analyzeRequestBody(bodySource('z.coerce.string()'));
-    assert.strictEqual(body.properties.field.type, 'string');
-    assert.strictEqual(body.properties.field['x-zod-type'], 'coerce-string');
+    const { field } = await requestBodyField(bodySource('z.coerce.string()'));
+    assert.strictEqual(field.type, 'string');
+    assert.strictEqual(field['x-zod-type'], 'coerce-string');
   });
 
   it('z.coerce.boolean() carries x-zod-type=coerce-boolean', async () => {
-    const body = await analyzeRequestBody(bodySource('z.coerce.boolean()'));
-    assert.strictEqual(body.properties.field.type, 'boolean');
-    assert.strictEqual(body.properties.field['x-zod-type'], 'coerce-boolean');
+    const { field } = await requestBodyField(bodySource('z.coerce.boolean()'));
+    assert.strictEqual(field.type, 'boolean');
+    assert.strictEqual(field['x-zod-type'], 'coerce-boolean');
   });
 
   it('z.coerce.bigint() carries x-zod-type=coerce-bigint', async () => {
-    const body = await analyzeRequestBody(bodySource('z.coerce.bigint()'));
-    assert.strictEqual(body.properties.field.type, 'integer');
-    assert.strictEqual(body.properties.field['x-zod-type'], 'coerce-bigint');
+    const { field } = await requestBodyField(bodySource('z.coerce.bigint()'));
+    assert.strictEqual(field.type, 'integer');
+    assert.strictEqual(field['x-zod-type'], 'coerce-bigint');
   });
 });
 
 describe('zod v3 → v4 migration characterization: recursive (z.lazy)', () => {
   it('inline z.lazy with a non-recursive body resolves to an object schema', async () => {
-    const body = await analyzeRequestBody(
+    const { field } = await requestBodyField(
       bodySource('z.lazy(() => z.object({ value: z.string() }))'),
     );
-    assert.deepStrictEqual(body.properties.field, {
+    assert.deepStrictEqual(field, {
       type: 'object',
       properties: { value: { type: 'string' } },
       required: ['value'],
@@ -2075,12 +2121,13 @@ describe('zod v3 → v4 migration characterization: recursive (z.lazy)', () => {
   });
 
   it('z.lazy referencing an enclosing schema variable throws (analyzer requires self-contained expressions)', async () => {
-    const workspace = await tsworkspace(tsconfig, {
+    await using workspace = await analysisWorkspace('generic-', {
       'index.ts': `
-import { validate } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
 import { z } from 'zod';
 
-const app = { post: (path: string, middleware: any, handler: any) => {} };
+const app = new Hono();
 
 type Node = { value: string; next?: Node };
 const nodeSchema: z.ZodType<Node> = z.lazy(() =>
@@ -2095,16 +2142,12 @@ app.post('/x', validate((p) => ({
 });
 `,
     });
-    try {
-      using project = openAnalysisProject(workspace.tsconfig);
-      await assert.rejects(
-        analyze(project, {
-          responseAnalyzer: responseAnalyzer,
-        }),
-        /nodeSchema is not defined/,
-      );
-    } finally {
-      await workspace[Symbol.asyncDispose]();
-    }
+    using project = openAnalysisProject(workspace.tsconfig);
+    await assert.rejects(
+      analyze(project, {
+        responseAnalyzer: responseAnalyzer,
+      }),
+      /nodeSchema is not defined/,
+    );
   });
 });

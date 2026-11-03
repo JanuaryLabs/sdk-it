@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
+import type { OpenAPIDocument } from '@sdk-it/core';
 import { createModelNamer } from '@sdk-it/typescript';
 
 import { TypeScriptEmitter } from './interface.ts';
 
-const emptySpec = { components: { schemas: {} } } as any;
+const emptySpec: OpenAPIDocument = {
+  openapi: '3.1.0',
+  info: { title: 'Test', version: '1.0.0' },
+  components: { schemas: {} },
+};
 
 describe('TypeScriptEmitter date handling', () => {
   test('format date-time returns string', () => {
@@ -154,13 +159,15 @@ describe('TypeScriptEmitter union of string and string literals', () => {
   });
 
   test('wraps bare string when literal sibling is a $ref', () => {
-    const specWithRefs = {
+    const specWithRefs: OpenAPIDocument = {
+      openapi: '3.1.0',
+      info: { title: 'Test', version: '1.0.0' },
       components: {
         schemas: {
           DirectorRole: { const: 'Director', type: 'string' },
         },
       },
-    } as any;
+    };
     const emitter = new TypeScriptEmitter(
       specWithRefs,
       createModelNamer('Client'),

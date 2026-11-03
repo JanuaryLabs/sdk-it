@@ -230,18 +230,20 @@ describe('getItemsName()', () => {
 
   describe('Edge Cases and Specificity', () => {
     test('should handle properties that are not valid SchemaObjects gracefully (e.g. boolean)', () => {
-      const schema = createSchema({
-        validArray: arraySchema(),
-        invalidProp: true as never, // Not a valid SchemaObject
-      });
+      const schema = createSchema(
+        JSON.parse(
+          JSON.stringify({ validArray: arraySchema(), invalidProp: true }),
+        ),
+      );
       assert.strictEqual(getItemsName(schema), 'validArray');
     });
 
     test('should handle properties that are null SchemaObjects gracefully', () => {
-      const schema = createSchema({
-        anotherArray: arraySchema(),
-        nullProp: null as never, // Not a valid SchemaObject
-      });
+      const schema = createSchema(
+        JSON.parse(
+          JSON.stringify({ anotherArray: arraySchema(), nullProp: null }),
+        ),
+      );
       assert.strictEqual(getItemsName(schema), 'anotherArray');
     });
 

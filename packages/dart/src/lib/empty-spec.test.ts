@@ -1,21 +1,15 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
-import {
-  mkdir,
-  mkdtempDisposable,
-  readFile,
-  readdir,
-  writeFile,
-} from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { generate } from '@sdk-it/dart';
 
 void test.each(['new', 'nested', 'existing'] as const, (directory) =>
   test(`generates an empty Dart SDK with ${directory} output directory`, async () => {
-    await using workspace = await mkdtempDisposable(
-      join(tmpdir(), 'sdk-it-dart-empty-'),
+    await using workspace = await new TemporaryFiles().directory(
+      'sdk-it-dart-empty-',
     );
     const output = join(
       workspace.path,

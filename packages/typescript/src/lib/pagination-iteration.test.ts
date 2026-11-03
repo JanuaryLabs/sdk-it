@@ -2,12 +2,13 @@ import { HttpServer } from '@zukhruf/testing/http';
 import { test } from '@zukhruf/testing/node';
 import { build } from 'esbuild';
 import assert from 'node:assert/strict';
-import { mkdtempDisposable, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { toIR } from '@sdk-it/spec';
+import { workspaceDirectory } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 const items = ['a', 'b', 'c', 'd', 'e'];
@@ -45,12 +46,7 @@ void test.each(
   ] as const,
   ({ type, parameters, input, window }) =>
     test(`for await over a ${type}-paginated response yields every page, starting with the first`, async () => {
-      await using workspace = await mkdtempDisposable(
-        join(
-          fileURLToPath(new URL('../../../../', import.meta.url)),
-          '.pagination-iteration-',
-        ),
-      );
+      await using workspace = await workspaceDirectory('pagination-iteration-');
       const spec: OpenAPIObject = {
         openapi: '3.1.0',
         info: { title: 'Paged', version: '1.0.0' },

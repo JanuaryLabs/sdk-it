@@ -1,22 +1,20 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   readdirSync,
-  rmSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
-import { typecheck } from '@sdk-it/testing';
+import { typecheck, workspaceDirectory } from '@sdk-it/testing';
 import { generate, render } from '@sdk-it/typescript';
 
 const packageDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -95,11 +93,12 @@ function sourceFiles(dir: string) {
   );
 }
 
-test('render reads and writes nothing outside the code it loads', () => {
-  const workingFolder = mkdtempSync(join(tmpdir(), 'render-no-disk-'));
-  try {
-    writeFileSync(join(workingFolder, 'index.ts'), 'export {};');
-    const script = `
+test('render reads and writes nothing outside the code it loads', async () => {
+  await using workingFolder = await new TemporaryFiles().directory(
+    'render-no-disk-',
+  );
+  writeFileSync(join(workingFolder.path, 'index.ts'), 'export {};');
+  const script = `
     const { render } = await import(${JSON.stringify(import.meta.resolve('@sdk-it/typescript'))});
     const files = await render(${JSON.stringify(petStore(['Pet']))}, {
       name: 'Pets',
@@ -109,65 +108,58 @@ test('render reads and writes nothing outside the code it loads', () => {
     process.stdout.write(String(Object.keys(files).length));
   `;
 
-    const result = spawnSync(
-      process.execPath,
-      [
-        '--permission',
-        `--allow-fs-read=${repoRoot}`,
-        '--input-type=module',
-        '--eval',
-        script,
-      ],
-      { cwd: workingFolder, encoding: 'utf8' },
-    );
+  const result = spawnSync(
+    process.execPath,
+    [
+      '--permission',
+      `--allow-fs-read=${repoRoot}`,
+      '--input-type=module',
+      '--eval',
+      script,
+    ],
+    { cwd: workingFolder.path, encoding: 'utf8' },
+  );
 
-    assert.equal(result.status, 0, result.stderr);
-    assert.ok(Number(result.stdout) > 0, result.stdout);
-  } finally {
-    rmSync(workingFolder, { recursive: true, force: true });
-  }
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(Number(result.stdout) > 0, result.stdout);
 });
 
 for (const agentTools of ['ai-sdk', 'openai-agents'] as const) {
   test(`render output without .ts extensions compiles where .ts imports are not allowed (${agentTools})`, async () => {
-    const dir = mkdtempSync(join(repoRoot, '.render-no-ts-extension-'));
-    try {
-      const files = await render(petStore(['Pet', 'Tag']), {
-        name: 'Pets',
-        style: { name: 'github' },
-        useTsExtension: false,
-        agentTools,
-      });
-      await writeFiles(dir, files);
-      writeFileSync(
-        join(dir, 'tsconfig.json'),
-        JSON.stringify({
-          compilerOptions: {
-            target: 'ESNext',
-            moduleResolution: 'bundler',
-            skipLibCheck: true,
-            noEmit: true,
-            verbatimModuleSyntax: true,
-          },
-          include: ['**/*.ts'],
-        }),
-      );
+    await using directory = await workspaceDirectory('render-no-ts-extension-');
+    const files = await render(petStore(['Pet', 'Tag']), {
+      name: 'Pets',
+      style: { name: 'github' },
+      useTsExtension: false,
+      agentTools,
+    });
+    await writeFiles(directory.path, files);
+    writeFileSync(
+      join(directory.path, 'tsconfig.json'),
+      JSON.stringify({
+        compilerOptions: {
+          target: 'ESNext',
+          moduleResolution: 'bundler',
+          skipLibCheck: true,
+          noEmit: true,
+          verbatimModuleSyntax: true,
+        },
+        include: ['**/*.ts'],
+      }),
+    );
 
-      const checked = typecheck(join(dir, 'tsconfig.json'));
+    const checked = typecheck(join(directory.path, 'tsconfig.json'));
 
-      assert.ok(checked.files.some((file) => file.startsWith(dir)));
-      assert.deepStrictEqual(checked.diagnostics, []);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    assert.ok(checked.files.some((file) => file.startsWith(directory.path)));
+    assert.deepStrictEqual(checked.diagnostics, []);
   });
 }
 
 test('generate writes metadata.json through a writer that keeps files in memory', async () => {
-  const output = join(
-    tmpdir(),
-    `render-in-memory-${process.pid}-${Date.now()}`,
+  await using directory = await new TemporaryFiles().directory(
+    'render-in-memory-',
   );
+  const output = join(directory.path, 'sdk');
   const written: string[] = [];
 
   await generate(petStore(['Pet']), {
@@ -185,77 +177,77 @@ test('generate writes metadata.json through a writer that keeps files in memory'
 });
 
 test('generate leaves the caller settings unchanged across runs', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'render-settings-'));
-  try {
-    let writes = 0;
-    const settings = {
-      output: dir,
-      readme: false,
-      writer: async (
-        folder: string,
-        contents: Parameters<typeof writeFiles>[1],
-      ) => {
-        writes++;
-        await writeFiles(folder, contents);
-      },
-    };
-    const before = { ...settings };
-    await generate(petStore(['Pet']), settings);
-    const firstRunWrites = writes;
+  await using directory = await new TemporaryFiles().directory(
+    'render-settings-',
+  );
+  let writes = 0;
+  const settings = {
+    output: directory.path,
+    readme: false,
+    writer: async (
+      folder: string,
+      contents: Parameters<typeof writeFiles>[1],
+    ) => {
+      writes++;
+      await writeFiles(folder, contents);
+    },
+  };
+  const before = { ...settings };
+  await generate(petStore(['Pet']), settings);
+  const firstRunWrites = writes;
 
-    await generate(petStore(['Pet']), settings);
+  await generate(petStore(['Pet']), settings);
 
-    assert.deepStrictEqual(settings, before);
-    assert.ok(writes > firstRunWrites);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  assert.deepStrictEqual(settings, before);
+  assert.ok(writes > firstRunWrites);
 });
 
 test('a regenerated SDK keeps exporting a model the user added', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'render-user-file-'));
-  try {
-    const settings = { output: dir, readme: false, cleanup: false };
-    await generate(petStore(['Pet']), settings);
-    writeFileSync(join(dir, 'models', 'custom.ts'), 'export type Custom = 1;');
-    writeFileSync(join(dir, 'models', 'notes.md'), '# Notes');
-    mkdirSync(join(dir, 'models', 'extra'));
-    writeFileSync(
-      join(dir, 'models', 'extra', 'index.ts'),
-      'export type Extra = 1;',
-    );
+  await using directory = await new TemporaryFiles().directory(
+    'render-user-file-',
+  );
+  const settings = { output: directory.path, readme: false, cleanup: false };
+  await generate(petStore(['Pet']), settings);
+  writeFileSync(
+    join(directory.path, 'models', 'custom.ts'),
+    'export type Custom = 1;',
+  );
+  writeFileSync(join(directory.path, 'models', 'notes.md'), '# Notes');
+  mkdirSync(join(directory.path, 'models', 'extra'));
+  writeFileSync(
+    join(directory.path, 'models', 'extra', 'index.ts'),
+    'export type Extra = 1;',
+  );
 
-    await generate(petStore(['Pet']), settings);
+  await generate(petStore(['Pet']), settings);
 
-    const index = readFileSync(join(dir, 'models', 'index.ts'), 'utf8');
-    assert.match(index, /^export \* from '\.\/custom\.ts';$/m);
-    assert.match(index, /^export \* from '\.\/extra\/index\.ts';$/m);
-    assert.doesNotMatch(index, /notes/);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  const index = readFileSync(
+    join(directory.path, 'models', 'index.ts'),
+    'utf8',
+  );
+  assert.match(index, /^export \* from '\.\/custom\.ts';$/m);
+  assert.match(index, /^export \* from '\.\/extra\/index\.ts';$/m);
+  assert.doesNotMatch(index, /notes/);
 });
 
 test('without cleanup, a model removed from the spec stays exported', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'render-stale-file-'));
-  try {
-    const settings = { output: dir, readme: false, cleanup: false };
-    const tagExport = /^export \* from '\.\/tag\.ts';$/m;
-    await generate(petStore(['Pet', 'Tag']), settings);
-    assert.match(
-      readFileSync(join(dir, 'models', 'index.ts'), 'utf8'),
-      tagExport,
-    );
+  await using directory = await new TemporaryFiles().directory(
+    'render-stale-file-',
+  );
+  const settings = { output: directory.path, readme: false, cleanup: false };
+  const tagExport = /^export \* from '\.\/tag\.ts';$/m;
+  await generate(petStore(['Pet', 'Tag']), settings);
+  assert.match(
+    readFileSync(join(directory.path, 'models', 'index.ts'), 'utf8'),
+    tagExport,
+  );
 
-    await generate(petStore(['Pet']), settings);
+  await generate(petStore(['Pet']), settings);
 
-    assert.match(
-      readFileSync(join(dir, 'models', 'index.ts'), 'utf8'),
-      tagExport,
-    );
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  assert.match(
+    readFileSync(join(directory.path, 'models', 'index.ts'), 'utf8'),
+    tagExport,
+  );
 });
 
 for (const [agentTools, useTsExtension] of [
@@ -263,31 +255,29 @@ for (const [agentTools, useTsExtension] of [
   ['openai-agents', false],
 ] as const) {
   test(`render returns the source files generate writes (${agentTools}, useTsExtension ${useTsExtension})`, async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'render-parity-'));
-    try {
-      await generate(petStore(['Pet', 'Tag']), {
-        output: dir,
-        name: 'Pets',
-        readme: false,
-        agentTools,
-        useTsExtension,
-        mode: 'full',
-      });
+    await using directory = await new TemporaryFiles().directory(
+      'render-parity-',
+    );
+    await generate(petStore(['Pet', 'Tag']), {
+      output: directory.path,
+      name: 'Pets',
+      readme: false,
+      agentTools,
+      useTsExtension,
+      mode: 'full',
+    });
 
-      const files = await render(petStore(['Pet', 'Tag']), {
-        name: 'Pets',
-        style: { name: 'github' },
-        useTsExtension,
-        agentTools,
-      });
+    const files = await render(petStore(['Pet', 'Tag']), {
+      name: 'Pets',
+      style: { name: 'github' },
+      useTsExtension,
+      agentTools,
+    });
 
-      assert.ok(
-        files['index.ts'] && files['agents.ts'] && files['http/security.ts'],
-        Object.keys(files).join(),
-      );
-      assert.deepStrictEqual(files, sourceFiles(join(dir, 'src')));
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    assert.ok(
+      files['index.ts'] && files['agents.ts'] && files['http/security.ts'],
+      Object.keys(files).join(),
+    );
+    assert.deepStrictEqual(files, sourceFiles(join(directory.path, 'src')));
   });
 }

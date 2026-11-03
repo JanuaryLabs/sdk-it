@@ -1,13 +1,8 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import {
-  mkdir,
-  mkdtempDisposable,
-  readFile,
-  writeFile,
-} from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -15,8 +10,8 @@ import manifest from '@sdk-it/cli/package.json' with { type: 'json' };
 
 void test.each(['new', 'nested', 'existing'] as const, (directory) =>
   test(`Dart CLI generates and formats an empty SDK with ${directory} output directory`, async () => {
-    await using workspace = await mkdtempDisposable(
-      join(tmpdir(), 'sdk-it-cli-dart-empty-'),
+    await using workspace = await new TemporaryFiles().directory(
+      'sdk-it-cli-dart-empty-',
     );
     const spec = join(workspace.path, 'openapi.json');
     const output = join(

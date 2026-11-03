@@ -1,16 +1,14 @@
 import { test } from '@zukhruf/testing/node';
 import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
-import { mkdtempDisposable, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createContext, runInContext } from 'node:vm';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
+import { workspaceDirectory } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
-
-const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 
 const spec: OpenAPIObject = {
   openapi: '3.1.0',
@@ -36,9 +34,7 @@ type ItemsClient = new (options: unknown) => {
 };
 
 const loadClient = async (globals: Record<string, unknown>) => {
-  await using workspace = await mkdtempDisposable(
-    join(repoRoot, '.relative-base-url-'),
-  );
+  await using workspace = await workspaceDirectory('relative-base-url-');
   try {
     await generate(spec, {
       output: workspace.path,
@@ -53,10 +49,9 @@ const loadClient = async (globals: Record<string, unknown>) => {
       bundle: true,
       format: 'cjs',
       platform: 'node',
-      nodePaths: [join(repoRoot, 'node_modules')],
       logLevel: 'silent',
     });
-    const moduleShim = { exports: {} as Record<string, unknown> };
+    const moduleShim: { exports: { Items?: ItemsClient } } = { exports: {} };
     const context = createContext({
       module: moduleShim,
       exports: moduleShim.exports,
@@ -76,9 +71,11 @@ const loadClient = async (globals: Record<string, unknown>) => {
       ...globals,
     });
     runInContext(await readFile(outfile, 'utf8'), context);
-    return moduleShim.exports['Items'] as ItemsClient;
+    const { Items } = moduleShim.exports;
+    assert.ok(Items);
+    return Items;
   } finally {
-    stop();
+    await stop();
   }
 };
 

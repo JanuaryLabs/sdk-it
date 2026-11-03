@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type {
   OpenAPIObject,
-  ReferenceObject,
   ResponseObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { toIR } from '@sdk-it/spec';
+import { isRef } from '@sdk-it/core';
+import { type TunedResponseObject, toIR } from '@sdk-it/spec';
 
 function buildSpec(options: {
   contentType: string;
@@ -50,12 +50,13 @@ function getResponseArtifacts(
   spec: Awaited<ReturnType<typeof toIR>>,
   contentType: string,
 ) {
-  const response = spec.paths['/text'].get?.responses?.[
-    '200'
-  ] as ResponseObject;
-  const outputName = response['x-response-name'] as string;
-  const schemaRef = response.content?.[contentType].schema as ReferenceObject;
-  const schema = spec.components.schemas[outputName] as Record<string, unknown>;
+  const response: TunedResponseObject =
+    spec.paths['/text'].get?.responses?.['200'];
+  const outputName = response['x-response-name'];
+  assert.ok(outputName);
+  const schemaRef = response.content[contentType].schema;
+  const schema = spec.components.schemas[outputName];
+  assert.ok(!isRef(schema));
   return { response, outputName, schemaRef, schema };
 }
 
@@ -154,11 +155,12 @@ describe('response normalization text output', () => {
     );
     const { response, schema } = getResponseArtifacts(spec, 'text/plain');
 
-    const properties = schema.properties as Record<string, { type?: string }>;
+    const value = schema.properties?.value;
+    assert.ok(!isRef(value));
     assert.deepStrictEqual(
       {
         type: schema.type,
-        valueType: properties.value?.type,
+        valueType: value?.type,
         'x-body': response['x-body'],
       },
       {

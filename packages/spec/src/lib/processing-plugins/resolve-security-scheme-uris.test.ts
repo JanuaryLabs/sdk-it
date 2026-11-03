@@ -1,7 +1,7 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import { HttpServer } from '@zukhruf/testing/http';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
@@ -54,36 +54,35 @@ test('resolves a same-document security scheme pointer to its registered name', 
 });
 
 test('resolves a relative security scheme URI against the document $self', async () => {
-  const directory = mkdtempSync(join(tmpdir(), 'resolve-scheme-uri-'));
-  try {
-    writeFileSync(
-      join(directory, 'auth.json'),
-      JSON.stringify({
-        components: {
-          securitySchemes: {
-            apiKey: { type: 'apiKey', in: 'header', name: 'X-API-Key' },
-          },
+  await using workspace = await new TemporaryFiles().directory(
+    'resolve-scheme-uri-',
+  );
+  const directory = workspace.path;
+  writeFileSync(
+    join(directory, 'auth.json'),
+    JSON.stringify({
+      components: {
+        securitySchemes: {
+          apiKey: { type: 'apiKey', in: 'header', name: 'X-API-Key' },
         },
-      }),
-    );
+      },
+    }),
+  );
 
-    const { spec, diagnostics } = await processSpec({
-      spec: specWith('./auth.json#/components/securitySchemes/apiKey', {
-        $self: pathToFileURL(join(directory, 'openapi.json')).href,
-      }),
-      plugins: [resolveSecuritySchemeUris(), normalizeSecurity()],
-    });
+  const { spec, diagnostics } = await processSpec({
+    spec: specWith('./auth.json#/components/securitySchemes/apiKey', {
+      $self: pathToFileURL(join(directory, 'openapi.json')).href,
+    }),
+    plugins: [resolveSecuritySchemeUris(), normalizeSecurity()],
+  });
 
-    assert.deepStrictEqual(spec.components.securitySchemes, {
-      apiKey: { type: 'apiKey', in: 'header', name: 'X-API-Key' },
-    });
-    assert.deepStrictEqual(spec.paths['/records']?.get?.security, [
-      { apiKey: [] },
-    ]);
-    assert.deepStrictEqual(diagnostics, []);
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
+  assert.deepStrictEqual(spec.components.securitySchemes, {
+    apiKey: { type: 'apiKey', in: 'header', name: 'X-API-Key' },
+  });
+  assert.deepStrictEqual(spec.paths['/records']?.get?.security, [
+    { apiKey: [] },
+  ]);
+  assert.deepStrictEqual(diagnostics, []);
 });
 
 test('resolves an absolute security scheme URI over http', async () => {
@@ -148,34 +147,71 @@ test('fetches each referenced document once when several schemes share it', asyn
 });
 
 test('reports the URI that failed and leaves the requirement unresolved', async () => {
-  const directory = mkdtempSync(join(tmpdir(), 'resolve-scheme-uri-'));
-  try {
-    writeFileSync(join(directory, 'auth.json'), JSON.stringify({}));
+  await using workspace = await new TemporaryFiles().directory(
+    'resolve-scheme-uri-',
+  );
+  const directory = workspace.path;
+  writeFileSync(join(directory, 'auth.json'), JSON.stringify({}));
 
-    const { spec, diagnostics } = await processSpec({
-      spec: specWith('./auth.json#/components/securitySchemes/missing', {
-        $self: pathToFileURL(join(directory, 'openapi.json')).href,
-      }),
-      plugins: [resolveSecuritySchemeUris(), normalizeSecurity()],
-    });
+  const { spec, diagnostics } = await processSpec({
+    spec: specWith('./auth.json#/components/securitySchemes/missing', {
+      $self: pathToFileURL(join(directory, 'openapi.json')).href,
+    }),
+    plugins: [resolveSecuritySchemeUris(), normalizeSecurity()],
+  });
 
-    assert.deepStrictEqual(
-      diagnostics.map(({ code, plugin }) => ({ code, plugin })),
-      [
-        {
-          code: 'unresolvable-security-scheme-uri',
-          plugin: 'resolve-security-scheme-uris',
-        },
-        {
-          code: 'unresolved-security-scheme',
-          plugin: 'normalize-security',
-        },
-      ],
-    );
-    assert.deepStrictEqual(spec.components.securitySchemes, {});
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
+  assert.deepStrictEqual(
+    diagnostics.map(({ code, plugin }) => ({ code, plugin })),
+    [
+      {
+        code: 'unresolvable-security-scheme-uri',
+        plugin: 'resolve-security-scheme-uris',
+      },
+      {
+        code: 'unresolved-security-scheme',
+        plugin: 'normalize-security',
+      },
+    ],
+  );
+  assert.deepStrictEqual(spec.components.securitySchemes, {});
+});
+
+test('a URI whose target has no known scheme type is reported as not a Security Scheme Object', async () => {
+  await using workspace = await new TemporaryFiles().directory(
+    'resolve-scheme-uri-',
+  );
+  const directory = workspace.path;
+  writeFileSync(
+    join(directory, 'auth.json'),
+    JSON.stringify({
+      components: {
+        securitySchemes: { legacy: { type: 'custom', name: 'X-Legacy' } },
+      },
+    }),
+  );
+
+  const { spec, diagnostics } = await processSpec({
+    spec: specWith('./auth.json#/components/securitySchemes/legacy', {
+      $self: pathToFileURL(join(directory, 'openapi.json')).href,
+    }),
+    plugins: [resolveSecuritySchemeUris(), normalizeSecurity()],
+  });
+
+  assert.deepStrictEqual(
+    diagnostics.map(({ code, plugin }) => ({ code, plugin })),
+    [
+      {
+        code: 'unresolvable-security-scheme-uri',
+        plugin: 'resolve-security-scheme-uris',
+      },
+      {
+        code: 'unresolved-security-scheme',
+        plugin: 'normalize-security',
+      },
+    ],
+  );
+  assert.match(JSON.stringify(diagnostics[0]), /not a Security Scheme Object/);
+  assert.deepStrictEqual(spec.components.securitySchemes, {});
 });
 
 test('treats a bare component-shaped name as a name, never as a document', async () => {
@@ -200,15 +236,14 @@ test('treats a bare component-shaped name as a name, never as a document', async
 });
 
 test('loadSpec stamps $self so a relative URI has a base to resolve against', async () => {
-  const directory = mkdtempSync(join(tmpdir(), 'resolve-scheme-uri-'));
-  try {
-    const location = join(directory, 'openapi.json');
-    writeFileSync(location, JSON.stringify(specWith('bearer')));
+  await using workspace = await new TemporaryFiles().directory(
+    'resolve-scheme-uri-',
+  );
+  const directory = workspace.path;
+  const location = join(directory, 'openapi.json');
+  writeFileSync(location, JSON.stringify(specWith('bearer')));
 
-    const spec = (await loadSpec(location)).spec as OpenAPIDocument;
+  const spec: OpenAPIDocument = (await loadSpec(location)).spec;
 
-    assert.equal(spec.$self, pathToFileURL(location).href);
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
+  assert.equal(spec.$self, pathToFileURL(location).href);
 });

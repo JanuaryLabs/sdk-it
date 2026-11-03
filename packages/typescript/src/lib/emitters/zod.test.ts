@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
+import type { OpenAPIDocument } from '@sdk-it/core';
 import { createModelNamer } from '@sdk-it/typescript';
 
 import { ZodEmitter } from './zod.ts';
 
-const emptySpec = {} as OpenAPIObject;
+const emptySpec: OpenAPIDocument = {
+  openapi: '3.1.0',
+  info: { title: 'Test', version: '1.0.0' },
+};
 
 describe('ZodEmitter date handling', () => {
   describe('plain string coercion', () => {

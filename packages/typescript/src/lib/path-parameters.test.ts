@@ -1,11 +1,10 @@
 import { test } from '@zukhruf/testing/node';
 import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 
+import { workspaceDirectory } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 void test.each(
@@ -33,7 +32,7 @@ void test.each(
   ],
   ({ id, expectedUrl }) =>
     test(`generated client preserves path parameter ${JSON.stringify(id)}`, async () => {
-      const dir = await mkdtemp(join(tmpdir(), 'sdk-it-path-parameters-'));
+      await using directory = await workspaceDirectory('path-parameters-');
       try {
         await generate(
           {
@@ -66,18 +65,15 @@ void test.each(
               },
             },
           },
-          { output: dir, name: 'Files', readme: false },
+          { output: directory.path, name: 'Files', readme: false },
         );
-        const bundle = join(dir, 'client.mjs');
+        const bundle = join(directory.path, 'client.mjs');
         await build({
-          entryPoints: [join(dir, 'client.ts')],
+          entryPoints: [join(directory.path, 'client.ts')],
           outfile: bundle,
           bundle: true,
           format: 'esm',
           platform: 'node',
-          nodePaths: [
-            fileURLToPath(new URL('../../../../node_modules', import.meta.url)),
-          ],
           logLevel: 'silent',
         });
         const { Files } = await import(pathToFileURL(bundle).href);
@@ -97,8 +93,7 @@ void test.each(
           [expectedUrl],
         );
       } finally {
-        stop();
-        await rm(dir, { recursive: true, force: true });
+        await stop();
       }
     }),
 );

@@ -1,8 +1,8 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, symlink, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
 import { promisify } from 'node:util';
@@ -20,33 +20,31 @@ const tsc = join(
 );
 
 async function analyzeWorkspace(files: Record<string, string>) {
-  const dir = await mkdtemp(join(tmpdir(), 'sdk-it-handler-responses-'));
-  try {
-    await writeFile(
-      join(dir, 'tsconfig.json'),
-      JSON.stringify({
-        compilerOptions: {
-          target: 'ES2022',
-          module: 'ESNext',
-          moduleResolution: 'bundler',
-          strict: true,
-          skipLibCheck: true,
-        },
-        include: ['src/**/*'],
-      }),
-    );
-    for (const [file, content] of Object.entries(files)) {
-      const path = join(dir, 'src', file);
-      await mkdir(dirname(path), { recursive: true });
-      await writeFile(path, content);
-    }
-    using project = openAnalysisProject(join(dir, 'tsconfig.json'));
-    const { paths } = await analyze(project, { responseAnalyzer });
-    // Assert the document as consumers write it to openapi.json.
-    return JSON.parse(JSON.stringify(paths));
-  } finally {
-    await rm(dir, { recursive: true, force: true });
+  await using dir = await new TemporaryFiles().directory(
+    'sdk-it-handler-responses-',
+  );
+  await writeFile(
+    join(dir.path, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        target: 'ES2022',
+        module: 'ESNext',
+        moduleResolution: 'bundler',
+        strict: true,
+        skipLibCheck: true,
+      },
+      include: ['src/**/*'],
+    }),
+  );
+  for (const [file, content] of Object.entries(files)) {
+    const path = join(dir.path, 'src', file);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, content);
   }
+  using project = openAnalysisProject(join(dir.path, 'tsconfig.json'));
+  const { paths } = await analyze(project, { responseAnalyzer });
+  // Assert the document as consumers write it to openapi.json.
+  return JSON.parse(JSON.stringify(paths));
 }
 
 const routing = `
@@ -447,71 +445,70 @@ async function analyzeWithReference(
   library: string,
   through: 'directory' | 'symlink' = 'directory',
 ) {
-  const dir = await mkdtemp(join(tmpdir(), 'sdk-it-handler-references-'));
-  const links = await mkdtemp(join(tmpdir(), 'sdk-it-handler-links-'));
-  try {
-    const compilerOptions = {
-      target: 'ES2022',
-      module: 'ESNext',
-      moduleResolution: 'bundler',
-      strict: true,
-      skipLibCheck: true,
-    };
-    const files: Record<string, string> = {
-      'tsconfig.json': JSON.stringify({
-        compilerOptions,
-        include: ['src/**/*'],
-        references: [{ path: './packages/runs' }],
-      }),
-      'src/index.ts': app,
-      'packages/runs/package.json': JSON.stringify({
-        name: '@ws/runs',
-        type: 'module',
-        exports: {
-          '.': { types: './dist/index.d.ts', default: './dist/index.js' },
-        },
-      }),
-      'packages/runs/tsconfig.json': JSON.stringify({
-        compilerOptions: {
-          ...compilerOptions,
-          composite: true,
-          declaration: true,
-          rootDir: 'src',
-          outDir: 'dist',
-        },
-        include: ['src/**/*'],
-      }),
-      'packages/runs/src/index.ts': library,
-    };
-    for (const [file, content] of Object.entries(files)) {
-      const path = join(dir, file);
-      await mkdir(dirname(path), { recursive: true });
-      await writeFile(path, content);
-    }
-    await mkdir(join(dir, 'node_modules/@ws'), { recursive: true });
-    await symlink(
-      join(dir, 'packages/runs'),
-      join(dir, 'node_modules/@ws/runs'),
-      'dir',
-    );
-    // The app imports the built declarations, as after the monorepo's build.
-    await execFileAsync(process.execPath, [
-      tsc,
-      '--build',
-      join(dir, 'packages/runs'),
-    ]);
-    let root = dir;
-    if (through === 'symlink') {
-      root = join(links, 'workspace');
-      await symlink(dir, root, 'dir');
-    }
-    using project = openAnalysisProject(join(root, 'tsconfig.json'));
-    const { paths } = await analyze(project, { responseAnalyzer });
-    return JSON.parse(JSON.stringify(paths));
-  } finally {
-    await rm(links, { recursive: true, force: true });
-    await rm(dir, { recursive: true, force: true });
+  await using dir = await new TemporaryFiles().directory(
+    'sdk-it-handler-references-',
+  );
+  await using links = await new TemporaryFiles().directory(
+    'sdk-it-handler-links-',
+  );
+  const compilerOptions = {
+    target: 'ES2022',
+    module: 'ESNext',
+    moduleResolution: 'bundler',
+    strict: true,
+    skipLibCheck: true,
+  };
+  const files: Record<string, string> = {
+    'tsconfig.json': JSON.stringify({
+      compilerOptions,
+      include: ['src/**/*'],
+      references: [{ path: './packages/runs' }],
+    }),
+    'src/index.ts': app,
+    'packages/runs/package.json': JSON.stringify({
+      name: '@ws/runs',
+      type: 'module',
+      exports: {
+        '.': { types: './dist/index.d.ts', default: './dist/index.js' },
+      },
+    }),
+    'packages/runs/tsconfig.json': JSON.stringify({
+      compilerOptions: {
+        ...compilerOptions,
+        composite: true,
+        declaration: true,
+        rootDir: 'src',
+        outDir: 'dist',
+      },
+      include: ['src/**/*'],
+    }),
+    'packages/runs/src/index.ts': library,
+  };
+  for (const [file, content] of Object.entries(files)) {
+    const path = join(dir.path, file);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, content);
   }
+  await mkdir(join(dir.path, 'node_modules/@ws'), { recursive: true });
+  await symlink(
+    join(dir.path, 'packages/runs'),
+    join(dir.path, 'node_modules/@ws/runs'),
+    'dir',
+  );
+  // The app imports the built declarations, as after the monorepo's build.
+  await execFileAsync(process.execPath, [
+    tsc,
+    '--build',
+    join(dir.path, 'packages/runs'),
+  ]);
+  let root = dir.path;
+  if (through === 'symlink') {
+    root = join(links.path, 'workspace');
+    await symlink(dir.path, root, 'dir');
+  }
+  using project = openAnalysisProject(join(root, 'tsconfig.json'));
+  const { paths } = await analyze(project, { responseAnalyzer });
+  return JSON.parse(JSON.stringify(paths));
 }
 
 describe('analyze() reads the source of a referenced workspace package', () => {

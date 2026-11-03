@@ -1,7 +1,5 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
-import crypto from 'node:crypto';
-import { rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
@@ -12,13 +10,9 @@ import { typecheck } from '@sdk-it/testing';
  * Compile a temporary TypeScript project and return diagnostics.
  */
 async function compileProject(files: Record<string, string>) {
-  const dir = join(tmpdir(), 'sdk-it-type-test', crypto.randomUUID());
-  try {
-    await writeFiles(dir, files);
-    return typecheck(join(dir, 'tsconfig.json')).diagnostics;
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
+  await using directory = await new TemporaryFiles().directory('type-test-');
+  await writeFiles(directory.path, files);
+  return typecheck(join(directory.path, 'tsconfig.json')).diagnostics;
 }
 
 describe('RebindSuccessPayload type correctness', () => {

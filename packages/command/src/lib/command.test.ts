@@ -1,22 +1,22 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, test } from 'node:test';
+import { type TestContext, describe, test } from 'node:test';
+
+import { ttyStdin } from '@sdk-it/testing';
 
 import { command } from './command.ts';
 
-let tempDir: string;
-
-function writeSpec(spec: object) {
-  tempDir = mkdtempSync(join(tmpdir(), 'command-test-'));
-  const specPath = join(tempDir, 'spec.json');
-  writeFileSync(specPath, JSON.stringify(spec));
-  return specPath;
-}
-
-function cleanup() {
-  if (tempDir) rmSync(tempDir, { recursive: true, force: true });
+async function writeSpec(spec: object) {
+  await using pending = new AsyncDisposableStack();
+  const directory = pending.use(
+    await new TemporaryFiles().directory('command-test-'),
+  );
+  const specPath = join(directory.path, 'spec.json');
+  await writeFile(specPath, JSON.stringify(spec));
+  pending.move();
+  return { ...directory, specPath };
 }
 
 function baseSpec(): object {
@@ -136,41 +136,29 @@ function mockFetch() {
   return { calls, fn };
 }
 
-function silenceStdout(action: () => Promise<unknown>): Promise<string> {
-  const original = process.stdout.write.bind(process.stdout);
-  let buffer = '';
-  (process.stdout as unknown as { write: (c: unknown) => boolean }).write = (
-    chunk: unknown,
-  ) => {
-    buffer += typeof chunk === 'string' ? chunk : String(chunk);
-    return true;
-  };
-  return action()
-    .finally(() => {
-      process.stdout.write = original;
-    })
-    .then(() => buffer);
+async function silenceStdout(
+  t: TestContext,
+  action: () => Promise<unknown>,
+): Promise<string> {
+  const stdout = t.mock.method(process.stdout, 'write', () => true);
+  await action();
+  stdout.mock.restore();
+  return stdout.mock.calls.map((call) => String(call.arguments[0])).join('');
 }
 
 describe('command()', () => {
-  beforeEach(() => {
-    Object.defineProperty(process.stdin, 'isTTY', {
-      value: true,
-      configurable: true,
-    });
-  });
-  afterEach(() => cleanup());
-
-  test('GET with query flags sends correct request', async () => {
-    const specPath = writeSpec(baseSpec());
+  test('GET with query flags sends correct request', async (t) => {
+    using _tty = ttyStdin();
+    await using workspace = await writeSpec(baseSpec());
+    const specPath = workspace.specPath;
     const { calls, fn } = mockFetch();
     const program = await command(specPath, {
       name: 'mycli',
-      fetch: fn as never,
+      fetch: fn,
     });
     program.exitOverride();
 
-    await silenceStdout(() =>
+    await silenceStdout(t, () =>
       program.parseAsync([
         'node',
         'mycli',
@@ -191,16 +179,18 @@ describe('command()', () => {
     assert.equal(url.searchParams.get('sort'), 'asc');
   });
 
-  test('GET with path param binds implicitly', async () => {
-    const specPath = writeSpec(baseSpec());
+  test('GET with path param binds implicitly', async (t) => {
+    using _tty = ttyStdin();
+    await using workspace = await writeSpec(baseSpec());
+    const specPath = workspace.specPath;
     const { calls, fn } = mockFetch();
     const program = await command(specPath, {
       name: 'mycli',
-      fetch: fn as never,
+      fetch: fn,
     });
     program.exitOverride();
 
-    await silenceStdout(() =>
+    await silenceStdout(t, () =>
       program.parseAsync(['node', 'mycli', 'getUser', '--userId', 'u_42']),
     );
 
@@ -209,16 +199,18 @@ describe('command()', () => {
     assert.equal(url.pathname, '/users/u_42');
   });
 
-  test('POST body from flags', async () => {
-    const specPath = writeSpec(baseSpec());
+  test('POST body from flags', async (t) => {
+    using _tty = ttyStdin();
+    await using workspace = await writeSpec(baseSpec());
+    const specPath = workspace.specPath;
     const { calls, fn } = mockFetch();
     const program = await command(specPath, {
       name: 'mycli',
-      fetch: fn as never,
+      fetch: fn,
     });
     program.exitOverride();
 
-    await silenceStdout(() =>
+    await silenceStdout(t, () =>
       program.parseAsync([
         'node',
         'mycli',
@@ -237,18 +229,20 @@ describe('command()', () => {
     assert.deepEqual(body, { name: 'Alice', age: 30 });
   });
 
-  test('POST body from --input-file', async () => {
-    const specPath = writeSpec(baseSpec());
-    const bodyPath = join(tempDir, 'body.json');
-    writeFileSync(bodyPath, JSON.stringify({ name: 'Bob', age: 25 }));
+  test('POST body from --input-file', async (t) => {
+    using _tty = ttyStdin();
+    await using workspace = await writeSpec(baseSpec());
+    const specPath = workspace.specPath;
+    const bodyPath = join(workspace.path, 'body.json');
+    await writeFile(bodyPath, JSON.stringify({ name: 'Bob', age: 25 }));
     const { calls, fn } = mockFetch();
     const program = await command(specPath, {
       name: 'mycli',
-      fetch: fn as never,
+      fetch: fn,
     });
     program.exitOverride();
 
-    await silenceStdout(() =>
+    await silenceStdout(t, () =>
       program.parseAsync([
         'node',
         'mycli',
@@ -263,18 +257,20 @@ describe('command()', () => {
     assert.deepEqual(body, { name: 'Bob', age: 25 });
   });
 
-  test('flags override --input-file', async () => {
-    const specPath = writeSpec(baseSpec());
-    const bodyPath = join(tempDir, 'body.json');
-    writeFileSync(bodyPath, JSON.stringify({ name: 'Bob', age: 25 }));
+  test('flags override --input-file', async (t) => {
+    using _tty = ttyStdin();
+    await using workspace = await writeSpec(baseSpec());
+    const specPath = workspace.specPath;
+    const bodyPath = join(workspace.path, 'body.json');
+    await writeFile(bodyPath, JSON.stringify({ name: 'Bob', age: 25 }));
     const { calls, fn } = mockFetch();
     const program = await command(specPath, {
       name: 'mycli',
-      fetch: fn as never,
+      fetch: fn,
     });
     program.exitOverride();
 
-    await silenceStdout(() =>
+    await silenceStdout(t, () =>
       program.parseAsync([
         'node',
         'mycli',
@@ -290,12 +286,14 @@ describe('command()', () => {
     assert.deepEqual(body, { name: 'Carol', age: 25 });
   });
 
-  test('schema subcommand emits JSON with all ops', async () => {
-    const specPath = writeSpec(baseSpec());
+  test('schema subcommand emits JSON with all ops', async (t) => {
+    using _tty = ttyStdin();
+    await using workspace = await writeSpec(baseSpec());
+    const specPath = workspace.specPath;
     const program = await command(specPath, { name: 'mycli' });
     program.exitOverride();
 
-    const out = await silenceStdout(() =>
+    const out = await silenceStdout(t, () =>
       program.parseAsync(['node', 'mycli', 'schema']),
     );
     const parsed = JSON.parse(out);
@@ -307,12 +305,14 @@ describe('command()', () => {
     assert.ok(parsed.listUsers.input.properties.limit);
   });
 
-  test('--describe prints one operation schema', async () => {
-    const specPath = writeSpec(baseSpec());
+  test('--describe prints one operation schema', async (t) => {
+    using _tty = ttyStdin();
+    await using workspace = await writeSpec(baseSpec());
+    const specPath = workspace.specPath;
     const program = await command(specPath, { name: 'mycli' });
     program.exitOverride();
 
-    const out = await silenceStdout(() =>
+    const out = await silenceStdout(t, () =>
       program.parseAsync(['node', 'mycli', 'listUsers', '--describe']),
     );
     const parsed = JSON.parse(out);
@@ -321,16 +321,18 @@ describe('command()', () => {
     assert.ok(parsed.input.properties.limit);
   });
 
-  test('--base-url overrides ir server', async () => {
-    const specPath = writeSpec(baseSpec());
+  test('--base-url overrides ir server', async (t) => {
+    using _tty = ttyStdin();
+    await using workspace = await writeSpec(baseSpec());
+    const specPath = workspace.specPath;
     const { calls, fn } = mockFetch();
     const program = await command(specPath, {
       name: 'mycli',
-      fetch: fn as never,
+      fetch: fn,
     });
     program.exitOverride();
 
-    await silenceStdout(() =>
+    await silenceStdout(t, () =>
       program.parseAsync([
         'node',
         'mycli',
@@ -344,16 +346,18 @@ describe('command()', () => {
     assert.equal(url.origin, 'http://override:9000');
   });
 
-  test('--token sets Authorization: Bearer header', async () => {
-    const specPath = writeSpec(baseSpec());
+  test('--token sets Authorization: Bearer header', async (t) => {
+    using _tty = ttyStdin();
+    await using workspace = await writeSpec(baseSpec());
+    const specPath = workspace.specPath;
     const { calls, fn } = mockFetch();
     const program = await command(specPath, {
       name: 'mycli',
-      fetch: fn as never,
+      fetch: fn,
     });
     program.exitOverride();
 
-    await silenceStdout(() =>
+    await silenceStdout(t, () =>
       program.parseAsync(['node', 'mycli', '--token', 'secret', 'listUsers']),
     );
 

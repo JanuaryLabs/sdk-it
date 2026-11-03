@@ -1,7 +1,7 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
-import { mkdtempDisposable, readFile, readdir } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 
@@ -29,8 +29,8 @@ async function dartSources(dir: string): Promise<string> {
 }
 
 void test('allOf keeps every part required wherever the schema appears', async () => {
-  await using workspace = await mkdtempDisposable(
-    join(tmpdir(), 'sdk-it-dart-all-of-'),
+  await using workspace = await new TemporaryFiles().directory(
+    'sdk-it-dart-all-of-',
   );
   const output = join(workspace.path, 'client');
   const spec: OpenAPIObject = {

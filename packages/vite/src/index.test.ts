@@ -1,19 +1,14 @@
+import { type TemporaryDirectory, TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { afterEach, describe, test } from 'node:test';
+import { describe, test } from 'node:test';
 import { type Plugin, build, createServer } from 'vite';
 
 import { generateProject, loadProjectConfig } from '@sdk-it/cli';
 import { writeFiles } from '@sdk-it/core/file-system.js';
+import { workspaceDirectory } from '@sdk-it/testing';
 import sdkIt from '@sdk-it/vite';
 
 const minimalSpec = {
@@ -21,7 +16,6 @@ const minimalSpec = {
   info: { title: 'Test', version: '1.0.0' },
   paths: {},
 };
-const repoRoot = join(import.meta.dirname, '..', '..', '..');
 
 function buildWith(plugin: Plugin, root: string) {
   return build({
@@ -46,21 +40,25 @@ function serveWith(plugin: Plugin, root: string) {
 }
 
 describe('sdkIt', () => {
-  const tempDirs: string[] = [];
-  const servers: Awaited<ReturnType<typeof createServer>>[] = [];
-
-  function makeTempDir() {
-    const dir = mkdtempSync(join(tmpdir(), 'vite-test-'));
-    writeFileSync(join(dir, 'main.js'), '');
-    tempDirs.push(dir);
-    return dir;
+  async function viteRoot(directory: Promise<TemporaryDirectory>) {
+    await using pending = new AsyncDisposableStack();
+    const root = pending.use(await directory);
+    await writeFile(join(root.path, 'main.js'), '');
+    pending.move();
+    return root;
   }
 
-  function makeProjectWorkspace(configPath: string, configSource: string) {
-    const root = makeTempDir();
-    symlinkSync(join(repoRoot, 'node_modules'), join(root, 'node_modules'));
-    mkdirSync(join(root, 'backend'));
-    writeFileSync(
+  async function makeProjectWorkspace(
+    configPath: string,
+    configSource: string,
+  ) {
+    await using pending = new AsyncDisposableStack();
+    const workspace = pending.use(
+      await viteRoot(workspaceDirectory('vite-project-')),
+    );
+    const root = workspace.path;
+    await mkdir(join(root, 'backend'));
+    await writeFile(
       join(root, 'backend', 'tsconfig.json'),
       JSON.stringify({
         compilerOptions: {
@@ -72,7 +70,7 @@ describe('sdkIt', () => {
         include: ['src.ts'],
       }),
     );
-    writeFileSync(
+    await writeFile(
       join(root, 'backend', 'src.ts'),
       `
 import { Hono } from 'hono';
@@ -95,9 +93,10 @@ app.get(
 `,
     );
     const absoluteConfigPath = join(root, configPath);
-    mkdirSync(dirname(absoluteConfigPath), { recursive: true });
-    writeFileSync(absoluteConfigPath, configSource);
-    return root;
+    await mkdir(dirname(absoluteConfigPath), { recursive: true });
+    await writeFile(absoluteConfigPath, configSource);
+    pending.move();
+    return workspace;
   }
 
   function trackingWriter() {
@@ -119,20 +118,12 @@ app.get(
     };
   }
 
-  afterEach(async () => {
-    for (const server of servers) {
-      await server.close();
-    }
-    servers.length = 0;
-    for (const dir of tempDirs) {
-      rmSync(dir, { recursive: true, force: true });
-    }
-    tempDirs.length = 0;
-  });
-
   test('specPlugin: multi-phase build generates only once', async () => {
     const tracker = trackingWriter();
-    const root = makeTempDir();
+    await using workspace = await viteRoot(
+      new TemporaryFiles().directory('vite-test-'),
+    );
+    const root = workspace.path;
     const plugin = sdkIt(minimalSpec, {
       output: join(root, 'sdk'),
       writer: tracker.writer,
@@ -155,7 +146,10 @@ app.get(
   });
 
   test('functionPlugin: async relative file source generates through the vite lifecycle', async () => {
-    const tempDir = makeTempDir();
+    await using workspace = await viteRoot(
+      new TemporaryFiles().directory('vite-test-'),
+    );
+    const tempDir = workspace.path;
     const specPath = join(tempDir, 'openapi.json');
     writeFileSync(specPath, JSON.stringify(minimalSpec));
 
@@ -176,7 +170,10 @@ app.get(
   });
 
   test('specPlugin: different spec content triggers new generation', async () => {
-    const root = makeTempDir();
+    await using workspace = await viteRoot(
+      new TemporaryFiles().directory('vite-test-'),
+    );
+    const root = workspace.path;
     const output = join(root, 'sdk');
     const tracker = trackingWriter();
 
@@ -211,7 +208,10 @@ app.get(
   });
 
   test('specPlugin: concurrent builds share one generation', async () => {
-    const root = makeTempDir();
+    await using workspace = await viteRoot(
+      new TemporaryFiles().directory('vite-test-'),
+    );
+    const root = workspace.path;
     const tracker = trackingWriter();
     const plugin = sdkIt(minimalSpec, {
       output: join(root, 'sdk'),
@@ -224,7 +224,10 @@ app.get(
     const singleRunWrites = tracker.calls;
 
     tracker.reset();
-    const root2 = makeTempDir();
+    await using workspace2 = await viteRoot(
+      new TemporaryFiles().directory('vite-test-'),
+    );
+    const root2 = workspace2.path;
     const plugin2 = sdkIt(
       { ...minimalSpec, info: { title: 'Concurrent', version: '2.0.0' } },
       {
@@ -249,7 +252,10 @@ app.get(
   });
 
   test('specPlugin: dev server then build generates only once', async () => {
-    const root = makeTempDir();
+    await using workspace = await viteRoot(
+      new TemporaryFiles().directory('vite-test-'),
+    );
+    const root = workspace.path;
     const tracker = trackingWriter();
     const plugin = sdkIt(minimalSpec, {
       output: join(root, 'sdk'),
@@ -259,7 +265,7 @@ app.get(
     });
 
     const server = await serveWith(plugin, root);
-    servers.push(server);
+    await using _server = { [Symbol.asyncDispose]: () => server.close() };
     const afterServerWrites = tracker.calls;
 
     tracker.reset();
@@ -277,7 +283,10 @@ app.get(
   });
 
   test('filePlugin: multi-phase build generates only once', async () => {
-    const tempDir = makeTempDir();
+    await using workspace = await viteRoot(
+      new TemporaryFiles().directory('vite-test-'),
+    );
+    const tempDir = workspace.path;
     const specPath = join(tempDir, 'openapi.json');
     writeFileSync(specPath, JSON.stringify(minimalSpec));
 
@@ -304,7 +313,10 @@ app.get(
   });
 
   test('filePlugin: changed file content triggers new generation', async () => {
-    const tempDir = makeTempDir();
+    await using workspace = await viteRoot(
+      new TemporaryFiles().directory('vite-test-'),
+    );
+    const tempDir = workspace.path;
     const specPath = join(tempDir, 'openapi.json');
     writeFileSync(specPath, JSON.stringify(minimalSpec));
 
@@ -337,7 +349,10 @@ app.get(
   });
 
   test('filePlugin: generation failure allows retry', async () => {
-    const tempDir = makeTempDir();
+    await using workspace = await viteRoot(
+      new TemporaryFiles().directory('vite-test-'),
+    );
+    const tempDir = workspace.path;
     const specPath = join(tempDir, 'openapi.json');
     writeFileSync(specPath, JSON.stringify(minimalSpec));
 
@@ -371,7 +386,7 @@ app.get(
   });
 
   test('project plugin produces the same client as CLI generation', async () => {
-    const root = makeProjectWorkspace(
+    await using workspace = await makeProjectWorkspace(
       'sdk-it.config.ts',
       `
 import { defineConfig } from '@sdk-it/cli';
@@ -381,6 +396,7 @@ export default defineConfig({
 });
 `,
     );
+    const root = workspace.path;
 
     const config = await loadProjectConfig({ cwd: root });
     const cliOutput = join(root, '.cli-sdk');
@@ -390,7 +406,7 @@ export default defineConfig({
       'utf8',
     );
 
-    await buildWith((sdkIt as unknown as () => Plugin)(), root);
+    await buildWith(sdkIt(), root);
 
     const viteEndpoint = readFileSync(
       join(root, '.sdk-it', 'src', 'api', 'books.ts'),
@@ -400,7 +416,7 @@ export default defineConfig({
   });
 
   test('project plugin accepts an explicit project config path', async () => {
-    const root = makeProjectWorkspace(
+    await using workspace = await makeProjectWorkspace(
       'config/project.ts',
       `
 import { defineConfig } from '@sdk-it/cli';
@@ -411,6 +427,7 @@ export default defineConfig({
 });
 `,
     );
+    const root = workspace.path;
 
     await buildWith(sdkIt({ config: 'config/project.ts' }), root);
 

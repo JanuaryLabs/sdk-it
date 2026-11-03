@@ -2,23 +2,20 @@ import { HttpServer } from '@zukhruf/testing/http';
 import { test } from '@zukhruf/testing/node';
 import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
-import { mkdtempDisposable, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 
-import { typecheck } from '@sdk-it/testing';
+import { typecheck, workspaceDirectory } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 void test.each(['full', 'minimal'] as const, (mode) =>
   test.each(['query', 'body'] as const, (transport) =>
     test.each([false, true], (renamed) =>
       test(`generated ${mode} SDK supports nullable ${transport} pagination with ${renamed ? 'renamed' : 'standard'} fields`, async () => {
-        await using workspace = await mkdtempDisposable(
-          join(
-            fileURLToPath(new URL('../../../../', import.meta.url)),
-            '.nullable-pagination-',
-          ),
+        await using workspace = await workspaceDirectory(
+          'nullable-pagination-',
         );
         try {
           const offset = renamed ? 'start_index' : 'offset';
@@ -202,9 +199,9 @@ void invalid;
                   ]),
                 );
               } else {
-                const chunks: Buffer[] = [];
-                for await (const chunk of request)
-                  chunks.push(Buffer.from(chunk));
+                const chunks = await Array.fromAsync(request, (chunk) =>
+                  Buffer.from(chunk),
+                );
                 input = JSON.parse(Buffer.concat(chunks).toString());
               }
               response.setHeader('Content-Type', 'application/json');
@@ -220,7 +217,7 @@ void invalid;
             await import(pathToFileURL(bundle).href)
           ).exercise(server.origin);
         } finally {
-          stop();
+          await stop();
         }
       }),
     ),

@@ -5,7 +5,9 @@ import { type IR, normalizeRequestBodies, processSpec } from '@sdk-it/spec';
 
 function schemaForRef(spec: IR, ref: string | undefined) {
   assert.ok(ref);
-  const schema = spec.components.schemas[ref.split('/').at(-1) as string];
+  const name = ref.split('/').at(-1);
+  assert.ok(name);
+  const schema = spec.components.schemas[name];
   assert.ok(!('$ref' in schema));
   return schema;
 }

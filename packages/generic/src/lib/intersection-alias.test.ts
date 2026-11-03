@@ -1,21 +1,12 @@
 import assert from 'node:assert/strict';
-import {
-  mkdtemp,
-  readFile,
-  realpath,
-  rm,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
-import { typecheck } from '@sdk-it/testing';
+import { analysisWorkspace, typecheck } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 const workspaceApp = `export interface WorkspaceApp {
@@ -65,35 +56,8 @@ app.get('/apps/current', validate(() => ({})), (c) => {
 `;
 }
 
-async function workspace(files: Record<string, string>) {
-  const dir = await realpath(
-    await mkdtemp(join(tmpdir(), 'sdk-it-intersection-alias-')),
-  );
-  const require = createRequire(import.meta.url);
-  await symlink(
-    dirname(dirname(require.resolve('zod/package.json'))),
-    join(dir, 'node_modules'),
-    'dir',
-  );
-  await writeFile(join(dir, 'package.json'), '{"type":"module"}');
-  await writeFile(
-    join(dir, 'tsconfig.json'),
-    JSON.stringify({
-      compilerOptions: {
-        target: 'ESNext',
-        module: 'ESNext',
-        moduleResolution: 'bundler',
-        allowImportingTsExtensions: true,
-        strict: true,
-        skipLibCheck: true,
-      },
-      include: Object.keys(files),
-    }),
-  );
-  for (const [file, content] of Object.entries(files)) {
-    await writeFile(join(dir, file), content);
-  }
-  return dir;
+function workspace(files: Record<string, string>) {
+  return analysisWorkspace('intersection-alias-', files);
 }
 
 describe('an inherited response type returned as JSON', () => {
@@ -103,31 +67,30 @@ describe('an inherited response type returned as JSON', () => {
   ] as const) {
     for (const imported of [false, true]) {
       test(`generated client types every AppSummary field as required (${kind}, WorkspaceApp ${imported ? 'imported' : 'local'})`, async () => {
-        const dir = await workspace({
+        await using dir = await workspace({
           'route.ts': route(summary, imported),
           ...(imported ? { 'workspace.ts': workspaceApp } : {}),
         });
-        try {
-          using project = openAnalysisProject(join(dir, 'tsconfig.json'));
-          const spec = await analyze(project, { responseAnalyzer });
-          const output = join(dir, 'client');
-          await generate(
-            {
-              openapi: '3.1.0',
-              info: { title: 'Apps', version: '1.0.0' },
-              paths: spec.paths,
-              components: spec.components,
-            },
-            { output, name: 'Apps', readme: false, mode: 'full' },
-          );
-          const configPath = join(output, 'tsconfig.json');
-          const config = JSON.parse(await readFile(configPath, 'utf8'));
-          config.compilerOptions.strict = true;
-          await writeFile(configPath, JSON.stringify(config));
-          const consumerPath = join(output, 'src', 'consumer.ts');
-          await writeFile(
-            consumerPath,
-            `import { Apps } from './index.ts';
+        using project = openAnalysisProject(dir.tsconfig);
+        const spec = await analyze(project, { responseAnalyzer });
+        const output = join(dir.path, 'client');
+        await generate(
+          {
+            openapi: '3.1.0',
+            info: { title: 'Apps', version: '1.0.0' },
+            paths: spec.paths,
+            components: spec.components,
+          },
+          { output, name: 'Apps', readme: false, mode: 'full' },
+        );
+        const configPath = join(output, 'tsconfig.json');
+        const config = JSON.parse(await readFile(configPath, 'utf8'));
+        config.compilerOptions.strict = true;
+        await writeFile(configPath, JSON.stringify(config));
+        const consumerPath = join(output, 'src', 'consumer.ts');
+        await writeFile(
+          consumerPath,
+          `import { Apps } from './index.ts';
 const client = new Apps({ baseUrl: 'https://example.test' });
 const summary = await client.request('GET /apps/current', {});
 const name: string = summary.name;
@@ -141,15 +104,12 @@ const url: string = summary.url;
 const notNumber: number = summary.name;
 void [name, projectName, root, createdAt, activeJobId, status, url, notNumber];
 `,
-          );
+        );
 
-          const { files, diagnostics } = typecheck(configPath);
+        const { files, diagnostics } = typecheck(configPath);
 
-          assert.ok(files.includes(consumerPath));
-          assert.deepStrictEqual(diagnostics, []);
-        } finally {
-          await rm(dir, { recursive: true, force: true });
-        }
+        assert.ok(files.includes(consumerPath));
+        assert.deepStrictEqual(diagnostics, []);
       });
     }
   }

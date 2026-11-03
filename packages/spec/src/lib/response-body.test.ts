@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { ResponseObject } from 'openapi3-ts/oas31';
 
-import { type TunedOperationObject, toIR } from '@sdk-it/spec';
+import { type TunedResponseObject, toIR } from '@sdk-it/spec';
 
 const cases: [string, ResponseObject, string][] = [
   [
@@ -96,9 +96,10 @@ for (const [shape, response, expected] of cases) {
         },
       },
     });
-    const operation = ir.paths['/things']?.post as TunedOperationObject;
+    const created: TunedResponseObject =
+      ir.paths['/things']?.post?.responses?.['201'];
 
-    assert.equal(operation.responses['201']['x-body'], expected);
+    assert.equal(created['x-body'], expected);
   });
 }
 
@@ -117,9 +118,8 @@ test('a response with no content gets no fabricated body or output', async () =>
       },
     },
   });
-  const created = (ir.paths['/things']?.post as TunedOperationObject).responses[
-    '201'
-  ];
+  const created: TunedResponseObject =
+    ir.paths['/things']?.post?.responses?.['201'];
 
   assert.deepEqual(created.content, {});
   assert.equal(created['x-response-name'], undefined);
@@ -149,7 +149,8 @@ test('an error response that is not flattened still has a body kind', async () =
       },
     },
   });
-  const operation = ir.paths['/things']?.get as TunedOperationObject;
+  const notFound: TunedResponseObject =
+    ir.paths['/things']?.get?.responses?.['404'];
 
-  assert.equal(operation.responses['404']['x-body'], 'json');
+  assert.equal(notFound['x-body'], 'json');
 });

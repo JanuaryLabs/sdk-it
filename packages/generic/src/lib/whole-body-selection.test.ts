@@ -1,22 +1,17 @@
 import assert from 'node:assert/strict';
-import {
-  mkdtemp,
-  readFile,
-  realpath,
-  rm,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
-import { typecheck } from '@sdk-it/testing';
+import {
+  type AnalysisWorkspace,
+  analysisWorkspace,
+  typecheck,
+} from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 const routes = `import { Hono } from 'hono';
@@ -67,38 +62,14 @@ app.post('/logs', validate('application/json', (payload) => ({
 });
 `;
 
-async function workspace() {
-  const dir = await realpath(
-    await mkdtemp(join(tmpdir(), 'sdk-it-whole-body-')),
-  );
-  const require = createRequire(import.meta.url);
-  await symlink(
-    dirname(dirname(require.resolve('zod/package.json'))),
-    join(dir, 'node_modules'),
-    'dir',
-  );
-  await writeFile(join(dir, 'package.json'), '{"type":"module"}');
-  await writeFile(
-    join(dir, 'tsconfig.json'),
-    JSON.stringify({
-      compilerOptions: {
-        target: 'ESNext',
-        module: 'ESNext',
-        moduleResolution: 'bundler',
-        strict: true,
-        skipLibCheck: true,
-      },
-      include: ['route.ts'],
-    }),
-  );
-  await writeFile(join(dir, 'route.ts'), routes);
-  return dir;
+function workspace() {
+  return analysisWorkspace('whole-body-', { 'route.ts': routes });
 }
 
-async function generateClient(dir: string) {
-  using project = openAnalysisProject(join(dir, 'tsconfig.json'));
+async function generateClient(dir: AnalysisWorkspace) {
+  using project = openAnalysisProject(dir.tsconfig);
   const { paths, components } = await analyze(project, { responseAnalyzer });
-  const output = join(dir, 'client');
+  const output = join(dir.path, 'client');
   await generate(
     {
       openapi: '3.1.0',
@@ -112,84 +83,79 @@ async function generateClient(dir: string) {
 }
 
 test('a whole-body selection documents the selected schema as the request body', async () => {
-  const dir = await workspace();
-  try {
-    using project = openAnalysisProject(join(dir, 'tsconfig.json'));
-    const { paths } = JSON.parse(
-      JSON.stringify(await analyze(project, { responseAnalyzer })),
-    );
+  await using dir = await workspace();
+  using project = openAnalysisProject(dir.tsconfig);
+  const { paths } = JSON.parse(
+    JSON.stringify(await analyze(project, { responseAnalyzer })),
+  );
 
-    const update = paths['/schedules/{taskId}'].patch;
-    assert.deepStrictEqual(update.parameters, [
-      {
-        in: 'path',
-        name: 'taskId',
-        required: true,
-        schema: { type: 'string' },
-      },
-    ]);
-    assert.deepStrictEqual(update.requestBody, {
+  const update = paths['/schedules/{taskId}'].patch;
+  assert.deepStrictEqual(update.parameters, [
+    {
+      in: 'path',
+      name: 'taskId',
       required: true,
-      content: {
-        'application/json': {
-          schema: {
+      schema: { type: 'string' },
+    },
+  ]);
+  assert.deepStrictEqual(update.requestBody, {
+    required: true,
+    content: {
+      'application/json': {
+        schema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            cron: { type: 'string' },
+          },
+          required: ['name'],
+          additionalProperties: false,
+        },
+      },
+    },
+  });
+
+  assert.deepStrictEqual(paths['/logs'].post.requestBody, {
+    required: true,
+    content: {
+      'application/json': {
+        schema: {
+          type: 'array',
+          items: {
             type: 'object',
             properties: {
-              name: { type: 'string' },
-              cron: { type: 'string' },
+              level: { type: 'string' },
+              message: { type: 'string' },
             },
-            required: ['name'],
+            required: ['level', 'message'],
             additionalProperties: false,
           },
         },
       },
-    });
+    },
+  });
 
-    assert.deepStrictEqual(paths['/logs'].post.requestBody, {
+  assert.deepStrictEqual(paths['/schedules'].post.parameters, [
+    {
+      in: 'header',
+      name: 'idempotency-key',
       required: true,
-      content: {
-        'application/json': {
-          schema: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                level: { type: 'string' },
-                message: { type: 'string' },
-              },
-              required: ['level', 'message'],
-              additionalProperties: false,
-            },
-          },
-        },
-      },
-    });
-
-    assert.deepStrictEqual(paths['/schedules'].post.parameters, [
-      {
-        in: 'header',
-        name: 'idempotency-key',
-        required: true,
-        schema: { type: 'string' },
-      },
-    ]);
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
+      schema: { type: 'string' },
+    },
+  ]);
 });
 
 test('the generated client takes a whole-body selection as its body fields, or $body for an array', async () => {
-  const dir = await workspace();
-  try {
-    const output = await generateClient(dir);
-    const configPath = join(output, 'tsconfig.json');
-    const config = JSON.parse(await readFile(configPath, 'utf8'));
-    config.compilerOptions.strict = true;
-    await writeFile(configPath, JSON.stringify(config));
-    const consumerPath = join(output, 'src', 'consumer.ts');
-    await writeFile(
-      consumerPath,
-      `import { Schedules } from './index.ts';
+  await using dir = await workspace();
+  const output = await generateClient(dir);
+  const configPath = join(output, 'tsconfig.json');
+  const config = JSON.parse(await readFile(configPath, 'utf8'));
+  config.compilerOptions.strict = true;
+  await writeFile(configPath, JSON.stringify(config));
+  const consumerPath = join(output, 'src', 'consumer.ts');
+  await writeFile(
+    consumerPath,
+    `import { Schedules } from './index.ts';
 const client = new Schedules({ baseUrl: 'https://example.test' });
 await client.request('PATCH /schedules/{taskId}', { taskId: 't1', name: 'nightly' });
 await client.request('PATCH /schedules/{taskId}', {
@@ -204,52 +170,45 @@ await client.request('POST /logs', { $body: [{ level: 'info', message: 'hi' }] }
 // @ts-expect-error each log entry needs a message.
 await client.request('POST /logs', { $body: [{ level: 'info' }] });
 `,
-    );
+  );
 
-    const { files, diagnostics } = typecheck(configPath);
+  const { files, diagnostics } = typecheck(configPath);
 
-    assert.ok(files.includes(consumerPath));
-    assert.deepEqual(diagnostics, []);
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
+  assert.ok(files.includes(consumerPath));
+  assert.deepEqual(diagnostics, []);
 });
 
 test('the generated client sends a whole-body selection as the request body', async () => {
-  const dir = await workspace();
-  try {
-    const output = await generateClient(dir);
-    const { Schedules } = await import(
-      pathToFileURL(join(output, 'src/index.ts')).href
-    );
-    const requests: Request[] = [];
-    const client = new Schedules({
-      baseUrl: 'https://example.test',
-      fetch: async (request: Request) => {
-        requests.push(request.clone());
-        return Response.json({ name: 'nightly', count: 1 });
-      },
-    });
+  await using dir = await workspace();
+  const output = await generateClient(dir);
+  const { Schedules } = await import(
+    pathToFileURL(join(output, 'src/index.ts')).href
+  );
+  const requests: Request[] = [];
+  const client = new Schedules({
+    baseUrl: 'https://example.test',
+    fetch: async (request: Request) => {
+      requests.push(request.clone());
+      return Response.json({ name: 'nightly', count: 1 });
+    },
+  });
 
-    await client.request('PATCH /schedules/{taskId}', {
-      taskId: 't1',
-      name: 'nightly',
-    });
-    await client.request('POST /schedules', {
-      name: 'nightly',
-      'idempotency-key': 'k1',
-    });
-    await client.request('POST /logs', {
-      $body: [{ level: 'info', message: 'hi' }],
-    });
+  await client.request('PATCH /schedules/{taskId}', {
+    taskId: 't1',
+    name: 'nightly',
+  });
+  await client.request('POST /schedules', {
+    name: 'nightly',
+    'idempotency-key': 'k1',
+  });
+  await client.request('POST /logs', {
+    $body: [{ level: 'info', message: 'hi' }],
+  });
 
-    const [update, create, logs] = requests;
-    assert.equal(update.url, 'https://example.test/schedules/t1');
-    assert.deepEqual(await update.json(), { name: 'nightly' });
-    assert.equal(create.headers.get('idempotency-key'), 'k1');
-    assert.deepEqual(await create.json(), { name: 'nightly' });
-    assert.deepEqual(await logs.json(), [{ level: 'info', message: 'hi' }]);
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
+  const [update, create, logs] = requests;
+  assert.equal(update.url, 'https://example.test/schedules/t1');
+  assert.deepEqual(await update.json(), { name: 'nightly' });
+  assert.equal(create.headers.get('idempotency-key'), 'k1');
+  assert.deepEqual(await create.json(), { name: 'nightly' });
+  assert.deepEqual(await logs.json(), [{ level: 'info', message: 'hi' }]);
 });

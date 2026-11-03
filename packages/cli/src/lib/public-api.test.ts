@@ -1,23 +1,22 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   rmSync,
   statSync,
   symlinkSync,
-  unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { afterEach, test } from 'node:test';
+import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
 
 import { generateProject, initializeProject } from '@sdk-it/cli';
+import { workspaceDirectory } from '@sdk-it/testing';
 
 const repoRoot = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -27,7 +26,6 @@ const repoRoot = join(
   '..',
 );
 const cliBin = join(repoRoot, 'packages', 'cli', 'dist', 'bin.js');
-const tempDirectories: string[] = [];
 
 function runCli(cwd: string, ...args: string[]) {
   return spawnSync(process.execPath, [cliBin, ...args], {
@@ -35,12 +33,6 @@ function runCli(cwd: string, ...args: string[]) {
     encoding: 'utf8',
   });
 }
-
-afterEach(() => {
-  for (const directory of tempDirectories.splice(0)) {
-    rmSync(directory, { recursive: true, force: true });
-  }
-});
 
 test('package exposes the sdk-it executable', () => {
   const manifest = JSON.parse(
@@ -70,12 +62,12 @@ test('help identifies sdk-it and exposes the nested generators', () => {
   assert.match(typescriptHelp.stdout, /--spec <spec>/);
 });
 
-function createHonoWorkspace() {
-  const workspace = mkdtempSync(join(tmpdir(), 'sdk-it-project-'));
-  tempDirectories.push(workspace);
+async function createHonoWorkspace() {
+  await using pending = new AsyncDisposableStack();
+  const directory = pending.use(await workspaceDirectory('sdk-it-project-'));
+  const workspace = directory.path;
 
   mkdirSync(join(workspace, 'src'));
-  symlinkSync(join(repoRoot, 'node_modules'), join(workspace, 'node_modules'));
   writeFileSync(
     join(workspace, 'tsconfig.json'),
     JSON.stringify({
@@ -111,17 +103,21 @@ app.get(
 `,
   );
 
+  pending.move();
   return {
+    ...directory,
     output: join(workspace, '.sdk-it'),
     tsconfig: join(workspace, 'tsconfig.json'),
-    workspace,
   };
 }
 
-function createPrismaHonoWorkspace(options: { enumSchema?: boolean } = {}) {
+async function createPrismaHonoWorkspace(
+  options: { enumSchema?: boolean } = {},
+) {
   const enumSchema = options.enumSchema ?? true;
-  const project = createHonoWorkspace();
-  const generated = join(project.workspace, 'src', 'generated');
+  await using pending = new AsyncDisposableStack();
+  const project = pending.use(await createHonoWorkspace());
+  const generated = join(project.path, 'src', 'generated');
   mkdirSync(generated);
   writeFileSync(
     join(generated, 'client.d.ts'),
@@ -146,6 +142,10 @@ export type Product = {
 `,
   );
   writeFileSync(
+    join(generated, 'package.json'),
+    JSON.stringify({ type: 'commonjs' }),
+  );
+  writeFileSync(
     join(generated, 'client.js'),
     `
 exports.Prisma = {
@@ -164,7 +164,7 @@ exports.$Enums = {
 `,
   );
   writeFileSync(
-    join(project.workspace, 'src', 'index.ts'),
+    join(project.path, 'src', 'index.ts'),
     `
 import { Hono } from 'hono';
 import { z } from 'zod';
@@ -201,6 +201,7 @@ app.get(
 );
 `,
   );
+  pending.move();
   return project;
 }
 
@@ -226,7 +227,8 @@ test('importing @sdk-it/cli does not run the command-line interface', () => {
 });
 
 test('generateProject creates a client from a Hono TypeScript project', async () => {
-  const { output, tsconfig } = createHonoWorkspace();
+  await using project = await createHonoWorkspace();
+  const { output, tsconfig } = project;
   await generateProject({
     tsconfig,
     output,
@@ -237,7 +239,8 @@ test('generateProject creates a client from a Hono TypeScript project', async ()
 });
 
 test("generateProject detects Hono when framework is explicitly 'auto'", async () => {
-  const { output, tsconfig } = createHonoWorkspace();
+  await using project = await createHonoWorkspace();
+  const { output, tsconfig } = project;
   await generateProject({ tsconfig, output, framework: 'auto' });
 
   const endpoint = readFileSync(join(output, 'src', 'api', 'books.ts'), 'utf8');
@@ -245,8 +248,21 @@ test("generateProject detects Hono when framework is explicitly 'auto'", async (
 });
 
 test('generated project client is directly importable by Node.js', async () => {
-  const { output, tsconfig, workspace } = createHonoWorkspace();
-  await generateProject({ tsconfig, output });
+  await using project = await createHonoWorkspace();
+  await using consumer = await new TemporaryFiles().directory(
+    'sdk-it-client-consumer-',
+  );
+  const output = join(consumer.path, 'client');
+  mkdirSync(join(consumer.path, 'node_modules', '@sdk-it'), {
+    recursive: true,
+  });
+  for (const dependency of ['fast-content-type-parse', 'zod']) {
+    symlinkSync(
+      join(repoRoot, 'node_modules', dependency),
+      join(consumer.path, 'node_modules', dependency),
+    );
+  }
+  await generateProject({ tsconfig: project.tsconfig, output });
 
   const manifest = JSON.parse(
     readFileSync(join(output, 'package.json'), 'utf8'),
@@ -257,18 +273,7 @@ test('generated project client is directly importable by Node.js', async () => {
     default: './dist/index.js',
   });
 
-  // `node_modules` is the symlink createHonoWorkspace planted, and this test
-  // needs a real directory there instead. `rmSync` without options resolves the
-  // symlink and throws ERR_FS_EISDIR on Node 24; unlink drops the link itself.
-  unlinkSync(join(workspace, 'node_modules'));
-  mkdirSync(join(workspace, 'node_modules', '@sdk-it'), { recursive: true });
-  symlinkSync(output, join(workspace, 'node_modules', '@sdk-it', 'client'));
-  for (const dependency of ['fast-content-type-parse', 'zod']) {
-    symlinkSync(
-      join(repoRoot, 'node_modules', dependency),
-      join(workspace, 'node_modules', dependency),
-    );
-  }
+  symlinkSync(output, join(consumer.path, 'node_modules', '@sdk-it', 'client'));
 
   const result = spawnSync(
     process.execPath,
@@ -277,7 +282,7 @@ test('generated project client is directly importable by Node.js', async () => {
       '--eval',
       `import('@sdk-it/client').then(({ Client }) => console.log(typeof Client))`,
     ],
-    { cwd: workspace, encoding: 'utf8' },
+    { cwd: consumer.path, encoding: 'utf8' },
   );
 
   assert.equal(result.status, 0, result.stderr);
@@ -285,7 +290,8 @@ test('generated project client is directly importable by Node.js', async () => {
 });
 
 test('loadProjectConfig finds a typed config and resolves its paths', async () => {
-  const { workspace } = createHonoWorkspace();
+  await using project = await createHonoWorkspace();
+  const { path: workspace } = project;
   writeFileSync(
     join(workspace, 'sdk-it.config.ts'),
     `
@@ -304,20 +310,10 @@ export default defineConfig({
 `,
   );
 
-  const cli = (await import('@sdk-it/cli')) as typeof import('@sdk-it/cli') & {
-    loadProjectConfig?: (options: { cwd: string }) => Promise<{
-      tsconfig: string;
-      output: string;
-      securitySchemes: Record<string, unknown>;
-      middlewareSecurity: Array<{
-        middleware: { import: string; from: string };
-        security: Array<Record<string, string[]>>;
-      }>;
-    }>;
-  };
+  const cli = await import('@sdk-it/cli');
   assert.equal(typeof cli.loadProjectConfig, 'function');
 
-  const config = await cli.loadProjectConfig!({
+  const config = await cli.loadProjectConfig({
     cwd: join(workspace, 'src'),
   });
   assert.deepEqual(config, {
@@ -338,8 +334,9 @@ export default defineConfig({
   });
 });
 
-test('sdk-it generate uses the project config through the CLI', () => {
-  const { output, workspace } = createHonoWorkspace();
+test('sdk-it generate uses the project config through the CLI', async () => {
+  await using project = await createHonoWorkspace();
+  const { output, path: workspace } = project;
   writeFileSync(
     join(workspace, 'sdk-it.config.ts'),
     `
@@ -360,8 +357,9 @@ export default defineConfig({
   assert.equal(manifest.exports['.'].import, './dist/index.js');
 });
 
-test('sdk-it generate accepts an explicit TypeScript config path', () => {
-  const { workspace } = createHonoWorkspace();
+test('sdk-it generate accepts an explicit TypeScript config path', async () => {
+  await using project = await createHonoWorkspace();
+  const { path: workspace } = project;
   writeFileSync(
     join(workspace, 'backend-client.config.ts'),
     `
@@ -389,12 +387,11 @@ export default defineConfig({
   assert.equal(manifest.exports['.'].import, './dist/index.js');
 });
 
-test('sdk-it init --project initializes a nested backend client workspace', () => {
-  const workspace = mkdtempSync(join(tmpdir(), 'sdk-it-monorepo-'));
-  tempDirectories.push(workspace);
+test('sdk-it init --project initializes a nested backend client workspace', async () => {
+  await using monorepo = await workspaceDirectory('sdk-it-monorepo-');
+  const workspace = monorepo.path;
   const project = join(workspace, 'apps', 'api');
   mkdirSync(join(project, 'src'), { recursive: true });
-  symlinkSync(join(repoRoot, 'node_modules'), join(workspace, 'node_modules'));
   writeFileSync(
     join(project, 'tsconfig.app.json'),
     JSON.stringify(
@@ -542,7 +539,8 @@ apps/api/.sdk-it/*
 });
 
 test('generateProject detects a custom Prisma client and maps Decimal to string', async () => {
-  const { output, tsconfig } = createPrismaHonoWorkspace();
+  await using project = await createPrismaHonoWorkspace();
+  const { output, tsconfig } = project;
   await generateProject({ tsconfig, output });
 
   const generatedOutput = readFileSync(
@@ -553,7 +551,8 @@ test('generateProject detects a custom Prisma client and maps Decimal to string'
 });
 
 test("generateProject applies preset: 'prisma' when the client resolves", async () => {
-  const { output, tsconfig } = createPrismaHonoWorkspace();
+  await using project = await createPrismaHonoWorkspace();
+  const { output, tsconfig } = project;
   await generateProject({ tsconfig, output, preset: 'prisma' });
 
   const generatedOutput = readFileSync(
@@ -564,9 +563,10 @@ test("generateProject applies preset: 'prisma' when the client resolves", async 
 });
 
 test("generateProject skips Prisma detection with preset: 'none'", async () => {
-  const { output, tsconfig } = createPrismaHonoWorkspace({
+  await using project = await createPrismaHonoWorkspace({
     enumSchema: false,
   });
+  const { output, tsconfig } = project;
   await generateProject({ tsconfig, output, preset: 'none' });
 
   const generatedOutput = readFileSync(
@@ -577,7 +577,8 @@ test("generateProject skips Prisma detection with preset: 'none'", async () => {
 });
 
 test("generateProject rejects preset: 'prisma' when Prisma cannot be resolved", async () => {
-  const { output, tsconfig } = createHonoWorkspace();
+  await using project = await createHonoWorkspace();
+  const { output, tsconfig } = project;
 
   await assert.rejects(
     generateProject({ tsconfig, output, preset: 'prisma' }),
@@ -588,23 +589,19 @@ test("generateProject rejects preset: 'prisma' when Prisma cannot be resolved", 
 });
 
 test('initializeProject preserves repository settings and is idempotent', async () => {
-  const { tsconfig, workspace } = createHonoWorkspace();
+  await using project = await createHonoWorkspace();
+  const { tsconfig, path: workspace } = project;
   writeFileSync(join(workspace, '.gitignore'), 'dist/\n');
   writeFileSync(
     join(workspace, 'package.json'),
     JSON.stringify({ private: true, workspaces: ['packages/*'] }, null, 2),
   );
 
-  const cli = (await import('@sdk-it/cli')) as typeof import('@sdk-it/cli') & {
-    initializeProject?: (options: {
-      cwd: string;
-      tsconfig: string;
-    }) => Promise<void>;
-  };
+  const cli = await import('@sdk-it/cli');
   assert.equal(typeof cli.initializeProject, 'function');
 
-  await cli.initializeProject!({ cwd: workspace, tsconfig });
-  await cli.initializeProject!({ cwd: workspace, tsconfig });
+  await cli.initializeProject({ cwd: workspace, tsconfig });
+  await cli.initializeProject({ cwd: workspace, tsconfig });
 
   assert.equal(
     readFileSync(join(workspace, '.gitignore'), 'utf8'),
@@ -628,7 +625,8 @@ export default defineConfig({
 });
 
 test('initializeProject validates package.json before modifying repository files', async () => {
-  const { tsconfig, workspace } = createHonoWorkspace();
+  await using project = await createHonoWorkspace();
+  const { tsconfig, path: workspace } = project;
   writeFileSync(join(workspace, '.gitignore'), 'dist/\n');
   writeFileSync(join(workspace, 'package.json'), '{ invalid json');
 
@@ -639,7 +637,8 @@ test('initializeProject validates package.json before modifying repository files
 });
 
 test('initializeProject validates the tsconfig before modifying repository files', async () => {
-  const { tsconfig, workspace } = createHonoWorkspace();
+  await using project = await createHonoWorkspace();
+  const { tsconfig, path: workspace } = project;
   rmSync(tsconfig);
   writeFileSync(join(workspace, '.gitignore'), 'dist/\n');
   writeFileSync(
@@ -661,7 +660,8 @@ test('initializeProject validates the tsconfig before modifying repository files
 });
 
 test('generateProject does not rewrite an unchanged client package', async () => {
-  const { output, tsconfig } = createHonoWorkspace();
+  await using project = await createHonoWorkspace();
+  const { output, tsconfig } = project;
   await generateProject({ tsconfig, output });
   const manifest = join(output, 'package.json');
   const firstModifiedAt = statSync(manifest).mtimeMs;
@@ -678,7 +678,8 @@ test('generateProject does not rewrite an unchanged client package', async () =>
 });
 
 test('generateProject synchronizes generated package metadata on regeneration', async () => {
-  const { output, tsconfig } = createHonoWorkspace();
+  await using project = await createHonoWorkspace();
+  const { output, tsconfig } = project;
   await generateProject({
     tsconfig,
     output,
@@ -705,37 +706,38 @@ test('generateProject synchronizes generated package metadata on regeneration', 
 });
 
 test('generateProject rejects a generated client that does not compile and does not cache it', async () => {
-  const { tsconfig, workspace } = createHonoWorkspace();
-  const output = mkdtempSync(join(tmpdir(), 'sdk-it-unresolvable-output-'));
-  try {
-    await assert.rejects(
-      generateProject({ tsconfig, output }),
-      (error: Error) => {
-        assert.match(error.message, /^Failed to compile generated client:/);
-        assert.match(error.message, /TS2307/);
-        const headers =
-          stripVTControlCharacters(error.message).match(
-            /^.*error TS\d+:.*$/gm,
-          ) ?? [];
-        assert.deepEqual(headers, [...new Set(headers)]);
-        return true;
-      },
-    );
-    assert.equal(existsSync(join(output, '.project-hash')), false);
-    assert.equal(existsSync(join(output, 'dist')), false);
-  } finally {
-    rmSync(output, { recursive: true, force: true });
-    rmSync(workspace, { recursive: true, force: true });
-  }
+  await using project = await createHonoWorkspace();
+  const { tsconfig } = project;
+  await using outputDirectory = await new TemporaryFiles().directory(
+    'sdk-it-unresolvable-output-',
+  );
+  const output = outputDirectory.path;
+  await assert.rejects(
+    generateProject({ tsconfig, output }),
+    (error: Error) => {
+      assert.match(error.message, /^Failed to compile generated client:/);
+      assert.match(error.message, /TS2307/);
+      const headers =
+        stripVTControlCharacters(error.message).match(/^.*error TS\d+:.*$/gm) ??
+        [];
+      assert.deepEqual(headers, [...new Set(headers)]);
+      return true;
+    },
+  );
+  assert.equal(existsSync(join(output, '.project-hash')), false);
+  assert.equal(existsSync(join(output, 'dist')), false);
 });
 
-test('sdk-it generate exits non-zero when the generated client does not compile', () => {
-  const { workspace } = createHonoWorkspace();
-  const output = mkdtempSync(join(tmpdir(), 'sdk-it-unresolvable-output-'));
-  try {
-    writeFileSync(
-      join(workspace, 'sdk-it.config.ts'),
-      `
+test('sdk-it generate exits non-zero when the generated client does not compile', async () => {
+  await using project = await createHonoWorkspace();
+  const { path: workspace } = project;
+  await using outputDirectory = await new TemporaryFiles().directory(
+    'sdk-it-unresolvable-output-',
+  );
+  const output = outputDirectory.path;
+  writeFileSync(
+    join(workspace, 'sdk-it.config.ts'),
+    `
 import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
@@ -743,16 +745,12 @@ export default defineConfig({
   output: ${JSON.stringify(output)},
 });
 `,
-    );
+  );
 
-    const result = runCli(workspace, 'generate');
+  const result = runCli(workspace, 'generate');
 
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /Failed to compile generated client:/);
-    assert.match(result.stderr, /TS2307/);
-    assert.doesNotMatch(result.stdout, /Client generated successfully!/);
-  } finally {
-    rmSync(output, { recursive: true, force: true });
-    rmSync(workspace, { recursive: true, force: true });
-  }
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Failed to compile generated client:/);
+  assert.match(result.stderr, /TS2307/);
+  assert.doesNotMatch(result.stdout, /Client generated successfully!/);
 });

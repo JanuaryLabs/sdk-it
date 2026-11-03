@@ -2,13 +2,13 @@ import { HttpServer } from '@zukhruf/testing/http';
 import { test } from '@zukhruf/testing/node';
 import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
-import { mkdtempDisposable, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 
 import { toIR } from '@sdk-it/spec';
-import { typecheck } from '@sdk-it/testing';
+import { typecheck, workspaceDirectory } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 void test.each(['anyOf', 'oneOf'] as const, (composition) =>
@@ -142,11 +142,8 @@ void test.each(['full', 'minimal'] as const, (mode) =>
       ],
       ({ name, input, field, parent, explicit, required = false }) =>
         test(`generated ${mode} SDK advances ${name} cursors in ${transport} requests`, async () => {
-          await using workspace = await mkdtempDisposable(
-            join(
-              fileURLToPath(new URL('../../../../', import.meta.url)),
-              '.cursor-continuation-',
-            ),
+          await using workspace = await workspaceDirectory(
+            'cursor-continuation-',
           );
           try {
             const cursorPath = parent ? `${parent}.${field}` : field;
@@ -363,9 +360,9 @@ export async function exercise(baseUrl: string) {
                   );
                   values.limit = Number(values.limit);
                 } else {
-                  const chunks: Buffer[] = [];
-                  for await (const chunk of request)
-                    chunks.push(Buffer.from(chunk));
+                  const chunks = await Array.fromAsync(request, (chunk) =>
+                    Buffer.from(chunk),
+                  );
                   values = JSON.parse(Buffer.concat(chunks).toString());
                 }
                 requests.push(values);
@@ -451,7 +448,7 @@ export async function exercise(baseUrl: string) {
                 : []),
             ]);
           } finally {
-            stop();
+            await stop();
           }
         }),
     ),

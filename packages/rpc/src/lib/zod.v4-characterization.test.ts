@@ -1,10 +1,14 @@
 import { describe, test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
-import type { ZodType } from 'zod';
+import { ZodObject } from 'zod';
 
+import type { OpenAPIDocument } from '@sdk-it/core';
 import { schemaToZod } from '@sdk-it/rpc';
 
-const ir = {} as never;
+const ir: OpenAPIDocument = {
+  openapi: '3.1.0',
+  info: { title: 'test', version: '1.0.0' },
+};
 
 describe('schemaToZod — impossible schemas', () => {
   test('empty not rejects every value', () => {
@@ -192,7 +196,7 @@ describe('schemaToZod — v3→v4 characterization (coerce markers)', () => {
     const r = schema.safeParse('2024-01-01T00:00:00Z');
     assert.equal(r.success, true);
     assert.ok(r.data instanceof Date);
-    assert.equal((r.data as Date).toISOString(), '2024-01-01T00:00:00.000Z');
+    assert.equal(r.data.toISOString(), '2024-01-01T00:00:00.000Z');
   });
 
   test('x-zod-type: date requires a Date instance', () => {
@@ -514,22 +518,17 @@ describe('schemaToZod — v3→v4 characterization (enums)', () => {
 
 describe('schemaToZod — v3→v4 characterization (nullable)', () => {
   test('OpenAPI 3.0 nullable: true accepts null', () => {
-    const schema = schemaToZod(
-      { type: 'string', nullable: true } as Parameters<typeof schemaToZod>[0],
-      ir,
-      { required: true },
-    );
+    const openapi30Schema = { type: 'string', nullable: true } as const;
+    const schema = schemaToZod(openapi30Schema, ir, { required: true });
     assert.equal(schema.safeParse('hi').success, true);
     assert.equal(schema.safeParse(null).success, true);
     assert.equal(schema.safeParse(42).success, false);
   });
 
   test('OpenAPI 3.1 type: ["string","null"] accepts null', () => {
-    const schema = schemaToZod(
-      { type: ['string', 'null'] as unknown as 'string' },
-      ir,
-      { required: true },
-    );
+    const schema = schemaToZod({ type: ['string', 'null'] }, ir, {
+      required: true,
+    });
     assert.equal(schema.safeParse('hi').success, true);
     assert.equal(schema.safeParse(null).success, true);
     assert.equal(schema.safeParse(42).success, false);
@@ -595,13 +594,14 @@ describe('schemaToZod — v3→v4 characterization (default + optional semantics
 
 describe('schemaToZod — v3→v4 characterization ($ref)', () => {
   test('$ref resolves and parses against the referenced schema', () => {
-    const spec = {
+    const spec: OpenAPIDocument = {
+      ...ir,
       components: {
         schemas: {
           Id: { type: 'string', format: 'uuid' },
         },
       },
-    } as never;
+    };
     const schema = schemaToZod({ $ref: '#/components/schemas/Id' }, spec, {
       required: true,
     });
@@ -613,13 +613,14 @@ describe('schemaToZod — v3→v4 characterization ($ref)', () => {
   });
 
   test('nested $ref inside object property validates the referenced shape', () => {
-    const spec = {
+    const spec: OpenAPIDocument = {
+      ...ir,
       components: {
         schemas: {
           Email: { type: 'string', format: 'email' },
         },
       },
-    } as never;
+    };
     const schema = schemaToZod(
       {
         type: 'object',
@@ -636,11 +637,12 @@ describe('schemaToZod — v3→v4 characterization ($ref)', () => {
   });
 
   test('$ref with non-required wraps result in optional', () => {
-    const spec = {
+    const spec: OpenAPIDocument = {
+      ...ir,
       components: {
         schemas: { Name: { type: 'string' } },
       },
-    } as never;
+    };
     const schema = schemaToZod({ $ref: '#/components/schemas/Name' }, spec);
     assert.equal(schema.safeParse(undefined).success, true);
     assert.equal(schema.safeParse('hi').success, true);
@@ -697,19 +699,17 @@ describe('schemaToZod — v3→v4 characterization (assorted)', () => {
       ir,
       { required: true },
     );
-    const shape = (schema as unknown as { shape: Record<string, ZodType> })
-      .shape;
+    assert.ok(schema instanceof ZodObject);
+    const shape = schema.shape;
     assert.equal(shape.age.safeParse(undefined).success, true);
     assert.equal(shape.age.safeParse(5).success, true);
     assert.equal(shape.age.safeParse('5').success, false);
   });
 
   test('union of multiple non-null types accepts any branch', () => {
-    const schema = schemaToZod(
-      { type: ['string', 'number'] as unknown as 'string' },
-      ir,
-      { required: true },
-    );
+    const schema = schemaToZod({ type: ['string', 'number'] }, ir, {
+      required: true,
+    });
     assert.equal(schema.safeParse('a').success, true);
     assert.equal(schema.safeParse(1).success, true);
     assert.equal(schema.safeParse(true).success, false);

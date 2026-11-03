@@ -1,6 +1,6 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
@@ -14,14 +14,15 @@ import {
   rpc,
 } from '@sdk-it/rpc';
 
-function specFile(spec: object) {
-  const dir = mkdtempSync(join(tmpdir(), 'rpc-v4-test-'));
-  const path = join(dir, 'spec.json');
-  writeFileSync(path, JSON.stringify(spec));
-  return {
-    path,
-    cleanup: () => rmSync(dir, { recursive: true, force: true }),
-  };
+async function specFile(spec: object) {
+  await using pending = new AsyncDisposableStack();
+  const directory = pending.use(
+    await new TemporaryFiles().directory('rpc-v4-test-'),
+  );
+  const specPath = join(directory.path, 'spec.json');
+  await writeFile(specPath, JSON.stringify(spec));
+  pending.move();
+  return { ...directory, specPath };
 }
 
 const okSpec = {
@@ -67,290 +68,230 @@ function jsonResponse(body: unknown, status = 200) {
 
 describe('Client options: token resolution', () => {
   test('token as string: emits Authorization: Bearer <string>', async () => {
-    const spec = specFile(okSpec);
-    try {
-      let received: Request | undefined;
-      const client = await rpc(spec.path, {
-        token: 'abc123',
-        fetch: async (req) => {
-          received = req;
-          return jsonResponse({ users: [] });
-        },
-      });
+    await using spec = await specFile(okSpec);
+    let received: Request | undefined;
+    const client = await rpc(spec.specPath, {
+      token: 'abc123',
+      fetch: async (req) => {
+        received = req;
+        return jsonResponse({ users: [] });
+      },
+    });
 
-      await client.request('GET /users', {});
+    await client.request('GET /users', {});
 
-      assert.ok(received);
-      assert.equal(received.headers.get('authorization'), 'Bearer abc123');
-    } finally {
-      spec.cleanup();
-    }
+    assert.ok(received);
+    assert.equal(received.headers.get('authorization'), 'Bearer abc123');
   });
 
   test('token as sync function: re-evaluated for every client.request call', async () => {
-    const spec = specFile(okSpec);
-    try {
-      let current = 'first';
-      let received: Request | undefined;
-      const client = await rpc(spec.path, {
-        token: () => current,
-        fetch: async (req) => {
-          received = req;
-          return jsonResponse({ users: [] });
-        },
-      });
+    await using spec = await specFile(okSpec);
+    let current = 'first';
+    let received: Request | undefined;
+    const client = await rpc(spec.specPath, {
+      token: () => current,
+      fetch: async (req) => {
+        received = req;
+        return jsonResponse({ users: [] });
+      },
+    });
 
-      await client.request('GET /users', {});
-      assert.equal(received?.headers.get('authorization'), 'Bearer first');
+    await client.request('GET /users', {});
+    assert.equal(received?.headers.get('authorization'), 'Bearer first');
 
-      current = 'second';
-      await client.request('GET /users', {});
-      assert.equal(received?.headers.get('authorization'), 'Bearer second');
-    } finally {
-      spec.cleanup();
-    }
+    current = 'second';
+    await client.request('GET /users', {});
+    assert.equal(received?.headers.get('authorization'), 'Bearer second');
   });
 
   test('token as async function: awaited before Authorization header is set', async () => {
-    const spec = specFile(okSpec);
-    try {
-      let received: Request | undefined;
-      const client = await rpc(spec.path, {
-        token: async () => {
-          await new Promise((r) => setTimeout(r, 5));
-          return 'async-token';
-        },
-        fetch: async (req) => {
-          received = req;
-          return jsonResponse({ users: [] });
-        },
-      });
+    await using spec = await specFile(okSpec);
+    let received: Request | undefined;
+    const client = await rpc(spec.specPath, {
+      token: async () => {
+        await new Promise((r) => setTimeout(r, 5));
+        return 'async-token';
+      },
+      fetch: async (req) => {
+        received = req;
+        return jsonResponse({ users: [] });
+      },
+    });
 
-      await client.request('GET /users', {});
-      assert.equal(
-        received?.headers.get('authorization'),
-        'Bearer async-token',
-      );
-    } finally {
-      spec.cleanup();
-    }
+    await client.request('GET /users', {});
+    assert.equal(received?.headers.get('authorization'), 'Bearer async-token');
   });
 
   test('token omitted: no Authorization header on outbound request', async () => {
-    const spec = specFile(okSpec);
-    try {
-      let received: Request | undefined;
-      const client = await rpc(spec.path, {
-        fetch: async (req) => {
-          received = req;
-          return jsonResponse({ users: [] });
-        },
-      });
+    await using spec = await specFile(okSpec);
+    let received: Request | undefined;
+    const client = await rpc(spec.specPath, {
+      fetch: async (req) => {
+        received = req;
+        return jsonResponse({ users: [] });
+      },
+    });
 
-      await client.request('GET /users', {});
-      assert.equal(received?.headers.get('authorization'), null);
-    } finally {
-      spec.cleanup();
-    }
+    await client.request('GET /users', {});
+    assert.equal(received?.headers.get('authorization'), null);
   });
 });
 
 describe('Client options: baseUrl resolution', () => {
   test('baseUrl as string: used verbatim', async () => {
-    const spec = specFile(okSpec);
-    try {
-      let received: Request | undefined;
-      const client = await rpc(spec.path, {
-        baseUrl: 'http://api.example.com',
-        fetch: async (req) => {
-          received = req;
-          return jsonResponse({ users: [] });
-        },
-      });
+    await using spec = await specFile(okSpec);
+    let received: Request | undefined;
+    const client = await rpc(spec.specPath, {
+      baseUrl: 'http://api.example.com',
+      fetch: async (req) => {
+        received = req;
+        return jsonResponse({ users: [] });
+      },
+    });
 
-      await client.request('GET /users', {});
-      assert.ok(received?.url.startsWith('http://api.example.com/users'));
-    } finally {
-      spec.cleanup();
-    }
+    await client.request('GET /users', {});
+    assert.ok(received?.url.startsWith('http://api.example.com/users'));
   });
 
   test('baseUrl as sync function: invoked per request', async () => {
-    const spec = specFile(okSpec);
-    try {
-      let current = 'http://a.example.com';
-      const urls: string[] = [];
-      const client = await rpc(spec.path, {
-        baseUrl: () => current,
-        fetch: async (req) => {
-          urls.push(req.url);
-          return jsonResponse({ users: [] });
-        },
-      });
+    await using spec = await specFile(okSpec);
+    let current = 'http://a.example.com';
+    const urls: string[] = [];
+    const client = await rpc(spec.specPath, {
+      baseUrl: () => current,
+      fetch: async (req) => {
+        urls.push(req.url);
+        return jsonResponse({ users: [] });
+      },
+    });
 
-      await client.request('GET /users', {});
-      current = 'http://b.example.com';
-      await client.request('GET /users', {});
+    await client.request('GET /users', {});
+    current = 'http://b.example.com';
+    await client.request('GET /users', {});
 
-      assert.ok(urls[0].startsWith('http://a.example.com/users'));
-      assert.ok(urls[1].startsWith('http://b.example.com/users'));
-    } finally {
-      spec.cleanup();
-    }
+    assert.ok(urls[0].startsWith('http://a.example.com/users'));
+    assert.ok(urls[1].startsWith('http://b.example.com/users'));
   });
 
   test('baseUrl as async function: awaited', async () => {
-    const spec = specFile(okSpec);
-    try {
-      let received: Request | undefined;
-      const client = await rpc(spec.path, {
-        baseUrl: async () => {
-          await new Promise((r) => setTimeout(r, 5));
-          return 'http://async.example.com';
-        },
-        fetch: async (req) => {
-          received = req;
-          return jsonResponse({ users: [] });
-        },
-      });
+    await using spec = await specFile(okSpec);
+    let received: Request | undefined;
+    const client = await rpc(spec.specPath, {
+      baseUrl: async () => {
+        await new Promise((r) => setTimeout(r, 5));
+        return 'http://async.example.com';
+      },
+      fetch: async (req) => {
+        received = req;
+        return jsonResponse({ users: [] });
+      },
+    });
 
-      await client.request('GET /users', {});
-      assert.ok(received?.url.startsWith('http://async.example.com/users'));
-    } finally {
-      spec.cleanup();
-    }
+    await client.request('GET /users', {});
+    assert.ok(received?.url.startsWith('http://async.example.com/users'));
   });
 
   test('baseUrl falls back to spec servers[0].url when not provided', async () => {
-    const spec = specFile(okSpec);
-    try {
-      let received: Request | undefined;
-      const client = await rpc(spec.path, {
-        fetch: async (req) => {
-          received = req;
-          return jsonResponse({ users: [] });
-        },
-      });
+    await using spec = await specFile(okSpec);
+    let received: Request | undefined;
+    const client = await rpc(spec.specPath, {
+      fetch: async (req) => {
+        received = req;
+        return jsonResponse({ users: [] });
+      },
+    });
 
-      await client.request('GET /users', {});
-      assert.ok(received?.url.startsWith('http://localhost:3000/users'));
-    } finally {
-      spec.cleanup();
-    }
+    await client.request('GET /users', {});
+    assert.ok(received?.url.startsWith('http://localhost:3000/users'));
   });
 });
 
 describe('Client options: custom fetch shim', () => {
   test('custom fetch is invoked with a Request instance', async () => {
-    const spec = specFile(okSpec);
-    try {
-      let received: Request | undefined;
-      const client = await rpc(spec.path, {
-        fetch: async (req) => {
-          received = req;
-          return jsonResponse({ users: [{ id: 1 }] });
-        },
-      });
+    await using spec = await specFile(okSpec);
+    let received: Request | undefined;
+    const client = await rpc(spec.specPath, {
+      fetch: async (req) => {
+        received = req;
+        return jsonResponse({ users: [{ id: 1 }] });
+      },
+    });
 
-      const resp = await client.request('GET /users', {});
-      assert.ok(received instanceof Request);
-      assert.equal(resp.status, 200);
-      assert.deepEqual(resp.data, { users: [{ id: 1 }] });
-    } finally {
-      spec.cleanup();
-    }
+    const resp = await client.request('GET /users', {});
+    assert.ok(received instanceof Request);
+    assert.equal(resp.status, 200);
+    assert.deepEqual(resp.data, { users: [{ id: 1 }] });
   });
 
-  test('fetch undefined: Dispatcher falls back to global fetch', async () => {
-    const original = globalThis.fetch;
-    let called = 0;
-    let receivedReq: Request | undefined;
-    globalThis.fetch = (async (input: Request) => {
-      called += 1;
-      receivedReq = input as Request;
-      return jsonResponse({ users: [] });
-    }) as typeof fetch;
+  test('fetch undefined: Dispatcher falls back to global fetch', async (t) => {
+    const globalFetch = t.mock.method(globalThis, 'fetch', async () =>
+      jsonResponse({ users: [] }),
+    );
 
-    try {
-      const dispatcher = new Dispatcher([], undefined);
-      const config: RequestConfig = {
-        url: new URL('http://example.com/users'),
-        init: { method: 'GET', headers: new Headers() },
-      };
-      const resp = await dispatcher.send(config, [Ok]);
+    const dispatcher = new Dispatcher([], undefined);
+    const config: RequestConfig = {
+      url: new URL('http://example.com/users'),
+      init: { method: 'GET', headers: new Headers() },
+    };
+    const resp = await dispatcher.send(config, [Ok]);
 
-      assert.equal(called, 1);
-      assert.ok(receivedReq);
-      assert.equal(resp.status, 200);
-    } finally {
-      globalThis.fetch = original;
-    }
+    assert.equal(globalFetch.mock.callCount(), 1);
+    assert.ok(globalFetch.mock.calls[0]?.arguments[0]);
+    assert.equal(resp.status, 200);
   });
 });
 
 describe('Client options: headers record', () => {
   test('flat string-record headers are merged onto outbound request', async () => {
-    const spec = specFile(okSpec);
-    try {
-      let received: Request | undefined;
-      const client = await rpc(spec.path, {
-        headers: {
-          'X-Tenant-Id': 'acme',
-          'X-Request-Source': 'test',
-        },
-        fetch: async (req) => {
-          received = req;
-          return jsonResponse({ users: [] });
-        },
-      });
+    await using spec = await specFile(okSpec);
+    let received: Request | undefined;
+    const client = await rpc(spec.specPath, {
+      headers: {
+        'X-Tenant-Id': 'acme',
+        'X-Request-Source': 'test',
+      },
+      fetch: async (req) => {
+        received = req;
+        return jsonResponse({ users: [] });
+      },
+    });
 
-      await client.request('GET /users', {});
-      assert.equal(received?.headers.get('x-tenant-id'), 'acme');
-      assert.equal(received?.headers.get('x-request-source'), 'test');
-    } finally {
-      spec.cleanup();
-    }
+    await client.request('GET /users', {});
+    assert.equal(received?.headers.get('x-tenant-id'), 'acme');
+    assert.equal(received?.headers.get('x-request-source'), 'test');
   });
 
   test('headers omitted: only operation defaults present', async () => {
-    const spec = specFile(okSpec);
-    try {
-      let received: Request | undefined;
-      const client = await rpc(spec.path, {
-        fetch: async (req) => {
-          received = req;
-          return jsonResponse({ users: [] });
-        },
-      });
+    await using spec = await specFile(okSpec);
+    let received: Request | undefined;
+    const client = await rpc(spec.specPath, {
+      fetch: async (req) => {
+        received = req;
+        return jsonResponse({ users: [] });
+      },
+    });
 
-      await client.request('GET /users', {});
-      assert.equal(received?.headers.get('x-tenant-id'), null);
-    } finally {
-      spec.cleanup();
-    }
+    await client.request('GET /users', {});
+    assert.equal(received?.headers.get('x-tenant-id'), null);
   });
 
   test('per-request headers override client-level headers', async () => {
-    const spec = specFile(okSpec);
-    try {
-      let received: Request | undefined;
-      const client = await rpc(spec.path, {
-        headers: { 'X-Tenant-Id': 'default' },
-        fetch: async (req) => {
-          received = req;
-          return jsonResponse({ users: [] });
-        },
-      });
+    await using spec = await specFile(okSpec);
+    let received: Request | undefined;
+    const client = await rpc(spec.specPath, {
+      headers: { 'X-Tenant-Id': 'default' },
+      fetch: async (req) => {
+        received = req;
+        return jsonResponse({ users: [] });
+      },
+    });
 
-      await client.request(
-        'GET /users',
-        {},
-        { headers: { 'X-Tenant-Id': 'override' } },
-      );
-      assert.equal(received?.headers.get('x-tenant-id'), 'override');
-    } finally {
-      spec.cleanup();
-    }
+    await client.request(
+      'GET /users',
+      {},
+      { headers: { 'X-Tenant-Id': 'override' } },
+    );
+    assert.equal(received?.headers.get('x-tenant-id'), 'override');
   });
 });
 
@@ -575,39 +516,33 @@ describe('fetchType schema invariants (v3 → v4 sentinel)', () => {
 
 describe('Client options: callback return-value validation (v3 parity)', () => {
   test('token callback resolving to a non-string rejects with ZodError instead of sending Bearer undefined', async () => {
-    const spec = specFile(okSpec);
-    try {
-      const client = await rpc(spec.path, {
-        token: () => undefined as unknown as string,
-        fetch: async () => jsonResponse({ users: [] }),
-      });
+    await using spec = await specFile(okSpec);
+    const client = await rpc(spec.specPath, {
+      // @ts-expect-error an untyped caller's token callback resolves to undefined
+      token: () => undefined,
+      fetch: async () => jsonResponse({ users: [] }),
+    });
 
-      await assert.rejects(
-        client.request('GET /users', {}),
-        (err: Error) => err.name === 'ZodError',
-        'non-string token must fail fast, not flow into the Authorization header',
-      );
-    } finally {
-      spec.cleanup();
-    }
+    await assert.rejects(
+      client.request('GET /users', {}),
+      (err: Error) => err.name === 'ZodError',
+      'non-string token must fail fast, not flow into the Authorization header',
+    );
   });
 
   test('baseUrl callback resolving to a non-string rejects with ZodError', async () => {
-    const spec = specFile(okSpec);
-    try {
-      const client = await rpc(spec.path, {
-        baseUrl: () => 42 as unknown as string,
-        fetch: async () => jsonResponse({ users: [] }),
-      });
+    await using spec = await specFile(okSpec);
+    const client = await rpc(spec.specPath, {
+      // @ts-expect-error an untyped caller's baseUrl callback resolves to a number
+      baseUrl: () => 42,
+      fetch: async () => jsonResponse({ users: [] }),
+    });
 
-      await assert.rejects(
-        client.request('GET /users', {}),
-        (err: Error) => err.name === 'ZodError',
-        'non-string baseUrl must fail fast',
-      );
-    } finally {
-      spec.cleanup();
-    }
+    await assert.rejects(
+      client.request('GET /users', {}),
+      (err: Error) => err.name === 'ZodError',
+      'non-string baseUrl must fail fast',
+    );
   });
 });
 
@@ -642,41 +577,33 @@ describe('Client.request input validation', () => {
   };
 
   test('invalid input rejects with ParseError before any request is sent', async () => {
-    const spec = specFile(specWithRequiredParam);
-    try {
-      let fetched = false;
-      const client = await rpc(spec.path, {
-        fetch: async () => {
-          fetched = true;
-          return jsonResponse({ users: [] });
-        },
-      });
+    await using spec = await specFile(specWithRequiredParam);
+    let fetched = false;
+    const client = await rpc(spec.specPath, {
+      fetch: async () => {
+        fetched = true;
+        return jsonResponse({ users: [] });
+      },
+    });
 
-      await assert.rejects(
-        client.request('GET /users', { email: 'not-an-email' }),
-        (err: Error) => err.name === 'ParseError',
-      );
-      assert.equal(fetched, false, 'no request may leave the client');
-    } finally {
-      spec.cleanup();
-    }
+    await assert.rejects(
+      client.request('GET /users', { email: 'not-an-email' }),
+      (err: Error) => err.name === 'ParseError',
+    );
+    assert.equal(fetched, false, 'no request may leave the client');
   });
 
   test('valid input dispatches normally', async () => {
-    const spec = specFile(specWithRequiredParam);
-    try {
-      let url: string | undefined;
-      const client = await rpc(spec.path, {
-        fetch: async (req) => {
-          url = req.url;
-          return jsonResponse({ users: [] });
-        },
-      });
+    await using spec = await specFile(specWithRequiredParam);
+    let url: string | undefined;
+    const client = await rpc(spec.specPath, {
+      fetch: async (req) => {
+        url = req.url;
+        return jsonResponse({ users: [] });
+      },
+    });
 
-      await client.request('GET /users', { email: 'a@b.com' });
-      assert.ok(url?.includes('email=a%40b.com'));
-    } finally {
-      spec.cleanup();
-    }
+    await client.request('GET /users', { email: 'a@b.com' });
+    assert.ok(url?.includes('email=a%40b.com'));
   });
 });

@@ -37,6 +37,9 @@
     "execa": "^9.6.0",
     "@sdk-it/readme": "0.46.11"
   },
+  "devDependencies": {
+    "@sdk-it/testing": "*"
+  },
   "publishConfig": {
     "access": "public"
   }

@@ -1,14 +1,11 @@
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
-import { mkdtempDisposable, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 
-import { typecheck } from '@sdk-it/testing';
+import { typecheck, workspaceDirectory } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
-
-const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 
 const sourcedAccount: SchemaObject = {
   allOf: [
@@ -88,7 +85,7 @@ const spec: OpenAPIObject = {
 };
 
 const typecheckConsumer = async (prefix: string, consumer: string) => {
-  await using workspace = await mkdtempDisposable(join(repoRoot, prefix));
+  await using workspace = await workspaceDirectory(prefix);
   await generate(spec, {
     output: workspace.path,
     name: 'Sources',
@@ -111,7 +108,7 @@ ${consumer}`,
 
 void test('allOf response items keep every required property', async () => {
   const { files, diagnostics } = await typecheckConsumer(
-    '.all-of-required-response-',
+    'all-of-required-response-',
     `
 const list = () => client.request('GET /accounts/discovered', {});
 type Item = Awaited<ReturnType<typeof list>>['found'][number];
@@ -132,7 +129,7 @@ void [detail, displayName, externalId, dataSourceId, notNumber];
 
 void test('an allOf request body beside a path parameter keeps every required property', async () => {
   const { files, diagnostics } = await typecheckConsumer(
-    '.all-of-required-request-',
+    'all-of-required-request-',
     `
 void client.request('POST /sources/{sourceId}/accounts', { sourceId: 'src', detail: 'd', displayName: 'n', externalId: 'e', dataSourceId: 's' });
 // @ts-expect-error detail is required by DiscoveredAccount.

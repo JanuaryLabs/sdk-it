@@ -1,6 +1,6 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
 
@@ -11,36 +11,34 @@ async function analyzeWorkspace(
   files: Record<string, string>,
   typesMap?: Record<string, string>,
 ) {
-  const dir = await mkdtemp(join(tmpdir(), 'sdk-it-type-serialization-'));
-  try {
-    await writeFile(
-      join(dir, 'tsconfig.json'),
-      JSON.stringify({
-        compilerOptions: {
-          target: 'ES2022',
-          module: 'ESNext',
-          moduleResolution: 'bundler',
-          strict: true,
-          skipLibCheck: true,
-        },
-        include: ['src/**/*'],
-      }),
-    );
-    for (const [file, content] of Object.entries(files)) {
-      const path = join(dir, 'src', file);
-      await mkdir(dirname(path), { recursive: true });
-      await writeFile(path, content);
-    }
-    using project = openAnalysisProject(join(dir, 'tsconfig.json'));
-    const { paths, components } = await analyze(project, {
-      responseAnalyzer,
-      ...(typesMap ? { typesMap } : {}),
-    });
-    // Assert the document as consumers write it to openapi.json.
-    return JSON.parse(JSON.stringify({ paths, components }));
-  } finally {
-    await rm(dir, { recursive: true, force: true });
+  await using dir = await new TemporaryFiles().directory(
+    'sdk-it-type-serialization-',
+  );
+  await writeFile(
+    join(dir.path, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        target: 'ES2022',
+        module: 'ESNext',
+        moduleResolution: 'bundler',
+        strict: true,
+        skipLibCheck: true,
+      },
+      include: ['src/**/*'],
+    }),
+  );
+  for (const [file, content] of Object.entries(files)) {
+    const path = join(dir.path, 'src', file);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, content);
   }
+  using project = openAnalysisProject(join(dir.path, 'tsconfig.json'));
+  const { paths, components } = await analyze(project, {
+    responseAnalyzer,
+    ...(typesMap ? { typesMap } : {}),
+  });
+  // Assert the document as consumers write it to openapi.json.
+  return JSON.parse(JSON.stringify({ paths, components }));
 }
 
 function jsonResponse(schema: unknown) {

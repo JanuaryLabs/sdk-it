@@ -1,8 +1,8 @@
 import { settleWithin } from '@zukhruf/testing/async';
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
-import { mkdtempDisposable, readFile, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setImmediate } from 'node:timers/promises';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
@@ -61,8 +61,8 @@ function buildWith(plugin: Plugin, root: string) {
 
 void test.each(['object', 'file', 'function'] as const, (source) =>
   test(`${source} builds restore generated SDK content after A to B to A`, async () => {
-    await using workspace = await mkdtempDisposable(
-      join(tmpdir(), 'sdk-it-vite-cache-'),
+    await using workspace = await new TemporaryFiles().directory(
+      'sdk-it-vite-cache-',
     );
     await writeFile(join(workspace.path, 'main.js'), '');
     const output = join(workspace.path, 'sdk');
@@ -115,8 +115,8 @@ void test.each(['object', 'file', 'function'] as const, (source) =>
 );
 
 test('concurrent different specs serialize writes and formatting for one output', async () => {
-  await using workspace = await mkdtempDisposable(
-    join(tmpdir(), 'sdk-it-vite-concurrent-'),
+  await using workspace = await new TemporaryFiles().directory(
+    'sdk-it-vite-concurrent-',
   );
   await writeFile(join(workspace.path, 'main.js'), '');
   const output = join(workspace.path, 'sdk');
@@ -172,8 +172,8 @@ test('concurrent different specs serialize writes and formatting for one output'
 
 void test.each([false, true], (failFirst) =>
   test(`queued A to B to A restores A after the first generation ${failFirst ? 'fails' : 'succeeds'}`, async () => {
-    await using workspace = await mkdtempDisposable(
-      join(tmpdir(), 'sdk-it-vite-queue-'),
+    await using workspace = await new TemporaryFiles().directory(
+      'sdk-it-vite-queue-',
     );
     await writeFile(join(workspace.path, 'main.js'), '');
     const output = join(workspace.path, 'sdk');

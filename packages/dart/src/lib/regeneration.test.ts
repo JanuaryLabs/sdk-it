@@ -1,13 +1,7 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
-import {
-  mkdir,
-  mkdtempDisposable,
-  readFile,
-  readdir,
-  writeFile,
-} from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
@@ -15,8 +9,8 @@ import { generate } from '@sdk-it/dart';
 
 void test.each([undefined, true, false] as const, (cleanup) =>
   test(`regenerates an empty Dart SDK with cleanup ${cleanup ?? 'default'}`, async () => {
-    await using workspace = await mkdtempDisposable(
-      join(tmpdir(), 'sdk-it-dart-regenerate-'),
+    await using workspace = await new TemporaryFiles().directory(
+      'sdk-it-dart-regenerate-',
     );
     const output = join(workspace.path, 'client');
     const spec: OpenAPIObject = {

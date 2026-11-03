@@ -1,40 +1,22 @@
+import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
+import { type TestContext, describe, test } from 'node:test';
 import { ZodError, z } from 'zod';
 
 import { command } from '@sdk-it/command';
+import { ttyStdin } from '@sdk-it/testing';
 
-function specFile(spec: object) {
-  const dir = mkdtempSync(join(tmpdir(), 'build-op-test-'));
-  const path = join(dir, 'spec.json');
-  writeFileSync(path, JSON.stringify(spec));
-  return {
-    dir,
-    path,
-    cleanup: () => rmSync(dir, { recursive: true, force: true }),
-  };
-}
-
-function ttyStdin() {
-  const original = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
-  Object.defineProperty(process.stdin, 'isTTY', {
-    value: true,
-    configurable: true,
-  });
-  process.exitCode = 0;
-  return {
-    restore: () => {
-      if (original) {
-        Object.defineProperty(process.stdin, 'isTTY', original);
-      } else {
-        delete (process.stdin as { isTTY?: boolean }).isTTY;
-      }
-      process.exitCode = 0;
-    },
-  };
+async function specFile(spec: object) {
+  await using pending = new AsyncDisposableStack();
+  const directory = pending.use(
+    await new TemporaryFiles().directory('build-op-test-'),
+  );
+  const specPath = join(directory.path, 'spec.json');
+  await writeFile(specPath, JSON.stringify(spec));
+  pending.move();
+  return { ...directory, specPath };
 }
 
 function userSpec(): object {
@@ -79,33 +61,13 @@ function userSpec(): object {
   };
 }
 
-interface StderrCapture {
-  buffer: string;
-  restore: () => void;
-}
-
-function captureStderr(): StderrCapture {
-  const original = process.stderr.write.bind(process.stderr);
-  const capture = { buffer: '' } as StderrCapture & { buffer: string };
-  (process.stderr as unknown as { write: (c: unknown) => boolean }).write = (
-    chunk: unknown,
-  ) => {
-    capture.buffer += typeof chunk === 'string' ? chunk : String(chunk);
-    return true;
-  };
-  capture.restore = () => {
-    process.stderr.write = original;
-  };
-  return capture;
-}
-
-function silenceStdout<T>(action: () => Promise<T>): Promise<T> {
-  const original = process.stdout.write.bind(process.stdout);
-  (process.stdout as unknown as { write: (c: unknown) => boolean }).write =
-    () => true;
-  return action().finally(() => {
-    process.stdout.write = original;
-  });
+async function stderrOf(t: TestContext, action: () => Promise<unknown>) {
+  const stderr = t.mock.method(process.stderr, 'write', () => true);
+  const stdout = t.mock.method(process.stdout, 'write', () => true);
+  await action();
+  stdout.mock.restore();
+  stderr.mock.restore();
+  return stderr.mock.calls.map((call) => String(call.arguments[0])).join('');
 }
 
 async function noFetch(): Promise<Response> {
@@ -113,120 +75,81 @@ async function noFetch(): Promise<Response> {
 }
 
 describe('build-op-command: zod validation errors are surfaced', () => {
-  test('missing required field prints Invalid input on stderr and exits 2', async () => {
-    const tty = ttyStdin();
-    const spec = specFile(userSpec());
-    try {
-      const program = await command(spec.path, {
-        name: 'mycli',
-        fetch: noFetch as never,
-      });
-      program.exitOverride();
+  test('missing required field prints Invalid input on stderr and exits 2', async (t) => {
+    using _tty = ttyStdin();
+    await using spec = await specFile(userSpec());
+    const program = await command(spec.specPath, {
+      name: 'mycli',
+      fetch: noFetch,
+    });
+    program.exitOverride();
 
-      const stderr = captureStderr();
-      try {
-        await silenceStdout(() =>
-          program.parseAsync(['node', 'mycli', 'createUser']),
-        );
-      } finally {
-        stderr.restore();
-      }
+    const stderr = await stderrOf(t, () =>
+      program.parseAsync(['node', 'mycli', 'createUser']),
+    );
 
-      assert.equal(process.exitCode, 2);
-      const parsed = JSON.parse(stderr.buffer) as {
-        error: boolean;
-        message: string;
-      };
-      assert.equal(parsed.error, true);
-      assert.equal(parsed.message, 'Invalid input');
-    } finally {
-      spec.cleanup();
-      tty.restore();
-    }
+    assert.equal(process.exitCode, 2);
+    const parsed: { error: boolean; message: string } = JSON.parse(stderr);
+    assert.equal(parsed.error, true);
+    assert.equal(parsed.message, 'Invalid input');
   });
 
-  test('wrong type via --input-file exits 2 with Invalid input message', async () => {
-    const tty = ttyStdin();
-    const spec = specFile(userSpec());
-    try {
-      const bodyPath = join(spec.dir, 'body.json');
-      writeFileSync(
+  test('wrong type via --input-file exits 2 with Invalid input message', async (t) => {
+    using _tty = ttyStdin();
+    await using spec = await specFile(userSpec());
+    const bodyPath = join(spec.path, 'body.json');
+    await writeFile(
+      bodyPath,
+      JSON.stringify({ name: 123, age: 'not-a-number' }),
+    );
+
+    const program = await command(spec.specPath, {
+      name: 'mycli',
+      fetch: noFetch,
+    });
+    program.exitOverride();
+
+    const stderr = await stderrOf(t, () =>
+      program.parseAsync([
+        'node',
+        'mycli',
+        'createUser',
+        '--input-file',
         bodyPath,
-        JSON.stringify({ name: 123, age: 'not-a-number' }),
-      );
+      ]),
+    );
 
-      const program = await command(spec.path, {
-        name: 'mycli',
-        fetch: noFetch as never,
-      });
-      program.exitOverride();
-
-      const stderr = captureStderr();
-      try {
-        await silenceStdout(() =>
-          program.parseAsync([
-            'node',
-            'mycli',
-            'createUser',
-            '--input-file',
-            bodyPath,
-          ]),
-        );
-      } finally {
-        stderr.restore();
-      }
-
-      assert.equal(process.exitCode, 2);
-      const parsed = JSON.parse(stderr.buffer) as {
-        error: boolean;
-        message: string;
-      };
-      assert.equal(parsed.error, true);
-      assert.equal(parsed.message, 'Invalid input');
-    } finally {
-      spec.cleanup();
-      tty.restore();
-    }
+    assert.equal(process.exitCode, 2);
+    const parsed: { error: boolean; message: string } = JSON.parse(stderr);
+    assert.equal(parsed.error, true);
+    assert.equal(parsed.message, 'Invalid input');
   });
 
-  test('multi-issue scenario via --input-file still surfaces Invalid input', async () => {
-    const tty = ttyStdin();
-    const spec = specFile(userSpec());
-    try {
-      const bodyPath = join(spec.dir, 'body.json');
-      writeFileSync(bodyPath, JSON.stringify({ name: 42, age: 'x' }));
+  test('multi-issue scenario via --input-file still surfaces Invalid input', async (t) => {
+    using _tty = ttyStdin();
+    await using spec = await specFile(userSpec());
+    const bodyPath = join(spec.path, 'body.json');
+    await writeFile(bodyPath, JSON.stringify({ name: 42, age: 'x' }));
 
-      const program = await command(spec.path, {
-        name: 'mycli',
-        fetch: noFetch as never,
-      });
-      program.exitOverride();
+    const program = await command(spec.specPath, {
+      name: 'mycli',
+      fetch: noFetch,
+    });
+    program.exitOverride();
 
-      const stderr = captureStderr();
-      try {
-        await silenceStdout(() =>
-          program.parseAsync([
-            'node',
-            'mycli',
-            'createUser',
-            '--input-file',
-            bodyPath,
-          ]),
-        );
-      } finally {
-        stderr.restore();
-      }
+    const stderr = await stderrOf(t, () =>
+      program.parseAsync([
+        'node',
+        'mycli',
+        'createUser',
+        '--input-file',
+        bodyPath,
+      ]),
+    );
 
-      assert.equal(process.exitCode, 2);
-      const parsed = JSON.parse(stderr.buffer) as {
-        error: boolean;
-        message: string;
-      };
-      assert.equal(parsed.message, 'Invalid input');
-    } finally {
-      spec.cleanup();
-      tty.restore();
-    }
+    assert.equal(process.exitCode, 2);
+    const parsed: { message: string } = JSON.parse(stderr);
+    assert.equal(parsed.message, 'Invalid input');
   });
 });
 
