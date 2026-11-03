@@ -59,7 +59,7 @@ type InferIn<T extends ValidatorConfig> = (keyof InferTarget<
     ? never
     : { cookie: InferTarget<T, CookieSelect, 'cookie'> });
 
-// Type-only markers distinguish request sources; no marker objects exist at runtime.
+// Markers distinguish request sources; `fieldMarkers` builds them at runtime.
 type Select<Target extends string> = {
   readonly validationTarget: Target;
 };
@@ -70,6 +70,47 @@ type QueriesSelect = Select<'queries'>;
 type ParamsSelect = Select<'params'>;
 type HeadersSelect = Select<'headers'>;
 type CookieSelect = Select<'cookie'>;
+
+const fieldSourceNames = [
+  'body',
+  'query',
+  'queries',
+  'params',
+  'headers',
+] as const;
+type FieldSource = (typeof fieldSourceNames)[number];
+type FieldMarker = Select<FieldSource> & { readonly name: string };
+
+/** `payload.<source>.<name>` in a selector reads a marker that names the field, not its value. */
+function fieldMarkers<Target extends FieldSource>(
+  validationTarget: Target,
+): Record<string, Select<Target>> {
+  return new Proxy<Record<string, Select<Target>>>(
+    {},
+    {
+      get: (_target, name) =>
+        typeof name === 'string' ? { validationTarget, name } : undefined,
+    },
+  );
+}
+
+const fieldSources: readonly string[] = fieldSourceNames;
+
+function isFieldMarker(value: unknown): value is FieldMarker {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'validationTarget' in value &&
+    typeof value.validationTarget === 'string' &&
+    fieldSources.includes(value.validationTarget) &&
+    'name' in value &&
+    typeof value.name === 'string'
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 type SelectorFn<T> = (payload: {
   body: Record<string, BodySelect>;
@@ -153,47 +194,49 @@ export function validate<T extends ValidatorConfig>(
         body = {};
     }
 
-    // Whole-body schemas may accept any JSON value. A field selector, however,
-    // requires an object: guard the property read itself rather than catching
-    // arbitrary errors thrown by the application's selector.
-    const selectedBody =
-      body !== null && typeof body === 'object' && !Array.isArray(body)
-        ? body
-        : new Proxy(
-            {},
-            {
-              get() {
-                throw new HTTPException(400, {
-                  message: 'Invalid request body',
-                  cause: {
-                    code: 'api/invalid-body',
-                    detail:
-                      'Request body must be an object when selecting fields.',
-                  },
-                });
-              },
-            },
-          );
     const payload = {
-      body: selectedBody,
+      body: fieldMarkers('body'),
+      query: fieldMarkers('query'),
+      queries: fieldMarkers('queries'),
+      params: fieldMarkers('params'),
+      headers: fieldMarkers('headers'),
+    };
+    const sources: Record<
+      Exclude<FieldSource, 'body'>,
+      Record<string, string | string[] | undefined>
+    > = {
       query: c.req.query(),
       queries: c.req.queries(),
       params: c.req.param(),
       headers: c.req.header(),
     };
+    const read = (select: unknown) => {
+      if (select === payload.body) return body;
+      if (!isFieldMarker(select)) return select;
+      if (select.validationTarget !== 'body') {
+        return sources[select.validationTarget][select.name];
+      }
+      // Whole-body schemas may accept any JSON value; a field selector requires an object.
+      if (!isRecord(body)) {
+        throw new HTTPException(400, {
+          message: 'Invalid request body',
+          cause: {
+            code: 'api/invalid-body',
+            detail: 'Request body must be an object when selecting fields.',
+          },
+        });
+      }
+      return body[select.name];
+    };
 
-    const config = _selector(payload as never);
+    const config = _selector(payload);
     const schema = z.object(
       Object.fromEntries(
         Object.entries(config).map(([key, value]) => [key, value.against]),
       ),
     );
-
     const input = Object.fromEntries(
-      Object.entries(config).map(([key, value]) => [
-        key,
-        value.select === selectedBody ? body : value.select,
-      ]),
+      Object.entries(config).map(([key, value]) => [key, read(value.select)]),
     );
 
     const parsed = await parse(schema, input);
