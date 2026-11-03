@@ -70,6 +70,8 @@ const reports = await client.request(
 console.log(reports);
 ```
 
+`baseUrl` can be absolute or relative, such as `'/api'`. A relative `baseUrl` resolves against the page location (`globalThis.location`). Where there is no page location, as in Node.js or React Native, a request with a relative `baseUrl` rejects with a `TypeError`. Use an absolute URL there.
+
 ## Security credentials
 
 Credential keys are the exact names from `components.securitySchemes`.

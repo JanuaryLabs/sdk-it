@@ -82,6 +82,8 @@ const api = new Client({
 const books = await api.request('GET /books', {});
 ```
 
+The relative `baseUrl` resolves against the page location, so this works in the browser. In Node.js, pass an absolute URL. A relative `baseUrl` there makes the request reject with a `TypeError`.
+
 Runtime exports point to JavaScript under `dist`; Node.js does not need to execute TypeScript from `node_modules`.
 
 ## Programmatic generation
