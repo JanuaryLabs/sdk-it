@@ -1,7 +1,7 @@
 import { parse as partContentType } from 'fast-content-type-parse';
 import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { OpenAPIObject, ReferenceObject } from 'openapi3-ts/oas31';
+import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 import yaml from 'yaml';
 
@@ -275,22 +275,23 @@ class Options {
 
 function toInputs(spec: IR, { entry, operation }: Operation) {
   let inputName: string | undefined;
-  let contentType = 'empty';
-  let encode = '';
+  let contentType: string | null = 'empty';
+  let encode: string | undefined = '';
   let haveInput = false;
   for (const type in operation.requestBody.content) {
-    const objectSchema = resolveRef(
+    const objectSchema = resolveRef<SchemaObject>(
       spec,
       operation.requestBody.content[type].schema,
     );
     const serializer = new DartSerializer(spec);
-    inputName = objectSchema['x-inputname'] as string;
-    const serialized = serializer.handle(inputName, objectSchema, true, {
-      alias: isObjectSchema(objectSchema) ? undefined : inputName,
+    const schemaName: string = objectSchema['x-inputname'];
+    inputName = schemaName;
+    const serialized = serializer.handle(schemaName, objectSchema, true, {
+      alias: isObjectSchema(objectSchema) ? undefined : schemaName,
       requestize: objectSchema['x-requestbody'] === true,
       noEmit: true,
     });
-    encode = serialized.encode as string;
+    encode = serialized.encode;
     const [mediaType, mediaSubType] = partContentType(type).type.split('/');
     if (mediaSubType === 'empty') {
       contentType = 'empty';
@@ -299,7 +300,7 @@ function toInputs(spec: IR, { entry, operation }: Operation) {
     } else if (mediaSubType === 'octet-stream') {
       contentType = 'binary';
     } else if (mediaType === 'application') {
-      contentType = parseJsonContentType(type) as string;
+      contentType = parseJsonContentType(type);
     } else if (mediaType === 'multipart') {
       contentType = 'formdata';
     } else {
@@ -335,7 +336,7 @@ function toOutput(spec: IR, operation: TunedOperationObject) {
     }
 
     for (const type in response.content) {
-      const schema = response.content[type].schema as ReferenceObject;
+      const schema = response.content[type].schema;
       if (parseJsonContentType(type)) {
         if (!schema) {
           return streamedOutput();
@@ -382,64 +383,60 @@ function streamedOutput() {
 }
 
 function serializeModels(spec: IR) {
-  const serializer = new DartSerializer(spec);
-  return Object.entries(spec.components.schemas).reduce<Record<string, string>>(
-    (acc, [name, schema]) => {
-      serializer.onEmit((name, content, schema) => {
-        const isResponseBody = (schema as any)['x-responsebody'];
-        const isRequestBody = (schema as any)['x-requestbody'];
-        const folder = isRequestBody
-          ? 'inputs'
-          : isResponseBody
-            ? 'outputs'
-            : 'models';
-        acc[join(folder, `${snakecase(name)}.dart`)] = [
-          `import 'dart:io';`,
-          `import 'dart:typed_data';`,
-          // `import './index.dart';`,
-          // `import '../interceptors.dart';`,
-          `import '../package.dart';`,
-          // folder === 'inputs' || folder === 'outputs'
-          //   ? `import '../models/index.dart';`
-          //   : `import '../inputs/index.dart';`,
-          content,
-        ].join('\n');
+  const models: Record<string, string> = {};
+  const serializer = new DartSerializer(spec, (name, content, schema) => {
+    const isResponseBody = schema['x-responsebody'];
+    const isRequestBody = schema['x-requestbody'];
+    let folder = 'models';
+    if (isRequestBody) {
+      folder = 'inputs';
+    } else if (isResponseBody) {
+      folder = 'outputs';
+    }
+    models[join(folder, `${snakecase(name)}.dart`)] = [
+      `import 'dart:io';`,
+      `import 'dart:typed_data';`,
+      // `import './index.dart';`,
+      // `import '../interceptors.dart';`,
+      `import '../package.dart';`,
+      // folder === 'inputs' || folder === 'outputs'
+      //   ? `import '../models/index.dart';`
+      //   : `import '../inputs/index.dart';`,
+      content,
+    ].join('\n');
+  });
+  for (const [name, schema] of Object.entries(spec.components.schemas)) {
+    if (isRef(schema)) {
+      // what if the schema is a request body?
+      serializer.handle(pascalcase(name), schema, true, {
+        alias: name,
       });
+      continue;
+    }
 
-      if (isRef(schema)) {
-        // what if the schema is a request body?
-        serializer.handle(pascalcase(name), schema, true, {
-          alias: isRef(schema) ? name : undefined,
-        });
-        return acc;
-      }
-
-      if ((schema as any)['x-requestbody']) {
-        serializer.handle(
-          pascalcase(name),
-          schema.type !== 'object'
-            ? {
-                type: 'object',
-                required: ['$body'],
-                properties: {
-                  $body: {
-                    ...schema,
-                    'x-special': true,
-                  },
+    if (schema['x-requestbody']) {
+      serializer.handle(
+        pascalcase(name),
+        schema.type !== 'object'
+          ? {
+              type: 'object',
+              required: ['$body'],
+              properties: {
+                $body: {
+                  ...schema,
+                  'x-special': true,
                 },
-              }
-            : schema,
-          true,
-          {
-            requestize: true,
-          },
-        );
-      } else {
-        serializer.handle(pascalcase(name), schema, true, {});
-      }
-
-      return acc;
-    },
-    {},
-  );
+              },
+            }
+          : schema,
+        true,
+        {
+          requestize: true,
+        },
+      );
+    } else {
+      serializer.handle(pascalcase(name), schema, true, {});
+    }
+  }
+  return models;
 }

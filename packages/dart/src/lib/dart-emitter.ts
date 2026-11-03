@@ -45,7 +45,7 @@ type Emit = (name: string, content: string, schema: SchemaObject) => void;
  */
 export class DartSerializer {
   #spec: IR;
-  #emitHandler?: Emit;
+  #emitHandler: Emit;
   #emitHistory = new Set<string>();
   #inlining = new Set<string>();
 
@@ -54,14 +54,11 @@ export class DartSerializer {
       return;
     }
     this.#emitHistory.add(content);
-    this.#emitHandler?.(name, content, schema);
+    this.#emitHandler(name, content, schema);
   }
 
-  constructor(spec: IR) {
+  constructor(spec: IR, emit: Emit = () => undefined) {
     this.#spec = spec;
-  }
-
-  onEmit(emit: Emit): void {
     this.#emitHandler = emit;
   }
 
@@ -184,8 +181,9 @@ export class DartSerializer {
   : true)`);
       }
 
-      const { 'x-in': source, 'x-special': special } =
-        propSchema as SchemaObject;
+      const schemaObject = isRef(propSchema) ? undefined : propSchema;
+      const source = schemaObject?.['x-in'];
+      const special = schemaObject?.['x-special'];
       if (source) {
         switch (source) {
           case 'header':
@@ -684,9 +682,13 @@ ${toJsonProperties.join(',\n')}
     }
   }
 
-  #enum(className: string, schema: SchemaObject, context: Context): Serialized {
+  #enum(
+    className: string,
+    schema: SchemaObject,
+    values: unknown[],
+    context: Context,
+  ): Serialized {
     const name = context.propName || className; // className in case enum is top level
-    const values = schema.enum as string[];
     const valType = this.#simple(coerceTypes(schema)[0]);
     // fixme: if enum have one value and cannot be null then use it as default value
 
@@ -825,7 +827,7 @@ return false;
         matches: `${context.parsable} is int`,
       };
     }
-    if (['float', 'double'].includes(schema.format as string)) {
+    if (schema.format === 'float' || schema.format === 'double') {
       return {
         content: '',
         use: 'double',
@@ -873,7 +875,7 @@ return false;
     }
 
     if (schema.enum && Array.isArray(schema.enum)) {
-      return this.#enum(className, schema, context);
+      return this.#enum(className, schema, schema.enum, context);
     }
     // some schemas declare oneOf and anyOf at once, so they are processed in order;
     // allOf never reaches the emitter because spec flattens it (normalize-schemas)
