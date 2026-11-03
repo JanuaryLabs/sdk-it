@@ -1,7 +1,6 @@
 import { cn } from 'cn';
 import { HTTPSnippet } from 'httpsnippet';
 import type { ParameterObject, RequestBodyObject } from 'openapi3-ts/oas31';
-import type { ShouldRevalidateFunctionArgs } from 'react-router';
 import {
   Links,
   type LinksFunction,
@@ -9,6 +8,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  type ShouldRevalidateFunctionArgs,
 } from 'react-router';
 
 import { resolveRef } from '@sdk-it/core/ref.js';

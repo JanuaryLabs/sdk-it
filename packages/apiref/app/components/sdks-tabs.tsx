@@ -47,7 +47,7 @@ export default function SdksTabs({ tabs }: { tabs: SdkTab[] }) {
   );
 }
 
-export const langIconMap = {
+export const langIconMap: Record<string, ReactNode> = {
   typescript: <BiLogoTypescript size={20} />,
   dart: <BiLogoFlutter size={20} />,
   spec: <SiOpenapiinitiative size={20} />,
@@ -78,7 +78,7 @@ export function EditorTabs({
               value={tab.value}
               className="data-active:after:bg-primary relative gap-x-1 overflow-hidden rounded-none py-2 after:pointer-events-none after:absolute after:inset-x-0 after:h-0.5 group-data-horizontal/tabs:after:bottom-0 data-active:bg-inherit data-active:shadow-none dark:text-white dark:data-active:text-[#99FFE4]"
             >
-              {langIconMap[tab.value as keyof typeof langIconMap]}
+              {langIconMap[tab.value]}
               <code className="text-xs">{tab.name}</code>
             </TabsTrigger>
           ))}

@@ -58,7 +58,7 @@ export function MessageInput({
     ref: textAreaRef,
     maxHeight: 240,
     borderWidth: 1,
-    dependencies: [props.value],
+    value: props.value,
   });
 
   return (

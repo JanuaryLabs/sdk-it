@@ -6,8 +6,8 @@ import { Dot } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import React, {
   type ChangeEvent,
-  type FormEvent,
   type PropsWithChildren,
+  type SubmitEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -56,11 +56,11 @@ export function AskAi(props: { className?: string }) {
     [elementRef, scrollRef],
   );
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = input.trim();
     if (!trimmed) return;
-    sendMessage({ text: trimmed });
+    void sendMessage({ text: trimmed });
     setInput('');
   };
 
@@ -95,7 +95,7 @@ export function AskAi(props: { className?: string }) {
           isGenerating={status === 'submitted' || status === 'streaming'}
           value={input}
           submitOnEnter={true}
-          stop={stop}
+          stop={() => void stop()}
           onChange={handleInputChange}
         />
       </form>
@@ -122,7 +122,7 @@ export function ChatList(
 
   useEffect(() => {
     if (props.status === 'submitted') {
-      scrollToBottom();
+      void scrollToBottom();
     }
   }, [props.status, scrollToBottom]);
 
@@ -139,7 +139,7 @@ export function ChatList(
         Math.min(props.scrollByHeight, el.clientHeight) - 100;
       const neededHeight = lastMessageBottom + additionalSpace;
       setContainerHeight(neededHeight);
-      scrollToBottom();
+      void scrollToBottom();
     }
   }, [props.status, props.scrollByHeight, scrollToBottom]);
 
@@ -197,7 +197,7 @@ export function ChatList(
       {props.messages.length === 0 && (
         <SuggestedPrompts
           onSelectPrompt={(prompt) => {
-            props.sendMessage({ text: prompt });
+            void props.sendMessage({ text: prompt });
           }}
         />
       )}
@@ -241,7 +241,7 @@ export function ChatList(
               variant="outline"
               onClick={(event) => {
                 event.preventDefault();
-                scrollToBottom();
+                void scrollToBottom();
               }}
             >
               <AiOutlineArrowDown />

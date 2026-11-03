@@ -1,10 +1,10 @@
 import { cn } from 'cn';
 import { motion } from 'framer-motion';
-import React, { type JSX, useMemo } from 'react';
+import { type JSX, useMemo } from 'react';
 
 interface TextShimmerProps {
   children: string;
-  as?: React.ElementType;
+  as?: keyof JSX.IntrinsicElements;
   className?: string;
   duration?: number;
   spread?: number;
@@ -17,7 +17,7 @@ export function TextShimmer({
   duration = 2,
   spread = 2,
 }: TextShimmerProps) {
-  const MotionComponent = motion(Component as keyof JSX.IntrinsicElements);
+  const MotionComponent = motion(Component);
 
   const dynamicSpread = useMemo(() => {
     return children.length * spread;
@@ -39,12 +39,10 @@ export function TextShimmer({
         duration,
         ease: 'linear',
       }}
-      style={
-        {
-          '--spread': `${dynamicSpread}px`,
-          backgroundImage: `var(--bg), linear-gradient(var(--base-color), var(--base-color))`,
-        } as React.CSSProperties
-      }
+      style={{
+        '--spread': `${dynamicSpread}px`,
+        backgroundImage: `var(--bg), linear-gradient(var(--base-color), var(--base-color))`,
+      }}
     >
       {children}
     </MotionComponent>

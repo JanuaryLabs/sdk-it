@@ -4,14 +4,14 @@ interface UseAutosizeTextAreaProps {
   ref: React.RefObject<HTMLTextAreaElement | null>;
   maxHeight?: number;
   borderWidth?: number;
-  dependencies: React.DependencyList;
+  value: string;
 }
 
 export function useAutosizeTextArea({
   ref,
   maxHeight = Number.MAX_SAFE_INTEGER,
   borderWidth = 0,
-  dependencies,
+  value,
 }: UseAutosizeTextAreaProps) {
   const originalHeight = useRef<number | null>(null);
 
@@ -34,5 +34,5 @@ export function useAutosizeTextArea({
     const clampedToMin = Math.max(clampedToMax, originalHeight.current);
 
     currentRef.style.height = `${clampedToMin + borderAdjustment}px`;
-  }, [maxHeight, ref, ...dependencies]);
+  }, [borderWidth, maxHeight, ref, value]);
 }

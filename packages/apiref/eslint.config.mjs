@@ -2,12 +2,5 @@ import nx from '@nx/eslint-plugin';
 
 import baseConfig from '../../eslint.config.mjs';
 
-export default [
-  ...baseConfig,
-  ...nx.configs['flat/react'],
-  {
-    files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
-    // Override or add rules here
-    rules: {},
-  },
-];
+// The React preset goes before the shared config, so zukhruf's rule changes win.
+export default [...nx.configs['flat/react'], ...baseConfig];

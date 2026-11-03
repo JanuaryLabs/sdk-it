@@ -6,7 +6,7 @@ import { logger as requestLogger } from 'hono/logger';
 import { requestId } from 'hono/request-id';
 import { join, relative } from 'node:path';
 import { cwd } from 'node:process';
-import { createRequestHandler } from 'react-router';
+import { type ServerBuild, createRequestHandler } from 'react-router';
 
 const app = new Hono().use(requestLogger(), cors({ origin: '*' }), requestId());
 
@@ -17,11 +17,11 @@ app.use(
   }),
 );
 
+const serverBuildUrl = new URL('./dist/server/index.js', import.meta.url).href;
+
 app.use(async (c) => {
-  return createRequestHandler(
-    // @ts-ignore
-    await import('./dist/server/index.js'),
-  )(c.req.raw);
+  const build: ServerBuild = await import(serverBuildUrl);
+  return createRequestHandler(build)(c.req.raw);
 });
 
 serve({ fetch: app.fetch, port: 3002 }, (addressInfo) => {

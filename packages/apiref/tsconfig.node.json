@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist/node",
+    "lib": ["ESNext"],
+    "types": ["node"],
+    "tsBuildInfoFile": "dist/tsconfig.node.tsbuildinfo"
+  },
+  "include": [
+    "entities.ts",
+    "react-router.config.ts",
+    "server.ts",
+    "vite.config.ts"
+  ]
+}

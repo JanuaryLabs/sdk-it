@@ -182,13 +182,14 @@ interface CompactModeProps {
 }
 
 function CompactMode({ responses }: CompactModeProps) {
-  const entries = Object.entries(responses as Record<string, ResponseObject>);
+  const entries: [string, ResponseObject][] = Object.entries(responses);
   const statusCodes = entries.map(([code]) => code);
   const [selectedStatusCode, setSelectedStatusCode] = useState<string>(
     statusCodes[0] || '',
   );
 
-  const selectedResponse = responses[selectedStatusCode] as ResponseObject;
+  const selectedResponse: ResponseObject | undefined =
+    responses[selectedStatusCode];
   const contentTypes = selectedResponse?.content
     ? Object.keys(selectedResponse.content)
     : [];

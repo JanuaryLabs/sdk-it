@@ -8,7 +8,6 @@ import {
   SidebarProvider,
 } from '@zukhruf/shadcn';
 import { Loader, Wand2 } from 'lucide-react';
-import type { CSSProperties } from 'react';
 
 import { OperationsList } from './api-doc/operations-list.tsx';
 import { SearchCmdk } from './components/search';
@@ -25,7 +24,7 @@ export default function Page() {
   useScrollOperations();
 
   return (
-    <SidebarProvider style={{ '--sidebar-width': '18rem' } as CSSProperties}>
+    <SidebarProvider style={{ '--sidebar-width': '18rem' }}>
       <Sidebar
         collapsible="icon"
         className="group-data-[side=left]:border-none data-[side=left]:left-5 *:data-[slot=sidebar-inner]:px-2"

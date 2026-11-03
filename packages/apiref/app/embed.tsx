@@ -6,7 +6,6 @@ import {
   SidebarProvider,
 } from '@zukhruf/shadcn';
 import { Loader } from 'lucide-react';
-import type { CSSProperties } from 'react';
 
 import { OperationsList } from './api-doc/operations-list.tsx';
 import { SearchCmdk } from './components/search';
@@ -22,7 +21,7 @@ export default function Embed() {
   const { sidebar } = useRootData();
   useScrollOperations();
   return (
-    <SidebarProvider style={{ '--sidebar-width': '18rem' } as CSSProperties}>
+    <SidebarProvider style={{ '--sidebar-width': '18rem' }}>
       <Sidebar
         collapsible="offcanvas"
         className="*:data-[slot=sidebar-inner]:px-2"
