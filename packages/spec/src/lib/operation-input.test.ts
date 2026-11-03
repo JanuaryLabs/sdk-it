@@ -3,10 +3,10 @@ import { test } from 'node:test';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import {
+  type OperationInput,
   type TunedOperationObject,
   forEachOperation,
-  inputSchema,
-  operationInput,
+  operationInputs,
   toIR,
 } from '@sdk-it/spec';
 
@@ -110,16 +110,21 @@ function sorted(values: readonly string[] | undefined) {
   return [...(values ?? [])].sort();
 }
 
-function propertyNames(schema: ReturnType<typeof inputSchema>) {
+function propertyNames(schema: OperationInput['schema']) {
   return sorted(Object.keys(schema.properties ?? {}));
 }
 
-test('operationInput picks JSON over XML and places each input where the request carries it', async () => {
+function sending({ schema: _schema, ...input }: OperationInput) {
+  return input;
+}
+
+test('operationInputs prefers JSON over XML, offers XML as a text variant, and places each input where the request carries it', async () => {
   const { ir, byId } = await operations();
 
-  const input = operationInput(ir, byId.updateChat);
+  const [preferred, ...variants] = operationInputs(ir, byId.updateChat);
 
-  assert.deepStrictEqual(input, {
+  assert.deepStrictEqual(sending(preferred), {
+    preferred: true,
     contentType: 'application/json',
     encoding: 'json',
     header: ['x-trace'],
@@ -127,12 +132,20 @@ test('operationInput picks JSON over XML and places each input where the request
     body: ['content', 'note'],
     path: ['chatId'],
   });
+  assert.deepStrictEqual(
+    variants.map(({ preferred, contentType, encoding }) => [
+      preferred,
+      contentType,
+      encoding,
+    ]),
+    [[false, 'application/xml', 'text']],
+  );
 });
 
-test('inputSchema folds parameters into the body fields and keeps every required name', async () => {
+test('the input schema folds parameters into the body fields and keeps every required name', async () => {
   const { ir, byId } = await operations();
 
-  const schema = inputSchema(ir, byId.updateChat, 'application/json');
+  const [{ schema }] = operationInputs(ir, byId.updateChat);
 
   assert.deepStrictEqual(propertyNames(schema), [
     'chatId',
@@ -151,44 +164,54 @@ test('inputSchema folds parameters into the body fields and keeps every required
 test('a non-object body is the $body input, required only when the request body is', async () => {
   const { ir, byId } = await operations();
 
-  const required = inputSchema(ir, byId.writeLogs, 'application/json');
-  const optional = inputSchema(ir, byId.writeDrafts, 'application/json');
+  const [required] = operationInputs(ir, byId.writeLogs);
+  const [optional] = operationInputs(ir, byId.writeDrafts);
 
-  assert.deepStrictEqual(propertyNames(required), ['$body']);
-  const body = required.properties?.$body;
+  assert.deepStrictEqual(propertyNames(required.schema), ['$body']);
+  const body = required.schema.properties?.$body;
   assert.ok(body && !('$ref' in body));
   assert.deepStrictEqual([body.type, body.items], [logs.type, logs.items]);
-  assert.deepStrictEqual(sorted(required.required), ['$body']);
-  assert.deepStrictEqual(sorted(optional.required), []);
-  assert.deepStrictEqual(operationInput(ir, byId.writeLogs).body, ['$body']);
+  assert.deepStrictEqual(sorted(required.schema.required), ['$body']);
+  assert.deepStrictEqual(sorted(optional.schema.required), []);
+  assert.deepStrictEqual(required.body, ['$body']);
 });
 
 test('an operation without a body sends an empty request and accepts any input', async () => {
   const { ir, byId } = await operations();
 
-  assert.deepStrictEqual(operationInput(ir, byId.ping), {
-    contentType: 'application/empty',
-    encoding: 'empty',
-    header: [],
-    query: [],
-    body: [],
-    path: [],
-  });
-  assert.equal(
-    inputSchema(ir, byId.ping, 'application/empty').additionalProperties,
-    true,
-  );
+  const inputs = operationInputs(ir, byId.ping);
+
+  assert.deepStrictEqual(inputs.map(sending), [
+    {
+      preferred: true,
+      contentType: 'application/empty',
+      encoding: 'empty',
+      header: [],
+      query: [],
+      body: [],
+      path: [],
+    },
+  ]);
+  assert.equal(inputs[0].schema.additionalProperties, true);
 });
 
-test('a body in an unsupported media type yields no inputs', async () => {
+test('a body in a binary media type is the $body Blob input, sent with that media type', async () => {
   const { ir, byId } = await operations();
 
-  assert.deepStrictEqual(operationInput(ir, byId.upload), {
-    contentType: 'application/empty',
-    encoding: 'empty',
-    header: [],
-    query: [],
-    body: [],
-    path: [],
-  });
+  const inputs = operationInputs(ir, byId.upload);
+
+  assert.deepStrictEqual(inputs.map(sending), [
+    {
+      preferred: true,
+      contentType: 'application/octet-stream',
+      encoding: 'binary',
+      header: [],
+      query: [],
+      body: ['$body'],
+      path: [],
+    },
+  ]);
+  const body = inputs[0].schema.properties?.$body;
+  assert.ok(body && !('$ref' in body));
+  assert.deepStrictEqual([body.type, body.format], ['string', 'binary']);
 });

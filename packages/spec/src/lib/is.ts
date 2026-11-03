@@ -38,10 +38,7 @@ export function isBinaryContentType(
   if (mainType.endsWith('/json') || mainType.endsWith('+json')) {
     return false;
   }
-  if (mainType.endsWith('/xml') || mainType.endsWith('+xml')) {
-    return false;
-  }
-  if (mainType === 'application/xml' || mainType === 'text/xml') {
+  if (isXmlContentType(mainType)) {
     return false;
   }
   if (
@@ -86,6 +83,14 @@ export function isBinaryContentType(
   }
 
   return false;
+}
+
+/** Whether `contentType` is an XML media type: `*\/xml` or `*\/*+xml`. */
+export function isXmlContentType(
+  contentType: string | null | undefined,
+): boolean {
+  const mainType = contentType?.split(';')[0].trim().toLowerCase();
+  return !!mainType && (mainType.endsWith('/xml') || mainType.endsWith('+xml'));
 }
 
 export function isSuccessStatusCode(statusCode: number | string): boolean {
