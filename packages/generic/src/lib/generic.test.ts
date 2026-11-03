@@ -1278,7 +1278,7 @@ app.get('/users/:userId', validate((payload) => ({
     for (const ops of Object.values(groups)) {
       for (const op of ops) {
         if (op.operationId === 'getUsers') {
-          getUsersZod = Object.values(op.schemas)[0] ?? '';
+          getUsersZod = op.inputs[0].zod;
         }
       }
     }
@@ -1298,7 +1298,7 @@ app.get('/users/:userId', validate((payload) => ({
     for (const ops of Object.values(groups)) {
       for (const op of ops) {
         if (op.operationId === 'getUserById') {
-          getUserByIdZod = Object.values(op.schemas)[0] ?? '';
+          getUserByIdZod = op.inputs[0].zod;
         }
       }
     }
@@ -1475,7 +1475,7 @@ app.get('/users/:userId', validate((payload) => ({
     for (const ops of Object.values(groups)) {
       for (const op of ops) {
         if (op.operationId === 'getUsers') {
-          getUsersZod = Object.values(op.schemas)[0] ?? '';
+          getUsersZod = op.inputs[0].zod;
         }
       }
     }
@@ -1494,7 +1494,7 @@ app.get('/users/:userId', validate((payload) => ({
     for (const ops of Object.values(groups)) {
       for (const op of ops) {
         if (op.operationId === 'getUserById') {
-          getUserByIdZod = Object.values(op.schemas)[0] ?? '';
+          getUserByIdZod = op.inputs[0].zod;
         }
       }
     }
