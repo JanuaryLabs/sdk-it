@@ -3,8 +3,12 @@ import { ZodError } from 'zod';
 
 import type { Client } from '@sdk-it/rpc';
 import { schemaToZod } from '@sdk-it/rpc';
-import type { IR, TunedOperationObject } from '@sdk-it/spec';
-import { buildInput, operationSchema } from '@sdk-it/typescript';
+import {
+  type IR,
+  type TunedOperationObject,
+  inputSchema,
+  operationInput,
+} from '@sdk-it/spec';
 
 import { addFlagsFromSchema } from './flags.ts';
 import { resolveInput } from './input.ts';
@@ -31,8 +35,11 @@ export function buildOpCommand({
 
   const cmd = new Command(name).description(summary);
 
-  const details = buildInput(ir, operation);
-  const inputJsonSchema = operationSchema(ir, operation, details.ct);
+  const inputJsonSchema = inputSchema(
+    ir,
+    operation,
+    operationInput(ir, operation).contentType,
+  );
   const inputZodSchema = schemaToZod(inputJsonSchema, ir, { required: true });
   const flagMap = addFlagsFromSchema(cmd, inputJsonSchema, ir);
 

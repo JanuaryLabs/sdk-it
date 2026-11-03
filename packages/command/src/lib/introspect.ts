@@ -4,8 +4,9 @@ import {
   type IR,
   type TunedOperationObject,
   forEachOperation,
+  inputSchema,
+  operationInput,
 } from '@sdk-it/spec';
-import { buildInput, operationSchema } from '@sdk-it/typescript';
 
 export interface OperationDescriptor {
   operationId: string;
@@ -60,8 +61,7 @@ export function describeOperation(
   method: string,
   path: string,
 ): OperationDescriptor {
-  const details = buildInput(ir, op);
-  const input = operationSchema(ir, op, details.ct) as SchemaObject;
+  const input = inputSchema(ir, op, operationInput(ir, op).contentType);
   return {
     operationId: op.operationId,
     name: op['x-fn-name'],
