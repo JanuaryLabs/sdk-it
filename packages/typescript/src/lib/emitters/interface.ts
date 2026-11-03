@@ -1,15 +1,22 @@
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
-import { followRef, isEmpty, isRef, parseRef, resolveRef } from '@sdk-it/core';
-import { type IR, isInlinable } from '@sdk-it/spec';
+import {
+  type OpenAPIDocument,
+  followRef,
+  isEmpty,
+  isRef,
+  parseRef,
+  resolveRef,
+} from '@sdk-it/core';
+import { isInlinable } from '@sdk-it/spec';
 
 import type { ModelNamer } from '../model-name.ts';
 
 export class TypeScriptEmitter {
-  #spec: IR;
+  #spec: OpenAPIDocument;
   #modelName: ModelNamer;
 
-  constructor(spec: IR, modelName: ModelNamer) {
+  constructor(spec: OpenAPIDocument, modelName: ModelNamer) {
     this.#spec = spec;
     this.#modelName = modelName;
   }

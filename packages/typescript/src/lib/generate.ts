@@ -312,9 +312,14 @@ function serializeModels(spec: IR, modelName: ModelNamer) {
     }
   });
   for (const [name, schema] of Object.entries(spec.components.schemas)) {
-    const isResponseBody = (schema as any)['x-responsebody'];
-    const isRequestBody = (schema as any)['x-requestbody'];
-    const responseGroup = (schema as any)['x-response-group'];
+    const isResponseBody =
+      'x-responsebody' in schema && schema['x-responsebody'];
+    const isRequestBody = 'x-requestbody' in schema && schema['x-requestbody'];
+    const responseGroup =
+      'x-response-group' in schema &&
+      typeof schema['x-response-group'] === 'string'
+        ? schema['x-response-group']
+        : undefined;
     const body = responseGroup ? responseBodies.get(name) : undefined;
     if (isRequestBody) {
       // we do not generate interfaces for request bodies. we use zod for that.

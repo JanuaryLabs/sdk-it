@@ -184,7 +184,7 @@ export class ZodEmitter {
     return `z.xor([${oneOfSchemas.join(', ')}])${appendOptional(required)}`;
   }
 
-  enum(type: string, values: any[]) {
+  enum(values: any[]) {
     if (values.length === 1) {
       return `z.literal(${values.join(', ')})`;
     }
@@ -365,7 +365,7 @@ export class ZodEmitter {
       const defaultValue = enumVals.includes(JSON.stringify(schema.default))
         ? JSON.stringify(schema.default)
         : undefined;
-      return `${this.enum(schema.type as string, enumVals)}${this.#suffixes(defaultValue, required, false)}`;
+      return `${this.enum(enumVals)}${this.#suffixes(defaultValue, required, false)}`;
     }
 
     // 3.1 can have type: string or type: string[] (e.g. ["string","null"])

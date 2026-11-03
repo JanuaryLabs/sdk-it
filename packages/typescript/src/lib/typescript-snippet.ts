@@ -3,6 +3,7 @@ import { camelcase, spinalcase } from 'stringcase';
 
 import {
   type OpenAPISecuritySchemeObject,
+  followRef,
   isEmpty,
   pascalcase,
   resolveRef,
@@ -47,44 +48,43 @@ export class TypeScriptSnippet implements Generator {
       cookies?: Record<string, unknown>;
     },
   ) {
-    let payload = '{}';
+    let examplePayload: unknown;
     if (!isEmpty(operation.requestBody)) {
       const contentTypes = Object.keys(operation.requestBody.content || {});
-      const schema = resolveRef(
+      const schema = followRef(
         this.#spec,
-        operation.requestBody.content[contentTypes[0]].schema,
+        operation.requestBody.content[contentTypes[0]].schema.$ref,
       );
 
-      const examplePayload = this.#snippetEmitter.handle({
+      examplePayload = this.#snippetEmitter.handle({
         ...schema,
         properties: Object.assign({}, schema.properties, schema.properties),
       });
       // merge explicit values into the example payload
-      Object.assign(
-        examplePayload as Record<string, unknown>,
-        values.requestBody ?? {},
-        values.pathParameters ?? {},
-        values.queryParameters ?? {},
-        values.headers ?? {},
-        values.cookies ?? {},
-      );
-      payload = examplePayload as any;
+      if (typeof examplePayload === 'object' && examplePayload !== null) {
+        Object.assign(
+          examplePayload,
+          values.requestBody ?? {},
+          values.pathParameters ?? {},
+          values.queryParameters ?? {},
+          values.headers ?? {},
+          values.cookies ?? {},
+        );
+      }
     } else {
       const requestBody: SchemaObject = { type: 'object', properties: {} };
       patchParameters(this.#spec, requestBody, operation.parameters);
-      const examplePayload = this.#snippetEmitter.handle(requestBody);
       // merge explicit values into the example payload
-      Object.assign(
-        examplePayload as Record<string, unknown>,
+      examplePayload = Object.assign(
+        this.#snippetEmitter.object(requestBody),
         values.pathParameters ?? {},
         values.queryParameters ?? {},
         values.headers ?? {},
         values.cookies ?? {},
       );
-      payload = examplePayload as any;
     }
-    payload = JSON.stringify(
-      payload,
+    const payload = JSON.stringify(
+      examplePayload,
       (key, value) => {
         if (value?.startsWith && value.startsWith('new')) {
           return `__REPLACE_${Math.random().toString(36).substring(2, 11)}__${value}__REPLACE_END__`;
@@ -97,7 +97,7 @@ export class TypeScriptSnippet implements Generator {
     let successResponse: ResponseObject | undefined;
     for (const status in operation.responses) {
       if (status.startsWith('2')) {
-        successResponse = operation.responses[status] as ResponseObject;
+        successResponse = operation.responses[status];
         break;
       }
     }

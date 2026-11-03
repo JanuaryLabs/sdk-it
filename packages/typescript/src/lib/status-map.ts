@@ -1,4 +1,4 @@
-export default {
+const statusMap: Record<string, string> = {
   '200': 'Ok',
   '201': 'Created',
   '202': 'Accepted',
@@ -22,4 +22,6 @@ export default {
   '502': 'BadGateway',
   '503': 'ServiceUnavailable',
   '504': 'GatewayTimeout',
-} as Record<string, string>;
+};
+
+export default statusMap;

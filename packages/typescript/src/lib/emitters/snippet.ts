@@ -19,7 +19,7 @@ export class SnippetEmitter {
   public object(
     schema: SchemaObject | ReferenceObject,
   ): Record<string, unknown> {
-    const schemaObj = resolveRef(this.spec, schema) as SchemaObject;
+    const schemaObj = resolveRef(this.spec, schema);
     const result: Record<string, unknown> = {};
     const properties = schemaObj.properties || {};
 
@@ -148,7 +148,7 @@ export class SnippetEmitter {
     const refKey = parts[parts.length - 1] || '';
 
     if (this.cache.has($ref)) {
-      return this.cache.get($ref) as unknown;
+      return this.cache.get($ref);
     }
 
     this.cache.set($ref, { _ref: refKey });
