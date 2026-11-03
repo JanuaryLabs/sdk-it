@@ -48,7 +48,7 @@ export function isSdkDoc(value: unknown): value is SdkDoc {
   return (
     isRecord(value) &&
     typeof value.language === 'string' &&
-    (SDK_LANGUAGES as readonly string[]).includes(value.language) &&
+    SDK_LANGUAGES.some((language) => language === value.language) &&
     typeof value.package === 'string' &&
     value.package.trim() !== '' &&
     isOptionalString(value.url)

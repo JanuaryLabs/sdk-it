@@ -4,6 +4,7 @@ import {
   type Documents,
   availableName,
   documentUrl,
+  isJsonObject,
   loadDocument,
   readPointer,
   splitFragment,
@@ -116,9 +117,11 @@ export async function bundleDocument(
   };
   await visitMap(spec.paths, 'PathItem', bundle.root, bundle);
   await visitMap(spec.webhooks, 'PathItem', bundle.root, bundle);
-  const components = spec.components as Record<string, Node | undefined>;
-  for (const [section, type] of Object.entries(componentTypes)) {
-    await visitMap(components?.[section], type, bundle.root, bundle);
+  const components: unknown = spec.components;
+  if (isJsonObject(components)) {
+    for (const [section, type] of Object.entries(componentTypes)) {
+      await visitMap(components[section], type, bundle.root, bundle);
+    }
   }
 }
 
@@ -128,13 +131,13 @@ async function visit(
   base: string | undefined,
   bundle: Bundle,
 ): Promise<unknown> {
-  if (node === null || typeof node !== 'object') {
+  if (!isJsonObject(node)) {
     return node;
   }
   if (isRef(node)) {
     return visitRef(node, type, base, bundle);
   }
-  await visitChildren(node as Node, type, base, bundle);
+  await visitChildren(node, type, base, bundle);
   return node;
 }
 
@@ -187,11 +190,15 @@ async function visitRef(
     return inlined;
   }
 
-  const components = (bundle.spec.components ??= {}) as Record<
-    string,
-    Node | undefined
-  >;
+  const components: Node = (bundle.spec.components ??= {});
   const registry = (components[section] ??= {});
+  if (!isJsonObject(registry)) {
+    throw unresolved(
+      node.$ref,
+      base,
+      new Error(`components.${section} is not an object`),
+    );
+  }
   const name = availableName(
     registry,
     componentName(location, fragment, section),
@@ -309,11 +316,11 @@ async function visitMap(
   base: string | undefined,
   bundle: Bundle,
 ) {
-  if (map === null || typeof map !== 'object') {
+  if (!isJsonObject(map)) {
     return;
   }
   for (const key of Object.keys(map)) {
-    await visitKey(map as Node, key, type, base, bundle);
+    await visitKey(map, key, type, base, bundle);
   }
 }
 

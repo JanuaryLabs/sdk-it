@@ -1,8 +1,4 @@
-import type {
-  ReferenceObject,
-  SchemaObject,
-  SchemasObject,
-} from 'openapi3-ts/oas31';
+import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
 import { isRef } from '@sdk-it/core/ref.js';
 import { isEmpty } from '@sdk-it/core/utils.js';
@@ -308,7 +304,7 @@ export function guessPagination(
   if (!response.properties) {
     return { type: 'none', reason: 'empty response' };
   }
-  const properties = response.properties as SchemasObject;
+  const properties = response.properties;
 
   const itemsKey = getItemsName(properties);
   if (!itemsKey) {

@@ -16,6 +16,7 @@ import type {
   OpenAPIDocument,
   OpenAPISecuritySchemeObject,
 } from '@sdk-it/core';
+import type { Method } from '@sdk-it/core/paths.js';
 
 import type { SdkDoc } from './overview-docs/types.js';
 import type {
@@ -75,7 +76,7 @@ export type TunedOperationObject = Omit<
 };
 
 export interface OperationEntry {
-  method: string;
+  method: Method;
   path: string;
   tag: string;
 }

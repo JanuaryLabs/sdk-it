@@ -1,6 +1,6 @@
-import type { OAuthFlowsObject, SecuritySchemeObject } from 'openapi3-ts/oas31';
+import type { OAuthFlowsObject } from 'openapi3-ts/oas31';
 
-import { resolveRef } from '@sdk-it/core';
+import { type OpenAPISecuritySchemeObject, resolveRef } from '@sdk-it/core';
 
 import type { NavItem } from '../sidebar.js';
 import type { IR } from '../types.js';
@@ -10,7 +10,9 @@ import {
   presetDocs,
 } from './doc-text-utils.js';
 
-function getSecuritySchemeDescription(scheme: SecuritySchemeObject): string {
+function getSecuritySchemeDescription(
+  scheme: OpenAPISecuritySchemeObject,
+): string {
   switch (scheme.type) {
     case 'apiKey': {
       const location =
@@ -110,7 +112,7 @@ export function generateAuthOverview(spec: IR): NavItem {
     }
 
     for (const [name, scheme] of Object.entries(securitySchemes)) {
-      const schemeObj = resolveRef<SecuritySchemeObject>(spec, scheme);
+      const schemeObj = resolveRef<OpenAPISecuritySchemeObject>(spec, scheme);
       if (authMethodCount > 1) {
         markdown += `### ${name}\n\n`;
       }

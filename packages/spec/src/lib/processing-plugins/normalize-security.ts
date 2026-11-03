@@ -1,5 +1,6 @@
 import type { OpenAPISecuritySchemeObject } from '@sdk-it/core';
 
+import { isJsonObject } from '../external-documents.js';
 import { iterateOperations } from '../for-each-operation.js';
 import type { ProcessingPlugin } from '../processing.js';
 
@@ -76,16 +77,18 @@ export function normalizeSecurity(): ProcessingPlugin {
   };
 }
 
-function invalidSecurityScheme(
-  scheme: OpenAPISecuritySchemeObject,
-): string | undefined {
-  const value = scheme as OpenAPISecuritySchemeObject & Record<string, unknown>;
-  switch (value.type as string) {
+function invalidSecurityScheme(scheme: unknown): string | undefined {
+  const value = isJsonObject(scheme) ? scheme : {};
+  switch (value.type) {
     case 'apiKey':
       if (typeof value.name !== 'string' || value.name.length === 0) {
         return 'apiKey security schemes require a name';
       }
-      if (!['header', 'query', 'cookie'].includes(value.in as string)) {
+      if (
+        value.in !== 'header' &&
+        value.in !== 'query' &&
+        value.in !== 'cookie'
+      ) {
         return 'apiKey security schemes require header, query, or cookie in';
       }
       return undefined;
@@ -101,13 +104,10 @@ function invalidSecurityScheme(
         ? undefined
         : 'OpenID Connect security schemes require openIdConnectUrl';
     case 'oauth2': {
-      if (!value.flows || typeof value.flows !== 'object') {
+      const flows = value.flows;
+      if (!isJsonObject(flows)) {
         return 'OAuth2 security schemes require flows';
       }
-      const flows = value.flows as Record<
-        string,
-        Record<string, unknown> | undefined
-      >;
       const requiredUrls: Record<string, string[]> = {
         implicit: ['authorizationUrl'],
         password: ['tokenUrl'],
@@ -122,8 +122,8 @@ function invalidSecurityScheme(
         return 'OAuth2 security schemes require at least one flow';
       }
       for (const [flowName, fields] of configured) {
-        const flow = flows[flowName]!;
-        if (!flow.scopes || typeof flow.scopes !== 'object') {
+        const flow = flows[flowName];
+        if (!isJsonObject(flow) || !isJsonObject(flow.scopes)) {
           return `OAuth2 ${flowName} flow requires scopes`;
         }
         for (const field of fields) {

@@ -1,20 +1,18 @@
-import { iterateOperations } from '../for-each-operation.js';
+import { forEachOperation } from '../for-each-operation.js';
 import { toPagination } from '../pagination/pagination.js';
 import type { ProcessingPlugin } from '../processing.js';
-import type { TunedOperationObject } from '../types.js';
 
 export function inferPagination(): ProcessingPlugin {
   return {
     name: 'infer-pagination',
     process({ spec, options }) {
-      for (const { operation } of iterateOperations(spec)) {
-        const tunedOperation = operation as TunedOperationObject;
+      forEachOperation(spec, (_entry, operation) => {
         if (options.pagination.enabled && options.pagination.guess) {
-          tunedOperation['x-pagination'] = toPagination(spec, tunedOperation);
+          operation['x-pagination'] = toPagination(spec, operation);
         } else {
-          delete tunedOperation['x-pagination'];
+          delete operation['x-pagination'];
         }
-      }
+      });
     },
   };
 }

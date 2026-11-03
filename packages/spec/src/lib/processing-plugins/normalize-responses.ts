@@ -1,9 +1,5 @@
 import { parse as parseContentType } from 'fast-content-type-parse';
-import type {
-  MediaTypeObject,
-  OperationObject,
-  ResponseObject,
-} from 'openapi3-ts/oas31';
+import type { OperationObject, ResponseObject } from 'openapi3-ts/oas31';
 
 import { isRef, parseRef, resolveRef } from '@sdk-it/core/ref.js';
 import { isEmpty, pascalcase } from '@sdk-it/core/utils.js';
@@ -20,7 +16,7 @@ import {
 } from '../is.js';
 import type { ResponsesConfig } from '../options.js';
 import type { ProcessingPlugin } from '../processing.js';
-import type { IR, ResponseBody, TunedOperationObject } from '../types.js';
+import type { IR, ResponseBody } from '../types.js';
 
 function normalizeOperationResponses(
   spec: IR,
@@ -53,7 +49,7 @@ function normalizeOperationResponses(
   }
 
   for (const status in operation.responses) {
-    const response = operation.responses[status] as ResponseObject;
+    const response: ResponseObject = operation.responses[status];
     const statusCode = +status;
     response.content ??= {};
     response['x-body'] = responseBody(response);
@@ -66,9 +62,7 @@ function normalizeOperationResponses(
     }
 
     let responseName: string | undefined;
-    for (const [contentType, mediaType] of Object.entries(
-      response.content as Record<string, MediaTypeObject>,
-    )) {
+    for (const [contentType, mediaType] of Object.entries(response.content)) {
       if (isRef(mediaType.schema)) {
         const { model } = parseRef(mediaType.schema.$ref);
         Object.assign(spec.components.schemas[model], {
@@ -197,13 +191,12 @@ export function normalizeResponses(): ProcessingPlugin {
         const hadSuccessResponse = Object.keys(operation.responses ?? {}).some(
           isSuccessStatusCode,
         );
-        (operation as TunedOperationObject).responses =
-          normalizeOperationResponses(
-            spec,
-            operation.operationId,
-            operation,
-            options.responses,
-          );
+        operation.responses = normalizeOperationResponses(
+          spec,
+          operation.operationId,
+          operation,
+          options.responses,
+        );
         if (!hadSuccessResponse) {
           report({
             severity: 'warning',

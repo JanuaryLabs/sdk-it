@@ -191,7 +191,7 @@ export function findVarients(
         varients.push({ name: 'any', type: 'array', position });
         continue;
       }
-      const [type] = coerceTypes(items as SchemaObject);
+      const [type] = isRef(items) ? [] : coerceTypes(items);
       if (type === 'string') {
         varients.push({
           name: 'textList',
@@ -283,12 +283,9 @@ export function findVarients(
 
     for (const key of ['properties', 'x-properties'] as const) {
       if (!schema[key]) continue;
-      const list = (
-        Object.entries(schema[key]) as [
-          string,
-          SchemaObject | ReferenceObject,
-        ][]
-      ).map(([name, schemaOrRef]) => {
+      const entries: [string, SchemaObject | ReferenceObject][] =
+        Object.entries(schema[key]);
+      const list = entries.map(([name, schemaOrRef]) => {
         const schema = resolveRef<SchemaObject>(spec, schemaOrRef);
         name = schema.const ?? schema.enum?.[0] ?? name;
         if (schema.type === 'string') {

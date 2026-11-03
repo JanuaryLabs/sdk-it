@@ -21,7 +21,9 @@ export function createOperation(options: {
   };
   response: Record<string, SchemaObject | Record<string, SchemaObject>>; // Key is statusCode-contentType
   request?: Record<string, ReferenceObject>;
-}): TunedOperationObject {
+}): Omit<TunedOperationObject, 'requestBody'> & {
+  requestBody?: OurRequestBodyObject;
+} {
   const parameters: ParameterObject[] = [];
   if (!isEmpty(options.parameters)) {
     const locations = ['query', 'path', 'header', 'cookie'] as const;
@@ -81,6 +83,6 @@ export function createOperation(options: {
     tags: [options.group],
     parameters,
     responses,
-    requestBody: requestBody as any,
+    requestBody,
   };
 }

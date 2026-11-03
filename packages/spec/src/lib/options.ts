@@ -91,8 +91,8 @@ export function coeraceConfig(config: GenerateSdkConfig) {
     // Authored `x-docs` / `x-sdks` change shape during processing, so they are
     // handed to the overview plugin as raw input instead of living on the IR.
     docs: {
-      entries: config.spec['x-docs'] as unknown,
-      sdks: config.spec['x-sdks'] as unknown,
+      entries: config.spec['x-docs'],
+      sdks: config.spec['x-sdks'],
     },
     spec,
     operationId: config.operationId ?? defaults.operationId,

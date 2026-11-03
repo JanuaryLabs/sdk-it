@@ -38,10 +38,7 @@ function extractInlineSchemaComponents(
         continue;
       }
       spec.components.schemas[name] = schema;
-      const properties = schema.properties as Record<
-        string,
-        SchemaObject | ReferenceObject
-      >;
+      const properties = schema.properties;
       for (const [propertyName, value] of Object.entries(properties)) {
         if (isRef(value)) continue;
 
@@ -84,10 +81,8 @@ function extractInlineSchemaComponents(
     if (!isEmpty(schema['x-properties'])) {
       spec.components.schemas[name] = schema;
 
-      const properties = schema['x-properties'] as Record<
-        string,
-        SchemaObject | ReferenceObject
-      >;
+      const properties: Record<string, SchemaObject | ReferenceObject> =
+        schema['x-properties'];
       for (const [propertyName, value] of Object.entries(properties)) {
         if (isRef(value)) continue;
 
@@ -165,7 +160,7 @@ function extractInlineUnion(
   schema: SchemaObject,
   kind: 'oneOf' | 'anyOf',
 ) {
-  const varients = schema['x-varients'] as Varient[];
+  const varients: Varient[] = schema['x-varients'];
   if (!varients || varients.length === 0) {
     console.warn(
       `No varients found for ${name}. This might be an error in the OpenAPI spec.`,

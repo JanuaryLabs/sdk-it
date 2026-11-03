@@ -1,7 +1,7 @@
-import type { SchemaObject, SchemasObject } from 'openapi3-ts/oas31';
+import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 import pluralize from 'pluralize';
 
-import { resolveRef } from '@sdk-it/core/ref.js';
+import { isRef, resolveRef } from '@sdk-it/core/ref.js';
 
 import { coerceTypes } from '../is.js';
 import type { IR } from '../types.js';
@@ -190,13 +190,13 @@ const COMPILED_HAS_MORE_INVERTED_REGEXES: RegExp[] =
  *          or null if no array properties are found in the schema.
  */
 export function getItemsName(
-  properties: Record<string, SchemaObject>,
+  properties: Record<string, SchemaObject | ReferenceObject>,
 ): string | null {
   const arrayPropertyNames: string[] = [];
   for (const propName in properties) {
     if (propName in properties) {
-      const propSchema = properties[propName] as SchemaObject;
-      if (propSchema && propSchema.type === 'array') {
+      const propSchema = properties[propName];
+      if (propSchema && !isRef(propSchema) && propSchema.type === 'array') {
         arrayPropertyNames.push(propName);
       }
     }
@@ -278,10 +278,13 @@ export function getItemsName(
   return arrayPropertyNames[0];
 }
 
-function guess(properties: Record<string, SchemaObject>) {
+function guess(properties: Record<string, SchemaObject | ReferenceObject>) {
   const booleanPropertyNames: string[] = [];
   for (const propName in properties) {
-    const propSchema = properties[propName] as SchemaObject;
+    const propSchema = properties[propName];
+    if (isRef(propSchema)) {
+      continue;
+    }
     if (
       propSchema.type === 'boolean' ||
       propSchema.type === 'integer' ||
@@ -367,15 +370,21 @@ function guess(properties: Record<string, SchemaObject>) {
  * @returns The name of the most likely boolean property indicating "has more",
  *          or null if no suitable boolean property is found.
  */
-export function getHasMoreName(properties: SchemasObject): string | null {
+export function getHasMoreName(
+  properties: Record<string, SchemaObject | ReferenceObject>,
+): string | null {
   const rootGuess = guess(properties);
   if (rootGuess) {
     return rootGuess;
   }
   for (const propName in properties) {
     const propSchema = properties[propName];
-    if (propSchema.type === 'object' && propSchema.properties) {
-      const nested = getHasMoreName(propSchema.properties as SchemasObject);
+    if (
+      !isRef(propSchema) &&
+      propSchema.type === 'object' &&
+      propSchema.properties
+    ) {
+      const nested = getHasMoreName(propSchema.properties);
       if (nested) {
         return propName + '.' + nested;
       }

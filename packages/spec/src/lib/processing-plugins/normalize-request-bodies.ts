@@ -11,11 +11,7 @@ import { isEmpty } from '@sdk-it/core/utils.js';
 import { findUniqueSchemaName } from '../find-unique-schema-name.js';
 import { iterateOperations } from '../for-each-operation.js';
 import type { ProcessingPlugin } from '../processing.js';
-import type {
-  IR,
-  OurRequestBodyObject,
-  TunedOperationObject,
-} from '../types.js';
+import type { IR, OurRequestBodyObject } from '../types.js';
 
 export function patchParameters(
   spec: IR,
@@ -94,6 +90,7 @@ function normalizeRequestBody(
     spec.components.schemas[inputName] = schema;
     return normalized;
   }
+  const content: OurRequestBodyObject['content'] = {};
   for (const contentType in requestBody.content) {
     const mediaType = requestBody.content[contentType];
     const inputName = findUniqueSchemaName(spec, operationId, [
@@ -127,19 +124,30 @@ function normalizeRequestBody(
       'x-inputname': inputName,
     };
 
-    requestBody.content[contentType].schema = {
-      $ref: `#/components/schemas/${inputName}`,
+    content[contentType] = {
+      ...mediaType,
+      schema: { $ref: `#/components/schemas/${inputName}` },
     };
   }
-  return requestBody as OurRequestBodyObject;
+  return { ...requestBody, content };
 }
 
 export function normalizeRequestBodies(): ProcessingPlugin {
   return {
     name: 'normalize-request-bodies',
     process({ spec }) {
-      for (const { operation } of iterateOperations(spec)) {
-        const tunedOperation = operation as TunedOperationObject;
+      for (const { entry, operation } of iterateOperations(spec)) {
+        const { operationId, parameters } = operation;
+        if (
+          !operationId ||
+          !parameters?.every(
+            (parameter): parameter is ParameterObject => !isRef(parameter),
+          )
+        ) {
+          throw new Error(
+            `Cannot normalize request bodies before assigning an operation ID and resolving parameters for ${entry.method.toUpperCase()} ${entry.path}`,
+          );
+        }
         if (operation.requestBody) {
           const requestBody = resolveRef<RequestBodyObject>(
             spec,
@@ -151,23 +159,21 @@ export function normalizeRequestBodies(): ProcessingPlugin {
           );
           if (
             schemas.length > 0 &&
-            schemas.every((schema) => schema?.['x-requestbody'])
+            schemas.every(
+              (schema): schema is SchemaObject => !!schema?.['x-requestbody'],
+            )
           ) {
             for (const schema of new Set(schemas)) {
-              patchParameters(
-                spec,
-                schema as SchemaObject,
-                tunedOperation.parameters,
-              );
+              patchParameters(spec, schema, parameters);
             }
             continue;
           }
         }
-        tunedOperation.requestBody = normalizeRequestBody(
+        operation.requestBody = normalizeRequestBody(
           spec,
-          tunedOperation.operationId,
+          operationId,
           operation,
-          tunedOperation.parameters,
+          parameters,
         );
       }
     },

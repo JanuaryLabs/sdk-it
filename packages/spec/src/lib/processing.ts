@@ -1,7 +1,5 @@
 import { untilAborted } from '@zukhruf/async';
 
-import type { OpenAPIDocument } from '@sdk-it/core';
-
 import {
   type GenerateSdkConfig,
   coeraceConfig as coerceConfig,
@@ -53,7 +51,7 @@ export async function processSpec(
   signal?.throwIfAborted();
   const coerced = coerceConfig({
     ...generateConfig,
-    spec: structuredClone(generateConfig.spec) as OpenAPIDocument,
+    spec: structuredClone(generateConfig.spec),
   });
   const { spec, ...options } = coerced;
   const diagnostics: ProcessingDiagnostic[] = [];

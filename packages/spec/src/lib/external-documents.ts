@@ -44,6 +44,10 @@ export function splitFragment(uri: string): [string, string | undefined] {
     : [uri.slice(0, index), uri.slice(index + 1)];
 }
 
+export function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 export function readPointer(document: unknown, fragment: string) {
   let current: unknown = document;
   for (const segment of fragment.split('/')) {
@@ -53,14 +57,10 @@ export function readPointer(document: unknown, fragment: string) {
     const key = decodeURIComponent(segment)
       .replaceAll('~1', '/')
       .replaceAll('~0', '~');
-    if (
-      current === null ||
-      typeof current !== 'object' ||
-      !(key in (current as object))
-    ) {
+    if (!isJsonObject(current) || !(key in current)) {
       throw new Error(`no value at pointer #${fragment}`);
     }
-    current = (current as Record<string, unknown>)[key];
+    current = current[key];
   }
   return current;
 }

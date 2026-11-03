@@ -20,8 +20,8 @@ export function canonicalizeSpec(): ProcessingPlugin {
         if (schema.properties) {
           schema.properties = sortRecord(schema.properties);
         }
-        const extraProperties = schema['x-properties'] as
-          Record<string, SchemaObject> | undefined;
+        const extraProperties: Record<string, SchemaObject> | undefined =
+          schema['x-properties'];
         if (extraProperties) {
           schema['x-properties'] = sortRecord(extraProperties);
         }

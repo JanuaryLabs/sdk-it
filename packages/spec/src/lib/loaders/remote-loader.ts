@@ -9,7 +9,7 @@ export async function loadRemote<T>(location: string): Promise<T> {
   }
   switch (extName) {
     case '.json':
-      return response.json() as Promise<T>;
+      return response.json();
     case '.yaml':
     case '.yml': {
       const text = await response.text();
@@ -18,11 +18,11 @@ export async function loadRemote<T>(location: string): Promise<T> {
     default:
       try {
         // try to parse it as json first
-        return response.json() as Promise<T>;
+        return response.json();
       } catch {
         // parse as yaml
         const text = await response.text();
-        return parse(text) as Promise<T>;
+        return parse(text);
       }
   }
 }

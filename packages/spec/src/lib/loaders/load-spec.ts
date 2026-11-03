@@ -33,20 +33,20 @@ function isPostman(content: unknown): content is PostmanCollection {
 export async function loadSpec(
   location: string,
 ): Promise<{ spec: OpenAPIObject; documents: string[] }> {
-  let content = await loadFile(location);
-  if (isPostman(content)) {
-    content = convertPostmanToOpenAPI(content);
-  }
-  const spec = content as OpenAPIDocument;
+  const content = await loadFile<OpenAPIObject | PostmanCollection>(location);
+  const spec: OpenAPIObject = isPostman(content)
+    ? convertPostmanToOpenAPI(content)
+    : content;
+  const document: OpenAPIDocument = spec;
   const entry = documentUri(location);
   // Relative references inside the document resolve against where it came from.
-  spec.$self ??= entry;
+  document.$self ??= entry;
   const documents: Documents = new Map();
-  await bundleDocument(spec, documents);
+  await bundleDocument(document, documents);
   // A scheme URI that fails stays a URI key; toIR reports it as a diagnostic.
-  await registerExternalSecuritySchemes(spec, documents);
+  await registerExternalSecuritySchemes(document, documents);
   return {
-    spec: spec as OpenAPIObject,
+    spec,
     documents: [...new Set([entry, ...documents.keys()])],
   };
 }

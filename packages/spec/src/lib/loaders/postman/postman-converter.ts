@@ -235,7 +235,7 @@ function processAuthScheme(
       securitySchemes[schemeId] = {
         type: 'apiKey',
         name: key,
-        in: in_ as 'header' | 'query' | 'cookie',
+        in: in_,
         description: 'API key authentication',
       };
       break;
@@ -326,9 +326,9 @@ function requestToOperation(
   securitySchemes: Record<string, SecuritySchemeObject>,
 ) {
   const url = coerceUrl(item.request.url);
-  const headers = Array.isArray(item.request.header)
+  const headers: Header[] = Array.isArray(item.request.header)
     ? item.request.header
-    : ([] as Header[]);
+    : [];
 
   const parameters: ParameterObject[] = [
     ...url.query

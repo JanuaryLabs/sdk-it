@@ -18,8 +18,8 @@ export function* subschemas(
   schema: SchemaObject,
 ): Generator<[segment: string, child: SchemaObject | ReferenceObject]> {
   for (const key of ['properties', 'x-properties'] as const) {
-    const properties = schema[key] as
-      Record<string, SchemaObject | ReferenceObject> | undefined;
+    const properties:
+      Record<string, SchemaObject | ReferenceObject> | undefined = schema[key];
     for (const [name, property] of Object.entries(properties ?? {})) {
       yield [`${key}/${escapePointerSegment(name)}`, property];
     }

@@ -11,6 +11,7 @@ import {
   type Documents,
   availableName,
   documentUrl,
+  isJsonObject,
   loadDocument,
   readPointer,
   splitFragment,
@@ -121,18 +122,31 @@ async function resolveScheme(
     : spec;
   let scheme = fragment ? readPointer(document, fragment) : document;
   if (isRef(scheme)) {
-    scheme = followRef(document as never, scheme.$ref);
+    scheme = followRef(document, scheme.$ref);
   }
-  if (
-    scheme === null ||
-    typeof scheme !== 'object' ||
-    typeof (scheme as { type?: unknown }).type !== 'string'
-  ) {
+  if (!isSecurityScheme(scheme)) {
     return Promise.reject(
       new Error('the target is not a Security Scheme Object'),
     );
   }
-  return scheme as OpenAPISecuritySchemeObject;
+  return scheme;
+}
+
+const securitySchemeTypes = [
+  'apiKey',
+  'http',
+  'mutualTLS',
+  'oauth2',
+  'openIdConnect',
+] as const;
+
+function isSecurityScheme(
+  value: unknown,
+): value is OpenAPISecuritySchemeObject {
+  return (
+    isJsonObject(value) &&
+    securitySchemeTypes.some((type) => type === value.type)
+  );
 }
 
 function schemeDocument(

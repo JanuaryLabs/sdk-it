@@ -82,10 +82,7 @@ function guessOperationName(
     resourceHierarchy,
   }: ReturnType<typeof extractResourceInfo>,
 ): { name: string; group: string } {
-  const methodAction =
-    HTTP_METHOD_ACTIONS[
-      method.toLowerCase() as keyof typeof HTTP_METHOD_ACTIONS
-    ];
+  const methodAction = HTTP_METHOD_ACTIONS[method];
 
   if (!methodAction) {
     // Fallback for unknown HTTP methods
