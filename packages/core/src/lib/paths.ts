@@ -99,13 +99,19 @@ function fieldsBody(
   };
 }
 
-export interface ResponseItem {
+interface ResponseItemBase {
   statusCode: string;
-  response?: DateType;
   contentType: string;
   headers: (string | Record<string, string[]>)[];
   middlewareName?: string;
 }
+
+/** A response body is either derived from source or given as an OpenAPI schema, never both. */
+export type ResponseItem = ResponseItemBase &
+  (
+    | { response?: DateType; schema?: never }
+    | { schema: SchemaObject; response?: never }
+  );
 
 export type OnOperation = (
   sourceFile: string,
@@ -162,7 +168,8 @@ export class Paths {
     const responsesObject: ResponsesObject = {};
     for (const item of responses) {
       const ct = item.contentType;
-      let schema = item.response ? toSchema(item.response) : {};
+      let schema =
+        item.schema ?? (item.response ? toSchema(item.response) : {});
 
       // Deduplicate named middleware responses via $ref
       if (item.middlewareName) {
