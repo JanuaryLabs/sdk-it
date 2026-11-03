@@ -396,6 +396,11 @@ export function toInputs(
     .reduce<string[][]>((acc, [name, schema]) => {
       const output = [`import { z } from 'zod';`];
       const content = `export const ${name} = ${schema};`;
+      if (content.includes('z.ZodType<models.')) {
+        output.push(
+          `import type * as models from '${makeImport('../../models/index')}';`,
+        );
+      }
       for (const schema of commonImports) {
         const preciseMatch = new RegExp(`\\b${schema}\\b`);
         if (preciseMatch.test(content) && schema !== name) {

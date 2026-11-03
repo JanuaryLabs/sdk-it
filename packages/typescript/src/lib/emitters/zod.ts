@@ -7,7 +7,7 @@ import {
   isRef,
   parseRef,
 } from '@sdk-it/core';
-import { isInlinable } from '@sdk-it/spec';
+import { isInlinable, isRecursiveRef } from '@sdk-it/spec';
 
 import type { ModelNamer } from '../model-name.ts';
 
@@ -143,7 +143,15 @@ export class ZodEmitter {
       return schemaName;
     }
     this.#generatedRefs.add(schemaName);
-    this.#onRef?.(schemaName, this.handle(schema, required));
+    const body = this.handle(schema, required);
+    // A schema that reaches itself is read only when it validates, and its
+    // model type names what TypeScript cannot infer from its own initializer.
+    this.#onRef?.(
+      schemaName,
+      isRecursiveRef(this.#spec, $ref)
+        ? `z.lazy((): z.ZodType<models.${schemaName}, models.${schemaName}> => ${body})`
+        : body,
+    );
 
     return schemaName;
   }
