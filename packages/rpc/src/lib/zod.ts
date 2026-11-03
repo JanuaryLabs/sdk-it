@@ -2,6 +2,7 @@ import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 import { type ZodType, z } from 'zod';
 
 import { type OpenAPIDocument, followRef, isEmpty, isRef } from '@sdk-it/core';
+import { isRecursiveRef } from '@sdk-it/spec';
 
 // z.iso.time() rejects RFC 3339 zone suffixes ('10:30:00Z', '10:30:00+02:00'),
 // which JSON Schema's format: time allows. Accept both local and
@@ -80,10 +81,22 @@ export class RuntimeZodConverter {
     return result;
   }
 
+  /** One deferred schema per recursive component, shared by every reference to it. */
+  #recursive = new Map<string, ZodType>();
+
   #ref($ref: string): ZodType {
-    const resolvedSchema = followRef(this.#spec, $ref);
-    const zodSchema = this.handle(resolvedSchema, true);
-    return zodSchema;
+    if (!isRecursiveRef(this.#spec, $ref)) {
+      return this.handle(followRef(this.#spec, $ref), true);
+    }
+    let deferred = this.#recursive.get($ref);
+    if (!deferred) {
+      let resolved: ZodType | undefined;
+      deferred = z.lazy(
+        () => (resolved ??= this.handle(followRef(this.#spec, $ref), true)),
+      );
+      this.#recursive.set($ref, deferred);
+    }
+    return deferred;
   }
 
   #toIntersection(schemas: ZodType[]): ZodType {
