@@ -66,8 +66,8 @@ export class PropEmitter {
 
     // detect default if present on the schema
     const defaultVal =
-      !isRef(schema) && (schema as SchemaObject).default !== undefined
-        ? ` default: ${JSON.stringify((schema as SchemaObject).default)}`
+      !isRef(schema) && schema.default !== undefined
+        ? ` default: ${JSON.stringify(schema.default)}`
         : '';
 
     // build summary line
