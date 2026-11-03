@@ -1,10 +1,6 @@
-import { merge, template } from 'lodash-es';
+import { template } from 'lodash-es';
 import { join } from 'node:path';
-import type {
-  ParameterObject,
-  ReferenceObject,
-  SchemaObject,
-} from 'openapi3-ts/oas31';
+import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
 import {
   type OpenAPIDocument,
@@ -18,6 +14,7 @@ import {
   type IR,
   type TunedOperationObject,
   forEachOperation,
+  withParameters,
 } from '@sdk-it/spec';
 
 import { ZodEmitter } from './emitters/zod.ts';
@@ -39,7 +36,10 @@ function coearceRequestInput(
   );
   const xProperties: Record<string, SchemaObject> =
     objectSchema['x-properties'] ?? {};
-  const xRequired: string[] = objectSchema['x-required'] ?? [];
+  const parameters = {
+    'x-properties': objectSchema['x-properties'],
+    'x-required': objectSchema['x-required'],
+  };
 
   if (type === 'application/empty') {
     // if empty body and not params then we need to set it to object with additional properties
@@ -47,22 +47,23 @@ function coearceRequestInput(
     objectSchema = {
       type: 'object',
       additionalProperties: isEmpty(xProperties),
+      ...parameters,
     };
   } else {
     if (objectSchema.type !== 'object') {
       objectSchema = {
         type: 'object',
-        required: [operation.requestBody.required ? '$body' : ''],
+        required: operation.requestBody.required ? ['$body'] : [],
         properties: {
           $body: objectSchema,
         },
+        ...parameters,
       };
     }
   }
   return {
     objectSchema,
     xProperties,
-    xRequired,
   };
 }
 export interface NamedImport {
@@ -321,28 +322,5 @@ export function operationSchema(
   operation: TunedOperationObject,
   type: string,
 ) {
-  const { objectSchema, xProperties, xRequired } = coearceRequestInput(
-    ir,
-    operation,
-    type,
-  );
-  const additionalProperties: Record<string, ParameterObject> = {};
-  for (const [name, prop] of Object.entries(xProperties)) {
-    additionalProperties[name] = {
-      name: name,
-      required: xRequired?.includes(name),
-      schema: prop,
-      in: prop['x-in'],
-    };
-  }
-
-  return merge({}, objectSchema, {
-    required: Object.values(additionalProperties)
-      .filter((p) => p.required)
-      .map((p) => p.name),
-    properties: Object.entries(additionalProperties).reduce(
-      (acc, [, p]) => ({ ...acc, [p.name]: p.schema }),
-      {},
-    ),
-  });
+  return withParameters(coearceRequestInput(ir, operation, type).objectSchema);
 }
