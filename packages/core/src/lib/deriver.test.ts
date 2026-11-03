@@ -587,9 +587,8 @@ describe('Type Derivation', () => {
         value,
         [$types]: ['string'],
       });
-      // `__type` is TS's synthetic name for anonymous/empty object types — the
-      // `& {}` member shows up as a placeholder. `paths.ts:toSchema` strips it
-      // when emitting OpenAPI (see ANON_OBJECT there).
+      // The `& {}` member derives as an empty object; `paths.ts:toSchema`
+      // drops it when emitting OpenAPI, since it adds no constraint.
       // Member order is TypeScript 7's stable type ordering: string literals
       // alphabetically, the intersection last.
       assert.deepStrictEqual(result, {
@@ -610,7 +609,12 @@ describe('Type Derivation', () => {
             kind: 'intersection',
             [$types]: [
               { [deriveSymbol]: true, optional: false, [$types]: ['string'] },
-              { [deriveSymbol]: true, optional: false, [$types]: ['__type'] },
+              {
+                [deriveSymbol]: true,
+                kind: 'object',
+                optional: false,
+                [$types]: [{}],
+              },
             ],
           },
         ],

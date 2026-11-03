@@ -15,9 +15,7 @@ import {
   isCallExpression,
   isClassDeclaration,
   isConditionalExpression,
-  isFunctionDeclaration,
   isIdentifier,
-  isInterfaceDeclaration,
   isNewExpression,
   isNoSubstitutionTemplateLiteral,
   isNonNullExpression,
@@ -27,7 +25,6 @@ import {
   isPropertyAccessExpression,
   isPropertyAssignment,
   isPropertyDeclaration,
-  isPropertySignatureDeclaration,
   isSatisfiesExpression,
   isShorthandPropertyAssignment,
   isSpreadElement,
@@ -35,7 +32,6 @@ import {
   isTaggedTemplateExpression,
   isTemplateExpression,
   isTypeAssertion,
-  isTypeLiteralNode,
   isTypeReferenceNode,
   isVariableDeclaration,
   isVariableDeclarationList,
@@ -131,6 +127,27 @@ export class TypeDeriver {
 
   setTrace(ctx: { file?: string; operation?: string }) {
     this.trace = { ...ctx };
+  }
+
+  /**
+   * A function or class value: JSON.stringify drops it as a member and writes
+   * nothing for it alone. An optional one (`fn?: () => void`) is a union with
+   * undefined and is dropped the same way.
+   */
+  private hasNoJsonForm(type: Type): boolean {
+    if (type.isUnionType()) {
+      return type
+        .getTypes()
+        .every(
+          (member) =>
+            (member.flags & TypeFlags.Undefined) !== 0 ||
+            this.hasNoJsonForm(member),
+        );
+    }
+    return (
+      type.getCallSignatures().length > 0 ||
+      type.getConstructSignatures().length > 0
+    );
   }
 
   private warn(message: string, node?: Node) {
@@ -347,6 +364,14 @@ export class TypeDeriver {
           : [this.serialize(elementType, itemWidening)],
       };
     }
+    if (this.hasNoJsonForm(type)) {
+      return {
+        [deriveSymbol]: true,
+        kind: 'never',
+        optional: true,
+        [$types]: [],
+      };
+    }
     if (type.isObjectType() && type.objectFlags & ObjectFlags.Class) {
       const declaration = symbol?.valueDeclaration?.resolve();
       if (!declaration) {
@@ -364,9 +389,10 @@ export class TypeDeriver {
         this.collector[name] = {};
         const properties: Record<string, unknown> = {};
         for (const property of this.checker.getPropertiesOfType(type)) {
-          properties[property.name] = this.serializeType(
-            this.checker.getTypeOfSymbol(property),
-          );
+          const propertyType = this.checker.getTypeOfSymbol(property);
+          if (!this.hasNoJsonForm(propertyType)) {
+            properties[property.name] = this.serializeType(propertyType);
+          }
         }
         this.collector[name] = sortObjectKeys(properties);
       }
@@ -384,7 +410,11 @@ export class TypeDeriver {
           [$types]: [this.typesMap[symbol.name]],
         };
       }
-      const properties = this.checker.getPropertiesOfType(type);
+      const properties = this.checker
+        .getPropertiesOfType(type)
+        .filter(
+          (prop) => !this.hasNoJsonForm(this.checker.getTypeOfSymbol(prop)),
+        );
       if (properties.length > 0) {
         const serializedProps: Record<string, any> = {};
         for (const prop of properties) {
@@ -422,15 +452,23 @@ export class TypeDeriver {
           [$types]: [sortObjectKeys(serializedProps)],
         };
       }
-      const declaration = declarationOf(symbol);
-      if (!declaration) {
+      // A mapped type whose keys come from a type parameter (zod's
+      // { [P in keyof T]?: Issue[] } inside a generic function) has no
+      // properties of its own: it is a record of its template type.
+      if (type.isMappedType()) {
         return {
           [deriveSymbol]: true,
+          kind: 'record',
           optional: false,
-          [$types]: [symbol?.name],
+          [$types]: [this.serialize(type.getTemplateType(), widening)],
         };
       }
-      return this.serializeNode(declaration);
+      return {
+        [deriveSymbol]: true,
+        kind: 'object',
+        optional: false,
+        [$types]: [{}],
+      };
     }
 
     this.warn(
@@ -552,33 +590,39 @@ export class TypeDeriver {
       const symbolType = this.checker.getTypeAtLocation(node);
       const props: Record<string, any> = {};
 
+      const dropped = new Set<string>();
       for (const prop of node.properties) {
         if (isPropertyAssignment(prop)) {
-          props[prop.name.getText()] = this.serializeType(
-            this.typeOfExpression(prop.initializer),
-          );
+          const type = this.typeOfExpression(prop.initializer);
+          if (this.hasNoJsonForm(type)) {
+            dropped.add(prop.name.getText());
+          } else {
+            props[prop.name.getText()] = this.serializeType(type);
+          }
         } else if (isShorthandPropertyAssignment(prop)) {
           const type = this.typeOfShorthand(prop);
           if (type) {
-            props[prop.name.getText()] = this.serializeType(type);
+            if (this.hasNoJsonForm(type)) {
+              dropped.add(prop.name.getText());
+            } else {
+              props[prop.name.getText()] = this.serializeType(type);
+            }
           }
         }
       }
 
       for (const symbol of symbolType.getProperties()) {
-        if (!Object.hasOwn(props, symbol.name)) {
+        if (!Object.hasOwn(props, symbol.name) && !dropped.has(symbol.name)) {
           const type = this.checker.getTypeOfSymbol(symbol);
-          props[symbol.name] = this.serializeType(type);
+          if (!this.hasNoJsonForm(type)) {
+            props[symbol.name] = this.serializeType(type);
+          }
         }
       }
 
       return sortObjectKeys(props);
     }
-    if (
-      isPropertyAccessExpression(node) ||
-      isPropertySignatureDeclaration(node) ||
-      isPropertyDeclaration(node)
-    ) {
+    if (isPropertyAccessExpression(node) || isPropertyDeclaration(node)) {
       const symbol = this.checker.getSymbolAtLocation(node.name);
       if (!symbol) {
         this.warn(`No symbol found for ${node.name.getText()}`, node);
@@ -586,33 +630,6 @@ export class TypeDeriver {
       }
       const type = this.checker.getTypeOfSymbol(symbol);
       return this.serializeType(type);
-    }
-    if (isInterfaceDeclaration(node)) {
-      if (!node.name?.text) {
-        throw new Error('Interface has no name');
-      }
-      if (this.typesMap[node.name.text]) {
-        return {
-          [deriveSymbol]: true,
-          optional: false,
-          [$types]: [this.typesMap[node.name.text]],
-        };
-      }
-      if (!this.collector[node.name.text]) {
-        this.collector[node.name.text] = {};
-        const members: Record<string, any> = {};
-        for (const member of node.members.filter(
-          isPropertySignatureDeclaration,
-        )) {
-          members[member.name.getText()] = this.serializeNode(member);
-        }
-        this.collector[node.name.text] = sortObjectKeys(members);
-      }
-      return {
-        [deriveSymbol]: true,
-        optional: false,
-        [$types]: [`#/components/schemas/${node.name.text}`],
-      };
     }
     if (isClassDeclaration(node)) {
       if (!node.name?.text) {
@@ -630,6 +647,13 @@ export class TypeDeriver {
         this.collector[node.name.text] = {};
         const members: Record<string, unknown> = {};
         for (const member of node.members.filter(isPropertyDeclaration)) {
+          const symbol = this.checker.getSymbolAtLocation(member.name);
+          if (
+            symbol &&
+            this.hasNoJsonForm(this.checker.getTypeOfSymbol(symbol))
+          ) {
+            continue;
+          }
           members[member.name!.getText()] = this.serializeNode(member);
         }
         this.collector[node.name.text] = sortObjectKeys(members);
@@ -639,19 +663,6 @@ export class TypeDeriver {
         optional: false,
         [$types]: [`#/components/schemas/${node.name.text}`],
       };
-    }
-    if (isVariableDeclaration(node)) {
-      const symbol = this.checker.getSymbolAtLocation(node.name);
-      if (!symbol) {
-        this.warn(`No symbol found for ${node.name.getText()}`, node);
-        return null;
-      }
-      if (!node.type) {
-        this.warn(`No type found for ${node.name.getText()}`, node);
-        return 'any';
-      }
-      const type = this.checker.getTypeFromTypeNode(node.type);
-      return this.serializeType(type);
     }
     if (isIdentifier(node)) {
       const symbol = this.checker.getSymbolAtLocation(node);
@@ -673,31 +684,11 @@ export class TypeDeriver {
     if (isSatisfiesExpression(node)) {
       return this.serializeType(this.typeOfExpression(node));
     }
-    if (isTypeLiteralNode(node)) {
-      const symbolType = this.checker.getTypeAtLocation(node);
-      const props: Record<string, unknown> = {};
-      for (const symbol of symbolType.getProperties()) {
-        const type = this.checker.getTypeOfSymbol(symbol);
-        props[symbol.name] = this.serializeType(type);
-      }
-      return {
-        [deriveSymbol]: true,
-        optional: false,
-        [$types]: [sortObjectKeys(props)],
-      };
-    }
     if (node.kind === SyntaxKind.NullKeyword) {
       return {
         [deriveSymbol]: true,
         optional: false,
         [$types]: ['null'],
-      };
-    }
-    if (node.kind === SyntaxKind.BooleanKeyword) {
-      return {
-        [deriveSymbol]: true,
-        optional: false,
-        [$types]: ['boolean'],
       };
     }
     if (node.kind === SyntaxKind.TrueKeyword) {
@@ -716,36 +707,6 @@ export class TypeDeriver {
         kind: 'literal',
         value: false,
         [$types]: ['boolean'],
-      };
-    }
-    if (isFunctionDeclaration(node)) {
-      if (!node.name) {
-        this.warn('Function declaration has no name', node);
-        return {
-          [deriveSymbol]: true,
-          optional: false,
-          [$types]: ['any'],
-        };
-      }
-
-      const functionName = node.name.text;
-      if (this.typesMap[functionName]) {
-        return {
-          [deriveSymbol]: true,
-          optional: false,
-          [$types]: [this.typesMap[functionName]],
-        };
-      }
-
-      if (node.type) {
-        const returnType = this.checker.getTypeFromTypeNode(node.type);
-        return this.serializeType(returnType);
-      }
-
-      return {
-        [deriveSymbol]: true,
-        optional: false,
-        [$types]: ['any'],
       };
     }
     if (isArrayLiteralExpression(node)) {

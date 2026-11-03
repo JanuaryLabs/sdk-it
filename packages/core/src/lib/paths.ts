@@ -464,18 +464,16 @@ export function toSchema(
     ];
     return unique.length === 1 ? unique[0] : { anyOf: unique };
   } else if (data.kind === 'intersection') {
-    // TS gives anonymous/empty object types the synthetic symbol name "__type".
-    // Members like `& {}` (the autocomplete-trick wrapper) contribute no schema
-    // info — drop them so `(string & {})` emits as plain `{type:'string'}`.
-    const ANON_OBJECT = '__type';
-    const meaningful = data[$types].filter((m) => {
-      if (!m || typeof m !== 'object') return true;
-      return !(
-        !m.kind &&
-        m[$types]?.length === 1 &&
-        m[$types][0] === ANON_OBJECT
-      );
-    });
+    // An empty object (the `& {}` autocomplete-trick wrapper) adds no
+    // constraint, so `(string & {})` emits as plain `{type:'string'}`.
+    const meaningful = data[$types].filter(
+      (m) =>
+        !(
+          m?.kind === 'object' &&
+          m[$types].length === 1 &&
+          Object.keys(m[$types][0]).length === 0
+        ),
+    );
     if (meaningful.length === 0) return {};
     if (meaningful.length === 1) return toSchema(meaningful[0]);
     return { allOf: meaningful.map((m) => toSchema(m)) };
