@@ -9,26 +9,7 @@ import {
   parseRef,
   pascalcase,
 } from '@sdk-it/core';
-import { type IR, isPrimitiveSchema } from '@sdk-it/spec';
-
-export function coerceObject(schema: SchemaObject): SchemaObject {
-  schema = structuredClone(schema);
-  if (schema['x-properties']) {
-    schema.properties = {
-      ...(schema.properties ?? {}),
-      ...(schema['x-properties'] ?? {}),
-    };
-  }
-  if (schema['x-required']) {
-    schema.required = Array.from(
-      new Set([
-        ...(Array.isArray(schema.required) ? schema.required : []),
-        ...(schema['x-required'] || []),
-      ]),
-    );
-  }
-  return schema;
-}
+import { type IR, isPrimitiveSchema, withParameters } from '@sdk-it/spec';
 
 type Context = Record<string, unknown>;
 type Serialized = {
@@ -201,7 +182,7 @@ export class PythonEmitter {
     schema: SchemaObject,
     context: Context,
   ): Serialized {
-    const { properties = {}, required = [] } = coerceObject(schema);
+    const { properties = {}, required = [] } = withParameters(schema);
 
     const fields: string[] = [];
 
