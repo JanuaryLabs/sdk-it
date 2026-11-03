@@ -803,16 +803,13 @@ function createCodeBlock(language: string, content: string[]) {
   return ['```' + language, ...content, '```'].join('\n');
 }
 
-function createObjectLiteral(
-  obj: Record<string, unknown>,
-  indent = '\t',
-): string {
+function createObjectLiteral(obj: Record<string, unknown>): string {
   return (
     '{\n' +
     Object.entries(obj)
-      .map(([key, value]) => `${indent}${key}: ${JSON.stringify(value)}`)
+      .map(([key, value]) => `\t${key}: ${JSON.stringify(value)}`)
       .join(',\n') +
-    `\n${indent.slice(0, -1)}}`
+    '\n}'
   );
 }
 
