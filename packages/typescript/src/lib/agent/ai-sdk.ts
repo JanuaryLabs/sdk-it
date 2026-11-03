@@ -78,7 +78,6 @@ function createTools(
       description: \`${toolInfo?.description || operation.description || operation.summary}\`,
       inputSchema: schemas.${inputSchemaName(operation.operationId, input)},
 			execute: async (input, options) => {
-				console.log('Executing ${operation.operationId} tool with input:', input);
         const context = coerceContext(options.context);
         const response = await context.client.request(
           '${inputEndpoint(endpoint, input)}' ,

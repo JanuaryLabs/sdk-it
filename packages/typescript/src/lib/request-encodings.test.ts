@@ -3,6 +3,7 @@ import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { TestContext } from 'node:test';
 import { pathToFileURL } from 'node:url';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 
@@ -83,6 +84,32 @@ async function generateClient(
     },
   });
   return { diagnostics, client, sent, sdk };
+}
+
+/** Captures what `run` prints through console, stdout or stderr, restoring each once it settles. */
+async function printedBy(t: TestContext, run: () => Promise<void>) {
+  const spies = [
+    ...(
+      [
+        'log',
+        'info',
+        'warn',
+        'error',
+        'debug',
+        'dir',
+        'table',
+        'trace',
+      ] as const
+    ).map((method) => t.mock.method(console, method, () => undefined)),
+    t.mock.method(process.stdout, 'write', () => true),
+    t.mock.method(process.stderr, 'write', () => true),
+  ];
+  try {
+    await run();
+  } finally {
+    for (const spy of spies) spy.mock.restore();
+  }
+  return spies.flatMap((spy) => spy.mock.calls.map((call) => call.arguments));
 }
 
 /** What each request a JSON tool call sent carried: its media type and body. */
@@ -328,7 +355,7 @@ void client.request('text POST /notes', { $body: new Blob(['raw']) });`,
   }
 });
 
-test('the generated AI SDK tools give every input a JSON tool call can send its own tool, each validating and sending its own input', async () => {
+test('the generated AI SDK tools give every input a JSON tool call can send its own tool, each validating and sending its own input without printing it', async (t) => {
   await using workspace = await workspaceDirectory('request-variant-tools-');
   try {
     const { diagnostics, client, sent, sdk } = await generateClient(
@@ -340,10 +367,13 @@ test('the generated AI SDK tools give every input a JSON tool call can send its 
     const { tools } = sdk.notes;
     const context = { context: { client } };
 
-    await tools.createNote.execute({ title: 'json' }, context);
-    await tools.createNoteUrlencoded.execute({ title: 'form' }, context);
-    await tools.createNoteText.execute({ $body: 'plain' }, context);
+    const printed = await printedBy(t, async () => {
+      await tools.createNote.execute({ title: 'json' }, context);
+      await tools.createNoteUrlencoded.execute({ title: 'form' }, context);
+      await tools.createNoteText.execute({ $body: 'plain' }, context);
+    });
 
+    assert.deepEqual(printed, []);
     assert.deepEqual(diagnostics, []);
     assert.deepEqual(Object.keys(tools), [
       'createNote',
@@ -364,7 +394,7 @@ test('the generated AI SDK tools give every input a JSON tool call can send its 
   }
 });
 
-test('the generated OpenAI Agents tools load, with a tool for every input a JSON tool call can send, each parsing and sending its own input', async () => {
+test('the generated OpenAI Agents tools load, with a tool for every input a JSON tool call can send, each parsing and sending its own input without printing it', async (t) => {
   await using workspace = await workspaceDirectory('request-variant-agents-');
   try {
     const { diagnostics, client, sent, sdk } = await generateClient(
@@ -379,16 +409,19 @@ test('the generated OpenAI Agents tools load, with a tool for every input a JSON
     }[] = sdk.notes;
     const context = { context: { client } };
 
-    for (const [name, input] of [
-      ['createNote', { title: 'json' }],
-      ['createNoteUrlencoded', { title: 'form' }],
-      ['createNoteText', { $body: 'plain' }],
-    ] as const) {
-      await tools
-        .find((tool) => tool.name === name)
-        ?.invoke(context, JSON.stringify(input));
-    }
+    const printed = await printedBy(t, async () => {
+      for (const [name, input] of [
+        ['createNote', { title: 'json' }],
+        ['createNoteUrlencoded', { title: 'form' }],
+        ['createNoteText', { $body: 'plain' }],
+      ] as const) {
+        await tools
+          .find((tool) => tool.name === name)
+          ?.invoke(context, JSON.stringify(input));
+      }
+    });
 
+    assert.deepEqual(printed, []);
     assert.deepEqual(diagnostics, []);
     assert.deepEqual(
       tools.map((tool) => tool.name),
