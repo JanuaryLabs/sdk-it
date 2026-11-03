@@ -166,6 +166,7 @@ export function normalizeRequestBodies(): ProcessingPlugin {
             for (const schema of new Set(schemas)) {
               patchParameters(spec, schema, parameters);
             }
+            operation.requestBody = requestBody;
             continue;
           }
         }

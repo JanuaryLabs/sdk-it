@@ -189,3 +189,52 @@ test('operations without bodies keep security credentials out of input schemas',
     'x-required': ['id'],
   });
 });
+
+test('a referenced request body whose schema is already an input schema is inlined, not left as a $ref', async () => {
+  const { spec } = await processSpec({
+    spec: {
+      openapi: '3.1.0',
+      info: { title: 'Requests', version: '1.0.0' },
+      components: {
+        schemas: {
+          NoteInput: {
+            type: 'object',
+            'x-requestbody': true,
+            required: ['text'],
+            properties: { text: { type: 'string' } },
+          },
+        },
+        requestBodies: {
+          Note: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/NoteInput' },
+              },
+            },
+          },
+        },
+      },
+      paths: {
+        '/notes': {
+          post: {
+            operationId: 'createNote',
+            parameters: [],
+            requestBody: { $ref: '#/components/requestBodies/Note' },
+            responses: {},
+          },
+        },
+      },
+    },
+    plugins: [normalizeRequestBodies()],
+  });
+
+  assert.deepStrictEqual(spec.paths['/notes'].post?.requestBody, {
+    required: true,
+    content: {
+      'application/json': {
+        schema: { $ref: '#/components/schemas/NoteInput' },
+      },
+    },
+  });
+});
