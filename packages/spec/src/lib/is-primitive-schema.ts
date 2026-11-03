@@ -21,25 +21,44 @@ export function isPrimitiveSchema(schema: SchemaObject) {
  */
 export function isInlinable(spec: OpenAPIDocument, $ref: string): boolean {
   const target = followRef<SchemaObject>(spec, $ref);
-  return isPrimitiveSchema(target) && !reaches(spec, target, $ref, new Set());
+  return (
+    isPrimitiveSchema(target) &&
+    !reaches(spec, target, $ref, new Set(), isPrimitiveSchema)
+  );
 }
 
+/**
+ * Whether the component `$ref` points at refers back to itself through other
+ * components, so a generator must defer the reference that closes the cycle.
+ */
+export function isRecursiveRef(spec: OpenAPIDocument, $ref: string): boolean {
+  return reaches(
+    spec,
+    followRef<SchemaObject>(spec, $ref),
+    $ref,
+    new Set(),
+    () => true,
+  );
+}
+
+/** Whether `schema` refers to `$ref`, following each component `through` accepts. */
 function reaches(
   spec: OpenAPIDocument,
   schema: SchemaObject,
   $ref: string,
   seen: Set<string>,
+  through: (component: SchemaObject) => boolean,
 ): boolean {
   for (const [, child] of subschemas(schema)) {
     if (!isRef(child)) {
-      if (reaches(spec, child, $ref, seen)) return true;
+      if (reaches(spec, child, $ref, seen, through)) return true;
       continue;
     }
     if (child.$ref === $ref) return true;
     if (seen.has(child.$ref)) continue;
     seen.add(child.$ref);
     const target = followRef<SchemaObject>(spec, child.$ref);
-    if (isPrimitiveSchema(target) && reaches(spec, target, $ref, seen)) {
+    if (through(target) && reaches(spec, target, $ref, seen, through)) {
       return true;
     }
   }
