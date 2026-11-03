@@ -7,9 +7,9 @@ import { AnimatePresence, motion } from 'motion/react';
 import React, {
   type ChangeEvent,
   type PropsWithChildren,
+  type Ref,
   type SubmitEvent,
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -94,6 +94,7 @@ export function AskAi(props: { className?: string }) {
         <MessageInput
           isGenerating={status === 'submitted' || status === 'streaming'}
           value={input}
+          placeholder="Ask AI..."
           submitOnEnter={true}
           stop={() => void stop()}
           onChange={handleInputChange}
@@ -118,30 +119,24 @@ export function ChatList(
   );
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { isAtBottom, scrollToBottom } = props;
+  const { isAtBottom, scrollToBottom, scrollByHeight } = props;
 
-  useEffect(() => {
-    if (props.status === 'submitted') {
+  // Attached to the user message just submitted, so it runs once that message
+  // is in the DOM, and again when the scroll area resizes before a reply starts.
+  const makeRoomForReply = useCallback(
+    (submitted: HTMLDivElement | null) => {
+      if (!submitted) return;
       void scrollToBottom();
-    }
-  }, [props.status, scrollToBottom]);
-
-  useEffect(() => {
-    if (props.status === 'submitted' && messagesContainerRef.current) {
       const el = messagesContainerRef.current;
       const lastMessage = messagesEndRef.current;
-      if (!lastMessage) {
-        return;
-      }
+      if (!el || !lastMessage) return;
       const lastMessageBottom =
         lastMessage.offsetTop + lastMessage.offsetHeight;
-      const additionalSpace =
-        Math.min(props.scrollByHeight, el.clientHeight) - 100;
-      const neededHeight = lastMessageBottom + additionalSpace;
-      setContainerHeight(neededHeight);
-      void scrollToBottom();
-    }
-  }, [props.status, props.scrollByHeight, scrollToBottom]);
+      const additionalSpace = Math.min(scrollByHeight, el.clientHeight) - 100;
+      setContainerHeight(lastMessageBottom + additionalSpace);
+    },
+    [scrollByHeight, scrollToBottom],
+  );
 
   const isWaiting = useMemo(() => {
     if (props.status === 'submitted') {
@@ -210,7 +205,14 @@ export function ChatList(
         return (
           <React.Fragment key={message.id}>
             {message.role === 'user' ? (
-              <UserMessage message={getMessageText(message)} />
+              <UserMessage
+                ref={
+                  isLast && props.status === 'submitted'
+                    ? makeRoomForReply
+                    : undefined
+                }
+                message={getMessageText(message)}
+              />
             ) : (
               <AssistantMessage message={message} isStreaming={isStreaming} />
             )}
@@ -220,9 +222,7 @@ export function ChatList(
 
       {(isWaiting || lastCallName) && (
         <div className="flex flex-col border-l pl-4 text-sm">
-          <TextShimmer className="font-mono text-sm" as="span">
-            Thinking...
-          </TextShimmer>
+          <TextShimmer className="font-mono text-sm">Thinking...</TextShimmer>
         </div>
       )}
       <AnimatePresence>
@@ -327,9 +327,18 @@ export function AssistantMessage(props: {
   );
 }
 
-export function UserMessage({ message }: { message: string }) {
+export function UserMessage({
+  message,
+  ref,
+}: {
+  message: string;
+  ref?: Ref<HTMLDivElement>;
+}) {
   return (
-    <div className="bg-background text-primary dark:text-primary sticky top-0 z-10 block py-4 text-sm font-semibold">
+    <div
+      ref={ref}
+      className="bg-background text-primary dark:text-primary sticky top-0 z-10 block py-4 text-sm font-semibold"
+    >
       {message}
     </div>
   );

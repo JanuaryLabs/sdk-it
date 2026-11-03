@@ -26,9 +26,9 @@ export const ParametersComponent: React.FC<ParametersComponentProps> = ({
         {`${type.charAt(0).toUpperCase() + type.slice(1)} Parameters`}
       </h4>
       <div className="space-y-2">
-        {filteredParams.map((parameter, index) => {
+        {filteredParams.map((parameter) => {
           return (
-            <div key={index}>
+            <div key={parameter.name}>
               <Separator className="my-4" />
               <div className="mb-0.5 flex flex-wrap items-center gap-x-1">
                 <code className="text-sm">{parameter.name}</code>

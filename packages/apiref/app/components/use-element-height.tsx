@@ -51,12 +51,8 @@ function useElementHeight<
 
       resizeObserver.observe(node);
 
-      // Cleanup function
       return () => {
-        if (node) {
-          // Check if node still exists before trying to unobserve
-          resizeObserver.unobserve(node);
-        }
+        resizeObserver.disconnect();
       };
     }
     return undefined;

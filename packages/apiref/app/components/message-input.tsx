@@ -1,20 +1,21 @@
 import { Button } from '@zukhruf/shadcn';
 import { cn } from 'cn';
-import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowUp, Square, X } from 'lucide-react';
-import React, { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import React, { useRef, useState } from 'react';
 
 import { useAutosizeTextArea } from '../hooks/use-autosize-textarea';
 
 interface MessageInputBaseProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   value: string;
+  placeholder: string;
   submitOnEnter?: boolean;
   stop?: () => void;
   isGenerating: boolean;
   enableInterrupt?: boolean;
 }
 export function MessageInput({
-  placeholder = 'Ask AI...',
+  placeholder,
   className,
   onKeyDown: onKeyDownProp,
   submitOnEnter = true,
@@ -24,12 +25,9 @@ export function MessageInput({
   ...props
 }: MessageInputBaseProps) {
   const [showInterruptPrompt, setShowInterruptPrompt] = useState(false);
-
-  useEffect(() => {
-    if (!isGenerating) {
-      setShowInterruptPrompt(false);
-    }
-  }, [isGenerating]);
+  if (!isGenerating && showInterruptPrompt) {
+    setShowInterruptPrompt(false);
+  }
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (submitOnEnter && event.key === 'Enter' && !event.shiftKey) {

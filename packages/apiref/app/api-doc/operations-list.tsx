@@ -1,17 +1,22 @@
 import { Separator } from '@zukhruf/shadcn';
 import { motion } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
 import { Description } from '../components/description';
 import { useRootData } from '../use-root-data';
 import { OperationCard } from './operation-card';
 
+function subscribeToNothing() {
+  return () => undefined;
+}
+
+// False while the server renders and while the client hydrates, true after.
 function useMounted() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-  return mounted;
+  return useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  );
 }
 
 export function OperationsList() {

@@ -1,10 +1,9 @@
 import { cn } from 'cn';
-import { motion } from 'framer-motion';
-import { type JSX, useMemo } from 'react';
+import { motion } from 'motion/react';
+import { useMemo } from 'react';
 
 interface TextShimmerProps {
   children: string;
-  as?: keyof JSX.IntrinsicElements;
   className?: string;
   duration?: number;
   spread?: number;
@@ -12,19 +11,16 @@ interface TextShimmerProps {
 
 export function TextShimmer({
   children,
-  as: Component = 'p',
   className,
   duration = 2,
   spread = 2,
 }: TextShimmerProps) {
-  const MotionComponent = motion(Component);
-
   const dynamicSpread = useMemo(() => {
     return children.length * spread;
   }, [children, spread]);
 
   return (
-    <MotionComponent
+    <motion.span
       className={cn(
         'relative inline-block bg-[length:250%_100%,auto] bg-clip-text',
         'text-transparent [--base-color:#a1a1aa] [--base-gradient-color:#000]',
@@ -45,6 +41,6 @@ export function TextShimmer({
       }}
     >
       {children}
-    </MotionComponent>
+    </motion.span>
   );
 }
