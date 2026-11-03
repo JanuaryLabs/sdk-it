@@ -1,19 +1,24 @@
-import { camelcase, spinalcase } from 'stringcase';
+import { spinalcase } from 'stringcase';
 
 import {
   type IR,
   type OperationEntry,
   type TunedOperationObject,
+  carriesBinary,
   forEachOperation,
+  inputEndpoint,
+  inputName,
+  operationInputs,
 } from '@sdk-it/spec';
 
 import { type MakeImportFn } from '../import-utilities.ts';
+import { inputSchemaName } from '../input-schema-name.ts';
 
 export function generateOpenAIAgentTools(spec: IR, makeImport: MakeImportFn) {
   const groups: Record<string, string[]> = {};
   forEachOperation(spec, (entry, operation) => {
     groups[entry.tag] ??= [];
-    groups[entry.tag].push(createTool(entry, operation));
+    groups[entry.tag].push(...createTools(spec, entry, operation));
   });
   const imports = [
     `import { z } from 'zod';`,
@@ -27,21 +32,33 @@ export function generateOpenAIAgentTools(spec: IR, makeImport: MakeImportFn) {
   return [...imports, ...tools].join('\n\n');
 }
 
-function createTool(entry: OperationEntry, operation: TunedOperationObject) {
-  const schemaName = camelcase(`${operation.operationId} schema`);
-  return `tool({
+/**
+ * One tool per input of `operation` that a JSON tool call can send: the
+ * preferred input under the tool's own name, each variant under its encoding.
+ */
+function createTools(
+  spec: IR,
+  entry: OperationEntry,
+  operation: TunedOperationObject,
+) {
+  const endpoint = `${entry.method.toUpperCase()} ${entry.path}`;
+  return operationInputs(spec, operation)
+    .filter((input) => !carriesBinary(spec, input))
+    .map(
+      (input) => `tool({
       description: \`${operation.description || operation.summary}\`,
-      name: '${operation['x-fn-name']}',
-      parameters: makeOptionalPropsNullable(schemas.${schemaName}),
+      name: '${inputName(operation['x-fn-name'], input)}',
+      parameters: makeOptionalPropsNullable(schemas.${inputSchemaName(operation.operationId, input)}),
 			execute: async (input, maybeContext) => {
 				console.log('Executing ${operation.operationId} tool with input:', input);
         const context = coerceContext(maybeContext?.context);
         const client = context.client;
         const response = await client.request(
-          '${entry.method.toUpperCase()} ${entry.path}' ,
+          '${inputEndpoint(endpoint, input)}' ,
           input as any,
         );
         return JSON.stringify(response);
       },
-    })`;
+    })`,
+    );
 }

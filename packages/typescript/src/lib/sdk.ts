@@ -1,5 +1,3 @@
-import { camelcase } from 'stringcase';
-
 import { type OpenAPISecuritySchemeObject } from '@sdk-it/core';
 import {
   type OperationInput,
@@ -36,12 +34,22 @@ export interface Spec {
   makeImport: MakeImportFn;
 }
 
+/** One way a client sends an operation: the key it is exposed under and the input it takes. */
+export interface OperationRoute {
+  endpoint: string;
+  /** The name the `inputs` module exports the input schema under. */
+  schemaName: string;
+  /** The input schema as zod source. */
+  zod: string;
+  input: OperationInput;
+}
+
 export interface Operation {
   method: string;
   path: string;
   operationId: string;
-  schemas: Record<string, string>;
-  input: OperationInput;
+  /** The preferred input first, then its variants. */
+  inputs: OperationRoute[];
 }
 
 export function toEndpoint(
@@ -50,35 +58,28 @@ export function toEndpoint(
   operation: Operation,
   modelName: ModelNamer,
 ) {
-  const schemaName = camelcase(`${specOperation.operationId} schema`);
-  const schemaRef = `${groupIdentifier(groupName)}.${schemaName}`;
-
   const schemas: string[] = [];
   specOperation.responses ??= {};
   const outputs = Object.keys(specOperation.responses).map((status) =>
     toHttpOutput(status, specOperation.responses[status], modelName),
   );
 
-  const addTypeParser = Object.keys(operation.schemas).length > 1;
-  for (const type in operation.schemas ?? {}) {
-    let typePrefix = '';
-    if (addTypeParser && type !== 'json') {
-      typePrefix = `${type} `;
-    }
-    const endpoint = `${typePrefix}${operation.method.toUpperCase()} ${operation.path}`;
+  for (const route of operation.inputs) {
+    const schemaRef = `${groupIdentifier(groupName)}.${route.schemaName}`;
     schemas.push(
-      `"${endpoint}": {
+      `"${route.endpoint}": {
           security: ${JSON.stringify(specOperation.security ?? [])} as readonly Record<string, readonly string[]>[],
-          schema: ${schemaRef}${addTypeParser ? `.${type}` : ''},
+          schema: ${schemaRef},
           output:[${outputs.join(',')}],
-          toRequest(input: z.input<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>, baseUrl: string) {
-           return toRequest('${endpoint}', ${operation.input.encoding}(input, {
-              inputHeaders: [${quoted(operation.input.header)}],
-              inputQuery: [${quoted(operation.input.query)}],
-              inputBody: [${quoted(operation.input.body)}],
-              inputParams: [${quoted(operation.input.path)}],
+          toRequest(input: z.input<typeof ${schemaRef}>, baseUrl: string) {
+           return toRequest('${operation.method.toUpperCase()}', '${operation.path}', ${route.input.encoding}(input, {
+              contentType: ${JSON.stringify(route.input.contentType)},
+              inputHeaders: [${quoted(route.input.header)}],
+              inputQuery: [${quoted(route.input.query)}],
+              inputBody: [${quoted(route.input.body)}],
+              inputParams: [${quoted(route.input.path)}],
             }), baseUrl);},
-         async dispatch(input: z.output<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>,options: {
+         async dispatch(input: z.output<typeof ${schemaRef}>,options: {
             signal?: AbortSignal;
             interceptors: Interceptor[];
             fetch: z.infer<typeof fetchType>;

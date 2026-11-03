@@ -117,7 +117,8 @@ export default {
     schema: listUsersSchema,
     output: operationOutput,
     toRequest(input: z.input<typeof listUsersSchema>, baseUrl: string) {
-      return toRequest('GET /users', empty(input as any, {
+      return toRequest('GET', '/users', empty(input as any, {
+        contentType: 'application/empty',
         inputHeaders: ['x-trace-id'],
         inputQuery: ['limit'],
         inputBody: [],
@@ -141,7 +142,8 @@ export default {
     schema: listUsersSchema,
     output: operationOutput,
     toRequest(input: z.input<typeof listUsersSchema>, baseUrl: string) {
-      return toRequest('POST /users', json(input as any, {
+      return toRequest('POST', '/users', json(input as any, {
+        contentType: 'application/json',
         inputHeaders: [],
         inputQuery: [],
         inputBody: ['limit'],

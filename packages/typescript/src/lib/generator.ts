@@ -4,15 +4,16 @@ import { join } from 'node:path';
 import {
   type IR,
   forEachOperation,
-  inputSchema,
-  operationInput,
+  inputEndpoint,
+  operationInputs,
 } from '@sdk-it/spec';
 
 import { ZodEmitter } from './emitters/zod.ts';
 import { groupIdentifier } from './group-identifier.ts';
+import { inputSchemaName } from './input-schema-name.ts';
 import type { ModelNamer } from './model-name.ts';
 import { moduleFileName } from './module-file.ts';
-import { type Spec, toEndpoint } from './sdk.ts';
+import { type Operation, type Spec, toEndpoint } from './sdk.ts';
 import type { Style } from './style.ts';
 import endpointsTxt from './styles/github/endpoints.txt';
 
@@ -62,46 +63,22 @@ export function generateCode(config: {
   forEachOperation(config.spec, (entry, operation) => {
     groups[entry.tag] ??= [];
     endpoints[entry.tag] ??= [];
-    const schemas: Record<string, string> = {};
-    const shortContenTypeMap: Record<string, string> = {
-      'application/json': 'json',
-      'application/*+json': 'json', // type specific of json like application/vnd.api+json (from the generation pov it shouldn't matter)
-      'text/json': 'json', // non standard - later standardized to application/json
-      'application/x-www-form-urlencoded': 'urlencoded',
-      'multipart/form-data': 'formdata',
-      'application/xml': 'xml',
-      'text/plain': 'text',
-    };
-
-    for (const type in operation.requestBody.content) {
-      schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(
-        inputSchema(config.spec, operation, type),
-        true,
-      );
-    }
-    const input = operationInput(config.spec, operation);
-    const endpoint = toEndpoint(
-      entry.tag,
-      operation,
-      {
-        method: entry.method,
-        path: entry.path,
-        operationId: operation.operationId,
-        schemas,
-        input,
-      },
-      config.modelName,
-    );
-
-    endpoints[entry.tag].push(endpoint);
-
-    groups[entry.tag].push({
+    const endpoint = `${entry.method.toUpperCase()} ${entry.path}`;
+    const route: Operation = {
       method: entry.method,
       path: entry.path,
       operationId: operation.operationId,
-      schemas,
-      input,
-    });
+      inputs: operationInputs(config.spec, operation).map((input) => ({
+        endpoint: inputEndpoint(endpoint, input),
+        schemaName: inputSchemaName(operation.operationId, input),
+        zod: zodDeserialzer.handle(input.schema, true),
+        input,
+      })),
+    };
+    endpoints[entry.tag].push(
+      toEndpoint(entry.tag, operation, route, config.modelName),
+    );
+    groups[entry.tag].push(route);
   });
   const allSchemas = Object.keys(endpoints).map((it) => ({
     import: `import ${groupIdentifier(it)} from './${config.makeImport(moduleFileName(it))}';`,
@@ -143,7 +120,7 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
                         `import * as outputs from '${config.makeImport('../outputs/index')}';`,
                       ]
                     : []),
-                  `import { toRequest, json, urlencoded, empty, formdata, type HeadersInit } from '${config.makeImport('../http/request')}';`,
+                  `import { toRequest, json, urlencoded, formdata, text, binary, empty, type HeadersInit } from '${config.makeImport('../http/request')}';`,
                   `import { chunked, buffered, bodyless } from "${config.makeImport('../http/parse-response')}";`,
                   `import { sse, type SSEListener } from "${config.makeImport('../http/sse')}";`,
                   `import * as ${groupIdentifier(name)} from '../inputs/${config.makeImport(moduleFileName(name))}';`,

@@ -14,6 +14,7 @@ import {
   type OperationEntry,
   type TunedOperationObject,
   forEachOperation,
+  operationInputs,
   patchParameters,
 } from '@sdk-it/spec';
 
@@ -50,10 +51,10 @@ export class TypeScriptSnippet implements Generator {
   ) {
     let examplePayload: unknown;
     if (!isEmpty(operation.requestBody)) {
-      const contentTypes = Object.keys(operation.requestBody.content || {});
+      const [preferred] = operationInputs(this.#spec, operation);
       const schema = followRef(
         this.#spec,
-        operation.requestBody.content[contentTypes[0]].schema.$ref,
+        operation.requestBody.content[preferred.contentType].schema.$ref,
       );
 
       examplePayload = this.#snippetEmitter.handle({

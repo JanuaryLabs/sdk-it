@@ -2,9 +2,9 @@ import { template } from 'lodash-es';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
-import { camelcase, spinalcase } from 'stringcase';
+import { spinalcase } from 'stringcase';
 
-import { type OpenAPIDocument, pascalcase, toLitObject } from '@sdk-it/core';
+import { type OpenAPIDocument, pascalcase } from '@sdk-it/core';
 import {
   type WriteContent,
   addLeadingSlash,
@@ -375,14 +375,8 @@ export function toInputs(
     const output: string[] = [];
     const imports = new Set(['import { z } from "zod";']);
 
-    for (const operation of operations) {
-      const schemaName = camelcase(`${operation.operationId} schema`);
-
-      const schema = `export const ${schemaName} = ${
-        Object.keys(operation.schemas).length === 1
-          ? Object.values(operation.schemas)[0]
-          : toLitObject(operation.schemas)
-      };`;
+    for (const route of operations.flatMap((operation) => operation.inputs)) {
+      const schema = `export const ${route.schemaName} = ${route.zod};`;
 
       for (const it of commonImports) {
         if (schema.includes(it)) {

@@ -1,14 +1,17 @@
-import { camelcase } from 'stringcase';
-
 import {
   type IR,
   type OperationEntry,
   type TunedOperationObject,
+  carriesBinary,
   forEachOperation,
+  inputEndpoint,
+  inputName,
+  operationInputs,
 } from '@sdk-it/spec';
 
 import { groupIdentifier } from '../group-identifier.ts';
 import { type MakeImportFn } from '../import-utilities.ts';
+import { inputSchemaName } from '../input-schema-name.ts';
 
 export function generateAISDKTools(ir: IR, makeImport: MakeImportFn) {
   const groups: Record<
@@ -33,7 +36,7 @@ export function generateAISDKTools(ir: IR, makeImport: MakeImportFn) {
       displayName: '',
       name: '',
     };
-    groups[entry.tag].tools.push(createTool(entry, operation));
+    groups[entry.tag].tools.push(...createTools(ir, entry, operation));
     groups[entry.tag].instructions = tagDef['x-instructions'];
     groups[entry.tag].name = tagDef.name;
     groups[entry.tag].displayName = tagDef['x-name'];
@@ -56,20 +59,33 @@ export function generateAISDKTools(ir: IR, makeImport: MakeImportFn) {
   return [...imports, ...agent].join('\n\n');
 }
 
-function createTool(entry: OperationEntry, operation: TunedOperationObject) {
-  const schemaName = camelcase(`${operation.operationId} schema`);
+/**
+ * One tool per input of `operation` that a JSON tool call can send: the
+ * preferred input under the tool's own name, each variant under its encoding.
+ */
+function createTools(
+  ir: IR,
+  entry: OperationEntry,
+  operation: TunedOperationObject,
+) {
   const toolInfo = operation['x-tool'];
-  return `'${toolInfo?.name || operation['x-fn-name']}': tool({
+  const name = toolInfo?.name || operation['x-fn-name'];
+  const endpoint = `${entry.method.toUpperCase()} ${entry.path}`;
+  return operationInputs(ir, operation)
+    .filter((input) => !carriesBinary(ir, input))
+    .map(
+      (input) => `'${inputName(name, input)}': tool({
       description: \`${toolInfo?.description || operation.description || operation.summary}\`,
-      inputSchema: schemas.${schemaName},
+      inputSchema: schemas.${inputSchemaName(operation.operationId, input)},
 			execute: async (input, options) => {
 				console.log('Executing ${operation.operationId} tool with input:', input);
         const context = coerceContext(options.context);
         const response = await context.client.request(
-          '${entry.method.toUpperCase()} ${entry.path}' ,
+          '${inputEndpoint(endpoint, input)}' ,
           input,
         );
         return JSON.stringify(response);
       },
-    })`;
+    })`,
+    );
 }
