@@ -2,7 +2,23 @@ import chalk from 'chalk';
 import { execSync } from 'child_process';
 import { rmSync } from 'fs';
 import { writeFile } from 'fs/promises';
-import { join } from 'path';
+import { join, resolve } from 'path';
+
+const localDart = (() => {
+  try {
+    execSync('dart --version', { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+/** `command` (a Dart SDK command) run in `directory`: with the local SDK, or in the dart:stable image when none is installed. */
+function dart(directory: string, command: string) {
+  return localDart
+    ? `sh -c "cd ${directory} && ${command}"`
+    : `docker run --rm -v ${directory}:/app -w /app dart:stable sh -c "${command}"`;
+}
 
 function runCommand(
   title: string,
@@ -123,12 +139,14 @@ for (const { spec, name, flags } of specs) {
 
   const cliPath = join(process.cwd(), 'packages', 'cli', 'src', 'bin.ts');
 
-  const sdkOutput = `./.client-dart-${name}`;
+  const sdkOutput = resolve(`./.client-dart-${name}`);
   rmSync(sdkOutput, { recursive: true, force: true });
   const sdkFlags = [
     `-s ${spec}`,
     `-o ${sdkOutput}`,
     `--name ${name}`,
+    // The CLI splits the formatter on spaces, so it gets a plain command.
+    `--formatter "${localDart ? `dart format ${sdkOutput}/lib` : `docker run --rm -v ${sdkOutput}:/app -w /app dart:stable dart format lib`}"`,
     ...(flags ?? []),
   ];
 
@@ -137,19 +155,22 @@ for (const { spec, name, flags } of specs) {
     `GENERATING SDK: ${name}`,
     `node ${cliPath} dart ${sdkFlags.join(' ')}`,
   );
-  // Pub Get dependencies
-  runCommand(`RUNNING Pub Get: ${name}`, `dart pub get`, {
-    cwd: sdkOutput,
-  });
-
-  // write main.dart with import statement to make sure it compiles
-  const mainFilePath = join(sdkOutput, 'main.dart');
+  // main.dart imports the package, so running it compiles what it reaches.
   await writeFile(
-    mainFilePath,
+    join(sdkOutput, 'main.dart'),
     `import './lib/package.dart';\n\nvoid main() {\n  print('Hello, ${name}!');\n}\n`,
   );
-  // Run dart
-  runCommand(`RUNNING Dart: ${name}`, `dart run ${mainFilePath}`);
+  // One SDK run: pub get resolves packages into this run's pub cache.
+  // analyze checks every file, not only what main.dart reaches; its
+  // warnings stay non-fatal until generated files stop importing unused
+  // libraries.
+  runCommand(
+    `ANALYZING AND RUNNING: ${name}`,
+    dart(
+      sdkOutput,
+      'dart pub get && dart analyze --no-fatal-warnings lib && dart run main.dart',
+    ),
+  );
 }
 
 const width = process.stdout.columns || 80;
