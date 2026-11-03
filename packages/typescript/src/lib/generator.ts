@@ -1,71 +1,21 @@
 import { template } from 'lodash-es';
 import { join } from 'node:path';
-import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
 import {
-  type OpenAPIDocument,
-  followRef,
-  isEmpty,
-  isRef,
-  resolveRef,
-  sortArray,
-} from '@sdk-it/core';
-import {
   type IR,
-  type TunedOperationObject,
   forEachOperation,
-  withParameters,
+  inputSchema,
+  operationInput,
 } from '@sdk-it/spec';
 
 import { ZodEmitter } from './emitters/zod.ts';
 import { groupIdentifier } from './group-identifier.ts';
 import type { ModelNamer } from './model-name.ts';
 import { moduleFileName } from './module-file.ts';
-import { type OperationInput, type Spec, toEndpoint } from './sdk.ts';
+import { type Spec, toEndpoint } from './sdk.ts';
 import type { Style } from './style.ts';
 import endpointsTxt from './styles/github/endpoints.txt';
 
-function coearceRequestInput(
-  spec: IR,
-  operation: TunedOperationObject,
-  type: string,
-) {
-  let objectSchema = resolveRef(
-    spec,
-    operation.requestBody.content[type].schema,
-  );
-  const xProperties: Record<string, SchemaObject> =
-    objectSchema['x-properties'] ?? {};
-  const parameters = {
-    'x-properties': objectSchema['x-properties'],
-    'x-required': objectSchema['x-required'],
-  };
-
-  if (type === 'application/empty') {
-    // if empty body and not params then we need to set it to object with additional properties
-    // to avoid unknown input ts errors.
-    objectSchema = {
-      type: 'object',
-      additionalProperties: isEmpty(xProperties),
-      ...parameters,
-    };
-  } else {
-    if (objectSchema.type !== 'object') {
-      objectSchema = {
-        type: 'object',
-        required: operation.requestBody.required ? ['$body'] : [],
-        properties: {
-          $body: objectSchema,
-        },
-        ...parameters,
-      };
-    }
-  }
-  return {
-    objectSchema,
-    xProperties,
-  };
-}
 export interface NamedImport {
   name: string;
   alias?: string;
@@ -125,11 +75,11 @@ export function generateCode(config: {
 
     for (const type in operation.requestBody.content) {
       schemas[shortContenTypeMap[type]] = zodDeserialzer.handle(
-        operationSchema(config.spec, operation, type),
+        inputSchema(config.spec, operation, type),
         true,
       );
     }
-    const details = buildInput(config.spec, operation);
+    const input = operationInput(config.spec, operation);
     const endpoint = toEndpoint(
       entry.tag,
       operation,
@@ -138,8 +88,7 @@ export function generateCode(config: {
         path: entry.path,
         operationId: operation.operationId,
         schemas,
-        outgoingContentType: details.outgoingContentType,
-        inputs: details.inputs,
+        input,
       },
       config.modelName,
     );
@@ -151,8 +100,7 @@ export function generateCode(config: {
       path: entry.path,
       operationId: operation.operationId,
       schemas,
-      outgoingContentType: details.outgoingContentType,
-      inputs: details.inputs,
+      input,
     });
   });
   const allSchemas = Object.keys(endpoints).map((it) => ({
@@ -210,117 +158,4 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
       ),
     },
   };
-}
-
-function toProps(
-  spec: OpenAPIDocument,
-  schemaOrRef: SchemaObject | ReferenceObject,
-  aggregator: string[] = [],
-) {
-  if (isRef(schemaOrRef)) {
-    const schema = followRef(spec, schemaOrRef.$ref);
-    return toProps(spec, schema, aggregator);
-  } else if (schemaOrRef.type === 'object') {
-    for (const [name] of Object.entries(schemaOrRef.properties ?? {})) {
-      aggregator.push(name);
-    }
-    return void 0;
-  } else if (
-    (schemaOrRef.type === 'array' || schemaOrRef.type?.includes('array')) &&
-    schemaOrRef.items
-  ) {
-    toProps(spec, schemaOrRef.items, aggregator);
-    return void 0;
-  } else if (schemaOrRef.allOf) {
-    for (const it of schemaOrRef.allOf) {
-      toProps(spec, it, aggregator);
-    }
-    return void 0;
-  } else if (schemaOrRef.oneOf) {
-    for (const it of schemaOrRef.oneOf) {
-      toProps(spec, it, aggregator);
-    }
-    return void 0;
-  } else if (schemaOrRef.anyOf) {
-    for (const it of schemaOrRef.anyOf) {
-      toProps(spec, it, aggregator);
-    }
-    return void 0;
-  }
-  console.warn('Unknown schema in body', schemaOrRef);
-  return void 0;
-}
-
-function bodyInputs(spec: IR, ctSchema: SchemaObject | ReferenceObject) {
-  const props: string[] = [];
-  toProps(spec, ctSchema, props);
-
-  return (
-    // TODO: should we preproccess the sort at spec level instead of generator's?
-    sortArray(props).reduce<Record<string, OperationInput>>(
-      (acc, prop) => ({
-        ...acc,
-        [prop]: {
-          in: 'body',
-          schema: '',
-        },
-      }),
-      {},
-    )
-  );
-}
-
-const contentTypeSerializerMap = {
-  'application/json': 'json',
-  'application/x-www-form-urlencoded': 'urlencoded',
-  'multipart/form-data': 'formdata',
-  'application/xml': 'xml',
-  'text/plain': 'text',
-  'application/empty': 'empty',
-} as const;
-const serializerContentTypeMap = Object.fromEntries(
-  Object.entries(contentTypeSerializerMap).map(([k, v]) => [v, k]),
-) as Record<
-  (typeof contentTypeSerializerMap)[keyof typeof contentTypeSerializerMap],
-  string
->;
-
-export function buildInput(spec: IR, operation: TunedOperationObject) {
-  const inputs: Record<string, OperationInput> = {};
-
-  let outgoingContentType: (typeof contentTypeSerializerMap)[keyof typeof contentTypeSerializerMap] =
-    'empty';
-
-  for (const [ct, value] of Object.entries(contentTypeSerializerMap)) {
-    if (operation.requestBody.content[ct]) {
-      outgoingContentType = value;
-      const { objectSchema, xProperties } = coearceRequestInput(
-        spec,
-        operation,
-        ct,
-      );
-      for (const [name, prop] of Object.entries(xProperties)) {
-        inputs[name] = {
-          in: prop['x-in'],
-          schema: '',
-        };
-      }
-
-      Object.assign(inputs, bodyInputs(spec, objectSchema));
-      break;
-    }
-  }
-  return {
-    inputs,
-    outgoingContentType,
-    ct: serializerContentTypeMap[outgoingContentType],
-  };
-}
-
-export function operationSchema(
-  ir: IR,
-  operation: TunedOperationObject,
-  type: string,
-) {
-  return withParameters(coearceRequestInput(ir, operation, type).objectSchema);
 }

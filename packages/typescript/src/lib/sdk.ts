@@ -2,6 +2,7 @@ import { camelcase } from 'stringcase';
 
 import { type OpenAPISecuritySchemeObject } from '@sdk-it/core';
 import {
+  type OperationInput,
   type OperationPagination,
   type ResponseBody,
   type TunedOperationObject,
@@ -36,17 +37,12 @@ export interface Spec {
   makeImport: MakeImportFn;
 }
 
-export interface OperationInput {
-  in: string;
-  schema: string;
-}
 export interface Operation {
   method: string;
   path: string;
   operationId: string;
   schemas: Record<string, string>;
-  inputs: Record<string, OperationInput>;
-  outgoingContentType?: string;
+  input: OperationInput;
 }
 
 export function toEndpoint(
@@ -70,7 +66,6 @@ export function toEndpoint(
     if (addTypeParser && type !== 'json') {
       typePrefix = `${type} `;
     }
-    const paths = inputToPath(specOperation, operation.inputs);
     const endpoint = `${typePrefix}${operation.method.toUpperCase()} ${operation.path}`;
     schemas.push(
       `"${endpoint}": {
@@ -78,11 +73,11 @@ export function toEndpoint(
           schema: ${schemaRef}${addTypeParser ? `.${type}` : ''},
           output:[${outputs.join(',')}],
           toRequest(input: z.input<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>, baseUrl: string) {
-           return toRequest('${endpoint}', ${operation.outgoingContentType || 'empty'}(input, {
-              inputHeaders: [${paths.inputHeaders}],
-              inputQuery: [${paths.inputQuery}],
-              inputBody: [${paths.inputBody}],
-              inputParams: [${paths.inputParams}],
+           return toRequest('${endpoint}', ${operation.input.encoding}(input, {
+              inputHeaders: [${quoted(operation.input.header)}],
+              inputQuery: [${quoted(operation.input.query)}],
+              inputBody: [${quoted(operation.input.body)}],
+              inputParams: [${quoted(operation.input.path)}],
             }), baseUrl);},
          async dispatch(input: z.output<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>,options: {
             signal?: AbortSignal;
@@ -158,36 +153,6 @@ function outputName(status: string, response: TunedResponseObject) {
   return name;
 }
 
-export function inputToPath(
-  operation: TunedOperationObject,
-  inputs: Record<string, OperationInput>,
-) {
-  const inputHeaders: string[] = [];
-  const inputQuery: string[] = [];
-  const inputBody: string[] = [];
-  const inputParams: string[] = [];
-  for (const [name, prop] of Object.entries(inputs)) {
-    if (prop.in === 'headers' || prop.in === 'header') {
-      inputHeaders.push(`"${name}"`);
-    } else if (prop.in === 'query') {
-      inputQuery.push(`"${name}"`);
-    } else if (prop.in === 'body') {
-      inputBody.push(`"${name}"`);
-    } else if (prop.in === 'path') {
-      inputParams.push(`"${name}"`);
-    } else {
-      throw new Error(
-        `Unknown source ${prop.in} in ${name} ${JSON.stringify(
-          prop,
-        )} in ${operation.operationId}`,
-      );
-    }
-  }
-
-  return {
-    inputHeaders,
-    inputQuery,
-    inputBody,
-    inputParams,
-  };
+function quoted(names: readonly string[]) {
+  return names.map((name) => `"${name}"`);
 }
