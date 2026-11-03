@@ -35,38 +35,6 @@
           "watchDepsName": "watch-deps"
         }
       }
-    },
-    {
-      "plugin": "@nx/react/router-plugin",
-      "exclude": ["packages/apiref/**"],
-      "options": {
-        "buildTargetName": "build",
-        "devTargetName": "dev",
-        "startTargetName": "start",
-        "watchDepsTargetName": "watch-deps",
-        "buildDepsTargetName": "build-deps"
-      }
-    },
-    {
-      "plugin": "@nx/vite/plugin",
-      "exclude": ["packages/apiref/**"],
-      "options": {
-        "buildTargetName": "build",
-        "serveTargetName": "serve",
-        "devTargetName": "dev",
-        "previewTargetName": "preview",
-        "serveStaticTargetName": "serve-static",
-        "typecheckTargetName": "typecheck",
-        "buildDepsTargetName": "build-deps",
-        "watchDepsTargetName": "watch-deps"
-      }
-    },
-    {
-      "plugin": "@nx/vitest",
-      "exclude": ["packages/apiref/**"],
-      "options": {
-        "testTargetName": "test"
-      }
     }
   ],
   "workspaceLayout": {
@@ -136,23 +104,6 @@
   },
   "sync": {
     "applyChanges": true
-  },
-  "generators": {
-    "@nx/react": {
-      "application": {
-        "babel": true,
-        "style": "css",
-        "linter": "eslint",
-        "bundler": "vite"
-      },
-      "component": {
-        "style": "css"
-      },
-      "library": {
-        "style": "css",
-        "linter": "eslint"
-      }
-    }
   },
   "analytics": false,
   "affected": {
