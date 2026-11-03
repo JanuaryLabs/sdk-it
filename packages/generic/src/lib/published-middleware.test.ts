@@ -2,7 +2,6 @@ import type { Hono } from 'hono';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import {
-  cp,
   mkdir,
   mkdtemp,
   readFile,
@@ -32,28 +31,24 @@ test('published middleware preserves source error responses through client gener
     const packageRoot = dirname(require.resolve('@sdk-it/hono/package.json'));
     const modules = dirname(dirname(require.resolve('zod/package.json')));
     const installed = join(dir, 'node_modules/@sdk-it/hono');
-    const { '@sdk-it/hono': packed } = JSON.parse(
-      execFileSync(
-        'npm',
-        [
-          'pack',
-          packageRoot,
-          '--ignore-scripts',
-          '--json',
-          '--pack-destination',
-          dir,
-        ],
-        {
-          encoding: 'utf8',
-          env: { ...process.env, npm_config_cache: join(dir, 'npm-cache') },
-        },
-      ),
-    );
-    // Materialize precisely npm's tarball file list, without a second packlist or archive parser.
-    for (const { path } of packed.files as { path: string }[]) {
-      await mkdir(dirname(join(installed, path)), { recursive: true });
-      await cp(join(packageRoot, path), join(installed, path));
-    }
+    // npm pack prints only the tarball's file name on stdout; its --json shape differs between npm 11 and 12.
+    const tarball = execFileSync(
+      'npm',
+      ['pack', packageRoot, '--ignore-scripts', '--pack-destination', dir],
+      {
+        encoding: 'utf8',
+        env: { ...process.env, npm_config_cache: join(dir, 'npm-cache') },
+      },
+    ).trim();
+    // Install the published bytes: the tarball's single `package/` root becomes the package folder.
+    await mkdir(installed, { recursive: true });
+    execFileSync('tar', [
+      '-xzf',
+      join(dir, tarball),
+      '-C',
+      installed,
+      '--strip-components=1',
+    ]);
     for (const name of ['hono', 'zod', 'fast-content-type-parse', '@types']) {
       await symlink(
         join(modules, name),
