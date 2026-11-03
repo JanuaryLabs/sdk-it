@@ -4,12 +4,15 @@ import { z } from 'zod';
 import type { Method as OperationMethod } from '@sdk-it/core';
 import {
   type IR,
+  type RequestEncoding,
   type ResponseBody,
   type TunedOperationObject,
+  carriesBinary,
   forEachOperation,
-  inputSchema,
+  inputEndpoint,
+  inputName,
   loadSpec,
-  operationInput,
+  operationInputs,
   toIR,
 } from '@sdk-it/spec';
 
@@ -26,12 +29,13 @@ import {
 import { bodyless, buffered, chunked } from './http/parse-response.ts';
 import { parseInput } from './http/parser.ts';
 import {
-  type Endpoint,
   type HeadersInit,
   type Method,
+  binary,
   empty,
   formdata,
   json,
+  text,
   toRequest,
   urlencoded,
 } from './http/request.ts';
@@ -173,51 +177,53 @@ const httpMethods: Record<OperationMethod, Method> = {
   head: 'HEAD',
 };
 
+const serializers: Record<RequestEncoding, typeof json> = {
+  json,
+  urlencoded,
+  formdata,
+  text,
+  binary,
+  empty,
+};
+
 export function createRpc(ir: IR, options: Partial<ClientOptions> = {}) {
-  const schemas: Record<Endpoint, any> = {};
+  const schemas: Record<string, any> = {};
   forEachOperation(ir, (entry, operation) => {
-    const endpoint: Endpoint = `${httpMethods[entry.method]} ${entry.path}`;
-    const sent = operationInput(ir, operation);
-    const contentTypeMap: Partial<Record<typeof sent.encoding, typeof json>> = {
-      json,
-      urlencoded,
-      formdata,
-      empty,
-    };
-    const schema = schemaToZod(
-      inputSchema(ir, operation, sent.contentType),
-      ir,
-      { required: true },
-    );
-    schemas[endpoint] = {
-      operationId: operation.operationId,
-      output: toOutputs(operation),
-      schema,
-      async dispatch(
-        input: any,
-        options: {
-          signal?: AbortSignal;
-          interceptors: Interceptor[];
-          fetch: z.infer<typeof fetchType>;
-          baseUrl: string;
+    const method = httpMethods[entry.method];
+    for (const sent of operationInputs(ir, operation)) {
+      schemas[inputEndpoint(`${method} ${entry.path}`, sent)] = {
+        operationId: operation.operationId,
+        output: toOutputs(operation),
+        schema: schemaToZod(sent.schema, ir, { required: true }),
+        async dispatch(
+          input: any,
+          options: {
+            signal?: AbortSignal;
+            interceptors: Interceptor[];
+            fetch: z.infer<typeof fetchType>;
+            baseUrl: string;
+          },
+        ) {
+          const dispatcher = new Dispatcher(
+            options.interceptors,
+            options.fetch,
+          );
+          const request = toRequest(
+            method,
+            entry.path,
+            serializers[sent.encoding](input, {
+              contentType: sent.contentType,
+              inputHeaders: sent.header,
+              inputQuery: sent.query,
+              inputBody: sent.body,
+              inputParams: sent.path,
+            }),
+            options.baseUrl,
+          );
+          return dispatcher.send(request, this.output, options.signal);
         },
-      ) {
-        const dispatcher = new Dispatcher(options.interceptors, options.fetch);
-        const serializer =
-          contentTypeMap[sent.encoding] || defaultSerializer(sent.encoding);
-        const request = toRequest(
-          endpoint,
-          serializer(input, {
-            inputHeaders: sent.header,
-            inputQuery: sent.query,
-            inputBody: sent.body,
-            inputParams: sent.path,
-          }),
-          options.baseUrl,
-        );
-        return dispatcher.send(request, this.output, options.signal);
-      },
-    };
+      };
+    }
   });
 
   const baseUrl = options.baseUrl ?? ir.servers.at(0)?.url;
@@ -284,16 +290,23 @@ export async function toAgents(
       includeTool = !!toolInfo;
     }
     if (includeTool) {
-      groups[entry.tag].tools[toolInfo?.name || operation['x-fn-name']] = tool({
-        type: 'function',
-        description:
-          toolInfo?.description || operation.description || operation.summary,
-        inputSchema: toToolSchema(client.schemas[endpoint].schema),
-        execute: async (input) => {
-          const response = await client.request(endpoint, input);
-          return JSON.stringify(response);
-        },
-      });
+      const name = toolInfo?.name || operation['x-fn-name'];
+      for (const sent of operationInputs(ir, operation)) {
+        if (carriesBinary(ir, sent)) {
+          continue;
+        }
+        const key = inputEndpoint(endpoint, sent);
+        groups[entry.tag].tools[inputName(name, sent)] = tool({
+          type: 'function',
+          description:
+            toolInfo?.description || operation.description || operation.summary,
+          inputSchema: toToolSchema(client.schemas[key].schema),
+          execute: async (input) => {
+            const response = await client.request(key, input);
+            return JSON.stringify(response);
+          },
+        });
+      }
     }
     groups[entry.tag].handoffDescription = tagDef['x-handoff-description'];
     groups[entry.tag].instructions = tagDef['x-instructions'];
@@ -313,10 +326,6 @@ export async function toAgents(
   }
 
   return agents;
-}
-
-function defaultSerializer(ct: string): never {
-  throw new Error(`Unsupported content type: ${ct}`);
 }
 
 const TOOL_COERCE_MARKER = 'x-sdkit-tool-coerce';

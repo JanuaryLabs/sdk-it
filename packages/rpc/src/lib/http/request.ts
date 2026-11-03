@@ -4,11 +4,7 @@ type Init = Omit<RequestInit, 'headers'> & { headers: Headers };
 export type RequestConfig = { init: Init; url: URL };
 /** The methods an OpenAPI operation uses, as an HTTP request line writes them. */
 export type Method = Uppercase<OperationMethod>;
-export type ContentType =
-  'xml' | 'json' | 'urlencoded' | 'multipart' | 'formdata';
 export type HeadersInit = [string, string][] | Record<string, string>;
-export type Endpoint =
-  `${ContentType} ${Method} ${string}` | `${Method} ${string}`;
 
 export type BodyInit =
   ArrayBuffer | Blob | FormData | URLSearchParams | null | string;
@@ -43,6 +39,8 @@ function toWireValue(value: any): string {
 }
 
 type Props = {
+  /** The media type the body is sent as. */
+  contentType: string;
   inputHeaders: string[];
   inputQuery: string[];
   inputBody: string[];
@@ -122,7 +120,7 @@ class JsonSerializer extends Serializer {
   }
   getHeaders(): Record<string, string> {
     return {
-      'Content-Type': 'application/json',
+      'Content-Type': this.props.contentType,
       Accept: 'application/json',
     };
   }
@@ -138,7 +136,7 @@ class UrlencodedSerializer extends Serializer {
   }
   getHeaders(): Record<string, string> {
     return {
-      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Type': this.props.contentType,
       Accept: 'application/json',
     };
   }
@@ -168,6 +166,18 @@ class FormDataSerializer extends Serializer {
   }
 }
 
+// A text or binary body is the caller's own string or Blob, sent as is.
+class RawSerializer extends Serializer {
+  getBody(): BodyInit | null {
+    return this.input.$body;
+  }
+  getHeaders(): Record<string, string> {
+    return {
+      'Content-Type': this.props.contentType,
+    };
+  }
+}
+
 export function json(input: Input, props: Props) {
   return new JsonSerializer(input, props);
 }
@@ -180,13 +190,19 @@ export function empty(input: Input, props: Props) {
 export function formdata(input: Input, props: Props) {
   return new FormDataSerializer(input, props);
 }
+export function text(input: Input, props: Props) {
+  return new RawSerializer(input, props);
+}
+export function binary(input: Input, props: Props) {
+  return new RawSerializer(input, props);
+}
 
-export function toRequest<T extends Endpoint>(
-  endpoint: T,
+export function toRequest(
+  method: Method,
+  path: string,
   serializer: Serializer,
   baseUrl: string,
 ): RequestConfig {
-  const [method, path] = endpoint.split(' ');
   const input = serializer.serialize(path, baseUrl);
   return {
     url: input.url,
