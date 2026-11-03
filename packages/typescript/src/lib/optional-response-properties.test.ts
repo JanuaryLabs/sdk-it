@@ -1,7 +1,3 @@
-import {
-  API,
-  formatDiagnosticsWithColorAndContext,
-} from '@typescript/native/sync';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
 import { mkdtempDisposable, readFile, writeFile } from 'node:fs/promises';
@@ -9,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
-import { preEmitDiagnostics } from '@sdk-it/core/program.js';
+import { typecheck } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 void test.each(
@@ -122,17 +118,10 @@ void [omitted, present, withNote, absent, nullValue, missingRequired, undefinedR
       const configPath = join(workspace.path, 'tsconfig.json');
       const config = JSON.parse(await readFile(configPath, 'utf8'));
       config.compilerOptions.strict = true;
-      using api = new API();
-      const parsed = api.parseJsonConfigFileContent(config, {
-        configDirectory: workspace.path,
+      const { diagnostics } = typecheck({
+        tsconfig: config,
+        directory: workspace.path,
       });
-      assert.deepEqual(parsed.errors, []);
-      using program = api.createProgram(parsed.fileNames, parsed.options);
-      const diagnostics = preEmitDiagnostics(program);
-      assert.equal(
-        diagnostics.length,
-        0,
-        formatDiagnosticsWithColorAndContext(diagnostics, program),
-      );
+      assert.deepEqual(diagnostics, []);
     }),
 );

@@ -11,7 +11,10 @@
   "exclude": ["src/**/*.test.ts"],
   "references": [
     {
-      "path": "../hono/tsconfig.lib.json"
+      "path": "../core/tsconfig.lib.json"
+    },
+    {
+      "path": "../testing/tsconfig.lib.json"
     },
     {
       "path": "../typescript/tsconfig.lib.json"
@@ -20,7 +23,7 @@
       "path": "../spec/tsconfig.lib.json"
     },
     {
-      "path": "../core/tsconfig.lib.json"
+      "path": "../hono/tsconfig.lib.json"
     }
   ]
 }

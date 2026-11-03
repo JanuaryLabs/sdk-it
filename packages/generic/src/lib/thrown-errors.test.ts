@@ -1,7 +1,3 @@
-import {
-  API,
-  formatDiagnosticsWithColorAndContext,
-} from '@typescript/native/sync';
 import { test } from '@zukhruf/testing/node';
 import { build, stop } from 'esbuild';
 import type { Hono } from 'hono';
@@ -10,12 +6,10 @@ import { mkdtempDisposable, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import {
-  openAnalysisProject,
-  preEmitDiagnostics,
-} from '@sdk-it/core/program.js';
+import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
+import { typecheck } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 void test.each(
@@ -321,9 +315,8 @@ export async function exercise(fetch: typeof globalThis.fetch, expected: unknown
 }
 `,
           );
-          using api = new API();
-          const config = api.parseJsonConfigFileContent(
-            {
+          const { diagnostics } = typecheck({
+            tsconfig: {
               compilerOptions: {
                 target: 'ESNext',
                 module: 'ESNext',
@@ -337,16 +330,9 @@ export async function exercise(fetch: typeof globalThis.fetch, expected: unknown
               },
               include: ['**/*.ts'],
             },
-            { configDirectory: source },
-          );
-          assert.deepEqual(config.errors, []);
-          using program = api.createProgram(config.fileNames, config.options);
-          const diagnostics = preEmitDiagnostics(program);
-          assert.equal(
-            diagnostics.length,
-            0,
-            formatDiagnosticsWithColorAndContext(diagnostics, program),
-          );
+            directory: source,
+          });
+          assert.deepEqual(diagnostics, []);
           const bundle = join(workspace.path, 'consumer.mjs');
           await build({
             entryPoints: [join(source, 'consumer.ts')],

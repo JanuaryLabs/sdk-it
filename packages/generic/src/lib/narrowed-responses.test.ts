@@ -1,4 +1,3 @@
-import { API } from '@typescript/native/sync';
 import type { Hono } from 'hono';
 import assert from 'node:assert/strict';
 import {
@@ -15,12 +14,10 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 
-import {
-  openAnalysisProject,
-  preEmitDiagnostics,
-} from '@sdk-it/core/program.js';
+import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
+import { typecheck } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 test('generated comparison clients preserve guarded response fields and optional siblings', async () => {
@@ -138,18 +135,9 @@ const unguardedOptionalId: string = value.optional.id;
 void [baselineId, candidateId, optionalId, unguardedOptionalId];
 `,
     );
-    using api = new API();
-    const parsed = api.parseConfigFile(configPath);
-    assert.deepEqual(parsed.errors, []);
-    using program = api.createProgram(parsed.fileNames, parsed.options);
-    assert.ok(program.getSourceFile(consumerPath));
-    assert.deepEqual(
-      preEmitDiagnostics(program).map((diagnostic) => ({
-        file: diagnostic.fileName,
-        message: diagnostic.text,
-      })),
-      [],
-    );
+    const { files, diagnostics } = typecheck(configPath);
+    assert.ok(files.includes(consumerPath));
+    assert.deepEqual(diagnostics, []);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

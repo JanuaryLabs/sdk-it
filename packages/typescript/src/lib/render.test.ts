@@ -1,4 +1,3 @@
-import { API } from '@typescript/native/sync';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -17,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
-import { preEmitDiagnostics } from '@sdk-it/core/program.js';
+import { typecheck } from '@sdk-it/testing';
 import { generate, render } from '@sdk-it/typescript';
 
 const packageDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -154,16 +153,10 @@ for (const agentTools of ['ai-sdk', 'openai-agents'] as const) {
         }),
       );
 
-      using api = new API();
-      const config = api.parseConfigFile(join(dir, 'tsconfig.json'));
-      using program = api.createProgram(config.fileNames, config.options);
-      const diagnostics = preEmitDiagnostics(program).map(
-        (diagnostic) =>
-          `${diagnostic.fileName}:${diagnostic.startPosition && diagnostic.startPosition.line + 1} ${diagnostic.text}`,
-      );
+      const checked = typecheck(join(dir, 'tsconfig.json'));
 
-      assert.ok(config.fileNames.length > 0);
-      assert.deepStrictEqual(diagnostics, []);
+      assert.ok(checked.files.some((file) => file.startsWith(dir)));
+      assert.deepStrictEqual(checked.diagnostics, []);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

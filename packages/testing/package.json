@@ -1,0 +1,18 @@
+{
+  "name": "@sdk-it/testing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@sdk-it/core": "*",
+    "@typescript/native": "npm:typescript@7.1.0-beta"
+  }
+}

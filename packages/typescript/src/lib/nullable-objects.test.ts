@@ -1,7 +1,3 @@
-import {
-  API,
-  formatDiagnosticsWithColorAndContext,
-} from '@typescript/native/sync';
 import { test } from '@zukhruf/testing/node';
 import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
@@ -10,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { SchemaObject } from 'openapi3-ts/oas31';
 
-import { preEmitDiagnostics } from '@sdk-it/core/program.js';
+import { typecheck } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 void test.each(
@@ -152,9 +148,8 @@ function checkTypes(client: Records) {
 void checkTypes;
 `,
           );
-          using api = new API();
-          const config = api.parseJsonConfigFileContent(
-            {
+          const { diagnostics } = typecheck({
+            tsconfig: {
               compilerOptions: {
                 target: 'ESNext',
                 module: 'ESNext',
@@ -168,16 +163,9 @@ void checkTypes;
               },
               include: ['**/*.ts'],
             },
-            { configDirectory: source },
-          );
-          assert.deepEqual(config.errors, []);
-          using program = api.createProgram(config.fileNames, config.options);
-          const diagnostics = preEmitDiagnostics(program);
-          assert.equal(
-            diagnostics.length,
-            0,
-            formatDiagnosticsWithColorAndContext(diagnostics, program),
-          );
+            directory: source,
+          });
+          assert.deepEqual(diagnostics, []);
           const bundle = join(workspace.path, 'consumer.mjs');
           await build({
             entryPoints: [join(source, 'consumer.ts')],

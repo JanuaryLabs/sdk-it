@@ -1,7 +1,3 @@
-import {
-  API,
-  formatDiagnosticsWithColorAndContext,
-} from '@typescript/native/sync';
 import { HttpServer } from '@zukhruf/testing/http';
 import { test } from '@zukhruf/testing/node';
 import { build, stop } from 'esbuild';
@@ -11,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 
-import { preEmitDiagnostics } from '@sdk-it/core/program.js';
+import { typecheck } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 void test.each(['full', 'minimal'] as const, (mode) =>
@@ -163,9 +159,8 @@ function invalid(client: Pages) {
 void invalid;
 `,
           );
-          using api = new API();
-          const config = api.parseJsonConfigFileContent(
-            {
+          const { diagnostics } = typecheck({
+            tsconfig: {
               compilerOptions: {
                 target: 'ESNext',
                 module: 'ESNext',
@@ -179,16 +174,9 @@ void invalid;
               },
               include: ['**/*.ts'],
             },
-            { configDirectory: source },
-          );
-          assert.deepEqual(config.errors, []);
-          using program = api.createProgram(config.fileNames, config.options);
-          const diagnostics = preEmitDiagnostics(program);
-          assert.equal(
-            diagnostics.length,
-            0,
-            formatDiagnosticsWithColorAndContext(diagnostics, program),
-          );
+            directory: source,
+          });
+          assert.deepEqual(diagnostics, []);
           const bundle = join(workspace.path, 'consumer.mjs');
           await build({
             entryPoints: [join(source, 'consumer.ts')],

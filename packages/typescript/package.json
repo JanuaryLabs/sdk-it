@@ -29,5 +29,8 @@
     "npm-run-path": "6.0.0",
     "@sdk-it/spec": "0.46.11",
     "@sdk-it/readme": "0.46.11"
+  },
+  "devDependencies": {
+    "@sdk-it/testing": "*"
   }
 }

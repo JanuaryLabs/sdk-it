@@ -1,4 +1,3 @@
-import { API } from '@typescript/native/sync';
 import type { Hono } from 'hono';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -18,12 +17,10 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 
-import {
-  openAnalysisProject,
-  preEmitDiagnostics,
-} from '@sdk-it/core/program.js';
+import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
+import { typecheck } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 test('published middleware preserves source error responses through client generation', async () => {
@@ -164,23 +161,20 @@ app.post('/items', validate('application/json', (payload) => ({
     }
 
     // Ordinary consumers still compile against declarations, and execute built JS.
-    using api = new API();
-    const parsed = api.parseJsonConfigFileContent(
-      JSON.parse(await readFile(configPath, 'utf8')),
-      { configDirectory: dir },
-    );
-    using program = api.createProgram(parsed.fileNames, parsed.options);
+    const consumer = typecheck({
+      tsconfig: JSON.parse(await readFile(configPath, 'utf8')),
+      directory: dir,
+    });
     assert.ok(
-      program.getSourceFile(join(installed, 'dist/lib/runtime/validator.d.ts')),
+      consumer.files.includes(
+        join(installed, 'dist/lib/runtime/validator.d.ts'),
+      ),
     );
     assert.equal(
-      program.getSourceFile(join(installed, 'src/lib/runtime/validator.ts')),
-      undefined,
+      consumer.files.includes(join(installed, 'src/lib/runtime/validator.ts')),
+      false,
     );
-    assert.deepEqual(
-      preEmitDiagnostics(program).map(({ text }) => text),
-      [],
-    );
+    assert.deepEqual(consumer.diagnostics, []);
 
     const output = join(dir, 'client');
     await generate(
@@ -230,14 +224,17 @@ function describe(error: ErrorResponse): string {
 void [statuses, describe];
 `,
     );
-    const clientParsed = api.parseConfigFile(join(output, 'tsconfig.json'));
-    assert.deepEqual(clientParsed.errors, []);
-    using clientProgram = api.createProgram(clientParsed.fileNames, {
-      strict: true,
-      ...clientParsed.options,
-    });
+    const clientConfig = JSON.parse(
+      await readFile(join(output, 'tsconfig.json'), 'utf8'),
+    );
     assert.deepEqual(
-      preEmitDiagnostics(clientProgram).map(({ text }) => text),
+      typecheck({
+        tsconfig: {
+          ...clientConfig,
+          compilerOptions: { strict: true, ...clientConfig.compilerOptions },
+        },
+        directory: output,
+      }).diagnostics,
       [],
     );
   } finally {

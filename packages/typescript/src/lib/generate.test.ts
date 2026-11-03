@@ -17,8 +17,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createContext, runInContext } from 'node:vm';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 
-import { preEmitDiagnostics } from '@sdk-it/core/program.js';
 import { loadSpec } from '@sdk-it/spec';
+import { typecheck } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 const repoRoot = join(
@@ -28,17 +28,6 @@ const repoRoot = join(
   '..',
   '..',
 );
-
-function compileGeneratedProject(dir: string) {
-  using api = new API();
-  const parsed = api.parseConfigFile(join(dir, 'tsconfig.json'));
-  using program = api.createProgram(parsed.fileNames, parsed.options);
-  return preEmitDiagnostics(program).map((diagnostic) => ({
-    file: diagnostic.fileName,
-    line: diagnostic.startPosition && diagnostic.startPosition.line + 1,
-    message: diagnostic.text,
-  }));
-}
 
 function figmaShapedSpec(): OpenAPIObject {
   return {
@@ -447,7 +436,7 @@ const stringPrice: Value['price'] = '2';
 void [nullPrice, numberPrice, optionalNull, optionalOmitted, missing, stringPrice];
 `,
     );
-    assert.deepEqual(compileGeneratedProject(dir), []);
+    assert.deepEqual(typecheck(join(dir, 'tsconfig.json')).diagnostics, []);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -518,7 +507,7 @@ const nameless: Pet = { id: 'a', owner: {} };
 void [pet, nameless];
 `,
     );
-    assert.deepEqual(compileGeneratedProject(dir), []);
+    assert.deepEqual(typecheck(join(dir, 'tsconfig.json')).diagnostics, []);
   } finally {
     rmSync(specDir, { recursive: true, force: true });
     rmSync(dir, { recursive: true, force: true });
@@ -618,7 +607,7 @@ const missingName: Space = { _count: 1, id: 'a' };
 void [complete, missingCount, missingName];
 `,
     );
-    assert.deepEqual(compileGeneratedProject(dir), []);
+    assert.deepEqual(typecheck(join(dir, 'tsconfig.json')).diagnostics, []);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -1211,7 +1200,7 @@ const something: Awaited<ReturnType<typeof create>> = {};
 void [nothing, something];
 `,
       );
-      assert.deepEqual(compileGeneratedProject(dir), []);
+      assert.deepEqual(typecheck(join(dir, 'tsconfig.json')).diagnostics, []);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -1298,7 +1287,7 @@ const model: Data = { id: 'a' };
 void [listener, model];
 `,
       );
-      assert.deepEqual(compileGeneratedProject(dir), []);
+      assert.deepEqual(typecheck(join(dir, 'tsconfig.json')).diagnostics, []);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -1381,7 +1370,7 @@ const model: Data = { id: 'a' };
 void [stream, model];
 `,
       );
-      assert.deepEqual(compileGeneratedProject(dir), []);
+      assert.deepEqual(typecheck(join(dir, 'tsconfig.json')).diagnostics, []);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -1496,7 +1485,7 @@ describe('generate — AI SDK 7 agent tools', () => {
           mode: 'full',
         });
 
-        const diagnostics = compileGeneratedProject(dir);
+        const diagnostics = typecheck(join(dir, 'tsconfig.json')).diagnostics;
         assert.deepStrictEqual(
           diagnostics,
           [],
@@ -1776,7 +1765,10 @@ describe('generate — security options assembly', () => {
         },
       );
 
-      assert.deepStrictEqual(compileGeneratedProject(dir), []);
+      assert.deepStrictEqual(
+        typecheck(join(dir, 'tsconfig.json')).diagnostics,
+        [],
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -2177,7 +2169,7 @@ new MutualTls({ baseUrl: '', credentials: { basic: () => 'user:password' } });
 `,
       );
 
-      const diagnostics = compileGeneratedProject(dir);
+      const diagnostics = typecheck(join(dir, 'tsconfig.json')).diagnostics;
       assert.deepStrictEqual(
         diagnostics.map(({ file, line }) => ({
           file: file ? relative(dir, file) : undefined,
@@ -2554,7 +2546,7 @@ describe('generate — model names', () => {
         ].join('\n'),
       );
 
-      assert.deepEqual(compileGeneratedProject(dir), []);
+      assert.deepEqual(typecheck(join(dir, 'tsconfig.json')).diagnostics, []);
     } finally {
       rmSync(plain, { recursive: true, force: true });
       rmSync(dir, { recursive: true, force: true });
@@ -2580,7 +2572,7 @@ void [new Client({ baseUrl: 'https://shop.test' }), NotFound];
 `,
       );
 
-      assert.deepEqual(compileGeneratedProject(dir), []);
+      assert.deepEqual(typecheck(join(dir, 'tsconfig.json')).diagnostics, []);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -2685,7 +2677,10 @@ export async function read(fetch: (request: Request) => Promise<Response>) {
 }
 `,
           );
-          assert.deepEqual(compileGeneratedProject(dir), []);
+          assert.deepEqual(
+            typecheck(join(dir, 'tsconfig.json')).diagnostics,
+            [],
+          );
 
           const bundlePath = join(dir, 'consumer.cjs');
           await esbuild({
@@ -2803,7 +2798,10 @@ export async function read(fetch: (request: Request) => Promise<Response>) {
 }
 `,
           );
-          assert.deepEqual(compileGeneratedProject(dir), []);
+          assert.deepEqual(
+            typecheck(join(dir, 'tsconfig.json')).diagnostics,
+            [],
+          );
 
           const bundlePath = join(dir, 'consumer.cjs');
           await esbuild({
@@ -2894,7 +2892,7 @@ export const twoFactor = () => client.request('POST /v2/2fa', {});
 `,
     );
 
-    assert.deepEqual(compileGeneratedProject(dir), []);
+    assert.deepEqual(typecheck(join(dir, 'tsconfig.json')).diagnostics, []);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -2975,7 +2973,7 @@ export const entry: Index = { name: 'a' };
 `,
     );
 
-    assert.deepEqual(compileGeneratedProject(dir), []);
+    assert.deepEqual(typecheck(join(dir, 'tsconfig.json')).diagnostics, []);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

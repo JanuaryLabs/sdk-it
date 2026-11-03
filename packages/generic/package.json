@@ -31,6 +31,7 @@
   "devDependencies": {
     "@sdk-it/hono": "0.46.11",
     "@sdk-it/spec": "0.46.11",
-    "@sdk-it/typescript": "0.46.11"
+    "@sdk-it/typescript": "0.46.11",
+    "@sdk-it/testing": "*"
   }
 }
