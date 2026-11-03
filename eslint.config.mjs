@@ -1,9 +1,18 @@
 import nx from '@nx/eslint-plugin';
+import zukhruf from '@zukhruf/eslint';
+import { manifest, moduleBoundaries } from '@zukhruf/eslint/nx';
 
 export default [
   ...nx.configs['flat/base'],
   ...nx.configs['flat/typescript'],
   ...nx.configs['flat/javascript'],
+  ...zukhruf.configs['base'],
+  ...zukhruf.configs['tests'],
+  ...zukhruf.configs['diagnostics'],
+  ...zukhruf.configs['env'],
+  ...zukhruf.configs['react'],
+  ...zukhruf.configs['nx-project-json'],
+  ...manifest.configs.recommended,
   {
     ignores: [
       '**/dist',
@@ -16,20 +25,7 @@ export default [
   {
     files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
     rules: {
-      'no-unused-private-class-members': 'off',
-      '@nx/enforce-module-boundaries': [
-        'error',
-        {
-          enforceBuildableLibDependency: true,
-          allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?js$'],
-          depConstraints: [
-            {
-              sourceTag: '*',
-              onlyDependOnLibsWithTags: ['*'],
-            },
-          ],
-        },
-      ],
+      '@nx/enforce-module-boundaries': ['error', moduleBoundaries()],
     },
   },
   {
@@ -66,12 +62,7 @@ export default [
       '**/*.cjs',
       '**/*.mjs',
     ],
-    // Override or add rules here
     rules: {
-      '@typescript-eslint/ban-ts-comment': 'off',
-      '@typescript-eslint/no-empty-interface': 'off',
-      '@typescript-eslint/no-empty-object-type': 'off',
-      '@typescript-eslint/no-empty-function': 'off',
       'no-restricted-imports': [
         'error',
         {
@@ -91,13 +82,25 @@ export default [
           ],
         },
       ],
-      '@typescript-eslint/no-unused-vars': [
-        'warn',
+    },
+  },
+  {
+    files: ['**/package.json'],
+    rules: {
+      // Nx's check compares versions with semver, which cannot read the npm
+      // alias spec of TypeScript 7 (`npm:typescript@…`).
+      'manifest/dependency-checks': [
+        'error',
         {
-          argsIgnorePattern: '^_',
-          caughtErrorsIgnorePattern: '^_',
-          destructuredArrayIgnorePattern: '^_',
-          varsIgnorePattern: '^_',
+          ignoredDependencies: ['@typescript/native'],
+          projects: {
+            // The rule counts @sdk-it/typescript's devDependency on @sdk-it/testing as
+            // inlined (zukhruf #3755), and treats the build-time app/routes.tsx as
+            // shipped code (zukhruf #3756).
+            'packages/apiref': {
+              ignoredDependencies: ['@zukhruf/testing', '@react-router/dev'],
+            },
+          },
         },
       ],
     },
