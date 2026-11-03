@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { type Tool, jsonSchema, tool } from 'ai';
 import { z } from 'zod';
 
+import type { Method as OperationMethod } from '@sdk-it/core';
 import {
   type IR,
   type ResponseBody,
@@ -129,7 +129,7 @@ export class Client {
     const withDefaultInputs = Object.assign({}, this.#defaultInputs, input);
     const parsedInput = parseInput(route.schema, withDefaultInputs);
     const clientOptions = await optionsSchema.parseAsync(this.options);
-    const result = await route.dispatch(parsedInput as never, {
+    const result = await route.dispatch(parsedInput, {
       fetch: clientOptions.fetch,
       baseUrl: clientOptions.baseUrl,
       interceptors: [
@@ -163,17 +163,27 @@ export class Client {
   }
 }
 
+const httpMethods: Record<OperationMethod, Method> = {
+  get: 'GET',
+  post: 'POST',
+  put: 'PUT',
+  patch: 'PATCH',
+  delete: 'DELETE',
+  trace: 'TRACE',
+  head: 'HEAD',
+};
+
 export function createRpc(ir: IR, options: Partial<ClientOptions> = {}) {
   const schemas: Record<Endpoint, any> = {};
   forEachOperation(ir, (entry, operation) => {
-    const endpoint: Endpoint = `${entry.method.toUpperCase() as Method} ${entry.path}`;
+    const endpoint: Endpoint = `${httpMethods[entry.method]} ${entry.path}`;
     const sent = operationInput(ir, operation);
-    const contentTypeMap = {
-      json: json,
-      urlencoded: urlencoded,
-      formdata: formdata,
-      empty: empty,
-    } as const;
+    const contentTypeMap: Partial<Record<typeof sent.encoding, typeof json>> = {
+      json,
+      urlencoded,
+      formdata,
+      empty,
+    };
     const schema = schemaToZod(
       inputSchema(ir, operation, sent.contentType),
       ir,
@@ -194,8 +204,7 @@ export function createRpc(ir: IR, options: Partial<ClientOptions> = {}) {
       ) {
         const dispatcher = new Dispatcher(options.interceptors, options.fetch);
         const serializer =
-          contentTypeMap[sent.encoding as keyof typeof contentTypeMap] ||
-          defaultSerializer(sent.encoding);
+          contentTypeMap[sent.encoding] || defaultSerializer(sent.encoding);
         const request = toRequest(
           endpoint,
           serializer(input, {
@@ -306,7 +315,7 @@ export async function toAgents(
   return agents;
 }
 
-function defaultSerializer(ct: string) {
+function defaultSerializer(ct: string): never {
   throw new Error(`Unsupported content type: ${ct}`);
 }
 
@@ -382,20 +391,20 @@ function toToolSchema(schema: z.ZodType) {
     unrepresentable: 'any',
     override(ctx) {
       const def = ctx.zodSchema._zod.def;
-      const json = ctx.jsonSchema as Record<string, unknown>;
+      const json = ctx.jsonSchema;
       if (def.type === 'date') {
         json.type = 'string';
         json.format = 'date-time';
         json[TOOL_COERCE_MARKER] = 'date';
       }
     },
-  }) as Record<string, unknown>;
+  });
   const advertised = JSON.parse(
     JSON.stringify(marked, (key, value) =>
       key === TOOL_COERCE_MARKER ? undefined : value,
     ),
   );
-  return jsonSchema(advertised as never, {
+  return jsonSchema(advertised, {
     validate: (value) => {
       const coerced = coerceToolValue(value, marked);
       const result = schema.safeParse(coerced);

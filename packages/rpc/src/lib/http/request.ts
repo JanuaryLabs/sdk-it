@@ -1,7 +1,9 @@
+import type { Method as OperationMethod } from '@sdk-it/core';
+
 type Init = Omit<RequestInit, 'headers'> & { headers: Headers };
 export type RequestConfig = { init: Init; url: URL };
-export type Method =
-  'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
+/** The methods an OpenAPI operation uses, as an HTTP request line writes them. */
+export type Method = Uppercase<OperationMethod>;
 export type ContentType =
   'xml' | 'json' | 'urlencoded' | 'multipart' | 'formdata';
 export type HeadersInit = [string, string][] | Record<string, string>;

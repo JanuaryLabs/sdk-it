@@ -65,11 +65,11 @@ export async function parse<T extends OutputType[], R>(
 ): Promise<
   RebindSuccessPayload<Extract<Unionize<T>, SuccessfulResponse<unknown>>, R>
 >;
-export async function parse<T extends OutputType[], R = ResponseData<T>>(
-  outputs: T,
+export async function parse(
+  outputs: OutputType[],
   response: Response,
-  mapper?: ResponseMapper<T, R>,
-) {
+  mapper?: (data: unknown) => unknown,
+): Promise<APIResponse> {
   let output: typeof APIResponse | typeof APIError | null = null;
   let parser: Parser = buffered;
   for (const outputType of outputs) {
@@ -87,7 +87,7 @@ export async function parse<T extends OutputType[], R = ResponseData<T>>(
   }
 
   if (response.ok) {
-    const data = (await parser(response)) as ResponseData<T>;
+    const data = await parser(response);
     const mapped = mapper ? mapper(data) : data;
     const apiresponse = (output || APIResponse).create(
       response.status,
@@ -95,7 +95,7 @@ export async function parse<T extends OutputType[], R = ResponseData<T>>(
       mapped,
     );
 
-    return apiresponse as Extract<Unionize<T>, SuccessfulResponse<unknown>>;
+    return apiresponse;
   }
 
   const failure = output && isTypeOf(output, APIError) ? output : APIError;

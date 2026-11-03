@@ -31,7 +31,7 @@ export function sse(response: Response): SSEListener {
     const decoder = new TextDecoder();
     let buffer = '';
 
-    (async () => {
+    void (async () => {
       try {
         for await (const value of response.body!) {
           buffer += decoder.decode(value, { stream: true });
@@ -72,7 +72,7 @@ export function sse(response: Response): SSEListener {
           async next(): Promise<IteratorResult<string>> {
             while (sub.queue.length === 0) {
               if (streamFailure) throw streamFailure.error;
-              if (streamDone) return { value: undefined as any, done: true };
+              if (streamDone) return { value: undefined, done: true };
               const { promise, resolve } = Promise.withResolvers<void>();
               sub.resolve = resolve;
               await promise;
@@ -80,7 +80,7 @@ export function sse(response: Response): SSEListener {
             return { value: sub.queue.shift()!, done: false };
           },
           async return(): Promise<IteratorResult<string>> {
-            return { value: undefined as any, done: true };
+            return { value: undefined, done: true };
           },
         };
       },

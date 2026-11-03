@@ -1,8 +1,7 @@
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 import { type ZodType, z } from 'zod';
 
-import { followRef, isEmpty, isRef } from '@sdk-it/core';
-import type { IR } from '@sdk-it/spec';
+import { type OpenAPIDocument, followRef, isEmpty, isRef } from '@sdk-it/core';
 
 // z.iso.time() rejects RFC 3339 zone suffixes ('10:30:00Z', '10:30:00+02:00'),
 // which JSON Schema's format: time allows. Accept both local and
@@ -17,9 +16,9 @@ const isoTime = z
  * Convert an OpenAPI (JSON Schema style) object into a runtime Zod schema,
  */
 export class RuntimeZodConverter {
-  readonly #spec: IR;
+  readonly #spec: OpenAPIDocument;
 
-  constructor(spec: IR) {
+  constructor(spec: OpenAPIDocument) {
     this.#spec = spec;
   }
 
@@ -65,8 +64,8 @@ export class RuntimeZodConverter {
 
     // If items is an array => tuple
     if (Array.isArray(items)) {
-      const tupleItems = items.map((sub) => this.handle(sub, true));
-      return z.tuple(tupleItems as [ZodType, ...ZodType[]]);
+      const [first, ...rest] = items.map((sub) => this.handle(sub, true));
+      return first ? z.tuple([first, ...rest]) : z.tuple([]);
     }
 
     // If items is a single schema => standard z.array(...)
@@ -124,16 +123,16 @@ export class RuntimeZodConverter {
     return z.xor(oneOfSchemas);
   }
 
-  enum(type: string, values: unknown[]): ZodType {
+  enum(type: SchemaObject['type'], values: z.core.util.Literal[]): ZodType {
     if (values.length === 1) {
-      return z.literal(values[0] as z.core.util.Literal);
+      return z.literal(values[0]);
     }
     // z.enum only supports string values; zod 4 silently filters numeric
     // entries as reverse mappings, so any non-string enum must be a literal.
     if (values.every((value) => typeof value === 'string')) {
-      return z.enum(values as string[]);
+      return z.enum(values);
     }
-    return z.literal(values as z.core.util.Literal[]);
+    return z.literal(values);
   }
 
   /**
@@ -350,7 +349,7 @@ export class RuntimeZodConverter {
 
     // enum
     else if (schema.enum && Array.isArray(schema.enum)) {
-      result = this.enum(schema.type as string, schema.enum);
+      result = this.enum(schema.type, schema.enum);
 
       // Apply default if it exists and is in the enum. Only for required
       // schemas: the optional wrapper below must keep shadowing the default
@@ -417,7 +416,7 @@ export class RuntimeZodConverter {
  */
 export function schemaToZod(
   schema: SchemaObject,
-  spec: IR,
+  spec: OpenAPIDocument,
   options?: {
     required?: boolean;
   },
