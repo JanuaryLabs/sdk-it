@@ -48,17 +48,17 @@ export function createOutput(contextFn: () => Context) {
         return send(contextFn(), valueOrUri, 201, headers);
       }
     },
-    redirect(uri: string | URL, statusCode?: unknown) {
+    redirect(uri: string | URL, statusCode?: RedirectStatusCode) {
       const context = contextFn();
-      return context.redirect(
-        uri.toString(),
-        (statusCode as RedirectStatusCode) ?? undefined,
-      );
+      return context.redirect(uri.toString(), statusCode);
     },
-    attachment(buffer: Buffer, filename: string, mimeType: string) {
+    attachment(
+      buffer: Uint8Array<ArrayBuffer>,
+      filename: string,
+      mimeType: string,
+    ) {
       const context = contextFn();
-      // https://github.com/honojs/hono/issues/3720
-      return context.body(buffer as never, 200, {
+      return context.body(buffer, 200, {
         'Content-Type': mimeType,
         'Content-Disposition': `attachment; filename="${filename}"`,
         'Content-Length': buffer.length.toString(),

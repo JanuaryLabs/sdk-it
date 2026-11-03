@@ -1,7 +1,5 @@
 import type {
-  ArrowFunction,
   Expression,
-  FunctionExpression,
   Node,
   ObjectLiteralExpression,
   PropertyName,
@@ -32,6 +30,7 @@ import type { Checker } from '@typescript/native/sync';
 
 import {
   $types,
+  type FunctionWithBody,
   type NaunceResponseAnalyzerFn,
   type ResponseItem,
 } from '@sdk-it/core';
@@ -352,7 +351,7 @@ export const newResponse: NaunceResponseAnalyzerFn = (
 };
 
 export function defaultResponseAnalyzer(
-  handler: ArrowFunction | FunctionExpression,
+  handler: FunctionWithBody,
   deriver: TypeDeriver,
 ) {
   const responsesList: ResponseItem[] = [];
@@ -379,7 +378,7 @@ export function defaultResponseAnalyzer(
 }
 
 export function streamText(
-  _handler: ArrowFunction | FunctionExpression,
+  _handler: FunctionWithBody,
   _deriver: TypeDeriver,
 ): ResponseItem[] {
   return [
@@ -397,7 +396,7 @@ export function streamText(
 }
 
 export function stream(
-  _handler: ArrowFunction | FunctionExpression,
+  _handler: FunctionWithBody,
   _deriver: TypeDeriver,
 ): ResponseItem[] {
   return [
@@ -415,7 +414,7 @@ export function stream(
 }
 
 export function streamSSE(
-  _handler: ArrowFunction | FunctionExpression,
+  _handler: FunctionWithBody,
   _deriver: TypeDeriver,
 ): ResponseItem[] {
   return [
