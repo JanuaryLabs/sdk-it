@@ -291,3 +291,58 @@ try {
   }
 }
 ```
+
+## Document evlog error catalogs
+
+A route can throw an [evlog](https://www.npmjs.com/package/evlog) catalog error instead of an `HTTPException`:
+
+```typescript
+import { defineErrorCatalog } from 'evlog';
+
+export const billingErrors = defineErrorCatalog('billing', {
+  PAYMENT_DECLINED: { status: 402, message: 'Card declined' },
+});
+
+// in a handler
+throw billingErrors.PAYMENT_DECLINED();
+```
+
+If your error handler returns the error as it is (`c.json(error, error.status)`), add `evlogErrors` to the analyzers. Each catalog throw is then documented at its status, with evlog's JSON body and the literal `code`:
+
+```typescript
+import { responseAnalyzer } from '@sdk-it/hono';
+import { evlogErrors } from '@sdk-it/hono/evlog';
+
+const { paths, components } = await analyze(project, {
+  responseAnalyzer: { ...responseAnalyzer, ...evlogErrors },
+});
+```
+
+If your error handler writes a different body, write your own `throw.call.EvlogError` analyzer. `catalogError` gives the entry's `code`, `status`, `message`, `why`, `fix` and `link`, and `schema` is the OpenAPI schema of your body:
+
+```typescript
+import { catalogError } from '@sdk-it/hono/evlog';
+
+const myErrors = {
+  'throw.call.EvlogError': (handler, deriver, node) => {
+    const error = catalogError(deriver, node);
+    if (!error) return [];
+    return [
+      {
+        statusCode: String(error.status),
+        contentType: 'application/json',
+        headers: [],
+        schema: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            code: { type: 'string', enum: [error.code] },
+          },
+        },
+      },
+    ];
+  },
+};
+```
+
+A thrown call that no analyzer claims is not documented.

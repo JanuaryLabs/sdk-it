@@ -9,7 +9,10 @@
       "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
       "options": {
-        "additionalEntryPoints": ["packages/hono/src/lib/runtime/index.ts"],
+        "additionalEntryPoints": [
+          "packages/hono/src/lib/runtime/index.ts",
+          "packages/hono/src/lib/evlog.ts"
+        ],
         "external": ["@sdk-it/core"]
       }
     },

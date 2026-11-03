@@ -22,6 +22,11 @@
       },
       "import": "./dist/lib/runtime/index.js",
       "default": "./dist/lib/runtime/index.js"
+    },
+    "./evlog": {
+      "types": "./dist/lib/evlog.d.ts",
+      "import": "./dist/lib/evlog.js",
+      "default": "./dist/lib/evlog.js"
     }
   },
   "files": [
@@ -37,10 +42,14 @@
     "fast-content-type-parse": "^3.0.0"
   },
   "peerDependencies": {
-    "@typescript/native": "npm:typescript@7.1.0-beta"
+    "@typescript/native": "npm:typescript@7.1.0-beta",
+    "openapi3-ts": "^4.4.0"
   },
   "peerDependenciesMeta": {
     "@typescript/native": {
+      "optional": true
+    },
+    "openapi3-ts": {
       "optional": true
     }
   },
