@@ -212,6 +212,34 @@ const { paths, components } = await analyze(project, {
 The injected file must be loadable by the Node.js process running the
 analyzer.
 
+## Name recursive schemas
+
+A Zod schema with `.meta({ id })` becomes the component
+`#/components/schemas/<id>`, and every reference to it points there. A
+recursive schema must have an id, because an unnamed cycle cannot become a
+component. `z.json()` is recursive, so name it:
+
+```typescript
+const jsonValue = z.json().meta({ id: 'JsonValue' });
+
+app.post(
+  '/shortcuts',
+  validate((payload) => ({
+    integrations: {
+      select: payload.body.integrations,
+      against: z.record(z.string(), jsonValue),
+    },
+  })),
+  (c) => c.json({ ok: true }),
+);
+```
+
+Without the id, analysis fails with
+`POST /shortcuts body field integrations: A recursive schema has no name; give it .meta({ id }) so it becomes a named component.`
+Give one id to one schema only: the same id on two different schemas also
+fails analysis. The generated TypeScript client and `@sdk-it/rpc` validate the
+named component recursively.
+
 ## Derive operation security from middleware
 
 Declare each OpenAPI security scheme once, then associate authentication and
