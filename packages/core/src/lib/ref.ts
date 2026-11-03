@@ -74,7 +74,12 @@ export function followRef<
     | OpenAPISecuritySchemeObject = SchemaObject,
 >(spec: unknown, ref: string): T {
   const pathParts = cleanRef(ref).split('/');
-  const entry: T | ReferenceObject = get(spec, pathParts);
+  const entry: T | ReferenceObject | undefined = get(spec, pathParts);
+  if (entry === undefined) {
+    throw new Error(
+      `Unresolved $ref ${ref}: the document defines nothing there.`,
+    );
+  }
   if (isRef(entry)) {
     return followRef<T>(spec, entry.$ref);
   }

@@ -124,6 +124,8 @@ export class Paths {
   #imports: InjectImport[] = [];
   #onOperation?: OnOperation;
   #sharedResponses = new Map<string, SchemaObject>();
+  /** The schemas zod names with `.meta({ id })`, by id, across every operation. */
+  #components = new Map<string, SchemaObject>();
   #operations: Array<{
     sourceFile: string;
     name: string;
@@ -243,14 +245,45 @@ export class Paths {
     return responsesObject;
   }
 
+  /** Converts a selector's zod schema, keeping the components it names. */
+  async #evalSelector(selector: Selector, operation: string) {
+    const site =
+      selector.kind === 'field'
+        ? `${operation} ${selector.source} field ${selector.name}`
+        : `${operation} body`;
+    let evaluated: {
+      optional: boolean;
+      schema: SchemaObject;
+      components: Record<string, SchemaObject>;
+    };
+    try {
+      evaluated = await evalZod(selector.against, this.#imports);
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+      throw new Error(`${site}: ${error.message}`, { cause: error });
+    }
+    for (const [id, component] of Object.entries(evaluated.components)) {
+      const existing = this.#components.get(id);
+      if (existing && JSON.stringify(existing) !== JSON.stringify(component)) {
+        throw new Error(
+          `${site}: two different schemas share the id "${id}"; give each its own .meta({ id }).`,
+        );
+      }
+      this.#components.set(id, component);
+    }
+    return evaluated;
+  }
+
   async #selectosToParameters(selectors: Selector[], operation: string) {
     const parameters: ParameterObject[] = [];
     const bodyFields: Record<string, RequestBody> = {};
     let wholeBody: RequestBody | undefined;
     for (const selector of selectors) {
-      const { optional, schema } = await evalZod(
-        selector.against,
-        this.#imports,
+      const { optional, schema } = await this.#evalSelector(
+        selector,
+        operation,
       );
       if (selector.kind === 'body') {
         if (wholeBody) {
@@ -296,8 +329,12 @@ export class Paths {
     return Array.from(tags);
   }
 
+  /** The shared response schemas and every zod schema named with `.meta({ id })`; read it after {@link getPaths}, which converts them. */
   getSharedSchemas(): Record<string, SchemaObject> {
-    return Object.fromEntries(this.#sharedResponses);
+    return {
+      ...Object.fromEntries(this.#sharedResponses),
+      ...Object.fromEntries(this.#components),
+    };
   }
 
   async getPaths() {

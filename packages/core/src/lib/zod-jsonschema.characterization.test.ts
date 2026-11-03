@@ -379,14 +379,31 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
   });
 
   describe('recursive schemas', () => {
-    test('non-root recursion inlines the cycle and emits component-relative refs (no definitions block)', async () => {
-      const { schema } = await evalZod(
-        `z.object({
+    test('non-root recursion without a name is refused with how to name it', async () => {
+      await assert.rejects(
+        evalZod(
+          `z.object({
           leaf: (() => {
             const leaf = z.object({
               v: z.string(),
               next: z.lazy(() => leaf).optional(),
             });
+            return leaf;
+          })(),
+        })`,
+        ),
+        /\.meta\(\{ id \}\)/,
+      );
+    });
+
+    test('named non-root recursion becomes a component that its recursive field points at (no definitions block)', async () => {
+      const { schema, components } = await evalZod(
+        `z.object({
+          leaf: (() => {
+            const leaf = z.object({
+              v: z.string(),
+              next: z.lazy(() => leaf).optional(),
+            }).meta({ id: 'Leaf' });
             return leaf;
           })(),
         })`,
@@ -396,13 +413,12 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
         undefined,
         'no draft-7 definitions block',
       );
-      const leaf = schema.properties.leaf;
-      assert.equal(leaf.type, 'object', 'first use site is inlined');
-      assert.deepStrictEqual(leaf.properties.v, { type: 'string' });
+      assert.equal(schema.properties.leaf.$ref, '#/components/schemas/Leaf');
+      assert.deepStrictEqual(components.Leaf.properties.v, { type: 'string' });
       assert.equal(
-        leaf.properties.next.$ref,
-        '#/components/schemas/properties/leaf',
-        'recursive ref points structurally at the inlined site',
+        components.Leaf.properties.next.$ref,
+        '#/components/schemas/Leaf',
+        'the recursive ref points at the component',
       );
     });
   });

@@ -388,16 +388,6 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
         delete schema.propertyNames;
       }
 
-      if (
-        typeof schema.$ref === 'string' &&
-        !schema.$ref.startsWith('#/components/schemas')
-      ) {
-        schema.$ref =
-          schema.$ref === '#'
-            ? '#/components/schemas'
-            : schema.$ref.replace(/^#\\//, '#/components/schemas/');
-      }
-
       if (Array.isArray(schema.allOf)) {
         const merged = mergePrimitiveSchemas(schema.allOf);
         if (merged) {
@@ -411,96 +401,124 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
 
       return schema;
     }`,
-    `function escapePointerSegment(segment) {
-      return String(segment).replaceAll('~', '~0').replaceAll('/', '~1');
+    `const components = Object.create(null);`,
+    `function addComponent(name, schema) {
+      if (
+        name in components &&
+        JSON.stringify(components[name]) !== JSON.stringify(schema)
+      ) {
+        throw new Error(
+          'Two different schemas share the id "' + name + '"; give each its own .meta({ id }).',
+        );
+      }
+      components[name] = schema;
     }`,
-    `function componentPointer(path) {
-      return ['#', 'components', 'schemas', ...path.map(escapePointerSegment)].join('/');
+    `function definitionName(ref) {
+      return typeof ref === 'string' && ref.startsWith('#/definitions/')
+        ? ref.slice('#/definitions/'.length)
+        : undefined;
+    }`,
+    `function isAnonymous(name) {
+      return /^__schema[0-9]+$/.test(name);
+    }`,
+    // .meta({ id }) on a schema whose cycle zod already named (z.json() is
+    // one) writes the id as { allOf: [{ $ref: anonymous }] }: the id names
+    // that anonymous definition.
+    `function aliasedDefinition(schema) {
+      if (
+        Object.keys(schema).length !== 1 ||
+        !Array.isArray(schema.allOf) ||
+        schema.allOf.length !== 1
+      ) {
+        return undefined;
+      }
+      const name = definitionName(schema.allOf[0]?.$ref);
+      return name && isAnonymous(name) ? name : undefined;
+    }`,
+    `function refersTo(node, ref) {
+      if (!node || typeof node !== 'object') return false;
+      if (node.$ref === ref) return true;
+      return Object.values(node).some((child) => refersTo(child, ref));
+    }`,
+    // zod writes every schema that carries an id, and every cycle, as a draft-7
+    // definition (a cycle through the root as '#'). Each named one becomes a
+    // component the refs point at; a cycle without a name cannot become one.
+    `function extractComponents(doc, rootId) {
+      const { definitions = {}, ...root } = doc;
+      const names = Object.create(null);
+      const aliases = new Set();
+      for (const name of Object.keys(definitions)) {
+        if (!isAnonymous(name)) names[name] = name;
+      }
+      for (const [name, definition] of Object.entries(definitions)) {
+        const anonymous = names[name] && aliasedDefinition(definition);
+        if (anonymous && !(anonymous in names)) {
+          names[anonymous] = name;
+          aliases.add(name);
+        }
+      }
+      const rootAlias = rootId ? aliasedDefinition(root) : undefined;
+      if (rootAlias) names[rootAlias] ??= rootId;
+      if (
+        Object.keys(definitions).some((name) => !(name in names)) ||
+        (!rootId && refersTo(root, '#'))
+      ) {
+        throw new Error(
+          'A recursive schema has no name; give it .meta({ id }) so it becomes a named component.',
+        );
+      }
+      function rewrite(node) {
+        if (Array.isArray(node)) return node.map(rewrite);
+        if (!node || typeof node !== 'object') return node;
+        const rewritten = {};
+        for (const [key, value] of Object.entries(node)) {
+          const target = key === '$ref' ? definitionName(value) : undefined;
+          if (key === '$ref' && value === '#') {
+            rewritten.$ref = '#/components/schemas/' + rootId;
+          } else if (target) {
+            rewritten.$ref = '#/components/schemas/' + names[target];
+          } else {
+            rewritten[key] = rewrite(value);
+          }
+        }
+        return rewritten;
+      }
+      for (const [name, definition] of Object.entries(definitions)) {
+        if (!aliases.has(name)) {
+          addComponent(names[name], normalizeSchema(rewrite(definition)));
+        }
+      }
+      if (!rootId) return rewrite(root);
+      if (rootAlias) return { $ref: '#/components/schemas/' + names[rootAlias] };
+      addComponent(rootId, normalizeSchema(rewrite(root)));
+      return { $ref: '#/components/schemas/' + rootId };
     }`,
     // Nested toJsonSchema passes (set/map values, pipe outputs) return
-    // self-contained draft-7 documents whose '#' and '#/definitions/*' refs
-    // are relative to the embedded document root, not the outer schema.
-    // Resolve them to outer-root structural pointers before the outer
-    // definitions/normalize passes rewrite them into dangling refs.
-    `function resolveEmbeddedDocs(root) {
-      function process(node, path, docRoot) {
-        if (!node || typeof node !== 'object') return;
-        if (Array.isArray(node)) {
-          node.forEach((item, index) => process(item, [...path, index], docRoot));
-          return;
-        }
-        if (node['x-sdkit-embedded-root']) {
-          delete node['x-sdkit-embedded-root'];
-          const defs = node.definitions ?? Object.create(null);
-          delete node.definitions;
-          docRoot = { path, defs, firstSite: Object.create(null) };
-        }
-        if (docRoot && typeof node.$ref === 'string') {
-          if (node.$ref === '#') {
-            node.$ref = componentPointer(docRoot.path);
-            return;
-          }
-          const match = node.$ref.match(/^#\\/definitions\\/(.+)$/);
-          if (match) {
-            const name = match[1];
-            if (name in docRoot.firstSite) {
-              node.$ref = docRoot.firstSite[name];
-              return;
-            }
-            docRoot.firstSite[name] = componentPointer(path);
-            delete node.$ref;
-            Object.assign(node, docRoot.defs[name]);
-          }
-        }
-        for (const [key, value] of Object.entries(node)) {
-          process(value, [...path, key], docRoot);
-        }
+    // self-contained documents whose '#' and '#/definitions/*' refs are
+    // relative to their own root; each is lifted on its own, innermost first.
+    `function liftEmbedded(node) {
+      if (Array.isArray(node)) return node.map(liftEmbedded);
+      if (!node || typeof node !== 'object') return node;
+      const lifted = {};
+      for (const [key, value] of Object.entries(node)) {
+        lifted[key] = liftEmbedded(value);
       }
-      process(root, [], null);
-      return root;
+      if (!lifted['x-sdkit-embedded-root']) return lifted;
+      const {
+        'x-sdkit-embedded-root': _root,
+        'x-sdkit-embedded-id': id,
+        ...doc
+      } = lifted;
+      return extractComponents(doc, id);
     }`,
-    // zod v4 breaks non-root cycles with a draft-7 definitions block plus
-    // #/definitions/* refs, which OpenAPI consumers cannot resolve. Inline
-    // each definition at its first use site and point the remaining
-    // (recursive) refs structurally at that site, mirroring the v3
-    // $refStrategy: 'root' output.
-    `function inlineDefinitions(root) {
-      const defs = root.definitions;
-      if (!defs || typeof defs !== 'object') return root;
-      delete root.definitions;
-      const firstSite = Object.create(null);
-      function walk(node, path) {
-        if (!node || typeof node !== 'object') return;
-        if (Array.isArray(node)) {
-          node.forEach((item, index) => walk(item, [...path, index]));
-          return;
-        }
-        const match =
-          typeof node.$ref === 'string' &&
-          node.$ref.match(/^#\\/definitions\\/(.+)$/);
-        if (match) {
-          const name = match[1];
-          if (name in firstSite) {
-            node.$ref = firstSite[name];
-            return;
-          }
-          firstSite[name] = componentPointer(path);
-          delete node.$ref;
-          Object.assign(node, defs[name]);
-        }
-        for (const [key, value] of Object.entries(node)) {
-          walk(value, [...path, key]);
-        }
-      }
-      walk(root, []);
-      return root;
-    }`,
-    // Wraps nested conversions: when the embedded document carries refs or a
-    // definitions block, tag its root so resolveEmbeddedDocs can rebase them.
+    // Wraps nested conversions: when the embedded document carries an id,
+    // refs or a definitions block, tag its root so liftEmbedded extracts it.
     `function convertEmbedded(schema) {
       const { $schema: _ignored, ...doc } = toJsonSchema(schema);
-      if (doc.definitions || JSON.stringify(doc).includes('"$ref"')) {
+      const id = z.globalRegistry.get(schema)?.id;
+      if (id || doc.definitions || JSON.stringify(doc).includes('"$ref"')) {
         doc['x-sdkit-embedded-root'] = true;
+        if (id) doc['x-sdkit-embedded-id'] = id;
       }
       return doc;
     }`,
@@ -582,7 +600,9 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
           if (def.type === 'pipe') {
             const outJson = convertEmbedded(def.out);
             const outKeys = Object.keys(outJson).filter(
-              (key) => key !== 'x-sdkit-embedded-root',
+              (key) =>
+                key !== 'x-sdkit-embedded-root' &&
+                key !== 'x-sdkit-embedded-id',
             );
             if (outKeys.length > 0) {
               const inJson = { ...json };
@@ -629,7 +649,10 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
     }
     unmaskBigIntDefaults(rawResult);
     const result = normalizeSchema(
-      inlineDefinitions(resolveEmbeddedDocs(rawResult)),
+      extractComponents(
+        liftEmbedded(rawResult),
+        z.globalRegistry.get(zodSchema)?.id,
+      ),
     );`,
     `const innerDef = unwrapSchemaDef(zodSchema._zod.def);
     if (innerDef?.coerce && !result['x-zod-type']) {
@@ -638,7 +661,7 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
         result['x-zod-type'] = zodType;
       }
     }`,
-    `export default {schema: result, optional}`,
+    `export default {schema: result, optional, components}`,
   ];
 
   const base64 = Buffer.from(lines.join('\n')).toString('base64');
