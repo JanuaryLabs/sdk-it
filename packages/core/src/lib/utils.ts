@@ -1,6 +1,7 @@
 import type {
-  ArrowFunction,
-  FunctionExpression,
+  Block,
+  Expression,
+  FunctionLikeDeclaration,
   Node,
 } from '@typescript/native/ast';
 import {
@@ -31,15 +32,19 @@ export function toLitObject<T extends Record<string, any>>(
     .join(', ')}}`;
 }
 
+export type FunctionWithBody = FunctionLikeDeclaration & {
+  body: Block | Expression;
+};
+
 export type NaunceResponseAnalyzerFn = (
-  handler: ArrowFunction | FunctionExpression,
+  handler: FunctionWithBody,
   deriver: TypeDeriver,
   node: Node,
 ) => ResponseItem[];
 export type NaunceResponseAnalyzer = Record<string, NaunceResponseAnalyzerFn>;
 
 export type ResponseAnalyzerFn = (
-  handler: ArrowFunction | FunctionExpression,
+  handler: FunctionWithBody,
   deriver: TypeDeriver,
 ) => ResponseItem[];
 
@@ -111,13 +116,13 @@ export function exclude<T>(list: T[], exclude: T[]): T[] {
  * @example
  * sortObjectKeys({ z: 1, a: 2, m: 3 }) // { a: 2, m: 3, z: 1 }
  */
-export function sortObjectKeys<T extends Record<string, unknown>>(obj: T): T {
-  const sorted: Record<string, unknown> = {};
+export function sortObjectKeys<V>(obj: Record<string, V>): Record<string, V> {
+  const sorted: Record<string, V> = {};
   const keys = Object.keys(obj).sort((a, b) => a.localeCompare(b));
   for (const key of keys) {
     sorted[key] = obj[key];
   }
-  return sorted as T;
+  return sorted;
 }
 
 /**

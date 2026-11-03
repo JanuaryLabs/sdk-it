@@ -11,6 +11,7 @@ import type {
 } from 'openapi3-ts/oas31';
 
 import { $types } from './derived-type.js';
+import { isRef } from './ref.js';
 import { sortArray, sortObjectKeys } from './utils.js';
 import { type InjectImport, evalZod } from './zod-jsonschema.js';
 
@@ -165,7 +166,7 @@ export class Paths {
   }
 
   #responseItemToResponses(responses: ResponseItem[]): ResponsesObject {
-    const responsesObject: ResponsesObject = {};
+    const responsesObject: Record<string, ResponseObject> = {};
     for (const item of responses) {
       const ct = item.contentType;
       let schema =
@@ -225,9 +226,13 @@ export class Paths {
         existingResponse.content[ct] = { schema: contentSchema };
         continue;
       }
-      const existing = media.schema as SchemaObject;
+      const existing = media.schema;
+      if (!existing) {
+        media.schema = contentSchema;
+        continue;
+      }
       const incoming = JSON.stringify(contentSchema);
-      if (existing.oneOf) {
+      if (!isRef(existing) && existing.oneOf) {
         if (!existing.oneOf.some((it) => JSON.stringify(it) === incoming)) {
           existing.oneOf.push(contentSchema);
         }
@@ -366,7 +371,15 @@ interface DateType {
   value?: string;
 }
 
-export function toSchema(data: DateType | string | null | undefined): any {
+type DerivedProps = Record<string, DateType>;
+
+function isDateType(data: DateType | DerivedProps): data is DateType {
+  return $types in data;
+}
+
+export function toSchema(
+  data: DateType | DerivedProps | string | null | undefined,
+): any {
   if (data === null || data === undefined) {
     return { type: 'any' };
   } else if (typeof data === 'string') {
@@ -375,6 +388,22 @@ export function toSchema(data: DateType | string | null | undefined): any {
       return { $ref: data };
     }
     return { type: data };
+  } else if (!isDateType(data)) {
+    const props: Record<string, unknown> = {};
+    const required: string[] = [];
+    const sortedEntries = Object.entries(sortObjectKeys(data));
+    for (const [key, value] of sortedEntries) {
+      props[key] = toSchema(value);
+      if (!value.optional) {
+        required.push(key);
+      }
+    }
+    return {
+      type: 'object',
+      properties: props,
+      required: sortArray(required),
+      additionalProperties: false,
+    };
   } else if (data.kind === 'date') {
     return { type: 'string', format: 'date-time' };
   } else if (data.kind === 'never') {
@@ -402,37 +431,19 @@ export function toSchema(data: DateType | string | null | undefined): any {
     // Members like `& {}` (the autocomplete-trick wrapper) contribute no schema
     // info — drop them so `(string & {})` emits as plain `{type:'string'}`.
     const ANON_OBJECT = '__type';
-    const meaningful = (data[$types] as unknown[]).filter((m) => {
+    const meaningful = data[$types].filter((m) => {
       if (!m || typeof m !== 'object') return true;
-      const node = m as { kind?: unknown; [$types]?: readonly unknown[] };
       return !(
-        !node.kind &&
-        node[$types]?.length === 1 &&
-        node[$types][0] === ANON_OBJECT
+        !m.kind &&
+        m[$types]?.length === 1 &&
+        m[$types][0] === ANON_OBJECT
       );
     });
     if (meaningful.length === 0) return {};
-    if (meaningful.length === 1)
-      return toSchema(meaningful[0] as DateType | string);
-    return { allOf: meaningful.map((m) => toSchema(m as DateType | string)) };
-  } else if ($types in data) {
-    return data[$types].map(toSchema)[0] ?? {};
+    if (meaningful.length === 1) return toSchema(meaningful[0]);
+    return { allOf: meaningful.map((m) => toSchema(m)) };
   } else {
-    const props: Record<string, unknown> = {};
-    const required: string[] = [];
-    const sortedEntries = Object.entries(sortObjectKeys(data));
-    for (const [key, value] of sortedEntries) {
-      props[key] = toSchema(value as any);
-      if (!(value as any).optional) {
-        required.push(key);
-      }
-    }
-    return {
-      type: 'object',
-      properties: props,
-      required: sortArray(required),
-      additionalProperties: false,
-    };
+    return data[$types].map(toSchema)[0] ?? {};
   }
 }
 

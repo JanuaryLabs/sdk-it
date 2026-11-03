@@ -15,8 +15,8 @@ import type {
 } from './security.js';
 import { isEmpty } from './utils.js';
 
-export function isRef(obj: any): obj is ReferenceObject {
-  return obj && '$ref' in obj;
+export function isRef(obj: unknown): obj is ReferenceObject {
+  return typeof obj === 'object' && obj !== null && '$ref' in obj;
 }
 export function notRef(obj: any): obj is SchemaObject {
   return !isRef(obj);
@@ -55,18 +55,12 @@ export function resolveRef<
     | OpenAPISecuritySchemeObject = SchemaObject,
 >(
   spec: OpenAPIObject | OpenAPIDocument,
-  maybeRef:
-    | SchemaObject
-    | ReferenceObject
-    | ParameterObject
-    | PathItemObject
-    | OpenAPISecuritySchemeObject
-    | HeaderObject,
+  maybeRef: NoInfer<T> | ReferenceObject,
 ): T {
   if (isRef(maybeRef)) {
-    return followRef<T>(spec, maybeRef.$ref!);
+    return followRef<T>(spec, maybeRef.$ref);
   }
-  return maybeRef as T;
+  return maybeRef;
 }
 
 export function followRef<
@@ -78,11 +72,11 @@ export function followRef<
     | ReferenceObject
     | RequestBodyObject
     | OpenAPISecuritySchemeObject = SchemaObject,
->(spec: OpenAPIObject | OpenAPIDocument, ref: string): T {
+>(spec: unknown, ref: string): T {
   const pathParts = cleanRef(ref).split('/');
-  const entry = get(spec, pathParts) as T | ReferenceObject;
+  const entry: T | ReferenceObject = get(spec, pathParts);
   if (isRef(entry)) {
-    return followRef<T>(spec, entry.$ref!);
+    return followRef<T>(spec, entry.$ref);
   }
   return entry;
 }
@@ -96,13 +90,14 @@ export function tapRef<
     | RequestBodyObject = SchemaObject,
 >(
   spec: OpenAPIObject | OpenAPIDocument,
-  maybeRef: SchemaObject | ReferenceObject,
+  maybeRef: NoInfer<T> | ReferenceObject,
 ): T {
   if (isRef(maybeRef)) {
     const pathParts = cleanRef(maybeRef.$ref).split('/');
-    return get(spec, pathParts) as T;
+    const entry: T = get(spec, pathParts);
+    return entry;
   }
-  return maybeRef as T;
+  return maybeRef;
 }
 
 export function distillRef<
@@ -114,7 +109,7 @@ export function distillRef<
     | RequestBodyObject = SchemaObject,
 >(
   spec: OpenAPIObject | OpenAPIDocument,
-  maybeRef: ReferenceObject | SchemaObject,
+  maybeRef: NoInfer<T> | ReferenceObject,
 ): T {
   const def = resolveRef<T>(spec, maybeRef);
   if (!def) {

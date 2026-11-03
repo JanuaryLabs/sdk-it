@@ -81,6 +81,10 @@ interface TraceContext {
   operation?: string;
 }
 
+function declarationOf(symbol: TsSymbol | undefined): Node | undefined {
+  return (symbol?.valueDeclaration ?? symbol?.declarations[0])?.resolve();
+}
+
 export function nodeLocation(node: Node): string | undefined {
   try {
     const sourceFile = node.getSourceFile();
@@ -116,7 +120,6 @@ export class TypeDeriver {
   public readonly checker: Checker;
   public readonly typesMap: Record<string, string>;
   private trace: TraceContext = {};
-  private currentNode?: Node;
   private readonly activeAliases = new Map<Type, boolean>();
   constructor(
     checker: Checker,
@@ -132,8 +135,7 @@ export class TypeDeriver {
 
   private warn(message: string, node?: Node) {
     const parts = [`\x1b[33m\u26a0 ${message}\x1b[0m`];
-    const resolvedNode = node ?? this.currentNode;
-    const location = resolvedNode ? nodeLocation(resolvedNode) : undefined;
+    const location = node ? nodeLocation(node) : undefined;
     if (location) {
       parts.push(`  at \x1b[36m${location}\x1b[0m`);
     } else if (this.trace.file) {
@@ -318,7 +320,10 @@ export class TypeDeriver {
       );
       if (!elementType) {
         const typeName = symbol?.name || '<unknown>';
-        this.warn(`Could not find element type for array type ${typeName}`);
+        this.warn(
+          `Could not find element type for array type ${typeName}`,
+          declarationOf(symbol),
+        );
         return {
           [deriveSymbol]: true,
           optional: false,
@@ -417,9 +422,7 @@ export class TypeDeriver {
           [$types]: [sortObjectKeys(serializedProps)],
         };
       }
-      const declaration = (
-        symbol?.valueDeclaration ?? symbol?.declarations[0]
-      )?.resolve();
+      const declaration = declarationOf(symbol);
       if (!declaration) {
         return {
           [deriveSymbol]: true,
@@ -430,7 +433,10 @@ export class TypeDeriver {
       return this.serializeNode(declaration);
     }
 
-    this.warn(`Unhandled type: ${type.flags} ${TypeFlags[type.flags]}`);
+    this.warn(
+      `Unhandled type: ${type.flags} ${TypeFlags[type.flags]}`,
+      declarationOf(symbol),
+    );
 
     return {
       [deriveSymbol]: true,
@@ -542,7 +548,6 @@ export class TypeDeriver {
   }
 
   serializeNode(node: Node): any {
-    this.currentNode = node;
     if (isObjectLiteralExpression(node)) {
       const symbolType = this.checker.getTypeAtLocation(node);
       const props: Record<string, any> = {};

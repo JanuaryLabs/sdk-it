@@ -193,5 +193,6 @@ export function createWriterProxy(
 
 export async function readJson<T>(path: string) {
   const data = await readFile(path, 'utf-8');
-  return JSON.parse(data) as T;
+  const parsed: T = JSON.parse(data);
+  return parsed;
 }
