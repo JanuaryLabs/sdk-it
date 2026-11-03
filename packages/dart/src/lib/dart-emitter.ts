@@ -50,6 +50,7 @@ export class DartSerializer {
   #spec: IR;
   #emitHandler?: Emit;
   #emitHistory = new Set<string>();
+  #inlining = new Set<string>();
 
   #emit(name: string, content: string, schema: SchemaObject): void {
     if (this.#emitHistory.has(content)) {
@@ -423,13 +424,23 @@ ${toJsonProperties.join(',\n')}
       isPrimitiveSchema(schema) ||
       (schema.not !== undefined && isEmpty(schema.not))
     ) {
-      return this.handle(schemaName, schema, required, {
-        ...context,
-        propName: schemaName,
-        noEmit: true,
-        // default to json in case this method is root level
-        parsable: context.parsable || 'json',
-      });
+      // Dart has no recursive typedef, so a primitive that reaches itself
+      // is written in place once and its self-reference becomes dynamic.
+      if (this.#inlining.has($ref)) {
+        return this.handle(schemaName, {}, required, context);
+      }
+      this.#inlining.add($ref);
+      try {
+        return this.handle(schemaName, schema, required, {
+          ...context,
+          propName: schemaName,
+          noEmit: true,
+          // default to json in case this method is root level
+          parsable: context.parsable || 'json',
+        });
+      } finally {
+        this.#inlining.delete($ref);
+      }
     }
     const generatedClassName = context.forJson || schemaName;
 
