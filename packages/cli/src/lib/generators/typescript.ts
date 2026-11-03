@@ -74,10 +74,10 @@ export default new Command('typescript')
       .makeOptionMandatory(false),
   )
   .action(async (options: Options) => {
-    await runTypescript(options);
+    await runTypescript(options, process.env.NPM_TOKEN);
   });
 
-async function runTypescript(options: Options) {
+async function runTypescript(options: Options, npmToken: string | undefined) {
   if (!options.publish && !options.output) {
     throw new Error('Error: --publish or --output option is required.');
   }
@@ -90,10 +90,14 @@ async function runTypescript(options: Options) {
     });
   }
   if (options.publish) {
-    await emitRemote(spec, {
-      ...options,
-      publish: options.publish,
-    });
+    await emitRemote(
+      spec,
+      {
+        ...options,
+        publish: options.publish,
+      },
+      npmToken,
+    );
   }
 }
 
@@ -143,6 +147,7 @@ async function emitLocal(spec: OpenAPIObject, options: Options) {
 async function emitRemote(
   spec: OpenAPIObject,
   options: Options & { publish: string },
+  npmToken: string | undefined,
 ) {
   const registry =
     options.publish === 'npm'
@@ -163,11 +168,11 @@ async function emitRemote(
     await readFile(join(path, 'package.json'), 'utf-8'),
   );
   const registryUrl = new URL(registry);
-  const npmrc = process.env.NPM_TOKEN
+  const npmrc = npmToken
     ? {
         npmrc: {
           registry,
-          [`//${registryUrl.hostname}:_authToken`]: process.env.NPM_TOKEN,
+          [`//${registryUrl.hostname}:_authToken`]: npmToken,
         },
       }
     : registry;
