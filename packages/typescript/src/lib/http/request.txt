@@ -74,7 +74,7 @@ abstract class Serializer {
 
   abstract getBody(): BodyInit | null;
   abstract getHeaders(): Record<string, string>;
-  serialize(path: string): Serialized {
+  serialize(path: string, baseUrl: string): Serialized {
     const params = this.props.inputParams.reduce<Record<string, any>>(
       (acc, key) => {
         acc[key] = this.input[key];
@@ -82,7 +82,7 @@ abstract class Serializer {
       },
       {},
     );
-    const url = new URL(template(path, params), `local://`);
+    const url = new URL(`${baseUrl}${template(path, params)}`);
 
     const headers: Record<string, string> = { ...this.getHeaders() };
     for (const header of this.props.inputHeaders) {
@@ -198,9 +198,10 @@ export function formdata(input: Input, props: Props) {
 export function toRequest<T extends Endpoint>(
   endpoint: T,
   serializer: Serializer,
+  baseUrl: string,
 ): RequestConfig {
   const [method, path] = endpoint.split(' ');
-  const input = serializer.serialize(path);
+  const input = serializer.serialize(path, baseUrl);
   return {
     url: input.url,
     init: {

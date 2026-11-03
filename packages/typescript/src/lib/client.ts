@@ -26,8 +26,15 @@ export default (spec: Omit<Spec, 'operations'>) => {
         ctx.addIssue({ code: 'custom', message: 'baseUrl must resolve to a string' });
         return z.NEVER;
       }
-      return value;
-    }).describe('Base URL of the API server. Can be a string or a function that returns a string.')`,
+      if (/^[a-z][a-z\\d+.-]*:/i.test(value)) {
+        return value;
+      }
+      const page: { href: string } | undefined = Reflect.get(globalThis, 'location');
+      if (page === undefined) {
+        throw new TypeError(\`baseUrl "\${value}" is relative, and there is no page location to resolve it against.\`);
+      }
+      return new URL(value, page.href).href;
+    }).describe('Base URL of the API server. Can be a string or a function that returns a string; a relative URL resolves against the page location.')`,
     },
     headers: {
       schema: `z.record(z.string(), z.string()).optional().describe('Default headers to include in all requests.')`,
@@ -43,10 +50,7 @@ import type { HeadersInit, RequestConfig } from './http/${spec.makeImport('reque
 import { fetchType, parse } from './http/${spec.makeImport('dispatcher')}';
 import schemas from './api/${spec.makeImport('schemas')}';
 import type { InferData } from '${spec.makeImport('./api/endpoints')}';
-import {
-  createBaseUrlInterceptor,
-  createHeadersInterceptor,
-} from './http/${spec.makeImport('interceptors')}';
+import { createHeadersInterceptor } from './http/${spec.makeImport('interceptors')}';
 
 import { type ParseError, parseInput } from './http/${spec.makeImport('parser')}';${
     securitySchemeNames.length
@@ -130,13 +134,13 @@ export async function request<const E extends keyof typeof schemas>(
   const parsedInput = options.skipValidation ? input : parseInput(route.schema, input);
   const result = await route.dispatch(parsedInput as never, {
     fetch: options.fetch,
+    baseUrl: options.baseUrl,
     interceptors: [
       createHeadersInterceptor(
         { ...options.headers },
         requestOptions?.headers ?? {},
       ),
-${securitySchemeNames.length ? '      createSecurityInterceptor(route.security, options.credentials),\n' : ''}      createBaseUrlInterceptor(options.baseUrl),
-    ],
+${securitySchemeNames.length ? '      createSecurityInterceptor(route.security, options.credentials),\n' : ''}    ],
     ...(requestOptions?.signal ? { signal: requestOptions.signal } : {}),
   });
   return result as Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>;
@@ -170,10 +174,9 @@ export async function prepare<const E extends keyof typeof schemas>(
       { ...options.headers },
       requestOptions?.headers ?? {},
     ),
-${securitySchemeNames.length ? '    createSecurityInterceptor(route.security, options.credentials),\n' : ''}    createBaseUrlInterceptor(options.baseUrl),
-  ];
+${securitySchemeNames.length ? '    createSecurityInterceptor(route.security, options.credentials),\n' : ''}  ];
 
-  let config = route.toRequest(parsedInput as never);
+  let config = route.toRequest(parsedInput as never, options.baseUrl);
   if (requestOptions?.signal) {
     config = {
       ...config,

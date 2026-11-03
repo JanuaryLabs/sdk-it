@@ -9,7 +9,6 @@ import {
   type Interceptor,
   Ok,
   type RequestConfig,
-  createBaseUrlInterceptor,
   createHeadersInterceptor,
   fetchType,
   rpc,
@@ -418,10 +417,17 @@ describe('Dispatcher interceptors', () => {
     assert.deepEqual(order, ['after-2', 'after-1']);
   });
 
-  test('before interceptor can mutate the URL (used by baseUrl interceptor)', async () => {
+  test('before interceptor can mutate the URL', async () => {
     let received: Request | undefined;
     const dispatcher = new Dispatcher(
-      [createBaseUrlInterceptor('http://rewritten.example.com')],
+      [
+        {
+          before: ({ init, url }) => ({
+            init,
+            url: new URL(url.pathname, 'http://rewritten.example.com'),
+          }),
+        },
+      ],
       async (req) => {
         received = req;
         return jsonResponse({ ok: true });
@@ -430,7 +436,7 @@ describe('Dispatcher interceptors', () => {
 
     await dispatcher.send(
       {
-        url: new URL('/users', 'local://'),
+        url: new URL('http://example.com/users'),
         init: { method: 'GET', headers: new Headers() },
       },
       [Ok],

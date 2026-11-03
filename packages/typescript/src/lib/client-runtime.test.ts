@@ -118,13 +118,13 @@ export default {
   'GET /users': {
     schema: listUsersSchema,
     output: operationOutput,
-    toRequest(input: z.input<typeof listUsersSchema>) {
+    toRequest(input: z.input<typeof listUsersSchema>, baseUrl: string) {
       return toRequest('GET /users', empty(input as any, {
         inputHeaders: ['x-trace-id'],
         inputQuery: ['limit'],
         inputBody: [],
         inputParams: [],
-      }));
+      }), baseUrl);
     },
     async dispatch(
       input: z.input<typeof listUsersSchema>,
@@ -132,22 +132,23 @@ export default {
         signal?: AbortSignal;
         interceptors: Interceptor[];
         fetch: z.infer<typeof fetchType>;
+        baseUrl: string;
       },
     ) {
       const dispatcher = new Dispatcher(options.interceptors, options.fetch);
-      return dispatcher.send(this.toRequest(input), this.output, options?.signal);
+      return dispatcher.send(this.toRequest(input, options.baseUrl), this.output, options?.signal);
     },
   },
   'POST /users': {
     schema: listUsersSchema,
     output: operationOutput,
-    toRequest(input: z.input<typeof listUsersSchema>) {
+    toRequest(input: z.input<typeof listUsersSchema>, baseUrl: string) {
       return toRequest('POST /users', json(input as any, {
         inputHeaders: [],
         inputQuery: [],
         inputBody: ['limit'],
         inputParams: [],
-      }));
+      }), baseUrl);
     },
     async dispatch(
       input: z.input<typeof listUsersSchema>,
@@ -155,10 +156,11 @@ export default {
         signal?: AbortSignal;
         interceptors: Interceptor[];
         fetch: z.infer<typeof fetchType>;
+        baseUrl: string;
       },
     ) {
       const dispatcher = new Dispatcher(options.interceptors, options.fetch);
-      return dispatcher.send(this.toRequest(input), this.output, options?.signal);
+      return dispatcher.send(this.toRequest(input, options.baseUrl), this.output, options?.signal);
     },
   },
 };

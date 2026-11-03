@@ -36,17 +36,3 @@ export const createHeadersInterceptor = (
     },
   };
 };
-
-export const createBaseUrlInterceptor = (baseUrl: string): Interceptor => {
-  return {
-    before({ init, url }) {
-      if (url.protocol === 'local:') {
-        return {
-          init,
-          url: new URL(url.href.replace('local://', baseUrl)),
-        };
-      }
-      return { init, url };
-    },
-  };
-};

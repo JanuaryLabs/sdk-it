@@ -4,10 +4,7 @@ import type { HeadersInit, RequestConfig } from './http/request';
 import { fetchType, parse } from './http/dispatcher';
 import schemas from './api/schemas';
 import type { InferData } from './api/endpoints';
-import {
-  createBaseUrlInterceptor,
-  createHeadersInterceptor,
-} from './http/interceptors';
+import { createHeadersInterceptor } from './http/interceptors';
 
 import { type ParseError, parseInput } from './http/parser';
 
@@ -23,8 +20,15 @@ const optionsSchema = z.object({fetch: fetchType.describe('Custom fetch implemen
         ctx.addIssue({ code: 'custom', message: 'baseUrl must resolve to a string' });
         return z.NEVER;
       }
-      return value;
-    }).describe('Base URL of the API server. Can be a string or a function that returns a string.'), headers: z.record(z.string(), z.string()).optional().describe('Default headers to include in all requests.'), skipValidation: z.boolean().optional().describe('Skip request input validation. Client options and TypeScript types still enforce correct usage.')});
+      if (/^[a-z][a-z\d+.-]*:/i.test(value)) {
+        return value;
+      }
+      const page: { href: string } | undefined = Reflect.get(globalThis, 'location');
+      if (page === undefined) {
+        throw new TypeError(`baseUrl "${value}" is relative, and there is no page location to resolve it against.`);
+      }
+      return new URL(value, page.href).href;
+    }).describe('Base URL of the API server. Can be a string or a function that returns a string; a relative URL resolves against the page location.'), headers: z.record(z.string(), z.string()).optional().describe('Default headers to include in all requests.'), skipValidation: z.boolean().optional().describe('Skip request input validation. Client options and TypeScript types still enforce correct usage.')});
 export type Servers = typeof servers[number];
 
 type ApiClientOptions = z.input<typeof optionsSchema>;
@@ -95,12 +99,12 @@ export async function request<const E extends keyof typeof schemas>(
   const parsedInput = options.skipValidation ? input : parseInput(route.schema, input);
   const result = await route.dispatch(parsedInput as never, {
     fetch: options.fetch,
+    baseUrl: options.baseUrl,
     interceptors: [
       createHeadersInterceptor(
         { ...options.headers },
         requestOptions?.headers ?? {},
       ),
-      createBaseUrlInterceptor(options.baseUrl),
     ],
     ...(requestOptions?.signal ? { signal: requestOptions.signal } : {}),
   });
@@ -135,10 +139,9 @@ export async function prepare<const E extends keyof typeof schemas>(
       { ...options.headers },
       requestOptions?.headers ?? {},
     ),
-    createBaseUrlInterceptor(options.baseUrl),
   ];
 
-  let config = route.toRequest(parsedInput as never);
+  let config = route.toRequest(parsedInput as never, options.baseUrl);
   if (requestOptions?.signal) {
     config = {
       ...config,

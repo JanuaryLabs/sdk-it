@@ -77,17 +77,18 @@ export function toEndpoint(
           security: ${JSON.stringify(specOperation.security ?? [])} as readonly Record<string, readonly string[]>[],
           schema: ${schemaRef}${addTypeParser ? `.${type}` : ''},
           output:[${outputs.join(',')}],
-          toRequest(input: z.input<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>) {
+          toRequest(input: z.input<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>, baseUrl: string) {
            return toRequest('${endpoint}', ${operation.outgoingContentType || 'empty'}(input, {
               inputHeaders: [${paths.inputHeaders}],
               inputQuery: [${paths.inputQuery}],
               inputBody: [${paths.inputBody}],
               inputParams: [${paths.inputParams}],
-            }));},
+            }), baseUrl);},
          async dispatch(input: z.output<typeof ${schemaRef}${addTypeParser ? `.${type}` : ''}>,options: {
             signal?: AbortSignal;
             interceptors: Interceptor[];
             fetch: z.infer<typeof fetchType>;
+            baseUrl: string;
           })${specOperation['x-pagination'] ? paginationOperation(specOperation['x-pagination'] as OperationPagination) : normalOperation()}`,
     );
   }
@@ -97,7 +98,7 @@ export function toEndpoint(
 function normalOperation() {
   return `{
             const dispatcher = new Dispatcher(options.interceptors, options.fetch);
-            return dispatcher.send(this.toRequest(input), this.output, options?.signal);
+            return dispatcher.send(this.toRequest(input, options.baseUrl), this.output, options?.signal);
             },
           }`;
 }

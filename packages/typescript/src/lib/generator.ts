@@ -199,7 +199,7 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
                   `import { chunked, buffered, bodyless } from "${config.makeImport('../http/parse-response')}";`,
                   `import { sse, type SSEListener } from "${config.makeImport('../http/sse')}";`,
                   `import * as ${groupIdentifier(name)} from '../inputs/${config.makeImport(moduleFileName(name))}';`,
-                  `import { createBaseUrlInterceptor, createHeadersInterceptor, type Interceptor } from '${config.makeImport('../http/interceptors')}';`,
+                  `import { createHeadersInterceptor, type Interceptor } from '${config.makeImport('../http/interceptors')}';`,
                   `import { Dispatcher, fetchType, type InstanceType } from '${config.makeImport('../http/dispatcher')}';`,
                   `import { Pagination, OffsetPagination, CursorPagination } from "${config.makeImport('../pagination/index')}";`,
                 ].join('\n')}\nexport default {\n${operations}\n}`,

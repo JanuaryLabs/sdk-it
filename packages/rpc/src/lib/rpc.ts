@@ -24,7 +24,6 @@ import {
 } from './http/dispatcher.ts';
 import {
   type Interceptor,
-  createBaseUrlInterceptor,
   createHeadersInterceptor,
 } from './http/interceptors.ts';
 import { bodyless, buffered, chunked } from './http/parse-response.ts';
@@ -78,7 +77,19 @@ const baseUrlSchema = z
       });
       return z.NEVER;
     }
-    return value;
+    if (/^[a-z][a-z\d+.-]*:/i.test(value)) {
+      return value;
+    }
+    const page: { href: string } | undefined = Reflect.get(
+      globalThis,
+      'location',
+    );
+    if (page === undefined) {
+      throw new TypeError(
+        `baseUrl "${value}" is relative, and there is no page location to resolve it against.`,
+      );
+    }
+    return new URL(value, page.href).href;
   });
 
 const optionsSchema = z.object({
@@ -157,12 +168,12 @@ export class Client {
     const clientOptions = await optionsSchema.parseAsync(this.options);
     const result = await route.dispatch(parsedInput as never, {
       fetch: clientOptions.fetch,
+      baseUrl: clientOptions.baseUrl,
       interceptors: [
         createHeadersInterceptor(
           await this.#defaultHeaders(),
           options?.headers ?? {},
         ),
-        createBaseUrlInterceptor(clientOptions.baseUrl),
       ],
       signal: options?.signal,
     });
@@ -215,6 +226,7 @@ export function createRpc(ir: IR, options: Partial<ClientOptions> = {}) {
           signal?: AbortSignal;
           interceptors: Interceptor[];
           fetch: z.infer<typeof fetchType>;
+          baseUrl: string;
         },
       ) {
         const dispatcher = new Dispatcher(options.interceptors, options.fetch);
@@ -225,6 +237,7 @@ export function createRpc(ir: IR, options: Partial<ClientOptions> = {}) {
         const request = toRequest(
           endpoint,
           serializer(input, inputToPath(operation, details.inputs)),
+          options.baseUrl,
         );
         return dispatcher.send(request, this.output, options.signal);
       },
