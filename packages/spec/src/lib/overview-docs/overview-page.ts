@@ -6,8 +6,7 @@ import type { SdkDoc } from './types.js';
 
 export function generateOverviewPage(spec: IR, sdks: SdkDoc[]): NavItem {
   const info = spec.info;
-  const apiTitle = info.title || 'API Reference';
-  const markdown: string[] = [`# ${apiTitle}`];
+  const markdown: string[] = info.title ? [`# ${info.title}`] : [];
 
   if (info.description) {
     markdown.push(info.description);
@@ -41,7 +40,7 @@ export function generateOverviewPage(spec: IR, sdks: SdkDoc[]): NavItem {
     );
   }
 
-  markdown.push(...generateSdkSection(apiTitle, sdks));
+  markdown.push(...generateSdkSection(info.title, sdks));
 
   const supportDocs =
     spec.externalDocs?.url &&

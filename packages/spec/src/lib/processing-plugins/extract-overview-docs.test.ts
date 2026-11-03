@@ -258,3 +258,66 @@ test('toSidebar leaves the IR untouched', async () => {
     ['Overview'],
   );
 });
+
+test('an API without a title gets no invented heading or name', async () => {
+  const { spec } = await processSpec({
+    spec: {
+      ...acmeSpec({
+        'x-sdks': [{ language: 'typescript', package: '@acme/sdk' }],
+      }),
+      info: { title: '', version: '2.0.0', description: 'Acme lets you ship.' },
+    },
+    plugins: [extractOverviewDocsPlugin()],
+  });
+
+  const overview = pages(spec)[0].content ?? '';
+  assert.match(overview, /^Acme lets you ship\.\n\n\*\*Version:\*\* 2\.0\.0/);
+  assert.match(
+    overview,
+    /This API provides an official client SDK for TypeScript\./,
+  );
+  assert.doesNotMatch(overview, /API Reference|^#\s/m);
+});
+
+test('an error response heads its section with its own description', async () => {
+  const schema = {
+    type: 'object',
+    properties: { message: { type: 'string' } },
+  };
+  const { spec } = await processSpec({
+    spec: acmeSpec({
+      paths: {
+        '/pets': {
+          get: {
+            operationId: 'listPets',
+            responses: {
+              '200': { description: 'Pets' },
+              '404': {
+                description: 'Pet not found',
+                content: { 'application/json': { schema } },
+              },
+              '500': {
+                description: '',
+                content: { 'application/json': { schema } },
+              },
+              '4XX': {
+                description: '',
+                content: { 'application/json': { schema } },
+              },
+            },
+          },
+        },
+      },
+    }),
+    plugins: [extractOverviewDocsPlugin()],
+  });
+
+  const errors = pages(spec)[2].content ?? '';
+  assert.match(errors, /### 404 - Pet not found\n\nPet not found\n\n/);
+  assert.match(
+    errors,
+    /### 500\n\nInternal Server Error - The server encountered an unexpected condition\.\n\n/,
+  );
+  assert.match(errors, /### 4XX\n\n\*\*Response Schema:\*\*/);
+  assert.doesNotMatch(errors, /\d Error\n|An error occurred/);
+});

@@ -9,8 +9,7 @@ import type { IR } from '../types.js';
 
 interface ErrorSchema {
   statusCode: string;
-  title: string;
-  description?: string;
+  description: string;
   schema: SchemaObject | ReferenceObject;
   operations: string[]; // Track which operations use this error
 }
@@ -26,7 +25,7 @@ ${JSON.stringify(resolvedSchema, null, 2)}
 \`\`\``;
 }
 
-function getStatusDescription(statusCode: string): string {
+function getStatusDescription(statusCode: string): string | undefined {
   const descriptions: Record<string, string> = {
     '400': 'Bad Request - The request was invalid or cannot be served.',
     '401':
@@ -101,10 +100,7 @@ function getStatusDescription(statusCode: string): string {
     '511':
       'Network Authentication Required - The client needs to authenticate to gain network access.',
   };
-  return (
-    descriptions[statusCode] ||
-    'An error occurred while processing the request.'
-  );
+  return descriptions[statusCode];
 }
 
 export function generateErrorsOverview(spec: IR): NavItem {
@@ -138,7 +134,6 @@ export function generateErrorsOverview(spec: IR): NavItem {
             } else {
               errorSchemas.set(key, {
                 statusCode,
-                title: response.description || `${statusCode} Error`,
                 description: response.description,
                 schema: content['application/json'].schema,
                 operations: [operation.operationId],
@@ -160,10 +155,16 @@ export function generateErrorsOverview(spec: IR): NavItem {
     );
   } else {
     for (const error of errors) {
-      markdown.push(`### ${error.statusCode} - ${error.title}`);
+      markdown.push(
+        error.description
+          ? `### ${error.statusCode} - ${error.description}`
+          : `### ${error.statusCode}`,
+      );
       const description =
-        error.description || getStatusDescription(error.statusCode) || '';
-      markdown.push(description);
+        error.description || getStatusDescription(error.statusCode);
+      if (description) {
+        markdown.push(description);
+      }
 
       if (error.schema) {
         markdown.push(`**Response Schema:**`);

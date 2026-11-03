@@ -33,9 +33,10 @@ export function generateSdkSection(apiTitle: string, sdks: SdkDoc[]): string[] {
   const languages = listFormat.format(
     sdks.map((sdk) => sdkLanguages[sdk.language].title),
   );
+  const subject = apiTitle === '' ? 'This API' : apiTitle;
   const markdown: string[] = [
     `## ${getTextByCount(sdks.length, presetDocs.client.section)}`,
-    `${apiTitle} provides ${sdks.length === 1 ? 'an official client SDK' : 'official client SDKs'} for ${languages}. Install ${sdks.length === 1 ? 'it' : 'one'} to get started:`,
+    `${subject} provides ${sdks.length === 1 ? 'an official client SDK' : 'official client SDKs'} for ${languages}. Install ${sdks.length === 1 ? 'it' : 'one'} to get started:`,
   ];
 
   for (const sdk of sdks) {

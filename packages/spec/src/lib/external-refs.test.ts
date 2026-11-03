@@ -407,7 +407,7 @@ test('a relative external reference in a spec without $self rejects with a clear
         },
       },
     }),
-    /Could not resolve \$ref \.\/pet\.yaml .*no \$self/,
+    /Could not resolve \$ref \.\/pet\.yaml: the document declares no \$self/,
   );
 });
 
