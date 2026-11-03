@@ -51,7 +51,7 @@ export async function loadProjectConfig(
     ? resolve(cwd, options.config)
     : await findProjectConfig(cwd);
   const loaded = await import(pathToFileURL(configPath).href);
-  const config = loaded.default as ProjectConfig | undefined;
+  const config: ProjectConfig | undefined = loaded.default;
   if (!config || typeof config.tsconfig !== 'string') {
     throw new Error(
       `Expected ${configPath} to default export an SDK-IT config with a tsconfig path.`,
@@ -116,11 +116,12 @@ ${projectDirectory === workspaceDirectory ? '' : `  packageName: '${packageName}
   const output = join(projectDirectory, '.sdk-it');
   const manifestPath = join(output, 'package.json');
   const existingManifest = await readOptionalFile(manifestPath);
+  const parsedManifest: ProjectPackageManifest = existingManifest
+    ? JSON.parse(existingManifest)
+    : {};
   const generatedManifest = generatedPackageManifest(
     packageName,
-    existingManifest
-      ? (JSON.parse(existingManifest) as ProjectPackageManifest)
-      : {},
+    parsedManifest,
   );
   const generatedManifestSource = `${JSON.stringify(generatedManifest, null, 2)}\n`;
   const workspacePath = relative(workspaceDirectory, output).replaceAll(
@@ -199,10 +200,8 @@ async function findWorkspace(
   while (true) {
     const source = await readOptionalFile(join(directory, 'package.json'));
     if (source) {
-      const candidate = {
-        directory,
-        manifest: JSON.parse(source) as ProjectPackageManifest,
-      };
+      const manifest: ProjectPackageManifest = JSON.parse(source);
+      const candidate = { directory, manifest };
       nearest ??= candidate;
       if (candidate.manifest.workspaces !== undefined) return candidate;
     }

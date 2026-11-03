@@ -60,12 +60,10 @@ async function synchronizeGeneratedManifest(
   packageName: string,
 ): Promise<void> {
   const manifestPath = join(output, 'package.json');
-  const manifest = generatedPackageManifest(
-    packageName,
-    JSON.parse(
-      await readFile(manifestPath, 'utf8'),
-    ) as GeneratedPackageManifest,
+  const existing: GeneratedPackageManifest = JSON.parse(
+    await readFile(manifestPath, 'utf8'),
   );
+  const manifest = generatedPackageManifest(packageName, existing);
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 }
 

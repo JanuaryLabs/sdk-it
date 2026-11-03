@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { Command, program } from 'commander';
 
 import init from './commands/init.ts';
@@ -37,7 +36,6 @@ const cli = program
       // do nothing
     }),
     { hidden: true },
-  )
-  .parse(process.argv);
+  );
 
 export default cli;

@@ -1,2 +1,4 @@
 #!/usr/bin/env node
-import './lib/cli.ts';
+import cli from './lib/cli.ts';
+
+await cli.parseAsync(process.argv);
