@@ -64,6 +64,11 @@ base class GoneError extends ApiError {
     : super(message, statusCode: 410, status: 'Gone');
 }
 
+base class PreconditionFailedError extends ApiError {
+  const PreconditionFailedError(String message)
+    : super(message, statusCode: 412, status: 'PreconditionFailed');
+}
+
 base class UnprocessableEntityError extends ApiError {
   const UnprocessableEntityError(String message)
     : super(message, statusCode: 422, status: 'UnprocessableEntity');

@@ -244,8 +244,6 @@ class Receiver {
         throw TooManyRequestsError('');
       case 413:
         throw PayloadTooLargeError('');
-      case 415:
-        throw UnsupportedMediaTypeError('');
       case 501:
         throw NotImplementedError('');
       case 502:

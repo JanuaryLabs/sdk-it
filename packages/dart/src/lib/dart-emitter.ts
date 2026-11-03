@@ -25,6 +25,11 @@ import {
   withParameters,
 } from '@sdk-it/spec';
 
+/** `value` as a single-quoted Dart string literal. */
+function dartString(value: string) {
+  return `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'").replaceAll('$', '\\$')}'`;
+}
+
 type Context = Record<string, any>;
 type Serialized = {
   nullable?: boolean;
@@ -518,7 +523,13 @@ ${toJsonProperties.join(',\n')}
     }
 
     const content: string[] = [];
-    const patterns: { pattern: string; name: string }[] = [];
+    // Dart takes the first case that matches: a literal value goes before a
+    // guarded type, and a guarded type before the plain one.
+    const patterns: {
+      pattern: string;
+      name: string;
+      order: 'value' | 'guarded' | 'type';
+    }[] = [];
 
     content.push(`class _Value implements ${name} {
   final dynamic value;
@@ -533,18 +544,21 @@ ${toJsonProperties.join(',\n')}
           patterns.push({
             name: `static ${name} ${formatName(varientName)}() => _Value("");`,
             pattern: `case '': return ${name}.${formatName(varientName)}();`,
+            order: 'value',
           });
           continue;
         case 'uri':
           patterns.push({
             name: `static ${name} ${formatName(varientName)}(Uri value) => _Value(value);`,
-            pattern: `case String: return ${name}.${formatName(varientName)}(Uri.parse(json));`,
+            pattern: `case String value when Uri.tryParse(value)?.hasScheme ?? false: return ${name}.${formatName(varientName)}(Uri.parse(value));`,
+            order: 'guarded',
           });
           continue;
         case 'number':
           patterns.push({
             name: `static ${name} ${formatName(varientName)}(num value) => _Value(value);`,
-            pattern: `case num: return ${name}.${formatName(varientName)}(json);`,
+            pattern: `case num value: return ${name}.${formatName(varientName)}(value);`,
+            order: 'type',
           });
           continue;
         case 'object': {
@@ -563,17 +577,33 @@ ${toJsonProperties.join(',\n')}
             pattern: `case Map<String, dynamic> map: return ${name}.${formatName(varientName)}(${pascalcase(
               `${name} ${formatName(varientName)}`,
             )}.fromJson(map));`,
+            order: 'type',
           });
           continue;
         }
       }
       switch (varient.type) {
-        case 'string':
-          patterns.push({
-            name: `static ${name} ${formatName(varientName)}(String value) => _Value(value);`,
-            pattern: `case String: return ${name}.${formatName(varientName)}(json);`,
-          });
+        case 'string': {
+          const literal = resolveRef<SchemaObject>(
+            this.#spec,
+            schemas[varient.position],
+          ).const;
+          const factory = `static ${name} ${formatName(varientName)}(String value) => _Value(value);`;
+          if (typeof literal === 'string') {
+            patterns.push({
+              name: factory,
+              pattern: `case ${dartString(literal)}: return ${name}.${formatName(varientName)}(json);`,
+              order: 'value',
+            });
+          } else {
+            patterns.push({
+              name: factory,
+              pattern: `case String value: return ${name}.${formatName(varientName)}(value);`,
+              order: 'type',
+            });
+          }
           break;
+        }
         case 'object': {
           const { typeStr, returnValue, fromJson } = this.#oneOfObject(
             name,
@@ -590,6 +620,7 @@ ${toJsonProperties.join(',\n')}
           patterns.push({
             name: `static ${name} ${formatName(varientName)}(${typeStr}) => ${returnValue}`,
             pattern: `${caseStr}: ${returnStr};`,
+            order: 'type',
           });
           break;
         }
@@ -606,7 +637,10 @@ ${toJsonProperties.join(',\n')}
           );
           patterns.push({
             name: `static ${name} ${formatName(varientName)}(${serializedType.use} value) => _Value(value);`,
-            pattern: `case ${serializedType.use} json: return ${name}.${formatName(varientName)}(${serializedType.fromJson});`,
+            // Decoded JSON is a List<dynamic>, never a typed list, so the case
+            // matches any list and fromJson types each element.
+            pattern: `case List json: return ${name}.${formatName(varientName)}(${serializedType.fromJson});`,
+            order: 'type',
           });
           break;
         }
@@ -630,7 +664,9 @@ ${toJsonProperties.join(',\n')}
           `factory ${name}.fromJson(dynamic json)`,
           `{`,
           `switch (json) {`,
-          ...patterns.map((it) => it.pattern),
+          ...(['value', 'guarded', 'type'] as const).flatMap((order) =>
+            patterns.filter((it) => it.order === order).map((it) => it.pattern),
+          ),
           `default: throw ArgumentError("Invalid type: \${json}");`,
           `}`,
           `}`,
