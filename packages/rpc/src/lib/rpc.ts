@@ -7,14 +7,11 @@ import {
   type ResponseBody,
   type TunedOperationObject,
   forEachOperation,
+  inputSchema,
   loadSpec,
+  operationInput,
   toIR,
 } from '@sdk-it/spec';
-import {
-  type OperationInput,
-  buildInput,
-  operationSchema,
-} from '@sdk-it/typescript';
 
 import {
   Dispatcher,
@@ -115,40 +112,6 @@ const optionsSchema = z.object({
 
 export type ClientOptions = z.input<typeof optionsSchema>;
 
-export function inputToPath(
-  operation: TunedOperationObject,
-  inputs: Record<string, OperationInput>,
-) {
-  const inputHeaders: string[] = [];
-  const inputQuery: string[] = [];
-  const inputBody: string[] = [];
-  const inputParams: string[] = [];
-  for (const [name, prop] of Object.entries(inputs)) {
-    if (prop.in === 'headers' || prop.in === 'header') {
-      inputHeaders.push(name);
-    } else if (prop.in === 'query') {
-      inputQuery.push(name);
-    } else if (prop.in === 'body') {
-      inputBody.push(name);
-    } else if (prop.in === 'path') {
-      inputParams.push(name);
-    } else {
-      throw new Error(
-        `Unknown source ${prop.in} in ${name} ${JSON.stringify(
-          prop,
-        )} in ${operation.operationId}`,
-      );
-    }
-  }
-
-  return {
-    inputHeaders,
-    inputQuery,
-    inputBody,
-    inputParams,
-  };
-}
-
 export class Client {
   public options: ClientOptions;
   public schemas: Record<string, any>;
@@ -204,22 +167,22 @@ export function createRpc(ir: IR, options: Partial<ClientOptions> = {}) {
   const schemas: Record<Endpoint, any> = {};
   forEachOperation(ir, (entry, operation) => {
     const endpoint: Endpoint = `${entry.method.toUpperCase() as Method} ${entry.path}`;
-    const details = buildInput(ir, operation);
+    const sent = operationInput(ir, operation);
     const contentTypeMap = {
       json: json,
       urlencoded: urlencoded,
       formdata: formdata,
       empty: empty,
     } as const;
-    const inputSchema = schemaToZod(
-      operationSchema(ir, operation, details.ct),
+    const schema = schemaToZod(
+      inputSchema(ir, operation, sent.contentType),
       ir,
       { required: true },
     );
     schemas[endpoint] = {
       operationId: operation.operationId,
       output: toOutputs(operation),
-      schema: inputSchema,
+      schema,
       async dispatch(
         input: any,
         options: {
@@ -231,12 +194,16 @@ export function createRpc(ir: IR, options: Partial<ClientOptions> = {}) {
       ) {
         const dispatcher = new Dispatcher(options.interceptors, options.fetch);
         const serializer =
-          contentTypeMap[
-            details.outgoingContentType as keyof typeof contentTypeMap
-          ] || defaultSerializer(details.outgoingContentType);
+          contentTypeMap[sent.encoding as keyof typeof contentTypeMap] ||
+          defaultSerializer(sent.encoding);
         const request = toRequest(
           endpoint,
-          serializer(input, inputToPath(operation, details.inputs)),
+          serializer(input, {
+            inputHeaders: sent.header,
+            inputQuery: sent.query,
+            inputBody: sent.body,
+            inputParams: sent.path,
+          }),
           options.baseUrl,
         );
         return dispatcher.send(request, this.output, options.signal);

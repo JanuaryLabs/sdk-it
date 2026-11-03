@@ -11,13 +11,10 @@
   "exclude": ["src/**/*.test.ts"],
   "references": [
     {
-      "path": "../core/tsconfig.lib.json"
-    },
-    {
-      "path": "../typescript/tsconfig.lib.json"
-    },
-    {
       "path": "../spec/tsconfig.lib.json"
+    },
+    {
+      "path": "../core/tsconfig.lib.json"
     }
   ]
 }
