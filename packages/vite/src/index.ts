@@ -3,7 +3,13 @@ import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
-import { type FSWatcher, type Plugin, normalizePath } from 'vite';
+import {
+  type FSWatcher,
+  type Plugin,
+  type ResolvedConfig,
+  type ViteDevServer,
+  normalizePath,
+} from 'vite';
 
 import { loadSpec } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
@@ -11,6 +17,11 @@ import { generate } from '@sdk-it/typescript';
 import { type ProjectPluginOptions, projectPlugin } from './project.ts';
 
 type Settings = Parameters<typeof generate>[1];
+interface SourcePlugin {
+  configResolved(config: ResolvedConfig): Promise<void>;
+  configureServer(server: ViteDevServer): Promise<void>;
+  buildStart(): Promise<void>;
+}
 type OpenapiFunction = () =>
   string | OpenAPIObject | Promise<string | OpenAPIObject>;
 export default function sdkIt(): Plugin;
@@ -49,8 +60,7 @@ function functionPlugin(
   openapi: OpenapiFunction,
   settings: Settings,
 ): Omit<Plugin, 'name'> {
-  let delegatePlugin!:
-    ReturnType<typeof specPlugin> | ReturnType<typeof filePlugin>;
+  let delegatePlugin!: SourcePlugin;
 
   return {
     async configResolved(config) {
@@ -63,21 +73,22 @@ function functionPlugin(
           ? filePlugin(resolved, settings)
           : specPlugin(resolved, settings);
 
-      return (delegatePlugin.configResolved as any)?.(config);
+      return delegatePlugin.configResolved(config);
     },
     configureServer(server) {
-      return (delegatePlugin.configureServer as any)?.(server);
+      return delegatePlugin.configureServer(server);
     },
-    async buildStart(options) {
-      return (delegatePlugin.buildStart as any)?.(options);
+    async buildStart() {
+      return delegatePlugin.buildStart();
     },
   };
 }
 
-function filePlugin(openapi: string, settings: Settings): Omit<Plugin, 'name'> {
-  let watchPath: string | undefined;
-  let sourceRef!: string;
-  let watcher: FSWatcher | undefined;
+function filePlugin(openapi: string, settings: Settings): SourcePlugin {
+  // Vite resolves the config before it starts a dev server or a build.
+  const source = Promise.withResolvers<{ ref: string; watchPath?: string }>();
+  // Only a dev server has a watcher; a build never resolves this.
+  const devWatcher = Promise.withResolvers<FSWatcher>();
   // Every local file the spec was read from; an edit to any of them regenerates.
   let watched = new Set<string>();
   let loads = 0;
@@ -88,7 +99,7 @@ function filePlugin(openapi: string, settings: Settings): Omit<Plugin, 'name'> {
         .filter((document) => document.startsWith('file:'))
         .map((document) => normalizePath(fileURLToPath(document))),
     );
-    watcher?.add([...watched]);
+    void devWatcher.promise.then((watcher) => watcher.add([...watched]));
   };
 
   const generateIfNeeded = async (ref: string) => {
@@ -103,45 +114,46 @@ function filePlugin(openapi: string, settings: Settings): Omit<Plugin, 'name'> {
   };
 
   return {
-    configureServer(server) {
+    async configureServer(server) {
+      const { ref, watchPath } = await source.promise;
       if (!watchPath) return;
       console.log(
         `${chalk.blue('SDKIT')}: Watching for spec changes in`,
         watchPath,
       );
-      watcher = server.watcher;
-      watcher.add([...watched]);
+      server.watcher.add([...watched]);
+      devWatcher.resolve(server.watcher);
       const regenerate = (file: string) => {
         if (!watched.has(normalizePath(file))) return;
         console.log(`${chalk.blue('SDKIT')}: OpenAPI spec changed`, file);
         // A half-saved file fails to load; the next save tries again.
-        generateIfNeeded(sourceRef).catch((error: unknown) =>
+        generateIfNeeded(ref).catch((error: unknown) =>
           console.error(`${chalk.red('SDKIT')}: SDK generation failed.`, error),
         );
       };
-      watcher.on('change', regenerate);
-      watcher.on('add', regenerate);
+      server.watcher.on('change', regenerate);
+      server.watcher.on('add', regenerate);
     },
     async buildStart() {
-      await generateIfNeeded(sourceRef);
+      const { ref } = await source.promise;
+      await generateIfNeeded(ref);
     },
     async configResolved(config) {
-      if (startsWithProtocol(openapi)) {
-        sourceRef = openapi;
-        if (openapi.startsWith('file:')) watchPath = fileURLToPath(openapi);
-      } else {
-        sourceRef = join(config.root, openapi);
-        watchPath = sourceRef;
-      }
+      const ref = startsWithProtocol(openapi)
+        ? openapi
+        : join(config.root, openapi);
+      const watchPath = startsWithProtocol(openapi)
+        ? openapi.startsWith('file:')
+          ? fileURLToPath(openapi)
+          : undefined
+        : ref;
       if (watchPath) watched = new Set([normalizePath(watchPath)]);
+      source.resolve({ ref, watchPath });
     },
   };
 }
 
-function specPlugin(
-  openapi: OpenAPIObject,
-  settings: Settings,
-): Omit<Plugin, 'name'> {
+function specPlugin(openapi: OpenAPIObject, settings: Settings): SourcePlugin {
   const generateIfNeeded = async (document: OpenAPIObject) => {
     const spec = structuredClone(document);
     return cachedGeneration(settings.output, hashSpec(spec), async () => {
