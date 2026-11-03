@@ -10,7 +10,7 @@ export class APIResponse<Body = unknown, Status extends number = number> {
     this.data = data;
   }
 
-  static create<Body = unknown>(status: number, headers: Headers, data: Body) {
+  static create(status: number, headers: Headers, data: unknown) {
     return new this(status, headers, data);
   }
 }
@@ -84,16 +84,12 @@ export class Accepted<T> extends APIResponse<T, 202> {
     return new this(headers, data);
   }
 }
-export class NoContent extends APIResponse<never, 204> {
+export class NoContent extends APIResponse<null, 204> {
   static override status = 204 as const;
   constructor(headers: Headers) {
-    super(NoContent.status, headers, null as never);
+    super(NoContent.status, headers, null);
   }
-  static override create(
-    status: number,
-    headers: Headers,
-    data?: unknown,
-  ): NoContent {
+  static override create(status: number, headers: Headers): NoContent {
     return new this(headers);
   }
 }
