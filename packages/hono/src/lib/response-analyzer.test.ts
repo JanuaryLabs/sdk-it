@@ -7,6 +7,8 @@ import type {
 } from '@typescript/native/ast';
 import {
   isArrowFunction,
+  isBlock,
+  isFunctionDeclaration,
   isFunctionExpression,
   isNewExpression,
   isReturnStatement,
@@ -85,6 +87,37 @@ function findHandlerInRoute(
   return handler;
 }
 
+/**
+ * Analyzes each value `handler` itself returns, one at a time, as analyze() hands them to the analyzer.
+ * It stands in for returnTokens so these tests can read how one returned call becomes a response;
+ * which values count as returned is proven through analyze() in generic's returned-responses.test.ts.
+ */
+function handlerResponses(
+  handler: ArrowFunction | FunctionExpression,
+  deriver: TypeDeriver,
+) {
+  if (!isBlock(handler.body)) {
+    return defaultResponseAnalyzer(handler, deriver, handler.body);
+  }
+  const returned: Node[] = [];
+  function visit(node: Node) {
+    if (isReturnStatement(node) && node.expression) {
+      returned.push(node.expression);
+    }
+    if (
+      !isArrowFunction(node) &&
+      !isFunctionExpression(node) &&
+      !isFunctionDeclaration(node)
+    ) {
+      node.forEachChild(visit);
+    }
+  }
+  handler.body.forEachChild(visit);
+  return returned.flatMap((node) =>
+    defaultResponseAnalyzer(handler, deriver, node),
+  );
+}
+
 function findNewResponseExpression(
   sourceFile: SourceFile,
 ): NewExpression | undefined {
@@ -118,7 +151,7 @@ async function analyzeHandler(handlerCode: string) {
     if (!handler) throw new Error('Handler not found');
 
     const deriver = new TypeDeriver(checker);
-    return defaultResponseAnalyzer(handler, deriver);
+    return handlerResponses(handler, deriver);
   } finally {
     await cleanup();
   }
@@ -998,7 +1031,7 @@ describe('Response Analyzer', () => {
         if (!handler) throw new Error('Handler not found');
 
         const deriver = new TypeDeriver(checker);
-        const responses = defaultResponseAnalyzer(handler, deriver);
+        const responses = handlerResponses(handler, deriver);
 
         assert.equal(responses.length, 1);
         const response = responses[0].response;

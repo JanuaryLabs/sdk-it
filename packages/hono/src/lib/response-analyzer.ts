@@ -38,47 +38,6 @@ import type { TypeDeriver } from '@sdk-it/core/deriver.js';
 
 import { getConstantValue } from './constant-value.js';
 
-const handlerVisitor: (
-  on: (
-    node: Node | undefined,
-    statusCode: Node | undefined,
-    headers: Node | undefined,
-    contentType: string,
-  ) => void,
-  contextVarName: string,
-) => (node: Node) => void = (callback, contextVarName) => {
-  return (node: Node) => {
-    if (
-      isReturnStatement(node) &&
-      node.expression &&
-      isCallExpression(node.expression) &&
-      isPropertyAccessExpression(node.expression.expression)
-    ) {
-      const call = node.expression;
-      const propAccess = node.expression.expression;
-      if (
-        isIdentifier(propAccess.expression) &&
-        propAccess.expression.text === contextVarName
-      ) {
-        const [argument, statusCode, headers] = call.arguments;
-        const rawBody = propAccess.name.text === 'body';
-        // A raw body of null sends nothing; c.json(null) still sends the JSON text null.
-        // newResponse repeats this rule for new Response(null).
-        const body =
-          rawBody && argument && isNullLiteral(argument) ? undefined : argument;
-        let contentType = rawBody
-          ? 'application/octet-stream'
-          : 'application/json';
-        if (!body) {
-          contentType = 'empty';
-        }
-        callback(body, statusCode, headers, contentType);
-      }
-    }
-    node.forEachChild(handlerVisitor(callback, contextVarName));
-  };
-};
-
 function resolveStatusCode(node: Node) {
   if (isNumericLiteral(node)) {
     return node.text;
@@ -301,7 +260,7 @@ export const newResponse: NaunceResponseAnalyzerFn = (
     return [];
   }
   const [argument, init] = node.arguments ?? [];
-  // A body of null sends nothing, as for c.body(null) in handlerVisitor.
+  // A body of null sends nothing, as for c.body(null) in defaultResponseAnalyzer.
   const body = argument && isNullLiteral(argument) ? undefined : argument;
   let statusNode: Node | undefined;
   let headersNode: Node | undefined;
@@ -350,31 +309,47 @@ export const newResponse: NaunceResponseAnalyzerFn = (
   ];
 };
 
+/** The response `returned`, a value the handler returns, sends when it is a call on the handler's context, such as `c.json(body, 201)`. */
 export function defaultResponseAnalyzer(
   handler: FunctionWithBody,
   deriver: TypeDeriver,
-) {
-  const responsesList: ResponseItem[] = [];
-  if (!handler.parameters.length) {
-    return responsesList;
+  returned: Node,
+): ResponseItem[] {
+  const [context] = handler.parameters;
+  if (
+    !context ||
+    !isCallExpression(returned) ||
+    !isPropertyAccessExpression(returned.expression)
+  ) {
+    return [];
   }
-  const contextVarName = handler.parameters[0].name.getText();
-  const visit = handlerVisitor((node, statusCode, headers, contentType) => {
-    const resolvedContentType = inferContentType(
-      node,
-      headers,
-      contentType,
-      deriver.checker,
-    );
-    responsesList.push({
+  const method = returned.expression;
+  if (
+    !isIdentifier(method.expression) ||
+    method.expression.text !== context.name.getText()
+  ) {
+    return [];
+  }
+  const [argument, statusCode, headers] = returned.arguments;
+  const rawBody = method.name.text === 'body';
+  // A raw body of null sends nothing; c.json(null) still sends the JSON text null.
+  // newResponse repeats this rule for new Response(null).
+  const body =
+    rawBody && argument && isNullLiteral(argument) ? undefined : argument;
+  let sentAs = 'application/json';
+  if (!body) {
+    sentAs = 'empty';
+  } else if (rawBody) {
+    sentAs = 'application/octet-stream';
+  }
+  return [
+    {
       headers: getHeaderKeys(headers, deriver),
-      contentType: resolvedContentType,
+      contentType: inferContentType(body, headers, sentAs, deriver.checker),
       statusCode: statusCode ? resolveStatusCode(statusCode) : '200',
-      response: node ? deriver.serializeNode(node) : undefined,
-    });
-  }, contextVarName);
-  visit(handler.body);
-  return responsesList;
+      response: body ? deriver.serializeNode(body) : undefined,
+    },
+  ];
 }
 
 export function streamText(
