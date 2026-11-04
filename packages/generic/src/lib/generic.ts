@@ -504,6 +504,11 @@ function returnTokens(node: Node, typeChecker: Checker) {
     depth: number,
     returned: boolean,
   ): void => {
+    // A parenthesized value is the value itself: (c) => (c.json(x))
+    if (isParenthesizedExpression(expression)) {
+      visitReturned(expression.expression, depth, returned);
+      return;
+    }
     if (returned) {
       if (isCall(expression)) {
         tokens.push({
