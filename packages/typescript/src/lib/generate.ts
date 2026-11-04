@@ -160,7 +160,7 @@ export async function generate(
               zod: '^4.3.0',
               ...(settings.agentTools === 'ai-sdk' ? { ai: '^7.0.29' } : {}),
               ...(settings.agentTools === 'openai-agents'
-                ? { '@openai/agents': '^0.13.4' }
+                ? { '@openai/agents': '^0.21.0' }
                 : {}),
             },
           },

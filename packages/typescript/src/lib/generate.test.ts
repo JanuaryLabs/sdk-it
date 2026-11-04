@@ -1475,7 +1475,7 @@ describe('generate — AI SDK 7 agent tools', () => {
       readFileSync(join(directory.path, 'package.json'), 'utf8'),
     );
     assert.match(source, /maybeContext\?\.context/);
-    assert.equal(packageJson.dependencies['@openai/agents'], '^0.13.4');
+    assert.equal(packageJson.dependencies['@openai/agents'], '^0.21.0');
   });
 });
 
