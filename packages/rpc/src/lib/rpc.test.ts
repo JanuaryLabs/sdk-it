@@ -624,7 +624,7 @@ describe('toAgents', () => {
     assert.deepEqual(agents, {});
   });
 
-  test('operation with no matching tag is skipped without crashing', async () => {
+  test('an operation whose tag has no definition still gets an agent with its tool', async () => {
     const spec = makeSpec({
       tags: [], // no tag definitions
       paths: {
@@ -652,7 +652,7 @@ describe('toAgents', () => {
     const agents = await toAgents(path, {
       baseUrl: 'http://localhost:3000',
     });
-    assert.equal(agents.nonexistent, undefined, 'orphan tag not in agents');
+    assert.deepEqual(Object.keys(agents.nonexistent.tools), ['orphan']);
   });
 
   test('path parameters are included in the input schema', async () => {

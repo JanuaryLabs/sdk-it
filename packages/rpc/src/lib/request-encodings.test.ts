@@ -358,3 +358,54 @@ test('rpc sends a query array as one entry per item under its key', async () => 
 
   assert.equal(new URL(sent[0].url).search, '?tags=x&tags=y');
 });
+
+test('rpc agents keep every group: a spaced, a digit-leading and an untagged one', async () => {
+  await using directory = await new TemporaryFiles().directory('rpc-groups-');
+  const listed = { '204': { description: 'Done' } };
+  const agents = await toAgents(
+    await specFile(directory.path, {
+      openapi: '3.1.0',
+      info: { title: 'Accounts', version: '1.0.0' },
+      servers: [{ url: 'https://api.test' }],
+      tags: [
+        { name: 'User Profiles', description: 'Profiles of users' },
+        { name: '2fa', description: 'Two factor' },
+        { name: 'billing', description: 'Invoices' },
+      ],
+      paths: {
+        '/profiles': {
+          get: {
+            operationId: 'listProfiles',
+            tags: ['User Profiles'],
+            responses: listed,
+          },
+        },
+        '/2fa': {
+          post: {
+            operationId: 'enableTwoFactor',
+            tags: ['2fa'],
+            responses: listed,
+          },
+        },
+        '/invoices': {
+          get: {
+            operationId: 'listInvoices',
+            tags: ['billing'],
+            responses: listed,
+          },
+        },
+        '/health': { get: { operationId: 'checkHealth', responses: listed } },
+      },
+    }),
+    { baseUrl: 'https://api.test', fetch: capture().fetch },
+  );
+
+  assert.deepEqual(Object.keys(agents.user_profiles.tools), ['listProfiles']);
+  assert.deepEqual(Object.keys(agents._2fa.tools), ['enableTwoFactor']);
+  assert.deepEqual(Object.keys(agents.billing.tools), ['listInvoices']);
+  assert.ok(
+    Object.values(agents)
+      .flatMap((agent) => Object.keys(agent.tools))
+      .includes('checkHealth'),
+  );
+});
