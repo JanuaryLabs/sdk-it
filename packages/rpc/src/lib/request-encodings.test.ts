@@ -294,3 +294,67 @@ test('rpc sends no multipart part for a field the caller leaves out or an empty 
   assert.deepEqual([...(await sent[0].formData()).keys()], ['files']);
   assert.deepEqual([...(await sent[1].formData()).keys()], ['files']);
 });
+
+const form: SchemaObject = {
+  type: 'object',
+  properties: {
+    title: { type: 'string' },
+    note: { type: 'string' },
+    tags: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['title'],
+};
+
+test('rpc sends no urlencoded entry for a field the caller leaves out, and one entry per array item', async () => {
+  await using directory = await new TemporaryFiles().directory('rpc-form-');
+  const { sent, fetch } = capture();
+  const client = await rpc(
+    await specFile(
+      directory.path,
+      notesSpec({ 'application/x-www-form-urlencoded': { schema: form } }),
+    ),
+    { fetch },
+  );
+
+  await client.request('POST /notes', { title: 't' });
+  await client.request('POST /notes', { title: 't', tags: ['x', 'y'] });
+
+  assert.equal(await sent[0].text(), 'title=t');
+  assert.deepEqual(new URLSearchParams(await sent[1].text()).getAll('tags'), [
+    'x',
+    'y',
+  ]);
+});
+
+test('rpc sends a query array as one entry per item under its key', async () => {
+  await using directory = await new TemporaryFiles().directory('rpc-query-');
+  const { sent, fetch } = capture();
+  const client = await rpc(
+    await specFile(directory.path, {
+      openapi: '3.1.0',
+      info: { title: 'Notes', version: '1.0.0' },
+      servers: [{ url: 'https://api.test' }],
+      paths: {
+        '/notes': {
+          get: {
+            operationId: 'listNotes',
+            tags: ['notes'],
+            parameters: [
+              {
+                name: 'tags',
+                in: 'query',
+                schema: { type: 'array', items: { type: 'string' } },
+              },
+            ],
+            responses: { '204': { description: 'Listed' } },
+          },
+        },
+      },
+    }),
+    { fetch },
+  );
+
+  await client.request('GET /notes', { tags: ['x', 'y'] });
+
+  assert.equal(new URL(sent[0].url).search, '?tags=x&tags=y');
+});
