@@ -174,12 +174,22 @@ export class Paths {
       let schema =
         item.schema ?? (item.response ? toSchema(item.response) : {});
 
-      // Deduplicate named middleware responses via $ref
+      // Every route points at one shared schema per middleware, status and
+      // content type; each distinct body the middleware sends joins its oneOf,
+      // as the merge below does for one route's responses.
       if (item.middlewareName) {
         const sanitizedCt = ct.replace(/\//g, '_');
         const sharedKey = `${item.middlewareName}${item.statusCode}_${sanitizedCt}`;
-        if (!this.#sharedResponses.has(sharedKey)) {
+        const shared = this.#sharedResponses.get(sharedKey);
+        const incoming = JSON.stringify(schema);
+        if (!shared) {
           this.#sharedResponses.set(sharedKey, schema);
+        } else if (shared.oneOf) {
+          if (!shared.oneOf.some((it) => JSON.stringify(it) === incoming)) {
+            shared.oneOf.push(schema);
+          }
+        } else if (JSON.stringify(shared) !== incoming) {
+          this.#sharedResponses.set(sharedKey, { oneOf: [shared, schema] });
         }
         schema = { $ref: `#/components/schemas/${sharedKey}` };
       }
@@ -233,6 +243,8 @@ export class Paths {
         media.schema = contentSchema;
         continue;
       }
+      // Different bodies for one status and content type become a oneOf; the
+      // shared middleware schemas above repeat this rule.
       const incoming = JSON.stringify(contentSchema);
       if (!isRef(existing) && existing.oneOf) {
         if (!existing.oneOf.some((it) => JSON.stringify(it) === incoming)) {
