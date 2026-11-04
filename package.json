@@ -72,9 +72,9 @@
     }
   },
   "dependencies": {
-    "@openai/agents": "^0.13.4",
+    "@openai/agents": "^0.21.0",
     "@types/pluralize": "^0.0.33",
-    "ai": "^7.0.29",
+    "ai": "^7.0.162",
     "hono": "^4.8.3",
     "yaml": "^2.8.0",
     "zod": "^4.3.0"

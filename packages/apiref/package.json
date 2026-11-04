@@ -9,14 +9,14 @@
     "name": "apiref"
   },
   "dependencies": {
-    "@ai-sdk/react": "^4.0.32",
+    "@ai-sdk/react": "^4.0.166",
     "@hono/node-server": "^1.14.4",
     "@react-router/node": "^7.18.1",
     "@sdk-it/core": "*",
     "@sdk-it/typescript": "*",
     "@streamdown/code": "^1.1.1",
     "@zukhruf/shadcn": "^0.6.16",
-    "ai": "^7.0.29",
+    "ai": "^7.0.162",
     "character-entities": "^2.0.2",
     "cn": "^0.4.0",
     "hono": "^4.8.3",

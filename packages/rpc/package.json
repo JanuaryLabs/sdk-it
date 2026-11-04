@@ -24,7 +24,7 @@
   "dependencies": {
     "@sdk-it/core": "0.46.11",
     "@sdk-it/spec": "0.46.11",
-    "ai": "^7.0.29",
+    "ai": "^7.0.162",
     "fast-content-type-parse": "^3.0.0",
     "openapi3-ts": "4.5.0",
     "zod": "^4.3.0"
