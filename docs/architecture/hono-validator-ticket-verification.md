@@ -478,5 +478,12 @@ bodies during named-response deduplication; **#2448** tracks exceptions thrown
 through variables. Application-specific Problem Details mapping remains owned by
 the application.
 
+**Update 2026-11-04:** #2447 is fixed in `317f5ee`. The source/package parity
+above held only because both sides kept the first 400 and 415 body. When every
+body was kept, the package side lost the bodies that `validate()` throws from
+its helpers (`parse`, `parseContentType`, `verifyContentType`), because
+`analyze` did not follow functions under `node_modules`. `e40ac75` follows every
+function that the program reads as source, so parity now holds for every body.
+
 **Unresolved:** no unanswered implementation decision. Review and release remain
 pending as requested; #2406 and #2443 retain their previously documented scope.
