@@ -458,3 +458,100 @@ test('the README snippet shows the body the client sends, not the first media ty
     assert.doesNotMatch(snippet, /xmlOnly/);
   }
 });
+
+const attachments: SchemaObject = {
+  type: 'object',
+  properties: {
+    files: { type: 'array', items: binary },
+    tags: { type: 'array', items: { type: 'string' } },
+    note: { type: 'string' },
+  },
+  required: ['files'],
+};
+
+test('a multipart array of files reaches the server as one part per file', async () => {
+  await using workspace = await workspaceDirectory('request-multipart-files-');
+  try {
+    const { diagnostics, client, sent } = await generateClient(
+      workspace.path,
+      notesSpec({ 'multipart/form-data': { schema: attachments } }),
+      `void client.request('POST /notes', { files: [new Blob(['a'])] });
+// @ts-expect-error files is a list of Blobs, not one Blob.
+void client.request('POST /notes', { files: new Blob(['a']) });`,
+    );
+
+    await client.request('POST /notes', {
+      files: [new Blob(['a']), new Blob(['b'])],
+    });
+
+    assert.deepEqual(diagnostics, []);
+    const files = (await sent[0].formData()).getAll('files');
+    assert.deepEqual(
+      await Promise.all(
+        files.map((file) => (typeof file === 'string' ? file : file.text())),
+      ),
+      ['a', 'b'],
+    );
+  } finally {
+    await stop();
+  }
+});
+
+test('a multipart array of strings reaches the server as one part per string', async () => {
+  await using workspace = await workspaceDirectory('request-multipart-tags-');
+  try {
+    const { diagnostics, client, sent } = await generateClient(
+      workspace.path,
+      notesSpec({ 'multipart/form-data': { schema: attachments } }),
+      `void client.request('POST /notes', { files: [], tags: ['x'] });`,
+    );
+
+    await client.request('POST /notes', { files: [], tags: ['x', 'y'] });
+
+    assert.deepEqual(diagnostics, []);
+    assert.deepEqual((await sent[0].formData()).getAll('tags'), ['x', 'y']);
+  } finally {
+    await stop();
+  }
+});
+
+test('a multipart field the caller leaves out sends no part', async () => {
+  await using workspace = await workspaceDirectory('request-multipart-absent-');
+  try {
+    const { diagnostics, client, sent } = await generateClient(
+      workspace.path,
+      notesSpec({ 'multipart/form-data': { schema: attachments } }),
+      `void client.request('POST /notes', { files: [] });`,
+    );
+
+    await client.request('POST /notes', { files: [new Blob(['a'])] });
+
+    assert.deepEqual(diagnostics, []);
+    const form = await sent[0].formData();
+    assert.deepEqual([...form.keys()], ['files']);
+  } finally {
+    await stop();
+  }
+});
+
+test('an empty multipart array sends no part', async () => {
+  await using workspace = await workspaceDirectory('request-multipart-empty-');
+  try {
+    const { diagnostics, client, sent } = await generateClient(
+      workspace.path,
+      notesSpec({ 'multipart/form-data': { schema: attachments } }),
+      `void client.request('POST /notes', { files: [], tags: [] });`,
+    );
+
+    await client.request('POST /notes', {
+      files: [new Blob(['a'])],
+      tags: [],
+    });
+
+    assert.deepEqual(diagnostics, []);
+    const form = await sent[0].formData();
+    assert.deepEqual([...form.keys()], ['files']);
+  } finally {
+    await stop();
+  }
+});

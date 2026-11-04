@@ -164,8 +164,14 @@ class EmptySerializer extends Serializer {
 class FormDataSerializer extends Serializer {
   getBody(): BodyInit | null {
     const body = new FormData();
+    // Like the query string: no part for a field left out, one part per array item.
     for (const prop of this.props.inputBody) {
-      body.append(prop, this.input[prop]);
+      const value = this.input[prop];
+      if (value !== undefined) {
+        for (const item of Array.isArray(value) ? value : [value]) {
+          body.append(prop, item);
+        }
+      }
     }
     return body;
   }
