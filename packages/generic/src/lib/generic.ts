@@ -76,14 +76,6 @@ import {
   sourceFiles,
 } from '@sdk-it/core/program.js';
 
-/**
- * Determines if a symbol refers to a local function (not from node_modules)
- */
-function isLocalFunction(symbol: TsSymbol): boolean {
-  const fileName = symbol.declarations[0]?.resolve()?.getSourceFile().fileName;
-  return !fileName?.includes('node_modules');
-}
-
 export interface MiddlewareSecurityRule {
   middleware: {
     import: string;
@@ -390,8 +382,9 @@ function returnTokens(node: Node, typeChecker: Checker) {
       symbol = typeChecker.getAliasedSymbol(symbol);
     }
 
-    // Third-party functions are not followed
-    if (!symbol || !isLocalFunction(symbol)) {
+    // Only source the program reads has a body to follow: a package that
+    // ships declarations does not, one read through @sdk-it/source does.
+    if (!symbol) {
       return;
     }
     const visited = returned
