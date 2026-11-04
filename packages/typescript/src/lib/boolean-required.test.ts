@@ -4,8 +4,8 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
-import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
+import { loadSpec } from '@sdk-it/spec';
 import { parseErrorFor, typecheck, workspaceDirectory } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
@@ -61,12 +61,14 @@ const spec = {
       },
     },
   },
-} as unknown as OpenAPIObject;
+};
 
 test('a schema whose required is a boolean generates a client: a required property is required, the others keep their own', async () => {
   await using workspace = await workspaceDirectory('boolean-required-');
   try {
-    await generate(spec, {
+    const specPath = join(workspace.path, 'openapi.json');
+    await writeFile(specPath, JSON.stringify(spec));
+    await generate((await loadSpec(specPath)).spec, {
       output: workspace.path,
       name: 'Profiles',
       readme: false,
