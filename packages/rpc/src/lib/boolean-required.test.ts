@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { rpc } from '@sdk-it/rpc';
 import { parseErrorFor } from '@sdk-it/testing';
@@ -60,7 +59,7 @@ const spec = {
       },
     },
   },
-} as unknown as OpenAPIObject;
+};
 
 test('rpc builds a client for a schema whose required is a boolean: a required property is required, the others keep their own', async () => {
   await using directory = await new TemporaryFiles().directory(
