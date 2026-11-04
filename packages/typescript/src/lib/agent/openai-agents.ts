@@ -47,7 +47,7 @@ function createTools(
       (input) => `tool({
       description: \`${operation.description || operation.summary}\`,
       name: '${inputName(operation['x-fn-name'], input)}',
-      parameters: makeOptionalPropsNullable(schemas.${inputSchemaName(operation.operationId, input)}),
+      parameters: schemas.${inputSchemaName(operation.operationId, input)},
 			execute: async (input, maybeContext) => {
         const context = coerceContext(maybeContext?.context);
         const client = context.client;

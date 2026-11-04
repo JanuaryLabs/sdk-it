@@ -645,6 +645,42 @@ test('a query array sends one entry per item under its key', async () => {
   }
 });
 
+test('a generated OpenAI Agents tool sends a call whose optional fields the model leaves null without those fields, and advertises them as required and nullable', async () => {
+  await using workspace = await workspaceDirectory('request-agents-null-');
+  try {
+    const { diagnostics, client, sent, sdk } = await generateClient(
+      workspace.path,
+      notesSpec({ 'application/json': { schema: form } }),
+      '',
+      'openai-agents',
+    );
+    const [createNote]: {
+      parameters: { required: string[]; properties: Record<string, unknown> };
+      invoke: (context: unknown, input: string) => Promise<unknown>;
+    }[] = sdk.notes;
+
+    await createNote.invoke(
+      { context: { client } },
+      JSON.stringify({ title: 't', note: null, tags: null }),
+    );
+
+    assert.deepEqual(diagnostics, []);
+    assert.deepEqual(await Promise.all(sent.map((request) => request.text())), [
+      '{"title":"t"}',
+    ]);
+    assert.deepEqual([...createNote.parameters.required].sort(), [
+      'note',
+      'tags',
+      'title',
+    ]);
+    assert.deepEqual(createNote.parameters.properties.note, {
+      anyOf: [{ type: 'string' }, { type: 'null' }],
+    });
+  } finally {
+    await stop();
+  }
+});
+
 function accountsSpec(): OpenAPIObject {
   const listed = { '204': { description: 'Done' } };
   return {
