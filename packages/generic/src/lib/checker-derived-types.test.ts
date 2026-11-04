@@ -146,6 +146,66 @@ export function issues(error: Rejected) {
   assert.deepStrictEqual(diagnostics, []);
 });
 
+test("a route that only uses validate() gives the generated client validate()'s 400 bodies, so a consumer narrows to the validation failure by its code and reads its field errors", async (t) => {
+  await using workspace = await analysisWorkspace('derived-validate-only-', {
+    'route.ts': `import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
+import { z } from 'zod';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+app.onError((error, c) => {
+  if (error instanceof HTTPException) return c.json({ message: error.message, cause: error.cause }, error.status);
+  throw error;
+});
+/** @openapi createItem */
+app.post('/items', validate('application/json', (payload) => ({
+  name: { select: payload.body.name, against: z.string() },
+})), (c) => c.json({ ok: true }));
+`,
+  });
+  const { spec } = await analyzeRoutes(t, workspace);
+  const output = join(workspace.path, 'client');
+  await generate(
+    {
+      openapi: '3.1.0',
+      info: { title: 'Items', version: '1.0.0' },
+      paths: spec.paths,
+      components: spec.components,
+    },
+    { output, name: 'Items', readme: false, mode: 'full' },
+  );
+  const consumer = join(output, 'src', 'consumer.ts');
+  await writeFile(
+    consumer,
+    `import { type Endpoints } from './index.ts';
+
+type Rejected = Extract<Endpoints['POST /items']['error'], { status: 400 }>;
+export function issues(error: Rejected) {
+  const { cause } = error.data;
+  if (cause.code === 'api/validation-failed') {
+    const name: { message: string; code: string; path: string }[] | undefined =
+      cause.errors['name'];
+    return name;
+  }
+  if (cause.code === 'api/invalid-json') {
+    // @ts-expect-error a body that is not JSON has no field errors.
+    return cause.errors;
+  }
+  return undefined;
+}
+`,
+  );
+  const configPath = join(output, 'tsconfig.json');
+  const config = JSON.parse(await readFile(configPath, 'utf8'));
+  config.compilerOptions.strict = true;
+  await writeFile(configPath, JSON.stringify(config));
+
+  const { files, diagnostics } = typecheck(configPath);
+
+  assert.ok(files.includes(consumer));
+  assert.deepStrictEqual(diagnostics, []);
+});
+
 const dataOnly = (properties: Record<string, unknown>) => ({
   type: 'object',
   properties,
