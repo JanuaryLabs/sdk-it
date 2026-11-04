@@ -226,3 +226,71 @@ test('rpc agents get a tool for every input a JSON tool call can send, each adve
     ],
   );
 });
+
+const attachments: SchemaObject = {
+  type: 'object',
+  properties: {
+    files: { type: 'array', items: binary },
+    tags: { type: 'array', items: { type: 'string' } },
+    note: { type: 'string' },
+  },
+  required: ['files'],
+};
+
+test('rpc sends a multipart array of files as one part per file', async () => {
+  await using directory = await new TemporaryFiles().directory('rpc-files-');
+  const { sent, fetch } = capture();
+  const client = await rpc(
+    await specFile(
+      directory.path,
+      notesSpec({ 'multipart/form-data': { schema: attachments } }),
+    ),
+    { fetch },
+  );
+
+  await client.request('POST /notes', {
+    files: [new Blob(['a']), new Blob(['b'])],
+  });
+
+  const files = (await sent[0].formData()).getAll('files');
+  assert.deepEqual(
+    await Promise.all(
+      files.map((file) => (typeof file === 'string' ? file : file.text())),
+    ),
+    ['a', 'b'],
+  );
+});
+
+test('rpc sends a multipart array of strings as one part per string', async () => {
+  await using directory = await new TemporaryFiles().directory('rpc-tags-');
+  const { sent, fetch } = capture();
+  const client = await rpc(
+    await specFile(
+      directory.path,
+      notesSpec({ 'multipart/form-data': { schema: attachments } }),
+    ),
+    { fetch },
+  );
+
+  await client.request('POST /notes', { files: [], tags: ['x', 'y'] });
+
+  assert.deepEqual((await sent[0].formData()).getAll('tags'), ['x', 'y']);
+});
+
+test('rpc sends no multipart part for a field the caller leaves out or an empty array', async () => {
+  await using directory = await new TemporaryFiles().directory('rpc-absent-');
+  const { sent, fetch } = capture();
+  const client = await rpc(
+    await specFile(
+      directory.path,
+      notesSpec({ 'multipart/form-data': { schema: attachments } }),
+    ),
+    { fetch },
+  );
+
+  await client.request('POST /notes', { files: [new Blob(['a'])] });
+  await client.request('POST /notes', { files: [new Blob(['a'])], tags: [] });
+
+  assert.deepEqual([...(await sent[0].formData()).keys()], ['files']);
+  assert.deepEqual([...(await sent[1].formData()).keys()], ['files']);
+});
