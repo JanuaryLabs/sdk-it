@@ -48,6 +48,14 @@ function toWireValue(value: any): string {
   return value instanceof Date ? value.toISOString() : String(value);
 }
 
+/** The values a field sends: none when the caller left it out, one per item of an array. */
+function wireItems(value: any): any[] {
+  if (value === undefined) {
+    return [];
+  }
+  return Array.isArray(value) ? value : [value];
+}
+
 type Props = {
   /** The media type the body is sent as. */
   contentType: string;
@@ -87,15 +95,8 @@ abstract class Serializer {
     }
 
     for (const key of this.props.inputQuery) {
-      const value = this.input[key];
-      if (value !== undefined) {
-        if (Array.isArray(value)) {
-          for (const item of value) {
-            url.searchParams.append(key, toWireValue(item));
-          }
-        } else {
-          url.searchParams.set(key, toWireValue(value));
-        }
+      for (const item of wireItems(this.input[key])) {
+        url.searchParams.append(key, toWireValue(item));
       }
     }
 
@@ -140,7 +141,9 @@ class UrlencodedSerializer extends Serializer {
   getBody(): BodyInit | null {
     const body = new URLSearchParams();
     for (const prop of this.props.inputBody) {
-      body.set(prop, toWireValue(this.input[prop]));
+      for (const item of wireItems(this.input[prop])) {
+        body.append(prop, toWireValue(item));
+      }
     }
     return body;
   }
@@ -164,13 +167,9 @@ class EmptySerializer extends Serializer {
 class FormDataSerializer extends Serializer {
   getBody(): BodyInit | null {
     const body = new FormData();
-    // Like the query string: no part for a field left out, one part per array item.
     for (const prop of this.props.inputBody) {
-      const value = this.input[prop];
-      if (value !== undefined) {
-        for (const item of Array.isArray(value) ? value : [value]) {
-          body.append(prop, item);
-        }
+      for (const item of wireItems(this.input[prop])) {
+        body.append(prop, item);
       }
     }
     return body;

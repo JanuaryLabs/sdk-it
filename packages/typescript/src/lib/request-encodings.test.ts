@@ -555,3 +555,92 @@ test('an empty multipart array sends no part', async () => {
     await stop();
   }
 });
+
+const form: SchemaObject = {
+  type: 'object',
+  properties: {
+    title: { type: 'string' },
+    note: { type: 'string' },
+    tags: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['title'],
+};
+
+test('a urlencoded field the caller leaves out sends no entry', async () => {
+  await using workspace = await workspaceDirectory(
+    'request-urlencoded-absent-',
+  );
+  try {
+    const { diagnostics, client, sent } = await generateClient(
+      workspace.path,
+      notesSpec({ 'application/x-www-form-urlencoded': { schema: form } }),
+      `void client.request('POST /notes', { title: 't' });`,
+    );
+
+    await client.request('POST /notes', { title: 't' });
+
+    assert.deepEqual(diagnostics, []);
+    assert.equal(await sent[0].text(), 'title=t');
+  } finally {
+    await stop();
+  }
+});
+
+test('a urlencoded array sends one entry per item under its key', async () => {
+  await using workspace = await workspaceDirectory('request-urlencoded-array-');
+  try {
+    const { diagnostics, client, sent } = await generateClient(
+      workspace.path,
+      notesSpec({ 'application/x-www-form-urlencoded': { schema: form } }),
+      `void client.request('POST /notes', { title: 't', tags: ['x'] });`,
+    );
+
+    await client.request('POST /notes', { title: 't', tags: ['x', 'y'] });
+
+    assert.deepEqual(diagnostics, []);
+    assert.deepEqual(new URLSearchParams(await sent[0].text()).getAll('tags'), [
+      'x',
+      'y',
+    ]);
+  } finally {
+    await stop();
+  }
+});
+
+test('a query array sends one entry per item under its key', async () => {
+  await using workspace = await workspaceDirectory('request-query-array-');
+  try {
+    const { diagnostics, client, sent } = await generateClient(
+      workspace.path,
+      {
+        openapi: '3.1.0',
+        info: { title: 'Notes', version: '1.0.0' },
+        servers: [{ url: 'https://api.test' }],
+        paths: {
+          '/notes': {
+            get: {
+              operationId: 'listNotes',
+              tags: ['notes'],
+              parameters: [
+                {
+                  name: 'tags',
+                  in: 'query',
+                  schema: { type: 'array', items: { type: 'string' } },
+                },
+              ],
+              responses: { '204': { description: 'Listed' } },
+            },
+          },
+        },
+      },
+      `void client.request('GET /notes', { tags: ['x'] });`,
+    );
+
+    await client.request('GET /notes', { tags: ['x', 'y'] });
+
+    assert.deepEqual(diagnostics, []);
+    assert.equal(new URL(sent[0].url).search, '?tags=x&tags=y');
+  } finally {
+    await stop();
+  }
+});
