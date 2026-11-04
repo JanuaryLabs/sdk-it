@@ -644,3 +644,88 @@ test('a query array sends one entry per item under its key', async () => {
     await stop();
   }
 });
+
+function accountsSpec(): OpenAPIObject {
+  const listed = { '204': { description: 'Done' } };
+  return {
+    openapi: '3.1.0',
+    info: { title: 'Accounts', version: '1.0.0' },
+    servers: [{ url: 'https://api.test' }],
+    tags: [
+      { name: 'User Profiles', description: 'Profiles of users' },
+      { name: '2fa', description: 'Two factor' },
+      { name: 'billing', description: 'Invoices' },
+    ],
+    paths: {
+      '/profiles': {
+        get: {
+          operationId: 'listProfiles',
+          tags: ['User Profiles'],
+          responses: listed,
+        },
+      },
+      '/2fa': {
+        post: {
+          operationId: 'enableTwoFactor',
+          tags: ['2fa'],
+          responses: listed,
+        },
+      },
+      '/invoices': {
+        get: {
+          operationId: 'listInvoices',
+          tags: ['billing'],
+          responses: listed,
+        },
+      },
+      '/health': { get: { operationId: 'checkHealth', responses: listed } },
+    },
+  };
+}
+
+test('the generated AI SDK tools keep every group: a spaced, a digit-leading and an untagged one', async () => {
+  await using workspace = await workspaceDirectory('request-tool-groups-');
+  try {
+    const { diagnostics, sdk } = await generateClient(
+      workspace.path,
+      accountsSpec(),
+      '',
+      'ai-sdk',
+    );
+
+    assert.deepEqual(diagnostics, []);
+    assert.deepEqual(Object.keys(sdk.userProfiles.tools), ['listProfiles']);
+    assert.deepEqual(Object.keys(sdk._2fa.tools), ['enableTwoFactor']);
+    assert.deepEqual(Object.keys(sdk.billing.tools), ['listInvoices']);
+    const everyTool = Object.values(sdk).flatMap((value) =>
+      value && typeof value === 'object' && 'tools' in value
+        ? Object.keys(Object(value.tools))
+        : [],
+    );
+    assert.ok(everyTool.includes('checkHealth'));
+  } finally {
+    await stop();
+  }
+});
+
+test('the generated OpenAI Agents tools compile and keep every group under the identifiers userProfiles, _2fa and billing', async () => {
+  await using workspace = await workspaceDirectory('request-agent-groups-');
+  try {
+    const { diagnostics, sdk } = await generateClient(
+      workspace.path,
+      accountsSpec(),
+      '',
+      'openai-agents',
+    );
+    const names = (group: unknown) =>
+      Array.isArray(group) ? group.map((tool) => tool.name) : [];
+
+    assert.deepEqual(diagnostics, []);
+    assert.deepEqual(names(sdk.userProfiles), ['listProfiles']);
+    assert.deepEqual(names(sdk._2fa), ['enableTwoFactor']);
+    assert.deepEqual(names(sdk.billing), ['listInvoices']);
+    assert.ok(Object.values(sdk).flatMap(names).includes('checkHealth'));
+  } finally {
+    await stop();
+  }
+});

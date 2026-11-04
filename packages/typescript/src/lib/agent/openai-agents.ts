@@ -1,5 +1,3 @@
-import { spinalcase } from 'stringcase';
-
 import {
   type IR,
   type OperationEntry,
@@ -11,6 +9,7 @@ import {
   operationInputs,
 } from '@sdk-it/spec';
 
+import { groupIdentifier } from '../group-identifier.ts';
 import { type MakeImportFn } from '../import-utilities.ts';
 import { inputSchemaName } from '../input-schema-name.ts';
 
@@ -26,7 +25,7 @@ export function generateOpenAIAgentTools(spec: IR, makeImport: MakeImportFn) {
     `import * as schemas from '${makeImport('./inputs/index')}';`,
   ];
   const tools = Object.entries(groups).map(([group, tools]) => {
-    return `export const ${spinalcase(group)} = [${tools.join(', ')}];`;
+    return `export const ${groupIdentifier(group)} = [${tools.join(', ')}];`;
   });
 
   return [...imports, ...tools].join('\n\n');

@@ -26,8 +26,8 @@ export function generateAISDKTools(ir: IR, makeImport: MakeImportFn) {
   forEachOperation(ir, (entry, operation) => {
     const tagDef = ir.tags.find((tag) => tag.name === entry.tag);
     if (!tagDef) {
-      console.warn(`No tag details found for tag: ${entry.tag}`);
-      return;
+      // normalize-tags gives every operation's tag a definition.
+      throw new Error(`The IR defines no tag ${entry.tag}`);
     }
 
     groups[entry.tag] ??= {
