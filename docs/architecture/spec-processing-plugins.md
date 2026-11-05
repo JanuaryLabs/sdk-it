@@ -73,7 +73,9 @@ continue.
    paths and rejects collisions.
 2. `normalize-operation-ids` creates identifier-safe, unique operation IDs and
    derives function names.
-3. `normalize-tags` sanitizes or infers operation tags and function groups.
+3. `normalize-tags` sanitizes or infers operation tags and function groups,
+   and gives each group a tag definition: an authored definition and tag group
+   entry take the group name, and the authored name stays as `x-displayName`.
 4. `normalize-parameters` merges path-level and operation-level parameters,
    with operation parameters taking precedence.
 5. `normalize-responses` resolves and names response schemas and adds a
