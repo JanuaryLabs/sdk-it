@@ -2,7 +2,7 @@ import type { Hono } from 'hono';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
+import { createRequire, findPackageJSON } from 'node:module';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
@@ -30,8 +30,9 @@ app.post('/items', validate('application/json', (payload) => ({
 })), (c) => { return c.json({ name: c.var.input.name }); });
 `,
   });
-  const require = createRequire(import.meta.url);
-  const packageRoot = dirname(require.resolve('@sdk-it/hono/package.json'));
+  const manifest = findPackageJSON('@sdk-it/hono', import.meta.url);
+  assert.ok(manifest, '@sdk-it/hono resolves from this test');
+  const packageRoot = dirname(manifest);
   const installed = join(dir.path, 'node_modules/@sdk-it/hono');
   // npm pack prints only the tarball's file name on stdout; its --json shape differs between npm 11 and 12.
   const tarball = execFileSync(

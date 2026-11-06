@@ -1582,7 +1582,7 @@ app.get('/employee', validate(() => ({})), (c) => {
       .filter((m) => Array.isArray(m.enum) && m.type === 'string')
       .flatMap((m) => m.enum);
     assert.deepStrictEqual(
-      [...literals].sort(),
+      literals.toSorted(),
       [
         'Analyst',
         'Associate',
@@ -1929,7 +1929,7 @@ describe('zod v3 → v4 migration characterization: composition', () => {
         Array.isArray(field.type),
         'union -> anyOf, oneOf or type array',
       );
-      assert.deepStrictEqual([...field.type].sort(), ['number', 'string']);
+      assert.deepStrictEqual(field.type.toSorted(), ['number', 'string']);
     }
   });
 

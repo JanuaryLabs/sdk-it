@@ -48,9 +48,9 @@ import {
   SymbolFlags,
   type Symbol as TsSymbol,
 } from '@typescript/native/sync';
-import debug from 'debug';
 import { realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { debuglog } from 'node:util';
 import type { SecurityRequirementObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
@@ -317,7 +317,7 @@ function requirementKey(requirement: SecurityRequirementObject) {
   return JSON.stringify(
     Object.keys(requirement)
       .sort()
-      .map((scheme) => [scheme, [...requirement[scheme]].sort()]),
+      .map((scheme) => [scheme, requirement[scheme].toSorted()]),
   );
 }
 
@@ -531,7 +531,7 @@ function returnTokens(node: Node, typeChecker: Checker) {
   return tokens;
 }
 
-const logger = debug('@sdk-it/generic');
+const logger = debuglog('@sdk-it/generic');
 
 const jsDocsTags = [
   'openapi',
