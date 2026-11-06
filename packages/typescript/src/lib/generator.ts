@@ -12,7 +12,7 @@ import { groupIdentifier } from './group-identifier.ts';
 import { inputSchemaName } from './input-schema-name.ts';
 import type { ModelNamer } from './model-name.ts';
 import { moduleFileName } from './module-file.ts';
-import { fileReferences } from './references.ts';
+import { type References, fileReferences } from './references.ts';
 import { type Operation, type Spec, toEndpoint } from './sdk.ts';
 import type { Style } from './style.ts';
 
@@ -29,36 +29,31 @@ export interface Import {
   namespaceImport: string | undefined;
 }
 
-export function generateCode(config: {
-  /**
-   * No support for jsdoc in vscode
-   * @issue https://github.com/microsoft/TypeScript/issues/38106
-   */
+/**
+ * A spec's operations as code: per group, its routes (with their input
+ * schemas) and endpoint entries, and the shared zod schemas the inputs
+ * reference, each after the ones it uses.
+ */
+export function operationFragments(config: {
   spec: IR;
-  style: Style;
-  makeImport: (module: string) => string;
   modelName: ModelNamer;
+  /** How shared zod schemas name model types. */
+  zodRefs: References;
+  /** How endpoint entries name what they use. */
+  endpointRefs: References;
 }) {
   const commonZod = new Map<string, string>();
-  const commonZodImports: Import[] = [];
   const zodDeserialzer = new ZodEmitter(
     config.spec,
     config.modelName,
-    fileReferences('models'),
+    config.zodRefs,
     (model, schema) => {
       commonZod.set(model, schema);
-      commonZodImports.push({
-        defaultImport: undefined,
-        isTypeOnly: true,
-        moduleSpecifier: `./${config.makeImport(model)}`,
-        namedImports: [{ isTypeOnly: true, name: model }],
-        namespaceImport: undefined,
-      });
     },
   );
 
   const groups: Spec['operations'] = {};
-  const endpoints: Record<string, ReturnType<typeof toEndpoint>[]> = {};
+  const endpoints: Record<string, string[]> = {};
 
   forEachOperation(config.spec, (entry, operation) => {
     groups[entry.tag] ??= [];
@@ -76,15 +71,34 @@ export function generateCode(config: {
       })),
     };
     endpoints[entry.tag].push(
-      toEndpoint(
+      ...toEndpoint(
         entry.tag,
         operation,
         route,
         config.modelName,
-        fileReferences('outputs'),
-      ),
+        config.endpointRefs,
+      ).schemas,
     );
     groups[entry.tag].push(route);
+  });
+  return { groups, commonZod, endpoints };
+}
+
+export function generateCode(config: {
+  /**
+   * No support for jsdoc in vscode
+   * @issue https://github.com/microsoft/TypeScript/issues/38106
+   */
+  spec: IR;
+  style: Style;
+  makeImport: (module: string) => string;
+  modelName: ModelNamer;
+}) {
+  const { groups, commonZod, endpoints } = operationFragments({
+    spec: config.spec,
+    modelName: config.modelName,
+    zodRefs: fileReferences('models'),
+    endpointRefs: fileReferences('outputs'),
   });
   const allSchemas = Object.keys(endpoints).map((it) => ({
     import: `import ${groupIdentifier(it)} from './${config.makeImport(moduleFileName(it))}';`,
@@ -103,8 +117,8 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
 `.trim(),
       ...Object.fromEntries(
         Object.entries(endpoints)
-          .map(([name, endpoint]) => {
-            const operations = endpoint.flatMap((it) => it.schemas).join(',\n');
+          .map(([name, entries]) => {
+            const operations = entries.join(',\n');
             return [
               [
                 join('api', `${moduleFileName(name)}.ts`),

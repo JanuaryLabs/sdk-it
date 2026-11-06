@@ -1,5 +1,7 @@
 import { extname } from 'node:path';
 
+import { rootRuntimeFiles } from './root-exports.ts';
+
 interface Entry {
   name: string;
   isFolder: boolean;
@@ -19,7 +21,7 @@ const folders: IndexedFolder[] = [
   { folder: 'api' },
   {
     folder: 'http',
-    ignore: (entry) => !['response.ts', 'parser.ts'].includes(entry.name),
+    ignore: (entry) => !rootRuntimeFiles.includes(`http/${entry.name}`),
   },
   { folder: 'models' },
 ];

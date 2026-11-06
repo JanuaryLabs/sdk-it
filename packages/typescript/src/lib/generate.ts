@@ -24,16 +24,22 @@ import {
 import { generateAISDKTools } from './agent/ai-sdk.ts';
 import { generateOpenAIAgentTools } from './agent/openai-agents.ts';
 import utilsTxt from './agent/utils.txt';
-import backend from './client.ts';
+import backend, {
+  clientDeclarations,
+  clientDeclaredNames,
+  clientRuntimeExports,
+  clientRuntimeTypeExports,
+} from './client.ts';
 import { TypeScriptEmitter } from './emitters/interface.ts';
 import { indexFiles } from './folder-index.ts';
-import { generateCode } from './generator.ts';
+import { generateCode, operationFragments } from './generator.ts';
 import { type MakeImportFn } from './import-utilities.ts';
 import { type ModelNamer, createModelNamer } from './model-name.ts';
 import { moduleFileName } from './module-file.ts';
+import { assembleModule, moduleReferences } from './one-module.ts';
 import type { TypeScriptGeneratorOptions } from './options.ts';
 import { toReadme } from './readme/readme.ts';
-import { fileReferences } from './references.ts';
+import { type References, fileReferences } from './references.ts';
 import type { Operation } from './sdk.ts';
 import { expandServerUrls } from './server-urls.ts';
 import type { Style } from './style.ts';
@@ -56,6 +62,55 @@ export async function render(
   options: RenderOptions,
 ): Promise<Record<string, string>> {
   return renderFiles(await toSdkIR(openapi, options), options);
+}
+
+export interface ModuleOptions {
+  name: string;
+}
+
+/**
+ * The SDK as one TypeScript module that carries the runtime source, for hosts
+ * that load a spec as a module (a content mapper, a bundler plugin, a loader).
+ * It exports what the SDK root of `render()` exports. Reads and writes nothing
+ * on disk.
+ */
+export async function renderModule(
+  openapi: OpenAPIDocument,
+  options: ModuleOptions,
+): Promise<{ text: string }> {
+  const spec = await toSdkIR(openapi, {});
+  const name = pascalcase(options.name.trim());
+  const modelName = createModelNamer(name);
+  const { groups, commonZod, endpoints } = operationFragments({
+    spec,
+    modelName,
+    zodRefs: moduleReferences,
+    endpointRefs: moduleReferences,
+  });
+  const client = {
+    name,
+    servers: expandServerUrls(spec.servers),
+    securitySchemes: spec.components.securitySchemes,
+  };
+  return {
+    text: assembleModule({
+      commonZod,
+      inputs: Object.values(groups)
+        .flat()
+        .flatMap((operation) =>
+          operation.inputs.map(({ schemaName, zod }) => ({
+            name: schemaName,
+            zod,
+          })),
+        ),
+      models: modelDeclarations(spec, modelName, moduleReferences),
+      endpoints: Object.values(endpoints).flat(),
+      client: clientDeclarations(client, moduleReferences, '__routes'),
+      clientNames: clientDeclaredNames(name),
+      runtimeExports: clientRuntimeExports,
+      runtimeTypeExports: clientRuntimeTypeExports(client),
+    }),
+  };
 }
 
 export async function generate(
@@ -197,7 +252,10 @@ export async function generate(
   return { packageName };
 }
 
-async function toSdkIR(openapi: OpenAPIDocument, options: RenderOptions) {
+async function toSdkIR(
+  openapi: OpenAPIDocument,
+  options: Pick<RenderOptions, 'pagination'>,
+) {
   // A requirement with no local scheme leaves the client unable to authenticate,
   // so refuse rather than emit an SDK that always gets a 401.
   const unresolvedSecuritySchemes = new Set<string>();
@@ -276,10 +334,53 @@ function renderFiles(spec: IR, options: RenderOptions) {
   };
 }
 
+/** A model type an SDK declares. */
+interface ModelDeclaration {
+  typeName: string;
+  /** The JSDoc that goes before the declaration, or ''. */
+  doc: string;
+  type: string;
+  /** The file a multi-file SDK declares it in. */
+  file: string;
+  /** Whether `type` is the runtime's SSEListener. */
+  sse: boolean;
+}
+
 function serializeModels(spec: IR, modelName: ModelNamer) {
-  const refs = fileReferences('models');
   const filesMap: Record<string, string[]> = {};
   const files: Record<string, string> = {};
+  for (const model of modelDeclarations(
+    spec,
+    modelName,
+    fileReferences('models'),
+  )) {
+    const fileContent = [
+      ...(model.sse
+        ? [`import type { SSEListener } from '../http/sse.ts';`]
+        : []),
+      `\n${model.doc}`,
+      `export type ${model.typeName} = ${model.type};`,
+    ];
+    filesMap[model.file] ??= [];
+    filesMap[model.file].push(fileContent.join('\n'));
+  }
+
+  for (const [group, contents] of Object.entries(filesMap)) {
+    let fileContent = contents.join('\n');
+    if (fileContent.includes('models.')) {
+      fileContent = `import type * as models from '../index.ts';\n${fileContent}`;
+    }
+    files[group] = fileContent;
+  }
+  return files;
+}
+
+function modelDeclarations(
+  spec: IR,
+  modelName: ModelNamer,
+  refs: References,
+): ModelDeclaration[] {
+  const models: ModelDeclaration[] = [];
   const responseBodies = new Map<string, ResponseBody>();
   forEachOperation(spec, (_, operation) => {
     for (const response of Object.values(operation.responses)) {
@@ -318,31 +419,17 @@ function serializeModels(spec: IR, modelName: ModelNamer) {
       );
     }
 
-    const imports: string[] = [];
-    if (body === 'sse') {
-      imports.push(`import type { SSEListener } from '../http/sse.ts';`);
-    }
-
-    const fileContent = [
-      ...imports,
-      `\n${schema.description ? `\n/** \n * ${schema.description}\n */\n` : ''}`,
-      `export type ${modelName(name)} = ${typeContent};`,
-    ];
-    const fileName = responseGroup
-      ? join(folder, `${moduleFileName(responseGroup)}.ts`)
-      : join(folder, `${moduleFileName(name)}.ts`);
-    filesMap[fileName] ??= [];
-    filesMap[fileName].push(fileContent.join('\n'));
+    models.push({
+      typeName: modelName(name),
+      doc: schema.description ? `\n/** \n * ${schema.description}\n */\n` : '',
+      type: typeContent,
+      file: responseGroup
+        ? join(folder, `${moduleFileName(responseGroup)}.ts`)
+        : join(folder, `${moduleFileName(name)}.ts`),
+      sse: body === 'sse',
+    });
   }
-
-  for (const [group, contents] of Object.entries(filesMap)) {
-    let fileContent = contents.join('\n');
-    if (fileContent.includes('models.')) {
-      fileContent = `import type * as models from '../index.ts';\n${fileContent}`;
-    }
-    files[group] = fileContent;
-  }
-  return files;
+  return models;
 }
 
 export function toInputs(

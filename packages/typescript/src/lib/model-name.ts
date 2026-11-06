@@ -1,26 +1,11 @@
-import runtimeSources from 'runtime-sources';
-
 import { pascalcase } from '@sdk-it/core';
 import { sanitizeTag } from '@sdk-it/spec';
 
 import { clientExports } from './client.ts';
+import { runtimeRootExports } from './root-exports.ts';
 import { securityTypeExports } from './security.ts';
 
 export type ModelNamer = (schemaName: string) => string;
-
-const exportedName =
-  /^export\s+(?:declare\s+)?(?:abstract\s+)?(?:class|type|interface|const|function|enum)\s+([A-Z]\w*)/gm;
-
-/** PascalCase runtime names the generated SDK root exports besides its models; consumers import them (APIError, NotFound, …). */
-const runtimeRootExports = new Set([
-  ...[
-    runtimeSources['http/response.ts'],
-    runtimeSources['http/parser.ts'],
-  ].flatMap((source) =>
-    [...source.matchAll(exportedName)].map(([, name]) => name),
-  ),
-  ...securityTypeExports,
-]);
 
 /**
  * Names model types so that none shadows a runtime or client export of the SDK
@@ -28,7 +13,8 @@ const runtimeRootExports = new Set([
  */
 export function createModelNamer(clientName: string): ModelNamer {
   const reserved = new Set([
-    ...runtimeRootExports,
+    ...runtimeRootExports.map(({ name }) => name),
+    ...securityTypeExports,
     ...clientExports(clientName),
   ]);
   const owners = new Map<string, string>();
