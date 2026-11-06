@@ -1708,13 +1708,9 @@ describe('generate — security options assembly', () => {
       join(directory.path, 'http/index.ts'),
       'utf8',
     );
-    const source = readFileSync(
-      join(directory.path, 'http/security.ts'),
-      'utf8',
-    );
-    const credentialsBlock = source.slice(
-      source.indexOf('const credentialsSchema'),
-      source.indexOf('const securitySchemes'),
+    const credentialsBlock = clientSource.slice(
+      clientSource.indexOf('const credentialsSchema'),
+      clientSource.indexOf('const optionsSchema'),
     );
     assert.deepStrictEqual(
       ['oauth2', 'personalToken', 'planToken'].map(

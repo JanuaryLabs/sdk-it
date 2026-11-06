@@ -37,7 +37,6 @@ import offsetPaginationTxt from './paginations/offset-pagination.txt';
 import paginationTxt from './paginations/page-pagination.txt';
 import { toReadme } from './readme/readme.ts';
 import type { Operation } from './sdk.ts';
-import security from './security.ts';
 import { expandServerUrls } from './server-urls.ts';
 import type { Style } from './style.ts';
 import { TypeScriptSnippet } from './typescript-snippet.ts';
@@ -258,14 +257,6 @@ function renderFiles(spec: IR, options: RenderOptions) {
         withSdkImports(source, makeImport),
       ]),
     ),
-    ...(Object.keys(spec.components.securitySchemes).length
-      ? {
-          'http/security.ts': security({
-            makeImport,
-            securitySchemes: spec.components.securitySchemes,
-          }),
-        }
-      : {}),
     'client.ts': backend({
       name: clientName,
       servers: expandServerUrls(spec.servers ?? []),

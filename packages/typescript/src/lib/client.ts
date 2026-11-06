@@ -3,10 +3,29 @@ import { toLitObject } from '@sdk-it/core';
 import type { Spec } from './sdk.ts';
 import { securityTypeExports } from './security.ts';
 
+type SecurityScheme = Spec['securitySchemes'][string];
+
+function credentialSchemaName(scheme: SecurityScheme) {
+  if (scheme.type === 'mutualTLS') {
+    return 'mutualTlsCredentialSchema';
+  }
+  if (scheme.type === 'http' && scheme.scheme?.toLowerCase() === 'basic') {
+    return 'basicCredentialSchema';
+  }
+  return 'stringCredentialSchema';
+}
+
 export default (spec: Omit<Spec, 'operations'>) => {
   const callableString = `z.custom<() => string | Promise<string>>((value) => typeof value === 'function')`;
   const baseUrlSchema = `z.union([z.string(),${callableString},])${spec.servers.length === 1 ? '.default(servers[0])' : ''}`;
   const securitySchemeNames = Object.keys(spec.securitySchemes);
+  const credentialSchemas = Object.entries(spec.securitySchemes).map(
+    ([name, scheme]) => [name, credentialSchemaName(scheme)] as const,
+  );
+  const securityImports = [
+    'createSecurityInterceptor',
+    ...new Set(credentialSchemas.map(([, schema]) => schema)),
+  ].sort();
 
   const specOptions: Record<string, { schema: string }> = {
     ...(securitySchemeNames.length
@@ -55,10 +74,15 @@ import { createHeadersInterceptor } from './http/${spec.makeImport('interceptors
 import { type ParseError, parseInput } from './http/${spec.makeImport('parser')}';${
     securitySchemeNames.length
       ? `
-import { credentialsSchema, createSecurityInterceptor } from './http/${spec.makeImport('security')}';
+import { ${securityImports.join(', ')} } from './http/${spec.makeImport('security')}';
 export type {
 ${securityTypeExports.map((name) => `  ${name},`).join('\n')}
-} from './http/${spec.makeImport('security')}';`
+} from './http/${spec.makeImport('security')}';
+
+const securitySchemes = ${JSON.stringify(spec.securitySchemes, null, 2)} as const;
+const credentialsSchema = z.object({
+${credentialSchemas.map(([name, schema]) => `  ${JSON.stringify(name)}: ${schema}.optional(),`).join('\n')}
+});`
       : ''
   }
 
@@ -140,7 +164,7 @@ export async function request<const E extends keyof typeof schemas>(
         { ...options.headers },
         requestOptions?.headers ?? {},
       ),
-${securitySchemeNames.length ? '      createSecurityInterceptor(route.security, options.credentials),\n' : ''}    ],
+${securitySchemeNames.length ? '      createSecurityInterceptor(route.security, options.credentials, securitySchemes),\n' : ''}    ],
     ...(requestOptions?.signal ? { signal: requestOptions.signal } : {}),
   });
   return result as Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>;
@@ -174,7 +198,7 @@ export async function prepare<const E extends keyof typeof schemas>(
       { ...options.headers },
       requestOptions?.headers ?? {},
     ),
-${securitySchemeNames.length ? '    createSecurityInterceptor(route.security, options.credentials),\n' : ''}  ];
+${securitySchemeNames.length ? '    createSecurityInterceptor(route.security, options.credentials, securitySchemes),\n' : ''}  ];
 
   let config = route.toRequest(parsedInput as never, options.baseUrl);
   if (requestOptions?.signal) {
