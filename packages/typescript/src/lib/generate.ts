@@ -1,4 +1,3 @@
-import { template } from 'lodash-es';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
@@ -262,7 +261,7 @@ import { buffered } from '${makeImport('./parse-response')}';
 import { type SSEListener } from '${makeImport('./sse')}';
 import { APIError, APIResponse, type SuccessfulResponse, type RebindSuccessPayload } from '${makeImport('./response')}';
 
-${template(dispatcherTxt, {})()}`,
+${dispatcherTxt}`,
 
     'http/interceptors.ts': `
     import type { RequestConfig, HeadersInit } from './${makeImport('request')}';

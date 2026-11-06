@@ -1,4 +1,3 @@
-import { template } from 'lodash-es';
 import { join } from 'node:path';
 
 import {
@@ -98,7 +97,7 @@ import type { ProblematicResponse, SuccessfulResponse, APIResponse } from '${con
 
 import schemas from '${config.makeImport('./schemas')}';
 import type { Unionize } from '${config.makeImport('../http/dispatcher')}';
-      ${template(endpointsTxt)({})}`,
+      ${endpointsTxt}`,
       [`${join('api', 'schemas.ts')}`]:
         `${allSchemas.map((it) => it.import).join('\n')}
 
