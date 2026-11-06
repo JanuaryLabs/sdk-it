@@ -9,7 +9,8 @@ import {
   readdirSync,
   writeFileSync,
 } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
@@ -93,6 +94,11 @@ function sourceFiles(dir: string) {
 }
 
 test('render reads and writes nothing outside the code it loads', async () => {
+  // The code it loads is the repository and the install its node_modules
+  // links to, which can live elsewhere: a pre-push snapshot links each
+  // package to the repository's own install.
+  const zod = fileURLToPath(import.meta.resolve('zod'));
+  const install = zod.slice(0, zod.lastIndexOf(`${sep}node_modules${sep}`));
   await using workingFolder = await new TemporaryFiles().directory(
     'render-no-disk-',
   );
@@ -112,6 +118,7 @@ test('render reads and writes nothing outside the code it loads', async () => {
     [
       '--permission',
       `--allow-fs-read=${repoRoot}`,
+      `--allow-fs-read=${install}`,
       '--input-type=module',
       '--eval',
       script,

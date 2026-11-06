@@ -9,7 +9,7 @@ import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { registerHooks } from 'node:module';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
@@ -846,6 +846,11 @@ export { uploaded, downloaded, logs, listen, events };
 
 void test('renderModule writes nothing and reads nothing outside the repository', async () => {
   const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url));
+  // The code it loads is the repository and the install its node_modules
+  // links to, which can live elsewhere: a pre-push snapshot links each
+  // package to the repository's own install.
+  const zod = fileURLToPath(import.meta.resolve('zod'));
+  const install = zod.slice(0, zod.lastIndexOf(`${sep}node_modules${sep}`));
   await using workingFolder = await new TemporaryFiles().directory(
     'render-module-no-disk-',
   );
@@ -860,6 +865,7 @@ void test('renderModule writes nothing and reads nothing outside the repository'
     [
       '--permission',
       `--allow-fs-read=${repoRoot}`,
+      `--allow-fs-read=${install}`,
       '--input-type=module',
       '--eval',
       script,
