@@ -1,9 +1,12 @@
+import { HttpServer } from '@zukhruf/testing/http';
 import { test } from '@zukhruf/testing/node';
 import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { TestContext } from 'node:test';
+import { text } from 'node:stream/consumers';
 import { pathToFileURL } from 'node:url';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 
@@ -92,54 +95,57 @@ async function generateClient(
   return { diagnostics, client, sent, sdk, agents };
 }
 
-/** Captures what `run` prints through console, stdout or stderr, restoring each once it settles. */
-async function printedBy(t: TestContext, run: () => Promise<void>) {
-  const spies = [
-    ...(
-      [
-        'log',
-        'info',
-        'warn',
-        'error',
-        'debug',
-        'dir',
-        'table',
-        'trace',
-      ] as const
-    ).map((method) => t.mock.method(console, method, () => undefined)),
-    t.mock.method(process.stdout, 'write', () => true),
-    t.mock.method(process.stderr, 'write', () => true),
-  ];
-  try {
-    await run();
-  } finally {
-    for (const spy of spies) spy.mock.restore();
-  }
-  return spies.flatMap((spy) => spy.mock.calls.map((call) => call.arguments));
-}
-
-/** What each request a JSON tool call sent carried: its media type and body. */
-async function sentBodies(sent: Request[]) {
-  return Promise.all(
-    sent.map(async (request) => [
+/** The API the agent tools call: it records each request and answers 204. */
+async function upstream() {
+  const requests: (string | undefined)[][] = [];
+  const server = await new HttpServer().start(async (request, response) => {
+    requests.push([
       request.method,
-      request.url,
-      request.headers.get('content-type'),
-      await request.text(),
-    ]),
-  );
+      new URL(request.url ?? '', `http://${request.headers.host}`).href,
+      request.headers['content-type'],
+      await text(request),
+    ]);
+    response.writeHead(204);
+    response.end();
+  });
+  return {
+    url: server.origin,
+    requests,
+    [Symbol.asyncDispose]: () => server[Symbol.asyncDispose](),
+  };
 }
 
-const toolCalls = [
-  ['POST', 'https://api.test/notes', 'application/json', '{"title":"json"}'],
-  [
-    'POST',
-    'https://api.test/notes',
-    'application/x-www-form-urlencoded',
-    'title=form',
-  ],
-  ['POST', 'https://api.test/notes', 'text/plain', 'plain'],
-];
+/**
+ * Runs `script` as a module in `directory` (beside the SDK bundle) in its own
+ * Node process, with `baseUrl` as its first argument, and returns what it
+ * printed.
+ */
+async function runScript(directory: string, script: string, baseUrl: string) {
+  const path = join(directory, 'tools.mjs');
+  await writeFile(path, script);
+  const child = spawn(process.execPath, [path, baseUrl], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 60_000,
+  });
+  const stdout = text(child.stdout);
+  const stderr = text(child.stderr);
+  const [exitCode] = await once(child, 'close');
+  return { exitCode, stdout: await stdout, stderr: await stderr };
+}
+
+/** The requests the three JSON tool calls send to the API at `origin`. */
+function toolCalls(origin: string) {
+  return [
+    ['POST', `${origin}/notes`, 'application/json', '{"title":"json"}'],
+    [
+      'POST',
+      `${origin}/notes`,
+      'application/x-www-form-urlencoded',
+      'title=form',
+    ],
+    ['POST', `${origin}/notes`, 'text/plain', 'plain'],
+  ];
+}
 
 const binary: SchemaObject = { type: 'string', format: 'binary' };
 
@@ -361,25 +367,31 @@ void client.request('text POST /notes', { $body: new Blob(['raw']) });`,
   }
 });
 
-test('the generated AI SDK tools give every input a JSON tool call can send its own tool, each validating and sending its own input without printing it', async (t) => {
+test('the generated AI SDK tools give every input a JSON tool call can send its own tool, each validating and sending its own input without printing it', async () => {
   await using workspace = await workspaceDirectory('request-variant-tools-');
+  await using api = await upstream();
   try {
-    const { diagnostics, client, sent, agents } = await generateClient(
+    const { diagnostics, agents } = await generateClient(
       workspace.path,
       notesSpec(everyEncoding),
       '',
       'ai-sdk',
     );
     const { tools } = agents.notes;
-    const context = { context: { client } };
 
-    const printed = await printedBy(t, async () => {
-      await tools.createNote.execute({ title: 'json' }, context);
-      await tools.createNoteUrlencoded.execute({ title: 'form' }, context);
-      await tools.createNoteText.execute({ $body: 'plain' }, context);
-    });
+    const printed = await runScript(
+      workspace.path,
+      `import { createNotes } from './bundle/index.mjs';
+import { notes } from './bundle/agents.mjs';
+const context = { context: { client: createNotes({ baseUrl: process.argv[2] }) } };
+await notes.tools.createNote.execute({ title: 'json' }, context);
+await notes.tools.createNoteUrlencoded.execute({ title: 'form' }, context);
+await notes.tools.createNoteText.execute({ $body: 'plain' }, context);
+`,
+      api.url,
+    );
 
-    assert.deepEqual(printed, []);
+    assert.deepEqual(printed, { exitCode: 0, stdout: '', stderr: '' });
     assert.deepEqual(diagnostics, []);
     assert.deepEqual(Object.keys(tools), [
       'createNote',
@@ -394,46 +406,47 @@ test('the generated AI SDK tools give every input a JSON tool call can send its 
       tools.createNote.inputSchema.safeParse({ $body: 'x' }).success,
       false,
     );
-    assert.deepEqual(await sentBodies(sent), toolCalls);
+    assert.deepEqual(api.requests, toolCalls(api.url));
   } finally {
     await stop();
   }
 });
 
-test('the generated OpenAI Agents tools load, with a tool for every input a JSON tool call can send, each parsing and sending its own input without printing it', async (t) => {
+test('the generated OpenAI Agents tools load, with a tool for every input a JSON tool call can send, each parsing and sending its own input without printing it', async () => {
   await using workspace = await workspaceDirectory('request-variant-agents-');
+  await using api = await upstream();
   try {
-    const { diagnostics, client, sent, agents } = await generateClient(
+    const { diagnostics, agents } = await generateClient(
       workspace.path,
       notesSpec(everyEncoding),
       '',
       'openai-agents',
     );
-    const tools: {
-      name: string;
-      invoke: (context: unknown, input: string) => Promise<unknown>;
-    }[] = agents.notes;
-    const context = { context: { client } };
+    const tools: { name: string }[] = agents.notes;
 
-    const printed = await printedBy(t, async () => {
-      for (const [name, input] of [
-        ['createNote', { title: 'json' }],
-        ['createNoteUrlencoded', { title: 'form' }],
-        ['createNoteText', { $body: 'plain' }],
-      ] as const) {
-        await tools
-          .find((tool) => tool.name === name)
-          ?.invoke(context, JSON.stringify(input));
-      }
-    });
+    const printed = await runScript(
+      workspace.path,
+      `import { createNotes } from './bundle/index.mjs';
+import { notes } from './bundle/agents.mjs';
+const context = { context: { client: createNotes({ baseUrl: process.argv[2] }) } };
+for (const [name, input] of [
+  ['createNote', { title: 'json' }],
+  ['createNoteUrlencoded', { title: 'form' }],
+  ['createNoteText', { $body: 'plain' }],
+]) {
+  await notes.find((tool) => tool.name === name).invoke(context, JSON.stringify(input));
+}
+`,
+      api.url,
+    );
 
-    assert.deepEqual(printed, []);
+    assert.deepEqual(printed, { exitCode: 0, stdout: '', stderr: '' });
     assert.deepEqual(diagnostics, []);
     assert.deepEqual(
       tools.map((tool) => tool.name),
       ['createNote', 'createNoteUrlencoded', 'createNoteText'],
     );
-    assert.deepEqual(await sentBodies(sent), toolCalls);
+    assert.deepEqual(api.requests, toolCalls(api.url));
   } finally {
     await stop();
   }
