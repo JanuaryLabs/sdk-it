@@ -51,12 +51,7 @@ function compileSdk(options: BuildOptions): Promise<any> {
     extraSchema: options.extraSchema,
     output: options.output,
   });
-  let compiled = compiledSdks.get(key);
-  if (!compiled) {
-    compiled = bundleSdk(options);
-    compiledSdks.set(key, compiled);
-  }
-  return compiled;
+  return compiledSdks.getOrInsertComputed(key, () => bundleSdk(options));
 }
 
 async function bundleSdk(options: BuildOptions): Promise<any> {
@@ -547,9 +542,7 @@ describe('emitted client runtime: 204 No Content responses', () => {
       () => client.request('GET /users', {}),
       (error: unknown) => {
         assert.ok(error instanceof module.APIError);
-        assert.ok(
-          error instanceof Error && 'status' in error && 'data' in error,
-        );
+        assert.ok(Error.isError(error) && 'status' in error && 'data' in error);
         assert.strictEqual(error.status, 304);
         assert.strictEqual(error.data, null);
         return true;

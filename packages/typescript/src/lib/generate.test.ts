@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
+import { setImmediate } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import { createContext, runInContext } from 'node:vm';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
@@ -791,7 +792,7 @@ describe('generate — http runtime', () => {
       (error) => {
         assert.ok(error instanceof generated.NotFound);
         assert.equal(error instanceof generated.APIError, true);
-        assert.equal(error instanceof Error, true, 'an HTTP error is an Error');
+        assert.equal(Error.isError(error), true, 'an HTTP error is an Error');
         assert.equal(error.status, 404);
         assert.equal(error.headers.get('content-type'), 'application/json');
         assert.deepStrictEqual(error.data, { message: 'Item not found' });
@@ -868,7 +869,7 @@ describe('generate — http runtime', () => {
 
     await assert.rejects(client.request('GET /items', {}), (error) => {
       assert.ok(error instanceof generated.APIError);
-      assert.equal(error instanceof Error, true, 'an HTTP error is an Error');
+      assert.equal(Error.isError(error), true, 'an HTTP error is an Error');
       assert.equal(error.constructor, generated.APIError);
       assert.equal(error.status, 503);
       assert.equal(error.data, page);
@@ -936,7 +937,7 @@ describe('generate — http runtime', () => {
 
     await assert.rejects(client.request('GET /items', {}), (error) => {
       assert.ok(error instanceof generated.APIError);
-      assert.equal(error instanceof Error, true, 'an HTTP error is an Error');
+      assert.equal(Error.isError(error), true, 'an HTTP error is an Error');
       assert.equal(error.data instanceof Blob, true);
       assert.equal(error.message, 'Request failed with status code 500');
       return true;
@@ -1067,7 +1068,7 @@ describe('generate — http runtime', () => {
     // Start iterating only after the reader has seen the failure, so the
     // queued event and the error are both pending when the caller reads.
     await streamErrored.promise;
-    await new Promise((resolve) => setImmediate(resolve));
+    await setImmediate();
     const received: string[] = [];
     await assert.rejects(
       async () => {

@@ -9,15 +9,14 @@ import {
   readdirSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, relative } from 'node:path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
 import { typecheck, workspaceDirectory } from '@sdk-it/testing';
 import { generate, render } from '@sdk-it/typescript';
 
-const packageDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const packageDir = join(import.meta.dirname, '..', '..');
 const repoRoot = join(packageDir, '..', '..');
 
 function petStore(schemas: string[]): OpenAPIObject {

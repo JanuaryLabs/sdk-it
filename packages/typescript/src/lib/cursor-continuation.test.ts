@@ -4,6 +4,7 @@ import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { text } from 'node:stream/consumers';
 import { pathToFileURL } from 'node:url';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 
@@ -364,10 +365,7 @@ export async function exercise(baseUrl: string) {
                   );
                   values.limit = Number(values.limit);
                 } else {
-                  const chunks = await Array.fromAsync(request, (chunk) =>
-                    Buffer.from(chunk),
-                  );
-                  values = JSON.parse(Buffer.concat(chunks).toString());
+                  values = JSON.parse(await text(request));
                 }
                 requests.push(values);
                 if (requests.length > (name === 'mixed token' ? 6 : 5)) {

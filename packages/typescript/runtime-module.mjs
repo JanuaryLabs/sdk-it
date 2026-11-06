@@ -94,26 +94,22 @@ export function runtimeModule(tsconfigPath) {
           runtimePaths.has(path),
         );
         if (!declaration) {
-          const entry = globals.get(node.text) ?? {
-            name: node.text,
+          const entry = globals.getOrInsertComputed(node.text, (name) => ({
+            name,
             occurrences: [],
-          };
+          }));
           entry.occurrences.push(at(node));
-          globals.set(node.text, entry);
           return;
         }
         const key = bindingKey(symbol.name, declaration.resolve(project));
         if (!key) return;
-        if (!bindings.has(key)) {
-          bindings.set(key, {
-            kind: 'external',
-            name: symbol.name,
-            module: key.slice(0, key.lastIndexOf('#')),
-            occurrences: [],
-            shorthands: [],
-          });
-        }
-        const entry = bindings.get(key);
+        const entry = bindings.getOrInsertComputed(key, () => ({
+          kind: 'external',
+          name: symbol.name,
+          module: key.slice(0, key.lastIndexOf('#')),
+          occurrences: [],
+          shorthands: [],
+        }));
         (shorthand ? entry.shorthands : entry.occurrences).push(at(node));
       });
       const text = applyDeletions(file.text, file.edits);

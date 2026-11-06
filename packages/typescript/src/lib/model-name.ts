@@ -21,10 +21,8 @@ export function createModelNamer(clientName: string): ModelNamer {
   return (schemaName) => {
     const base = pascalcase(sanitizeTag(schemaName));
     const name = reserved.has(base) ? `${base}_` : base;
-    const owner = owners.get(name);
-    if (owner === undefined) {
-      owners.set(name, schemaName);
-    } else if (owner !== schemaName) {
+    const owner = owners.getOrInsert(name, schemaName);
+    if (owner !== schemaName) {
       throw new TypeError(
         `Schemas "${owner}" and "${schemaName}" both become the TypeScript type ${name}; rename one of them in the spec`,
       );

@@ -4,6 +4,7 @@ import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { json } from 'node:stream/consumers';
 import { pathToFileURL } from 'node:url';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 
@@ -199,10 +200,7 @@ void invalid;
                   ]),
                 );
               } else {
-                const chunks = await Array.fromAsync(request, (chunk) =>
-                  Buffer.from(chunk),
-                );
-                input = JSON.parse(Buffer.concat(chunks).toString());
+                input = await json(request);
               }
               response.setHeader('Content-Type', 'application/json');
               response.end(

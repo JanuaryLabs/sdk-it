@@ -1,11 +1,11 @@
 import { readFile, readdir } from 'node:fs/promises';
-import { createRequire } from 'node:module';
+import { findPackageJSON } from 'node:module';
 import { dirname, join } from 'node:path';
 
 import { runtimeModule } from './runtime-module.mjs';
 
 const runtimePackage = dirname(
-  createRequire(import.meta.url).resolve('@sdk-it/runtime/package.json'),
+  findPackageJSON('@sdk-it/runtime', import.meta.url),
 );
 const runtimeSource = join(runtimePackage, 'src');
 
