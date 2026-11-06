@@ -3,7 +3,7 @@ import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdir, symlink, writeFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
+import { findPackageJSON } from 'node:module';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
 import { promisify } from 'node:util';
@@ -15,12 +15,9 @@ import {
 } from '@sdk-it/core/program.js';
 
 const execFileAsync = promisify(execFile);
-const tsc = join(
-  dirname(
-    createRequire(import.meta.url).resolve('@typescript/native/package.json'),
-  ),
-  'bin/tsc',
-);
+const compiler = findPackageJSON('@typescript/native', import.meta.url);
+assert.ok(compiler, '@typescript/native resolves from this test');
+const tsc = join(dirname(compiler), 'bin/tsc');
 
 async function writeProject(files: Record<string, string>) {
   await using pending = new AsyncDisposableStack();

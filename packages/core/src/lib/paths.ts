@@ -271,7 +271,7 @@ export class Paths {
     try {
       evaluated = await evalZod(selector.against, this.#imports);
     } catch (error) {
-      if (!(error instanceof Error)) {
+      if (!Error.isError(error)) {
         throw error;
       }
       throw new Error(`${site}: ${error.message}`, { cause: error });

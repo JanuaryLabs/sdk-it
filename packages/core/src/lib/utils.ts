@@ -132,5 +132,5 @@ export function sortObjectKeys<V>(obj: Record<string, V>): Record<string, V> {
  * sortArray(['z', 'a', 'm']) // ['a', 'm', 'z']
  */
 export function sortArray(arr: string[]): string[] {
-  return [...arr].sort((a, b) => a.localeCompare(b));
+  return arr.toSorted((a, b) => a.localeCompare(b));
 }

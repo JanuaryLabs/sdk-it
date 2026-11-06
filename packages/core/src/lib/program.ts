@@ -10,6 +10,7 @@ import {
   type Program,
   formatDiagnosticsWithColorAndContext,
 } from '@typescript/native/sync';
+import { isErrno } from '@zukhruf/fs';
 import { realpathSync } from 'node:fs';
 
 /** A program opened to read source. It never emits. */
@@ -28,7 +29,7 @@ function realTsconfigPath(tsconfigPath: string): string {
     return realpathSync(tsconfigPath);
   } catch (error) {
     // realpath names the first missing directory, not the file the caller passed.
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+    if (isErrno(error, 'ENOENT')) {
       throw new Error(
         `Failed to read ${tsconfigPath}: the file does not exist`,
         { cause: error },

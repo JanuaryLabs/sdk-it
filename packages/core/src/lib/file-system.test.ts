@@ -158,7 +158,7 @@ describe('File System Utilities - Error-First Testing', () => {
         await writeFiles(readOnlyPath, content);
         assert.fail('Should have thrown an error for read-only directory');
       } catch (error) {
-        assert.ok(error instanceof Error);
+        assert.ok(Error.isError(error));
       }
     });
 

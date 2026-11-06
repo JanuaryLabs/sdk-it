@@ -1,7 +1,7 @@
 import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
 import { cp, mkdir, readFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
+import { createRequire, findPackageJSON } from 'node:module';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
@@ -10,8 +10,11 @@ import { evalZod } from '@sdk-it/core';
 
 test('Zod consumers receive an explicit version contract and incompatible-schema diagnostics', async () => {
   const require = createRequire(import.meta.url);
-  const coreRoot = dirname(require.resolve('@sdk-it/core/package.json'));
-  const zodRoot = dirname(require.resolve('zod/package.json'));
+  const coreManifest = findPackageJSON('@sdk-it/core', import.meta.url);
+  const zodManifest = findPackageJSON('zod', import.meta.url);
+  assert.ok(coreManifest && zodManifest, '@sdk-it/core and zod resolve');
+  const coreRoot = dirname(coreManifest);
+  const zodRoot = dirname(zodManifest);
   await using workspace = await new TemporaryFiles().directory(
     'sdk-it-zod-consumer-',
   );
