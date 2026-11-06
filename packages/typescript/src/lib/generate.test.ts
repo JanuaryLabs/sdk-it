@@ -1516,7 +1516,9 @@ describe('generate — client initialization', () => {
         'utf8',
       );
       clientBlocks.push(
-        readme.match(/const demo = new Demo\([\s\S]*?\);/)?.[0],
+        readme.match(
+          /import \{ demo \} from [^;]*;|const demo = createDemo\([\s\S]*?\);/,
+        )?.[0],
       );
     }
 

@@ -226,13 +226,21 @@ export class TypeScriptSnippet implements Generator {
     }
 
     const client = this.#constructClient(options);
-    return `${client.import}\n\n${client.use}`;
+    return client.use ? `${client.import}\n\n${client.use}` : client.import;
   }
 
-  #constructClient(options: Record<string, unknown> = {}) {
+  /** The default instance when the README needs no settings, else a client created with them. */
+  #constructClient(options: Record<string, unknown>) {
+    const instance = camelcase(this.#clientName);
+    if (isEmpty(options)) {
+      return {
+        import: `import { ${instance} } from '${this.#packageName}';`,
+        use: '',
+      };
+    }
     return {
-      import: `import { ${this.#clientName} } from '${this.#packageName}';`,
-      use: `const ${camelcase(this.#clientName)} = new ${this.#clientName}({\n\t\t${Object.entries(
+      import: `import { create${this.#clientName} } from '${this.#packageName}';`,
+      use: `const ${instance} = create${this.#clientName}({\n\t\t${Object.entries(
         options,
       )
         .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
@@ -752,7 +760,7 @@ export class TypeScriptSnippet implements Generator {
       initialClientSetup.use,
       '',
       '// Later, update specific options',
-      'client.setOptions({',
+      `${camelcase(this.#clientName)}.setOptions({`,
       "  baseUrl: 'https://api.staging-service.com',",
     ];
 
