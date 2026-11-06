@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { runInNewContext } from 'node:vm';
 
 import { command } from '@sdk-it/command';
 import { ttyStdin } from '@sdk-it/testing';
@@ -109,4 +110,31 @@ test('an operation that declares no response content succeeds and prints nothing
     '',
   );
   assert.equal(process.exitCode, exitCode);
+});
+
+test('a fetch that fails with an Error from another realm prints its name and message to stderr', async (t) => {
+  await using workspace = await new TemporaryFiles().directory(
+    'sdk-it-command-realm-',
+  );
+  using _tty = ttyStdin();
+  const specPath = join(workspace.path, 'openapi.json');
+  await writeFile(specPath, JSON.stringify(usersSpec));
+  const program = await command(specPath, {
+    name: 'users',
+    fetch: () =>
+      Promise.reject(runInNewContext('new TypeError("network down")')),
+  });
+  program.exitOverride();
+  const stderr = t.mock.method(process.stderr, 'write', () => true);
+
+  await program.parseAsync(['node', 'users', 'getUser', '--userId', 'u_7']);
+  stderr.mock.restore();
+
+  assert.deepStrictEqual(
+    JSON.parse(
+      stderr.mock.calls.map((call) => String(call.arguments[0])).join(''),
+    ),
+    { error: true, message: 'network down', name: 'TypeError' },
+  );
+  assert.equal(process.exitCode, 1);
 });
