@@ -1,15 +1,13 @@
 import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { text } from 'node:stream/consumers';
 import { describe, it } from 'node:test';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
 import { cleanFiles, readWriteMetadata } from '@sdk-it/spec';
+import { runNode } from '@sdk-it/testing';
 
 describe('Metadata File Management - Error-First Testing', () => {
   describe('readWriteMetadata - Attack Phase: Unreadable metadata.json', () => {
@@ -493,24 +491,20 @@ describe('cleanFiles debug log', () => {
     );
     await writeFile(join(workspace.path, 'kept.ts'), 'kept');
     await writeFile(join(workspace.path, 'stale.ts'), 'stale');
-    const child = spawn(
-      process.execPath,
+    const { exitCode, stdout, stderr } = await runNode(
       [
         '--input-type=module',
         '-e',
         "const { cleanFiles } = await import('@sdk-it/spec'); await cleanFiles({ generatedFiles: ['/kept.ts'], userFiles: [] }, process.argv[1]);",
         workspace.path,
       ],
-      { env, stdio: ['ignore', 'pipe', 'pipe'] },
+      { env },
     );
-    const stderr = text(child.stderr);
-    const stdout = text(child.stdout);
-    const [exitCode] = await once(child, 'close');
-    assert.equal(exitCode, 0, `${await stdout}${await stderr}`);
+    assert.equal(exitCode, 0, `${stdout}${stderr}`);
     return {
       remaining: await readdir(workspace.path),
       stale: join(workspace.path, 'stale.ts'),
-      stderr: await stderr,
+      stderr,
     };
   }
 
