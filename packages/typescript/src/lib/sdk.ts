@@ -67,8 +67,13 @@ export function toEndpoint(
 
   for (const route of operation.inputs) {
     const schemaRef = refs.input(groupName, route.schemaName);
+    const key = refs.located(`"${route.endpoint}"`, [
+      'paths',
+      operation.path,
+      operation.method,
+    ]);
     schemas.push(
-      `"${route.endpoint}": {
+      `${key}: {
           security: ${JSON.stringify(specOperation.security)} as readonly ${refs.global('Record')}<string, readonly string[]>[],
           schema: ${schemaRef},
           output:[${outputs.join(',')}],

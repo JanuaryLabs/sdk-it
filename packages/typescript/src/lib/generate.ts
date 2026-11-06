@@ -4,7 +4,12 @@ import { npmRunPathEnv } from 'npm-run-path';
 import runtimeSources from 'runtime-sources';
 import { spinalcase } from 'stringcase';
 
-import { type OpenAPIDocument, pascalcase } from '@sdk-it/core';
+import {
+  type OpenAPIDocument,
+  isRef,
+  parseRef,
+  pascalcase,
+} from '@sdk-it/core';
 import {
   type WriteContent,
   addLeadingSlash,
@@ -17,6 +22,7 @@ import {
   type ResponseBody,
   cleanFiles,
   forEachOperation,
+  pointerTokens,
   readWriteMetadata,
   toIR,
 } from '@sdk-it/spec';
@@ -36,7 +42,11 @@ import { generateCode, operationFragments } from './generator.ts';
 import { type MakeImportFn } from './import-utilities.ts';
 import { type ModelNamer, createModelNamer } from './model-name.ts';
 import { moduleFileName } from './module-file.ts';
-import { assembleModule, moduleReferences } from './one-module.ts';
+import {
+  type ModuleSpan,
+  assembleModule,
+  moduleReferences,
+} from './one-module.ts';
 import type { TypeScriptGeneratorOptions } from './options.ts';
 import { toReadme } from './readme/readme.ts';
 import { type References, fileReferences } from './references.ts';
@@ -44,6 +54,8 @@ import type { Operation } from './sdk.ts';
 import { expandServerUrls } from './server-urls.ts';
 import type { Style } from './style.ts';
 import { TypeScriptSnippet } from './typescript-snippet.ts';
+
+export type { ModuleSpan } from './one-module.ts';
 
 export interface RenderOptions {
   name: string;
@@ -71,13 +83,14 @@ export interface ModuleOptions {
 /**
  * The SDK as one TypeScript module that carries the runtime source, for hosts
  * that load a spec as a module (a content mapper, a bundler plugin, a loader).
- * It exports what the SDK root of `render()` exports. Reads and writes nothing
- * on disk.
+ * It exports what the SDK root of `render()` exports. `spans` maps the names
+ * the module declares to where the document declares them. Reads and writes
+ * nothing on disk.
  */
 export async function renderModule(
   openapi: OpenAPIDocument,
   options: ModuleOptions,
-): Promise<{ text: string }> {
+): Promise<{ text: string; spans: ModuleSpan[] }> {
   const spec = await toSdkIR(openapi, {});
   const name = pascalcase(options.name.trim());
   const modelName = createModelNamer(name);
@@ -92,25 +105,108 @@ export async function renderModule(
     servers: expandServerUrls(spec.servers),
     securitySchemes: spec.components.securitySchemes,
   };
+  const bodies = inlineBodyLocations(spec);
+  const { text, spans } = assembleModule({
+    commonZod,
+    inputs: Object.values(groups)
+      .flat()
+      .flatMap((operation) =>
+        operation.inputs.map(({ schemaName, zod }) => ({
+          name: schemaName,
+          zod,
+        })),
+      ),
+    models: modelDeclarations(spec, modelName, moduleReferences).map(
+      ({ schemaName, inline, typeName, doc, type }) => ({
+        typeName,
+        doc,
+        type,
+        location: inline
+          ? bodies.get(schemaName)
+          : ['components', 'schemas', schemaName],
+      }),
+    ),
+    endpoints: Object.values(endpoints).flat(),
+    client: clientDeclarations(client, moduleReferences, '__routes'),
+    clientNames: clientDeclaredNames(name),
+    runtimeExports: clientRuntimeExports,
+    runtimeTypeExports: clientRuntimeTypeExports(client),
+  });
   return {
-    text: assembleModule({
-      commonZod,
-      inputs: Object.values(groups)
-        .flat()
-        .flatMap((operation) =>
-          operation.inputs.map(({ schemaName, zod }) => ({
-            name: schemaName,
-            zod,
-          })),
-        ),
-      models: modelDeclarations(spec, modelName, moduleReferences),
-      endpoints: Object.values(endpoints).flat(),
-      client: clientDeclarations(client, moduleReferences, '__routes'),
-      clientNames: clientDeclaredNames(name),
-      runtimeExports: clientRuntimeExports,
-      runtimeTypeExports: clientRuntimeTypeExports(client),
+    text,
+    spans: spans.flatMap((span) => {
+      const location = documentLocation(openapi, span.location);
+      return location ? [{ ...span, location }] : [];
     }),
   };
+}
+
+/**
+ * Where the document the caller passed holds what `location` names in the IR.
+ * The walk follows each `$ref` it meets as a pointer into this document, so
+ * the body of a referenced response is where the reference points. Undefined
+ * where the document has nothing there: spec made it up (a success response
+ * for an operation without one), rewrote its key (a `:id` path), or a
+ * reference leads to another document.
+ */
+function documentLocation(document: unknown, location: readonly string[]) {
+  let current = document;
+  let path: readonly string[] = [];
+  for (const token of location) {
+    while (isRef(current)) {
+      path = pointerTokens(current.$ref.slice(1));
+      current = valueAt(document, path);
+    }
+    if (!hasMember(current, token)) {
+      return undefined;
+    }
+    current = Reflect.get(current, token);
+    path = [...path, token];
+  }
+  return path;
+}
+
+function hasMember(value: unknown, token: string): value is object {
+  return typeof value === 'object' && value !== null && token in value;
+}
+
+function valueAt(document: unknown, path: readonly string[]) {
+  let current = document;
+  for (const token of path) {
+    if (!hasMember(current, token)) {
+      return undefined;
+    }
+    current = Reflect.get(current, token);
+  }
+  return current;
+}
+
+/**
+ * The response body that references each schema. Spec replaces an inline body
+ * with a reference to the schema it makes from it, so for such a schema this is
+ * where its body sat in the document.
+ */
+function inlineBodyLocations(spec: IR) {
+  const locations = new Map<string, readonly string[]>();
+  forEachOperation(spec, (entry, operation) => {
+    for (const [status, response] of Object.entries(operation.responses)) {
+      for (const [type, media] of Object.entries(response.content)) {
+        if (isRef(media.schema)) {
+          locations.set(parseRef(media.schema.$ref).model, [
+            'paths',
+            entry.path,
+            entry.method,
+            'responses',
+            status,
+            'content',
+            type,
+            'schema',
+          ]);
+        }
+      }
+    }
+  });
+  return locations;
 }
 
 export async function generate(
@@ -336,6 +432,10 @@ function renderFiles(spec: IR, options: RenderOptions) {
 
 /** A model type an SDK declares. */
 interface ModelDeclaration {
+  /** The key of its schema in the IR's `components.schemas`. */
+  schemaName: string;
+  /** Whether spec made the schema from an inline response body. */
+  inline: boolean;
   typeName: string;
   /** The JSDoc that goes before the declaration, or ''. */
   doc: string;
@@ -420,6 +520,8 @@ function modelDeclarations(
     }
 
     models.push({
+      schemaName: name,
+      inline: responseGroup !== undefined,
       typeName: modelName(name),
       doc: schema.description ? `\n/** \n * ${schema.description}\n */\n` : '',
       type: typeContent,

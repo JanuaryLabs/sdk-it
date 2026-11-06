@@ -40,6 +40,11 @@ export interface References {
   status(className: string): string;
   runtime(name: RuntimeName): string;
   global(name: EmittedGlobal): string;
+  /**
+   * `text`, which names what the OpenAPI document declares at `location`
+   * (RFC 6901 reference tokens, unescaped).
+   */
+  located(text: string, location: readonly string[]): string;
 }
 
 /**
@@ -56,5 +61,6 @@ export function fileReferences(
     status: (className) => `http.${className}`,
     runtime: (name) => name,
     global: (name) => name,
+    located: (text) => text,
   };
 }

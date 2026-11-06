@@ -6,8 +6,9 @@ import { runtimeRootExports } from './root-exports.ts';
 /**
  * The names a one-module SDK uses: spec names as declared, and runtime names
  * and globals as marks that `assembleModule` resolves once it knows which spec
- * names take a runtime name or shadow a global. Generated code never contains
- * a NUL character (JSON.stringify escapes it), so a mark cannot collide.
+ * names take a runtime name or shadow a global; a located name is marked with
+ * its location (`@` and the location JSON, then the name). Generated code never
+ * contains a NUL character (JSON.stringify escapes it), so a mark cannot collide.
  */
 export const moduleReferences: References = {
   model: (typeName) => typeName,
@@ -15,13 +16,32 @@ export const moduleReferences: References = {
   status: (className) => `\0${className}\0`,
   runtime: (name) => `\0${name}\0`,
   global: (name) => `\0globalThis.${name}\0`,
+  located: (text, location) => `\0@${JSON.stringify(location)}\0${text}\0`,
 };
+
+/**
+ * A range of a one-module SDK's text (UTF-16 offsets, `end` exclusive) that
+ * names what the OpenAPI document declares at `location` (RFC 6901 reference
+ * tokens, unescaped): an endpoint key, a model, create<Name>, the default
+ * instance.
+ */
+export interface ModuleSpan {
+  start: number;
+  end: number;
+  location: readonly string[];
+}
 
 export interface ModuleParts {
   /** Shared zod schemas by name, each after the ones it uses. */
   commonZod: Map<string, string>;
   inputs: { name: string; zod: string }[];
-  models: { typeName: string; doc: string; type: string }[];
+  /** `location` is where the document declares the model, when it does. */
+  models: {
+    typeName: string;
+    doc: string;
+    type: string;
+    location: readonly string[] | undefined;
+  }[];
   /** Endpoint entries (`"GET /pets": {…}`) of the table the client reads as `__routes`. */
   endpoints: string[];
   /** The client declarations over `__routes`. */
@@ -40,7 +60,10 @@ export interface ModuleParts {
  * spec name takes is renamed `__<name>`, and a global a spec name shadows is
  * read as `globalThis.<name>`.
  */
-export function assembleModule(parts: ModuleParts): string {
+export function assembleModule(parts: ModuleParts): {
+  text: string;
+  spans: ModuleSpan[];
+} {
   const specNames = new Set([
     ...parts.commonZod.keys(),
     ...parts.inputs.map(({ name }) => name),
@@ -77,20 +100,16 @@ export function assembleModule(parts: ModuleParts): string {
       );
     }
   }
-  const resolve = (code: string) =>
-    code.replaceAll(
-      /\0(globalThis\.)?([A-Za-z_$][\w$]*)\0/g,
-      (_, global: string | undefined, name: string) => {
-        if (global) {
-          return specNames.has(name) ? `globalThis.${name}` : name;
-        }
-        const finalName = declaredName.get(name);
-        if (finalName === undefined) {
-          throw new TypeError(`The runtime declares no ${name}`);
-        }
-        return finalName;
-      },
-    );
+  const nameOf = (name: string, global: boolean) => {
+    if (global) {
+      return specNames.has(name) ? `globalThis.${name}` : name;
+    }
+    const finalName = declaredName.get(name);
+    if (finalName === undefined) {
+      throw new TypeError(`The runtime declares no ${name}`);
+    }
+    return finalName;
+  };
 
   const values = runtimeRootExports
     .filter(({ type }) => !type)
@@ -98,25 +117,47 @@ export function assembleModule(parts: ModuleParts): string {
   const types = runtimeRootExports
     .filter(({ type }) => type)
     .map(({ name }) => name);
-  return [
+  const pieces = [
     externalImports(names),
     runtimeText(names, specNames),
     ...[...parts.commonZod].map(
-      ([name, schema]) => `const ${name} = ${resolve(schema)};`,
+      ([name, schema]) => `const ${name} = ${schema};`,
     ),
-    ...parts.inputs.map(
-      ({ name, zod }) => `export const ${name} = ${resolve(zod)};`,
-    ),
+    ...parts.inputs.map(({ name, zod }) => `export const ${name} = ${zod};`),
     ...parts.models.map(
-      ({ typeName, doc, type }) =>
-        `${doc}export type ${typeName} = ${resolve(type)};`,
+      ({ typeName, doc, type, location }) =>
+        `${doc}export type ${location ? moduleReferences.located(typeName, location) : typeName} = ${type};`,
     ),
-    `const __routes = {\n${parts.endpoints.map(resolve).join(',\n')}\n};`,
-    resolve(parts.client),
+    `const __routes = {\n${parts.endpoints.join(',\n')}\n};`,
+    parts.client,
     `export { ${[...values, ...parts.runtimeExports].join(', ')} };`,
     `export type { ${[...types, ...parts.runtimeTypeExports].join(', ')} };`,
-  ].join('\n');
+  ];
+
+  let text = '';
+  const spans: ModuleSpan[] = [];
+  for (const [index, piece] of pieces.entries()) {
+    if (index > 0) text += '\n';
+    let cursor = 0;
+    for (const mark of piece.matchAll(marks)) {
+      text += piece.slice(cursor, mark.index);
+      const [, location, located, global, name] = mark;
+      if (location !== undefined) {
+        const start = text.length;
+        text += located;
+        spans.push({ start, end: text.length, location: JSON.parse(location) });
+      } else {
+        text += nameOf(name, global !== undefined);
+      }
+      cursor = mark.index + mark[0].length;
+    }
+    text += piece.slice(cursor);
+  }
+  return { text, spans };
 }
+
+/** A located name (location JSON, then text) or a runtime name or global mark of `moduleReferences`. */
+const marks = /\0@([^\0]*)\0([^\0]*)\0|\0(globalThis\.)?([A-Za-z_$][\w$]*)\0/g;
 
 /**
  * Each runtime binding's name in the module, by its index in

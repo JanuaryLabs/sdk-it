@@ -86,11 +86,14 @@ export type ${name}Settings = ${refs.runtime('ClientSettings')}<typeof __api>;
 export type ${name}Endpoints = ${refs.runtime('EndpointsOf')}<typeof __api>;
 ${credentials.length ? `export type ${name}Credentials = z.input<typeof __credentialsSchema>;` : ''}
 
-export function create${name}(settings: ${name}Settings): ${name}Client {
+export function ${refs.located(`create${name}`, title)}(settings: ${name}Settings): ${name}Client {
   return ${refs.runtime('createClient')}(__api, settings);
 }
-${spec.servers.length <= 1 ? `\nexport const ${camelcase(name)} = create${name}({});\n` : ''}`;
+${spec.servers.length <= 1 ? `\nexport const ${refs.located(camelcase(name), title)} = create${name}({});\n` : ''}`;
 }
+
+/** The provider exports name the API the document describes. */
+const title = ['info', 'title'];
 
 /** client.ts imports the client types and factory under `__` aliases. */
 const aliased = new Set<RuntimeName>([
