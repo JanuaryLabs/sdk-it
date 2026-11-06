@@ -63,7 +63,8 @@
           "@sdk-it/command",
           "@sdk-it/generic",
           "@sdk-it/hono",
-          "@sdk-it/rpc"
+          "@sdk-it/rpc",
+          "@sdk-it/runtime"
         ]
       },
       "cache": true,

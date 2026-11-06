@@ -43,6 +43,9 @@
       "path": "./packages/command"
     },
     {
+      "path": "./packages/runtime"
+    },
+    {
       "path": "./packages/testing"
     }
   ]
