@@ -1,16 +1,16 @@
 import { version as compilerVersion } from '@typescript/native';
-import { createHash } from 'node:crypto';
+import { hash } from 'node:crypto';
 import { access, readFile, readdir } from 'node:fs/promises';
-import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
 
+import cli from '@sdk-it/cli/package.json' with { type: 'json' };
 import type { generate } from '@sdk-it/typescript';
+import typescript from '@sdk-it/typescript/package.json' with { type: 'json' };
 
-const require = createRequire(import.meta.url);
 const projectGeneratorVersions = {
-  cli: require('@sdk-it/cli/package.json').version,
+  cli: cli.version,
   compiler: compilerVersion,
-  typescript: require('@sdk-it/typescript/package.json').version,
+  typescript: typescript.version,
 };
 
 type ProjectOpenApi = Parameters<typeof generate>[0];
@@ -19,9 +19,10 @@ export function hashProject(
   openapi: ProjectOpenApi,
   packageName: string,
 ): string {
-  return createHash('sha256')
-    .update(JSON.stringify({ openapi, packageName, projectGeneratorVersions }))
-    .digest('hex');
+  return hash(
+    'sha256',
+    JSON.stringify({ openapi, packageName, projectGeneratorVersions }),
+  );
 }
 
 export async function isCurrentGeneratedPackage(
@@ -84,7 +85,7 @@ async function readOptionalFile(path: string): Promise<string | undefined> {
   try {
     return await readFile(path, 'utf8');
   } catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+    if (Error.isError(error) && 'code' in error && error.code === 'ENOENT') {
       return undefined;
     }
     throw error;

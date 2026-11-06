@@ -1,4 +1,5 @@
 import { Option } from 'commander';
+import { execFileSync } from 'node:child_process';
 
 export const specOption = new Option(
   '-s, --spec <spec>',
@@ -18,6 +19,23 @@ export function shellEnv(name: string): string {
   return process.platform === 'win32'
     ? `%${name}%` // Windows cmd.exe
     : `$${name}`; // POSIX shells
+}
+
+/**
+ * Runs the `--formatter` command on the generated output, which it finds in
+ * SDK_IT_OUTPUT. Generation waits for it and fails when it fails; its stderr
+ * is part of the error.
+ */
+export function runFormatter(
+  formatter: string,
+  output: string,
+  env: NodeJS.ProcessEnv,
+) {
+  const [command, ...args] = formatter.split(' ');
+  execFileSync(command, args, {
+    env: { ...env, SDK_IT_OUTPUT: output },
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
 }
 
 /**

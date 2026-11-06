@@ -230,11 +230,7 @@ async function validateTsconfig(path: string): Promise<void> {
   try {
     if ((await stat(path)).isFile()) return;
   } catch (error) {
-    if (!(
-      error instanceof Error &&
-      'code' in error &&
-      error.code === 'ENOENT'
-    )) {
+    if (!(Error.isError(error) && 'code' in error && error.code === 'ENOENT')) {
       throw error;
     }
   }
@@ -264,7 +260,7 @@ async function readOptionalFile(path: string): Promise<string | undefined> {
   try {
     return await readFile(path, 'utf8');
   } catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+    if (Error.isError(error) && 'code' in error && error.code === 'ENOENT') {
       return undefined;
     }
     throw error;

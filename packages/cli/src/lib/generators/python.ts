@@ -1,11 +1,15 @@
 import { Command } from 'commander';
-import { execa } from 'execa';
 import { execSync } from 'node:child_process';
 
 import { generate } from '@sdk-it/python';
 import { loadSpec, toIR } from '@sdk-it/spec';
 
-import { outputOption, shellEnv, specOption } from '../options.ts';
+import {
+  outputOption,
+  runFormatter,
+  shellEnv,
+  specOption,
+} from '../options.ts';
 import type { PythonOptions } from '../types.ts';
 
 export default new Command('python')
@@ -25,12 +29,9 @@ async function runPython(options: PythonOptions) {
     output: options.output,
     mode: options.mode || 'full',
     name: options.name,
-    formatCode: async ({ output }: { output: string }) => {
+    formatCode: ({ output }: { output: string }) => {
       if (options.formatter) {
-        const [command, ...args] = options.formatter.split(' ');
-        await execa(command, args, {
-          env: { ...process.env, SDK_IT_OUTPUT: output },
-        });
+        runFormatter(options.formatter, output, process.env);
       } else {
         try {
           // Try black first (more common)

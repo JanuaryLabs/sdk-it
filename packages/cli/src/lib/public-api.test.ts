@@ -10,21 +10,15 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { setTimeout } from 'node:timers/promises';
 import { stripVTControlCharacters } from 'node:util';
 
 import { generateProject, initializeProject } from '@sdk-it/cli';
 import { workspaceDirectory } from '@sdk-it/testing';
 
-const repoRoot = join(
-  dirname(fileURLToPath(import.meta.url)),
-  '..',
-  '..',
-  '..',
-  '..',
-);
+const repoRoot = join(import.meta.dirname, '..', '..', '..', '..');
 const cliBin = join(repoRoot, 'packages', 'cli', 'dist', 'bin.js');
 
 function runCli(cwd: string, ...args: string[]) {
@@ -666,7 +660,7 @@ test('generateProject does not rewrite an unchanged client package', async () =>
   const manifest = join(output, 'package.json');
   const firstModifiedAt = statSync(manifest).mtimeMs;
 
-  await new Promise((resolve) => setTimeout(resolve, 25));
+  await setTimeout(25);
   await generateProject({ tsconfig, output });
 
   assert.equal(statSync(manifest).mtimeMs, firstModifiedAt);

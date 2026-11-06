@@ -1,5 +1,4 @@
 import { Command } from 'commander';
-import { execa } from 'execa';
 import { execSync } from 'node:child_process';
 
 import { generate } from '@sdk-it/dart';
@@ -9,6 +8,7 @@ import {
   outputOption,
   parseDotConfig,
   parsePagination,
+  runFormatter,
   shellEnv,
   specOption,
 } from '../options.ts';
@@ -41,23 +41,16 @@ async function runDart(options: Options) {
     name: options.name,
     pagination:
       typeof options.pagination === 'string'
-        ? parsePagination(parseDotConfig(options.pagination ?? 'true'))
+        ? parsePagination(parseDotConfig(options.pagination))
         : options.pagination,
-    formatCode: async ({ output }) => {
+    formatCode: ({ output }) => {
       if (options.formatter) {
-        const [command, ...args] = options.formatter.split(' ');
-        await execa(command, args, {
-          env: { ...process.env, SDK_IT_OUTPUT: output },
-        });
+        runFormatter(options.formatter, output, process.env);
       } else {
         execSync(`dart format ${shellEnv('SDK_IT_OUTPUT')}`, {
           env: { ...process.env, SDK_IT_OUTPUT: output },
           stdio: options.verbose ? 'inherit' : 'pipe',
         });
-        // execSync('dart fix --apply $SDK_IT_OUTPUT ', {
-        //   env: { ...process.env, SDK_IT_OUTPUT: output },
-        //   stdio: options.verbose ? 'inherit' : 'pipe',
-        // });
       }
     },
   });

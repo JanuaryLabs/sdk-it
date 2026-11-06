@@ -1,7 +1,6 @@
 import { Command, Option } from 'commander';
-import { execa } from 'execa';
 import { publish } from 'libnpmpublish';
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,6 +15,7 @@ import {
   outputOption,
   parseDotConfig,
   parsePagination,
+  runFormatter,
   specOption,
 } from '../options.ts';
 import type { TypeScriptOptions } from '../types.ts';
@@ -109,26 +109,20 @@ async function emitLocal(spec: OpenAPIObject, options: Options) {
     name: options.name,
     pagination:
       typeof options.pagination === 'string'
-        ? parsePagination(parseDotConfig(options.pagination ?? 'true'))
+        ? parsePagination(parseDotConfig(options.pagination))
         : options.pagination,
     style: {
       name: 'github',
     },
     readme: options.readme,
     useTsExtension: options.useTsExtension,
-    formatCode: async ({ env, output }) => {
+    formatCode: ({ env, output }) => {
       if (options.formatter) {
-        const [command, ...args] = options.formatter.split(' ');
-        await execa(command, args, {
-          env: { ...env, SDK_IT_OUTPUT: output },
-        });
+        runFormatter(options.formatter, output, env);
       } else if (options.defaultFormatter) {
-        await execa('npx', ['-y', 'prettier', output, '--write'], {
-          env: {
-            ...env,
-            SDK_IT_OUTPUT: output,
-          },
-          stdio: options.verbose ? 'inherit' : 'pipe',
+        execFileSync('npx', ['-y', 'prettier', output, '--write'], {
+          env: { ...env, SDK_IT_OUTPUT: output },
+          stdio: options.verbose ? 'inherit' : ['ignore', 'ignore', 'pipe'],
         });
       }
     },
@@ -149,12 +143,12 @@ async function emitRemote(
   options: Options & { publish: string },
   npmToken: string | undefined,
 ) {
-  const registry =
-    options.publish === 'npm'
-      ? 'https://registry.npmjs.org/'
-      : options.publish === 'github'
-        ? 'https://npm.pkg.github.com/'
-        : options.publish;
+  let registry = options.publish;
+  if (options.publish === 'npm') {
+    registry = 'https://registry.npmjs.org/';
+  } else if (options.publish === 'github') {
+    registry = 'https://npm.pkg.github.com/';
+  }
 
   console.log('Publishing to registry:', registry);
   const path = join(tmpdir(), crypto.randomUUID());
