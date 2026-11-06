@@ -166,6 +166,7 @@ SDK-IT is organized as a monorepo with multiple packages:
 │   ├── python/           # Python SDK generator
 │   ├── readme/           # README generation
 │   ├── rpc/              # Runtime RPC client and agent tools
+│   ├── runtime/          # HTTP layer that generated SDKs embed and rpc imports
 │   ├── spec/             # OpenAPI normalization and IR
 │   ├── typescript/       # TypeScript SDK generator
 │   └── vite/             # Vite generation plugin
@@ -182,6 +183,7 @@ Each package serves a specific purpose:
 - **dart** and **python**: Language-specific SDK generators
 - **spec**: Shared OpenAPI loading, normalization, and intermediate representation
 - **command** and **rpc**: Operation command construction and runtime dispatch
+- **runtime**: HTTP layer (dispatcher, request serializers, response classes) that generated TypeScript SDKs embed and rpc imports
 - **readme**: Generated SDK documentation
 - **vite**: Development/build integration backed by the CLI generation engine
 

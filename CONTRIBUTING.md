@@ -47,6 +47,7 @@ SDK-IT is built as a TypeScript monorepo using Nx for package management and bui
 │   ├── python/           # Python SDK generator
 │   ├── readme/           # README generation
 │   ├── rpc/              # Runtime RPC client and agent tools
+│   ├── runtime/          # HTTP layer that generated SDKs embed and rpc imports
 │   ├── spec/             # OpenAPI normalization and IR
 │   ├── typescript/       # TypeScript SDK generator
 │   └── vite/             # Vite generation plugin
@@ -61,7 +62,7 @@ SDK-IT is built as a TypeScript monorepo using Nx for package management and bui
 
 ## Package Details
 
-The workspace contains twelve public packages and one private application
+The workspace contains thirteen public packages and one private application
 packages:
 
 | Package              | Role                                                            |
@@ -76,6 +77,7 @@ packages:
 | `@sdk-it/python`     | Python SDK generator                                            |
 | `@sdk-it/readme`     | Generated SDK documentation utilities                           |
 | `@sdk-it/rpc`        | Runtime OpenAPI client and AI SDK tool builder                  |
+| `@sdk-it/runtime`    | HTTP layer that generated SDKs embed and rpc imports            |
 | `@sdk-it/spec`       | OpenAPI loading, normalization, and intermediate representation |
 | `@sdk-it/typescript` | TypeScript SDK generator                                        |
 | `@sdk-it/vite`       | Vite integration for project or direct OpenAPI generation       |
