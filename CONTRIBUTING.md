@@ -147,7 +147,7 @@ The response analysis system examines the structure of API responses to generate
 The code generation system uses a combination of templates and programmatically generated code to create:
 
 - **Type definitions**: Interfaces, types, enums, and constants that match the API specification
-- **API client classes**: With methods for each API operation
+- **API clients**: A client that sends each API operation (in TypeScript, `create<Name>(settings)` over `@sdk-it/runtime`'s Client)
 - **Request builders**: For constructing API requests with appropriate parameters
 - **Response parsers**: For handling API responses and converting them to appropriate types
 - **Error handling**: Including typed error responses and error classes
