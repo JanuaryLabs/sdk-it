@@ -1,6 +1,6 @@
-import chalk from 'chalk';
 import { execSync } from 'child_process';
 import { rmSync } from 'fs';
+import { styleText } from 'node:util';
 import { join } from 'path';
 
 interface Failure {
@@ -19,9 +19,9 @@ function runCommand(
   const width = process.stdout.columns || 80;
   const divider = '='.repeat(width);
 
-  console.log('\n' + chalk.blue(divider));
-  console.log(chalk.bgBlue.white.bold(` ${title} `));
-  console.log(chalk.blue(divider) + '\n');
+  console.log('\n' + styleText('blue', divider));
+  console.log(styleText(['bgBlue', 'white', 'bold'], ` ${title} `));
+  console.log(styleText('blue', divider) + '\n');
 
   const flags: string[] = [];
   if (memory) {
@@ -29,9 +29,9 @@ function runCommand(
   }
 
   console.log(
-    chalk.dim(`$ ${command}`),
+    styleText('dim', `$ ${command}`),
     `with`,
-    chalk.dim(`NODE_OPTIONS: ${flags.join(' ')}`),
+    styleText('dim', `NODE_OPTIONS: ${flags.join(' ')}`),
   );
 
   try {
@@ -44,9 +44,11 @@ function runCommand(
         NODE_NO_WARNINGS: '1',
       },
     });
-    console.log('\n' + chalk.green(`✓ ${title} completed successfully`) + '\n');
+    console.log(
+      '\n' + styleText('green', `✓ ${title} completed successfully`) + '\n',
+    );
   } catch {
-    console.log('\n' + chalk.red(`✗ ${title} failed`) + '\n');
+    console.log('\n' + styleText('red', `✗ ${title} failed`) + '\n');
     failures.push({ spec, step: title });
   }
 }
@@ -120,21 +122,28 @@ const filtered = filterName
   : specs;
 
 if (filterName && filtered.length === 0) {
-  console.log(chalk.red(`No spec found matching "${filterName}"`));
-  console.log(chalk.dim(`Available: ${specs.map((s) => s.name).join(', ')}`));
+  console.log(styleText('red', `No spec found matching "${filterName}"`));
+  console.log(
+    styleText('dim', `Available: ${specs.map((s) => s.name).join(', ')}`),
+  );
   process.exit(1);
 }
 
 if (filterName) {
   console.log(
-    chalk.cyan(`Running only: ${filtered.map((s) => s.name).join(', ')}\n`),
+    styleText(
+      'cyan',
+      `Running only: ${filtered.map((s) => s.name).join(', ')}\n`,
+    ),
   );
 }
 
 for (const { spec, name, flags } of filtered) {
-  console.log('\n' + chalk.magenta('='.repeat(80)));
-  console.log(chalk.magenta.bold(`RUNNING TEST SUITE FOR: ${spec}`));
-  console.log(chalk.magenta('='.repeat(80)) + '\n');
+  console.log('\n' + styleText('magenta', '='.repeat(80)));
+  console.log(
+    styleText(['magenta', 'bold'], `RUNNING TEST SUITE FOR: ${spec}`),
+  );
+  console.log(styleText('magenta', '='.repeat(80)) + '\n');
 
   const cliPath = join(process.cwd(), 'packages', 'cli', 'src', 'bin.ts');
 
@@ -186,15 +195,22 @@ const width = process.stdout.columns || 80;
 const divider = '='.repeat(width);
 
 if (failures.length > 0) {
-  console.log('\n' + chalk.red(divider));
-  console.log(chalk.bgRed.white.bold(` ${failures.length} FAILURE(S) `));
-  console.log(chalk.red(divider));
+  console.log('\n' + styleText('red', divider));
+  console.log(
+    styleText(['bgRed', 'white', 'bold'], ` ${failures.length} FAILURE(S) `),
+  );
+  console.log(styleText('red', divider));
   for (const { spec, step } of failures) {
-    console.log(chalk.red(`  ✗ [${spec}] ${step}`));
+    console.log(styleText('red', `  ✗ [${spec}] ${step}`));
   }
   console.log();
   process.exit(1);
 } else {
-  console.log('\n' + chalk.blue(divider));
-  console.log(chalk.bgGreen.white.bold(` ALL TESTS COMPLETED SUCCESSFULLY `));
+  console.log('\n' + styleText('blue', divider));
+  console.log(
+    styleText(
+      ['bgGreen', 'white', 'bold'],
+      ` ALL TESTS COMPLETED SUCCESSFULLY `,
+    ),
+  );
 }

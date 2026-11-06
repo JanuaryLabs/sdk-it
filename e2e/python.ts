@@ -1,5 +1,5 @@
-import chalk from 'chalk';
 import { execSync } from 'child_process';
+import { styleText } from 'node:util';
 import { join } from 'path';
 
 function runCommand(
@@ -16,9 +16,9 @@ function runCommand(
   const divider = '='.repeat(width);
 
   // Print header
-  console.log('\n' + chalk.blue(divider));
-  console.log(chalk.bgBlue.white.bold(` ${title} `));
-  console.log(chalk.blue(divider) + '\n');
+  console.log('\n' + styleText('blue', divider));
+  console.log(styleText(['bgBlue', 'white', 'bold'], ` ${title} `));
+  console.log(styleText('blue', divider) + '\n');
 
   // Run the command and let errors propagate naturally
   const flags: string[] = [];
@@ -27,9 +27,9 @@ function runCommand(
   }
 
   console.log(
-    chalk.dim(`$ ${command}`),
+    styleText('dim', `$ ${command}`),
     `with`,
-    chalk.dim(`NODE_OPTIONS: ${flags.join(' ')}`),
+    styleText('dim', `NODE_OPTIONS: ${flags.join(' ')}`),
   );
 
   execSync(command, {
@@ -44,7 +44,9 @@ function runCommand(
   });
 
   // Show success message if execution completes
-  console.log('\n' + chalk.green(`✓ ${title} completed successfully`) + '\n');
+  console.log(
+    '\n' + styleText('green', `✓ ${title} completed successfully`) + '\n',
+  );
 }
 
 const specs = [
@@ -120,9 +122,11 @@ const specs = [
 ];
 
 for (const { spec, name, flags } of specs) {
-  console.log('\n' + chalk.magenta('='.repeat(80)));
-  console.log(chalk.magenta.bold(`RUNNING TEST SUITE FOR: ${spec}`));
-  console.log(chalk.magenta('='.repeat(80)) + '\n');
+  console.log('\n' + styleText('magenta', '='.repeat(80)));
+  console.log(
+    styleText(['magenta', 'bold'], `RUNNING TEST SUITE FOR: ${spec}`),
+  );
+  console.log(styleText('magenta', '='.repeat(80)) + '\n');
 
   const cliPath = join(process.cwd(), 'packages', 'cli', 'src', 'index.ts');
 
@@ -156,5 +160,7 @@ for (const { spec, name, flags } of specs) {
 
 const width = process.stdout.columns || 80;
 const divider = '='.repeat(width);
-console.log('\n' + chalk.blue(divider));
-console.log(chalk.bgGreen.white.bold(` ALL TESTS COMPLETED SUCCESSFULLY `));
+console.log('\n' + styleText('blue', divider));
+console.log(
+  styleText(['bgGreen', 'white', 'bold'], ` ALL TESTS COMPLETED SUCCESSFULLY `),
+);
