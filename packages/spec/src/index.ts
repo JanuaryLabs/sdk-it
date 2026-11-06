@@ -7,6 +7,7 @@ export * from './lib/get-ref-usage.js';
 export * from './lib/ir.js';
 export * from './lib/is-primitive-schema.js';
 export * from './lib/is.js';
+export * from './lib/json-pointer.js';
 export * from './lib/loaders/load-spec.js';
 export * from './lib/loaders/local-loader.js';
 export * from './lib/loaders/remote-loader.js';

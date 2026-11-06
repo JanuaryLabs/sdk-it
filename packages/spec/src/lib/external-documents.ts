@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 
+import { pointerTokens } from './json-pointer.js';
 import { loadLocal } from './loaders/local-loader.js';
 import { loadRemote } from './loaders/remote-loader.js';
 
@@ -50,13 +51,7 @@ export function isJsonObject(value: unknown): value is Record<string, unknown> {
 
 export function readPointer(document: unknown, fragment: string) {
   let current: unknown = document;
-  for (const segment of fragment.split('/')) {
-    if (!segment) {
-      continue;
-    }
-    const key = decodeURIComponent(segment)
-      .replaceAll('~1', '/')
-      .replaceAll('~0', '~');
+  for (const key of pointerTokens(fragment)) {
     if (!isJsonObject(current) || !(key in current)) {
       throw new Error(`no value at pointer #${fragment}`);
     }
