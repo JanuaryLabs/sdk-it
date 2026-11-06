@@ -8,7 +8,7 @@ import type {
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { pointerTokens } from './json-pointer.js';
+import { pointerTokens, valueAtPointer } from './json-pointer.js';
 import type {
   OpenAPIDocument,
   OpenAPISecuritySchemeObject,
@@ -100,18 +100,7 @@ function valueAtRef<T>(spec: unknown, ref: string): T | ReferenceObject {
 }
 
 function valueAt(document: unknown, ref: string): any {
-  let current = document;
-  for (const token of pointerTokens(cleanRef(ref))) {
-    if (
-      typeof current !== 'object' ||
-      current === null ||
-      !Object.hasOwn(current, token)
-    ) {
-      return undefined;
-    }
-    current = Reflect.get(current, token);
-  }
-  return current;
+  return valueAtPointer(document, pointerTokens(cleanRef(ref)));
 }
 
 export function tapRef<

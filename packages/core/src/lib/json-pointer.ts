@@ -11,3 +11,26 @@ export function pointerTokens(fragment: string): string[] {
       decodeURIComponent(segment).replaceAll('~1', '/').replaceAll('~0', '~'),
     );
 }
+
+/**
+ * The value that decoded reference `tokens` name in `document` (RFC 6901 §4),
+ * each token an own member of the value before it. Undefined where a token
+ * names no member.
+ */
+export function valueAtPointer(
+  document: unknown,
+  tokens: readonly string[],
+): unknown {
+  let current = document;
+  for (const token of tokens) {
+    if (
+      typeof current !== 'object' ||
+      current === null ||
+      !Object.hasOwn(current, token)
+    ) {
+      return undefined;
+    }
+    current = Reflect.get(current, token);
+  }
+  return current;
+}
