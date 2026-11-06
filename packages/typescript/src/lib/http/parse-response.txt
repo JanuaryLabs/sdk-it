@@ -30,12 +30,6 @@ function isBinaryContentType(contentType: string) {
 	}
 }
 
-function isAttachment(response: Response) {
-	const contentDisposition = response.headers.get("Content-Disposition");
-	const dispositionType = contentDisposition?.split(";", 1)[0];
-	return dispositionType?.trim().toLowerCase() === "attachment";
-}
-
 export function chunked(response: Response) {
 	return response.body!;
 }
@@ -56,9 +50,6 @@ export async function buffered(response: Response) {
 		response.status === 304
 	) {
 		return null;
-	}
-	if (isAttachment(response)) {
-		return response.blob();
 	}
 
 	const contentType = response.headers.get("Content-Type");
