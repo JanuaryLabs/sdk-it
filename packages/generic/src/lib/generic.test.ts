@@ -1249,10 +1249,8 @@ app.get('/users/:userId', validate((payload) => ({
       'userId parameter should preserve x-zod-type',
     );
 
-    // Full pipeline: analyze → toIR → generateCode → assert .int() in Zod output
-    const { toIR } = await import('@sdk-it/spec');
-    const { createModelNamer, generateCode } =
-      await import('@sdk-it/typescript');
+    // Full pipeline: analyze → render → assert .int() in the generated inputs
+    const { render } = await import('@sdk-it/typescript');
 
     const spec = {
       openapi: '3.1.0' as const,
@@ -1261,27 +1259,22 @@ app.get('/users/:userId', validate((payload) => ({
       components: result.components,
     };
 
-    const ir = await toIR(
-      { spec, responses: { flattenErrorResponses: true }, pagination: false },
-      false,
-    );
-
-    const { groups } = generateCode({
-      spec: ir,
+    const files = await render(spec, {
+      name: 'Client',
       style: { name: 'github' },
-      makeImport: (m: string) => m + '.ts',
-      modelName: createModelNamer('Client'),
+      useTsExtension: true,
+      pagination: false,
     });
+    const inputSchema = (name: string) =>
+      Object.entries(files)
+        .filter(([path]) => path.startsWith('inputs/'))
+        .map(([, text]) =>
+          new RegExp(`^export const ${name} = (.*);$`, 'm').exec(text),
+        )
+        .find((match) => match !== null)?.[1];
 
     // Find getUsers schema in generated output
-    let getUsersZod = '';
-    for (const ops of Object.values(groups)) {
-      for (const op of ops) {
-        if (op.operationId === 'getUsers') {
-          getUsersZod = op.inputs[0].zod;
-        }
-      }
-    }
+    const getUsersZod = inputSchema('getUsersSchema');
 
     assert.ok(getUsersZod, 'Should have generated getUsers schema');
     assert.ok(
@@ -1294,14 +1287,7 @@ app.get('/users/:userId', validate((payload) => ({
     );
 
     // Find getUserById schema in generated output
-    let getUserByIdZod = '';
-    for (const ops of Object.values(groups)) {
-      for (const op of ops) {
-        if (op.operationId === 'getUserById') {
-          getUserByIdZod = op.inputs[0].zod;
-        }
-      }
-    }
+    const getUserByIdZod = inputSchema('getUserByIdSchema');
 
     assert.ok(getUserByIdZod, 'Should have generated getUserById schema');
     assert.ok(
@@ -1448,9 +1434,7 @@ app.get('/users/:userId', validate((payload) => ({
     );
 
     // Full pipeline check
-    const { toIR } = await import('@sdk-it/spec');
-    const { createModelNamer, generateCode } =
-      await import('@sdk-it/typescript');
+    const { render } = await import('@sdk-it/typescript');
 
     const spec = {
       openapi: '3.1.0' as const,
@@ -1459,26 +1443,21 @@ app.get('/users/:userId', validate((payload) => ({
       components: result.components,
     };
 
-    const ir = await toIR(
-      { spec, responses: { flattenErrorResponses: true }, pagination: false },
-      false,
-    );
-
-    const { groups } = generateCode({
-      spec: ir,
+    const files = await render(spec, {
+      name: 'Client',
       style: { name: 'github' },
-      makeImport: (m: string) => m + '.ts',
-      modelName: createModelNamer('Client'),
+      useTsExtension: true,
+      pagination: false,
     });
+    const inputSchema = (name: string) =>
+      Object.entries(files)
+        .filter(([path]) => path.startsWith('inputs/'))
+        .map(([, text]) =>
+          new RegExp(`^export const ${name} = (.*);$`, 'm').exec(text),
+        )
+        .find((match) => match !== null)?.[1];
 
-    let getUsersZod = '';
-    for (const ops of Object.values(groups)) {
-      for (const op of ops) {
-        if (op.operationId === 'getUsers') {
-          getUsersZod = op.inputs[0].zod;
-        }
-      }
-    }
+    const getUsersZod = inputSchema('getUsersSchema');
 
     assert.ok(getUsersZod, 'Should have generated getUsers schema');
     assert.ok(
@@ -1490,14 +1469,7 @@ app.get('/users/:userId', validate((payload) => ({
       `Generated getUsers schema from external import should preserve coerce for limit but got: ${getUsersZod}`,
     );
 
-    let getUserByIdZod = '';
-    for (const ops of Object.values(groups)) {
-      for (const op of ops) {
-        if (op.operationId === 'getUserById') {
-          getUserByIdZod = op.inputs[0].zod;
-        }
-      }
-    }
+    const getUserByIdZod = inputSchema('getUserByIdSchema');
 
     assert.ok(getUserByIdZod, 'Should have generated getUserById schema');
     assert.ok(
