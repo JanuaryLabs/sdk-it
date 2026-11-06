@@ -3,20 +3,39 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { pathToFileURL } from 'node:url';
+import type { ServerObject } from 'openapi3-ts/oas31';
 
-import { workspaceDirectory } from '@sdk-it/testing';
-import { generate } from '@sdk-it/typescript';
+import { analysisWorkspace, workspaceDirectory } from '@sdk-it/testing';
+import { generate, renderModule } from '@sdk-it/typescript';
 
-import { expandServerUrls } from './server-urls.ts';
+/** The `servers` export of the SDK generated from a spec with `servers`. */
+async function exportedServers(servers: ServerObject[]): Promise<unknown> {
+  const { text } = await renderModule(
+    {
+      openapi: '3.1.0',
+      info: { title: 'Hosts', version: '1.0.0' },
+      servers,
+      paths: {},
+    },
+    { name: 'Hosts' },
+  );
+  await using workspace = await analysisWorkspace('client-servers-', {
+    'hosts.ts': text,
+  });
+  const sdk = await import(
+    pathToFileURL(join(workspace.path, 'hosts.ts')).href
+  );
+  return sdk.servers;
+}
 
-describe('expandServerUrls', () => {
-  test('passes through URLs without variables', () => {
-    const result = expandServerUrls([{ url: 'https://api.example.com' }]);
+describe('the servers a generated SDK exports', () => {
+  test('passes through URLs without variables', async () => {
+    const result = await exportedServers([{ url: 'https://api.example.com' }]);
     assert.deepStrictEqual(result, ['https://api.example.com']);
   });
 
-  test('substitutes default when no enum', () => {
-    const result = expandServerUrls([
+  test('substitutes default when no enum', async () => {
+    const result = await exportedServers([
       {
         url: 'https://{region}.api.example.com',
         variables: {
@@ -27,8 +46,8 @@ describe('expandServerUrls', () => {
     assert.deepStrictEqual(result, ['https://us.api.example.com']);
   });
 
-  test('expands all enum values for a single variable', () => {
-    const result = expandServerUrls([
+  test('expands all enum values for a single variable', async () => {
+    const result = await exportedServers([
       {
         url: 'https://{env}.api.example.com',
         variables: {
@@ -43,8 +62,8 @@ describe('expandServerUrls', () => {
     ]);
   });
 
-  test('expands cartesian product of multiple variables', () => {
-    const result = expandServerUrls([
+  test('expands cartesian product of multiple variables', async () => {
+    const result = await exportedServers([
       {
         url: 'https://{env}.api.example.com/v{version}',
         variables: {
@@ -61,8 +80,8 @@ describe('expandServerUrls', () => {
     ]);
   });
 
-  test('handles multiple servers', () => {
-    const result = expandServerUrls([
+  test('handles multiple servers', async () => {
+    const result = await exportedServers([
       { url: 'https://api.example.com' },
       {
         url: 'https://{env}.api.other.com',
@@ -78,13 +97,13 @@ describe('expandServerUrls', () => {
     ]);
   });
 
-  test('returns empty array for empty servers', () => {
-    const result = expandServerUrls([]);
-    assert.deepStrictEqual(result, []);
+  test('exports no servers for empty servers', async () => {
+    const result = await exportedServers([]);
+    assert.strictEqual(result, undefined);
   });
 
-  test('falls back to default when enum is empty array', () => {
-    const result = expandServerUrls([
+  test('falls back to default when enum is empty array', async () => {
+    const result = await exportedServers([
       {
         url: 'https://{env}.api.example.com',
         variables: {
@@ -95,8 +114,8 @@ describe('expandServerUrls', () => {
     assert.deepStrictEqual(result, ['https://prod.api.example.com']);
   });
 
-  test('replaces all occurrences when same variable appears multiple times', () => {
-    const result = expandServerUrls([
+  test('replaces all occurrences when same variable appears multiple times', async () => {
+    const result = await exportedServers([
       {
         url: 'https://{region}.api.{region}.example.com',
         variables: {
@@ -110,8 +129,8 @@ describe('expandServerUrls', () => {
     ]);
   });
 
-  test('ignores variables not referenced in URL', () => {
-    const result = expandServerUrls([
+  test('ignores variables not referenced in URL', async () => {
+    const result = await exportedServers([
       {
         url: 'https://api.example.com',
         variables: {
@@ -125,8 +144,8 @@ describe('expandServerUrls', () => {
     ]);
   });
 
-  test('keeps placeholder when variable is in URL but not defined', () => {
-    const result = expandServerUrls([
+  test('keeps placeholder when variable is in URL but not defined', async () => {
+    const result = await exportedServers([
       {
         url: 'https://{env}.api.example.com:{port}',
         variables: {
@@ -137,8 +156,8 @@ describe('expandServerUrls', () => {
     assert.deepStrictEqual(result, ['https://prod.api.example.com:{port}']);
   });
 
-  test('coerces numeric default to string', () => {
-    const result = expandServerUrls([
+  test('coerces numeric default to string', async () => {
+    const result = await exportedServers([
       {
         url: 'https://api.example.com:{port}',
         variables: {
@@ -149,8 +168,8 @@ describe('expandServerUrls', () => {
     assert.deepStrictEqual(result, ['https://api.example.com:8080']);
   });
 
-  test('expands cartesian product of three variables', () => {
-    const result = expandServerUrls([
+  test('expands cartesian product of three variables', async () => {
+    const result = await exportedServers([
       {
         url: 'https://{env}.{region}.api.example.com/v{version}',
         variables: {
@@ -172,8 +191,8 @@ describe('expandServerUrls', () => {
     ]);
   });
 
-  test('single enum value behaves like default-only', () => {
-    const result = expandServerUrls([
+  test('single enum value behaves like default-only', async () => {
+    const result = await exportedServers([
       {
         url: 'https://{env}.api.example.com',
         variables: {
