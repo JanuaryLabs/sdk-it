@@ -176,8 +176,8 @@ describe('openAnalysisProject', () => {
       !fileNames.some((name) => name.endsWith('packages/runs/dist/index.d.ts')),
     );
     assert.deepStrictEqual(
-      [...fileNames].sort(),
-      [...throughRealPath.program.getSourceFileNames()].sort(),
+      fileNames.toSorted(),
+      throughRealPath.program.getSourceFileNames().toSorted(),
     );
   });
 
