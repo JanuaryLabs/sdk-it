@@ -29,14 +29,9 @@ export function documentUrl(location: string, base: string | undefined) {
 }
 
 export function loadDocument(url: URL, documents: Documents) {
-  let pending = documents.get(url.href);
-  if (!pending) {
-    pending = loadFile(
-      url.protocol === 'file:' ? fileURLToPath(url) : url.href,
-    );
-    documents.set(url.href, pending);
-  }
-  return pending;
+  return documents.getOrInsertComputed(url.href, () =>
+    loadFile(url.protocol === 'file:' ? fileURLToPath(url) : url.href),
+  );
 }
 
 export function splitFragment(uri: string): [string, string | undefined] {

@@ -38,7 +38,7 @@ export interface ExampleEnrichmentOptions {
 
 function hasAuthoredExample(media: MediaTypeObject): boolean {
   return (
-    Object.prototype.hasOwnProperty.call(media, 'example') ||
+    Object.hasOwn(media, 'example') ||
     Object.keys(media.examples ?? {}).length > 0
   );
 }

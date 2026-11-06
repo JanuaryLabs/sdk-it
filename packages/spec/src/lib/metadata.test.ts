@@ -1,8 +1,11 @@
 import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { text } from 'node:stream/consumers';
 import { describe, it } from 'node:test';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
@@ -479,5 +482,54 @@ describe('Metadata File Management - Error-First Testing', () => {
 
       await assert.rejects(() => readFile(join(cleanDir, 'old.ts'), 'utf-8'));
     });
+  });
+});
+
+describe('cleanFiles debug log', () => {
+  /** Runs cleanFiles in a new process with `env` on a folder that holds kept.ts and stale.ts, and returns what is left, the path of stale.ts and the stderr. */
+  async function cleanIn(env: NodeJS.ProcessEnv) {
+    await using workspace = await new TemporaryFiles().directory(
+      'metadata-debug-',
+    );
+    await writeFile(join(workspace.path, 'kept.ts'), 'kept');
+    await writeFile(join(workspace.path, 'stale.ts'), 'stale');
+    const child = spawn(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        "const { cleanFiles } = await import('@sdk-it/spec'); await cleanFiles({ generatedFiles: ['/kept.ts'], userFiles: [] }, process.argv[1]);",
+        workspace.path,
+      ],
+      { env, stdio: ['ignore', 'pipe', 'pipe'] },
+    );
+    const stderr = text(child.stderr);
+    const stdout = text(child.stdout);
+    const [exitCode] = await once(child, 'close');
+    assert.equal(exitCode, 0, `${await stdout}${await stderr}`);
+    return {
+      remaining: await readdir(workspace.path),
+      stale: join(workspace.path, 'stale.ts'),
+      stderr: await stderr,
+    };
+  }
+
+  it('deletes a stale file without printing a trace when NODE_DEBUG is unset', async () => {
+    const { NODE_DEBUG: _debug, ...env } = process.env;
+
+    const { remaining, stderr } = await cleanIn(env);
+
+    assert.deepStrictEqual(remaining, ['kept.ts']);
+    assert.ok(!stderr.includes('Deleted file'), stderr);
+  });
+
+  it('prints each file it deletes to stderr when NODE_DEBUG names sdk-it:metadata', async () => {
+    const { remaining, stale, stderr } = await cleanIn({
+      ...process.env,
+      NODE_DEBUG: 'sdk-it:metadata',
+    });
+
+    assert.deepStrictEqual(remaining, ['kept.ts']);
+    assert.ok(stderr.includes(`Deleted file: ${stale}\n`), stderr);
   });
 });

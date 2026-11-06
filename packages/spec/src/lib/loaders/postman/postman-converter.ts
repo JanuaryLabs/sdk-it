@@ -1,4 +1,4 @@
-import { parse } from 'fast-content-type-parse';
+import { MIMEType } from 'node:util';
 import type {
   ContentObject,
   OpenAPIObject,
@@ -431,10 +431,9 @@ function requestToOperation(
                   ? headers.splice(contentTypeIdx).map((h) => h.value)
                   : [];
 
-              let contentType = response.body
-                ? parse(contentTypeValue || 'application/json')?.type
-                : null;
-              contentType ??= 'application/octet-stream';
+              const contentType = response.body
+                ? new MIMEType(contentTypeValue || 'application/json').essence
+                : 'application/octet-stream';
 
               return {
                 ...acc,

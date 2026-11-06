@@ -49,14 +49,13 @@ export function normalizeTags(): DocumentPlugin {
         definitions.set(name, definition);
       }
       for (const [authored, group] of renamed) {
-        if (!definitions.has(group)) {
-          definitions.set(group, { name: group, summary: authored });
-        }
+        definitions.getOrInsertComputed(group, (name) => ({
+          name,
+          summary: authored,
+        }));
       }
       for (const group of groups) {
-        if (!definitions.has(group)) {
-          definitions.set(group, { name: group });
-        }
+        definitions.getOrInsertComputed(group, (name) => ({ name }));
       }
       spec.tags = [...definitions.values()];
     },

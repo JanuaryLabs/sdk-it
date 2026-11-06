@@ -1,4 +1,3 @@
-import { parse as parseContentType } from 'fast-content-type-parse';
 import type { OperationObject, ResponseObject } from 'openapi3-ts/oas31';
 
 import { isRef, parseRef, resolveRef } from '@sdk-it/core/ref.js';
@@ -163,11 +162,7 @@ function mediaBody(
 }
 
 function normalizeContentType(contentType: string) {
-  try {
-    return parseContentType(contentType)?.type?.toLowerCase();
-  } catch {
-    return contentType.split(';')[0]?.trim().toLowerCase();
-  }
+  return contentType.split(';')[0].trim().toLowerCase();
 }
 
 function hasHeader(headers: ResponseObject['headers'], name: string) {

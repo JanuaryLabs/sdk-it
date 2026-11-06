@@ -337,7 +337,7 @@ function lastSegment(value: string) {
 }
 
 function unresolved(ref: string, base: string | undefined, error: unknown) {
-  const reason = error instanceof Error ? error.message : String(error);
+  const reason = Error.isError(error) ? error.message : String(error);
   return new Error(
     base === undefined
       ? `Could not resolve $ref ${ref}: ${reason}`

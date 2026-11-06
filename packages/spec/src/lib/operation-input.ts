@@ -217,10 +217,7 @@ export function operationInputs(
 ): OperationInput[] {
   const contentTypes = new Map<RequestEncoding, string>();
   for (const contentType of Object.keys(operation.requestBody.content)) {
-    const encoding = requestEncoding(contentType);
-    if (!contentTypes.has(encoding)) {
-      contentTypes.set(encoding, contentType);
-    }
+    contentTypes.getOrInsert(requestEncoding(contentType), contentType);
   }
   const inputs: OperationInput[] = [];
   for (const encoding of requestEncodings) {

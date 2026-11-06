@@ -35,7 +35,7 @@ export function resolveSecuritySchemeUris(): DocumentPlugin {
           code: 'unresolvable-security-scheme-uri',
           severity: 'error',
           path: uri,
-          message: `Could not resolve security scheme URI ${uri}: ${error instanceof Error ? error.message : String(error)}`,
+          message: `Could not resolve security scheme URI ${uri}: ${Error.isError(error) ? error.message : String(error)}`,
         });
       }
     },

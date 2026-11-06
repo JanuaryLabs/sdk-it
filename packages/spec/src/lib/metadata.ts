@@ -1,8 +1,8 @@
 import { isErrno } from '@zukhruf/fs';
-import debug from 'debug';
 import { readFile, unlink } from 'node:fs/promises';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
+import { debuglog } from 'node:util';
 import pLimit from 'p-limit';
 
 import {
@@ -11,7 +11,7 @@ import {
   readFolder,
 } from '@sdk-it/core/file-system.js';
 
-const log = debug('sdk-it:metadata');
+const log = debuglog('sdk-it:metadata');
 
 interface Metadata {
   generatedFiles: string[];
