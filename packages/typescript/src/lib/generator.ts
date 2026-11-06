@@ -16,19 +16,6 @@ import { type References, fileReferences } from './references.ts';
 import { type Operation, type Spec, toEndpoint } from './sdk.ts';
 import type { Style } from './style.ts';
 
-export interface NamedImport {
-  name: string;
-  alias?: string;
-  isTypeOnly: boolean;
-}
-export interface Import {
-  isTypeOnly: boolean;
-  moduleSpecifier: string;
-  defaultImport: string | undefined;
-  namedImports: NamedImport[];
-  namespaceImport: string | undefined;
-}
-
 /**
  * A spec's operations as code: per group, its routes (with their input
  * schemas) and endpoint entries, and the shared zod schemas the inputs

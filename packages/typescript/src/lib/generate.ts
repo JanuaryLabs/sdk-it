@@ -534,7 +534,7 @@ function modelDeclarations(
   return models;
 }
 
-export function toInputs(
+function toInputs(
   operationsSet: Record<string, Operation[]>,
   commonZod: Map<string, string>,
   makeImport: MakeImportFn,

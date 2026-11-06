@@ -14,18 +14,6 @@ import statusMap from './status-map.ts';
 
 export type Parser = 'chunked' | 'buffered' | 'sse' | 'bodyless';
 
-export interface SdkConfig {
-  /**
-   * The name of the sdk client
-   */
-  name: string;
-  packageName?: string;
-  options?: Record<string, unknown>;
-  emptyBodyAsNull?: boolean;
-  stripBodyFromGetAndHead?: boolean;
-  output: string;
-}
-
 export interface Spec {
   name: string;
   securitySchemes: Record<string, OpenAPISecuritySchemeObject>;
