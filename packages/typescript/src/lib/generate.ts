@@ -9,6 +9,7 @@ import {
   isRef,
   parseRef,
   pascalcase,
+  pointerTokens,
 } from '@sdk-it/core';
 import {
   type WriteContent,
@@ -22,7 +23,6 @@ import {
   type ResponseBody,
   cleanFiles,
   forEachOperation,
-  pointerTokens,
   readWriteMetadata,
   toIR,
 } from '@sdk-it/spec';
