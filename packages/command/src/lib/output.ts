@@ -35,7 +35,7 @@ export function writeError(error: unknown): void {
     const hasData = 'data' in error;
     if (hasData) payload.data = error.data;
     if ('message' in error && !hasData) payload.message = error.message;
-    if (error instanceof Error) {
+    if (Error.isError(error)) {
       payload.message = error.message;
       payload.name = error.name;
     }
