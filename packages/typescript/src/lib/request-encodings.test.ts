@@ -1,15 +1,13 @@
 import { HttpServer } from '@zukhruf/testing/http';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
 import { pathToFileURL } from 'node:url';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 
-import { typecheck, workspaceDirectory } from '@sdk-it/testing';
+import { runNode, typecheck, workspaceDirectory } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
 const note: SchemaObject = {
@@ -106,14 +104,7 @@ async function upstream() {
 async function runScript(directory: string, script: string, baseUrl: string) {
   const path = join(directory, 'tools.mjs');
   await writeFile(path, script);
-  const child = spawn(process.execPath, [path, baseUrl], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: 60_000,
-  });
-  const stdout = text(child.stdout);
-  const stderr = text(child.stderr);
-  const [exitCode] = await once(child, 'close');
-  return { exitCode, stdout: await stdout, stderr: await stderr };
+  return runNode([path, baseUrl]);
 }
 
 /** The requests the three JSON tool calls send to the API at `origin`. */
