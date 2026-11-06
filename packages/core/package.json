@@ -34,7 +34,7 @@
   "peerDependencies": {
     "@typescript/native": "npm:typescript@7.1.0-beta",
     "openapi3-ts": "^4.4.0",
-    "zod": "^4.3.0"
+    "zod": "^4.6.7"
   },
   "peerDependenciesMeta": {
     "@typescript/native": {

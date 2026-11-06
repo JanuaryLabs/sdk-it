@@ -213,13 +213,14 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
       });
     });
 
-    test('z.tuple emits array with positional items and bounded length', async () => {
+    test('z.tuple emits a closed array with positional items and bounded length', async () => {
       const { schema } = await evalZod('z.tuple([z.string(), z.number()])');
       assert.deepStrictEqual(schema, {
         type: 'array',
         minItems: 2,
         maxItems: 2,
         items: [{ type: 'string' }, { type: 'number' }],
+        additionalItems: false,
       });
     });
   });
@@ -303,23 +304,15 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
   });
 
   describe('intersections', () => {
-    test('z.intersection members stay open (no additionalProperties) so allOf remains satisfiable', async () => {
+    test("z.intersection of two objects is one satisfiable object holding both members' fields", async () => {
       const { schema } = await evalZod(
         'z.intersection(z.object({ a: z.string() }), z.object({ b: z.number() }))',
       );
-      assert.equal(schema.allOf.length, 2);
-      for (const member of schema.allOf) {
-        assert.equal(
-          member.additionalProperties,
-          undefined,
-          'allOf member must not forbid sibling properties',
-        );
-      }
-      assert.deepStrictEqual(schema.allOf[0].properties, {
-        a: { type: 'string' },
-      });
-      assert.deepStrictEqual(schema.allOf[1].properties, {
-        b: { type: 'number' },
+      assert.deepStrictEqual(schema, {
+        type: 'object',
+        properties: { a: { type: 'string' }, b: { type: 'number' } },
+        required: ['a', 'b'],
+        additionalProperties: false,
       });
     });
   });

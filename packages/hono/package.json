@@ -38,7 +38,7 @@
   "dependencies": {
     "@sdk-it/core": "0.46.11",
     "hono": "^4.7.4",
-    "zod": "^4.3.0",
+    "zod": "^4.6.7",
     "fast-content-type-parse": "^3.0.0"
   },
   "peerDependencies": {

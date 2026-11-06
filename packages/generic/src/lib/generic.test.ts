@@ -1859,7 +1859,7 @@ describe('zod v3 → v4 migration characterization: collections', () => {
     });
   });
 
-  it('z.tuple([...]) emits array with positional items', async () => {
+  it('z.tuple([...]) emits a closed array with positional items', async () => {
     const { field } = await requestBodyField(
       bodySource('z.tuple([z.string(), z.number()])'),
     );
@@ -1868,6 +1868,7 @@ describe('zod v3 → v4 migration characterization: collections', () => {
       minItems: 2,
       maxItems: 2,
       items: [{ type: 'string' }, { type: 'number' }],
+      additionalItems: false,
     });
   });
 

@@ -92,7 +92,7 @@ export function generatedPackageManifest(
   manifest.dependencies = {
     ...manifest.dependencies,
     'fast-content-type-parse': '^3.0.0',
-    zod: '^4.3.0',
+    zod: '^4.6.7',
   };
   return manifest;
 }

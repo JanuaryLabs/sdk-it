@@ -157,7 +157,7 @@ export async function generate(
             },
             dependencies: {
               'fast-content-type-parse': '^3.0.0',
-              zod: '^4.3.0',
+              zod: '^4.6.7',
               ...(settings.agentTools === 'ai-sdk' ? { ai: '^7.0.29' } : {}),
               ...(settings.agentTools === 'openai-agents'
                 ? { '@openai/agents': '^0.21.0' }

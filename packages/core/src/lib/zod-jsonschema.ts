@@ -20,7 +20,7 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
     `const require = createRequire(filename);`,
     `const z = require("zod");`,
     `if (typeof z.toJSONSchema !== 'function') {
-      throw new Error('@sdk-it/core requires Zod 4. Install zod@^4.3.0 and migrate Zod 3 schemas before analysis.');
+      throw new Error('@sdk-it/core requires Zod 4. Install zod@^4.6.7 and migrate Zod 3 schemas before analysis.');
     }`,
     // zod 4 removed ZodString.ip/.cidr; restore them for analyzed user source
     // that still uses the v3 spellings.
@@ -441,8 +441,10 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
       return Object.values(node).some((child) => refersTo(child, ref));
     }`,
     // zod writes every schema that carries an id, and every cycle, as a draft-7
-    // definition (a cycle through the root as '#'). Each named one becomes a
-    // component the refs point at; a cycle without a name cannot become one.
+    // definition; a root with an id becomes a $ref to its own definition, and
+    // an id-less root that cycles refers to itself as '#'. Each named
+    // definition becomes a component the refs point at; a cycle without a name
+    // cannot become one.
     `function extractComponents(doc, rootId) {
       const { definitions = {}, ...root } = doc;
       const names = Object.create(null);
@@ -457,8 +459,6 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
           aliases.add(name);
         }
       }
-      const rootAlias = rootId ? aliasedDefinition(root) : undefined;
-      if (rootAlias) names[rootAlias] ??= rootId;
       if (
         Object.keys(definitions).some((name) => !(name in names)) ||
         (!rootId && refersTo(root, '#'))
@@ -473,9 +473,7 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
         const rewritten = {};
         for (const [key, value] of Object.entries(node)) {
           const target = key === '$ref' ? definitionName(value) : undefined;
-          if (key === '$ref' && value === '#') {
-            rewritten.$ref = '#/components/schemas/' + rootId;
-          } else if (target) {
+          if (target) {
             rewritten.$ref = '#/components/schemas/' + names[target];
           } else {
             rewritten[key] = rewrite(value);
@@ -488,10 +486,7 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
           addComponent(names[name], normalizeSchema(rewrite(definition)));
         }
       }
-      if (!rootId) return rewrite(root);
-      if (rootAlias) return { $ref: '#/components/schemas/' + names[rootAlias] };
-      addComponent(rootId, normalizeSchema(rewrite(root)));
-      return { $ref: '#/components/schemas/' + rootId };
+      return rewrite(root);
     }`,
     // Nested toJsonSchema passes (set/map values, pipe outputs) return
     // self-contained documents whose '#' and '#/definitions/*' refs are
@@ -540,8 +535,8 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
           }
           if (def.type === 'bigint') {
             json.type = 'integer';
-            // z.bigint() carries no format; treat it as int64.
-            json.format = ctx.zodSchema._zod.bag.format ?? 'int64';
+            // z.bigint()'s format is null; treat it as int64.
+            json.format = ctx.zodSchema.format ?? 'int64';
             if (def.coerce) {
               json['x-zod-type'] = 'coerce-bigint';
             }

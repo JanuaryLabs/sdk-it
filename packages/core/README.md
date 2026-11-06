@@ -11,7 +11,7 @@ the generation pipeline.
 ## Install
 
 ```bash
-npm install @sdk-it/core zod@^4.3.0 openapi3-ts
+npm install @sdk-it/core zod@^4.6.7 openapi3-ts
 ```
 
 The `@sdk-it/core/program.js` and `@sdk-it/core/deriver.js` subpaths use the

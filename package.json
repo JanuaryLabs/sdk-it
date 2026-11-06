@@ -77,7 +77,7 @@
     "ai": "^7.0.162",
     "hono": "^4.8.3",
     "yaml": "^2.8.0",
-    "zod": "^4.3.0"
+    "zod": "^4.6.7"
   },
   "allowScripts": {
     "esbuild": true,

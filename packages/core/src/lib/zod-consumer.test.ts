@@ -74,5 +74,5 @@ test('Zod consumers receive an explicit version contract and incompatible-schema
   const manifest = JSON.parse(
     await readFile(join(coreRoot, 'package.json'), 'utf8'),
   );
-  assert.equal(manifest.peerDependencies.zod, '^4.3.0');
+  assert.equal(manifest.peerDependencies.zod, '^4.6.7');
 });

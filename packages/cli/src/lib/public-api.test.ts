@@ -501,7 +501,7 @@ apps/api/.sdk-it/*
     },
     dependencies: {
       'fast-content-type-parse': '^3.0.0',
-      zod: '^4.3.0',
+      zod: '^4.6.7',
     },
   });
   assert.equal(existsSync(join(workspace, 'sdk-it.config.ts')), false);
@@ -701,7 +701,7 @@ test('generateProject synchronizes generated package metadata on regeneration', 
   assert.equal(manifest.name, '@example/second-client');
   assert.deepEqual(manifest.dependencies, {
     'fast-content-type-parse': '^3.0.0',
-    zod: '^4.3.0',
+    zod: '^4.6.7',
   });
 });
 
