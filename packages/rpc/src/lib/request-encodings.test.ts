@@ -409,3 +409,62 @@ test('rpc agents keep every group: a spaced, a digit-leading and an untagged one
       .includes('checkHealth'),
   );
 });
+
+test("an rpc agent takes the tag's authored x-name and x-instructions first, else its summary or name and description, and has no instructions without either", async () => {
+  await using directory = await new TemporaryFiles().directory(
+    'rpc-agent-rule-',
+  );
+  const agents = await toAgents(
+    await specFile(directory.path, {
+      openapi: '3.2.0',
+      info: { title: 'Agents', version: '1.0.0' },
+      servers: [{ url: 'https://api.test' }],
+      tags: [
+        {
+          name: 'billing',
+          summary: 'Billing',
+          description: 'Invoices',
+          'x-name': "Billing 'Agent'",
+          'x-instructions': 'Handle invoices',
+        },
+        {
+          name: 'notes',
+          summary: 'Notes',
+          description: 'Use `notes` and ${x}\nthen stop',
+        },
+        { name: 'plain' },
+      ],
+      paths: {
+        '/invoices': {
+          get: {
+            operationId: 'listInvoices',
+            tags: ['billing'],
+            responses: { '204': { description: 'Done' } },
+          },
+        },
+        '/notes': {
+          get: {
+            operationId: 'listNotes',
+            tags: ['notes'],
+            responses: { '204': { description: 'Done' } },
+          },
+        },
+        '/plain': {
+          get: {
+            operationId: 'getPlain',
+            tags: ['plain'],
+            responses: { '204': { description: 'Done' } },
+          },
+        },
+      },
+    }),
+    { baseUrl: 'https://api.test', fetch: capture().fetch },
+  );
+
+  assert.equal(agents.billing.id, "Billing 'Agent'");
+  assert.equal(agents.billing.instructions, 'Handle invoices');
+  assert.equal(agents.notes.id, 'Notes');
+  assert.equal(agents.notes.instructions, 'Use `notes` and ${x}\nthen stop');
+  assert.deepEqual(Object.keys(agents.plain).sort(), ['id', 'tools']);
+  assert.equal(agents.plain.id, 'plain');
+});

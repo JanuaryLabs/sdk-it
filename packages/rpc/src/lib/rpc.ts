@@ -1,4 +1,5 @@
 import { type Tool, jsonSchema, tool } from 'ai';
+import type { TagObject } from 'openapi3-ts/oas32';
 import { z } from 'zod';
 
 import type { Method as OperationMethod } from '@sdk-it/core';
@@ -259,13 +260,7 @@ export async function toAgents(
   const client = createRpc(ir, options);
   const groups: Record<
     string,
-    {
-      tools: Record<string, Tool>;
-      instructions: string;
-      handoffDescription: string;
-      displayName: string;
-      name: string;
-    }
+    { tools: Record<string, Tool>; definition: TagObject }
   > = {};
 
   forEachOperation(ir, (entry, operation) => {
@@ -275,13 +270,7 @@ export async function toAgents(
       throw new Error(`The IR defines no tag ${entry.tag}`);
     }
 
-    groups[entry.tag] ??= {
-      tools: {},
-      instructions: '',
-      displayName: '',
-      name: '',
-      handoffDescription: '',
-    };
+    groups[entry.tag] ??= { tools: {}, definition: tagDef };
     const endpoint = `${entry.method.toUpperCase()} ${entry.path}`;
     const toolInfo = operation['x-tool'];
 
@@ -308,21 +297,21 @@ export async function toAgents(
         });
       }
     }
-    groups[entry.tag].handoffDescription = tagDef['x-handoff-description'];
-    groups[entry.tag].instructions = tagDef['x-instructions'];
-    groups[entry.tag].name = tagDef.name;
-    groups[entry.tag].displayName = tagDef['x-name'];
   });
-  const agents: Record<string, any> = {};
-  for (const [
-    agentName,
-    { tools, instructions, displayName },
-  ] of Object.entries(groups)) {
-    agents[agentName] = {
-      name: displayName,
-      instructions,
-      tools,
-    };
+  // Each agent is ToolLoopAgent settings: new ToolLoopAgent({ model, ...agent }).
+  const agents: Record<
+    string,
+    { id: string; instructions?: string; tools: Record<string, Tool> }
+  > = {};
+  for (const [agentName, { tools, definition }] of Object.entries(groups)) {
+    // The tag's x-name, else its display name; its x-instructions, else its
+    // description. The TypeScript generator's agentSettings repeats this rule.
+    const id: string =
+      definition['x-name'] ?? definition.summary ?? definition.name;
+    const instructions: string | undefined =
+      definition['x-instructions'] ?? definition.description;
+    agents[agentName] =
+      instructions === undefined ? { id, tools } : { id, instructions, tools };
   }
 
   return agents;

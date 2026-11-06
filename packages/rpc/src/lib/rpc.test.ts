@@ -403,7 +403,7 @@ describe('toAgents', () => {
     assert.equal(Object.keys(agents).length, 1, 'only one group');
   });
 
-  test('tag metadata maps to agent properties', async () => {
+  test("each agent is ToolLoopAgent settings: the tag's x-name as its id and x-instructions as its instructions", async () => {
     const spec = makeSpec();
     await using workspace = await writeSpec(spec);
     const path = workspace.specPath;
@@ -411,17 +411,13 @@ describe('toAgents', () => {
       baseUrl: 'http://localhost:3000',
     });
 
-    assert.equal(agents.users.name, 'User Agent', 'x-name → name');
-    assert.equal(
-      agents.users.instructions,
-      'Handle user queries',
-      'x-instructions → instructions',
-    );
-    assert.equal(
-      agents.users.handoffDescription,
-      undefined,
-      'handoffDescription is collected but not propagated to final agent output',
-    );
+    assert.deepEqual(Object.keys(agents.users).sort(), [
+      'id',
+      'instructions',
+      'tools',
+    ]);
+    assert.equal(agents.users.id, 'User Agent');
+    assert.equal(agents.users.instructions, 'Handle user queries');
   });
 
   test('useTools: "defined" only includes operations with x-tool', async () => {
@@ -720,11 +716,13 @@ describe('toAgents', () => {
     });
 
     const toolDef = agents.users.tools.getUsers;
+    assert.ok(toolDef.execute, 'the tool runs');
     const result = await toolDef.execute(
       { query: 'test' },
       {
         toolCallId: 'test-call',
         messages: [],
+        context: {},
       },
     );
 
@@ -762,21 +760,25 @@ describe('toAgents', () => {
       fetch: mockFetch,
     });
 
-    await agents.users.tools.getUsers.execute(
+    const getUsers = agents.users.tools.getUsers.execute;
+    assert.ok(getUsers, 'the tool runs');
+    await getUsers(
       {},
       {
         toolCallId: 'test-call-1',
         messages: [],
+        context: {},
       },
     );
 
     currentBaseUrl = 'http://localhost:4000';
 
-    await agents.users.tools.getUsers.execute(
+    await getUsers(
       {},
       {
         toolCallId: 'test-call-2',
         messages: [],
+        context: {},
       },
     );
 
