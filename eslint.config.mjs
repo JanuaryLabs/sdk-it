@@ -94,11 +94,16 @@ export default [
         {
           ignoredDependencies: ['@typescript/native'],
           projects: {
-            // The rule counts @sdk-it/typescript's devDependency on @sdk-it/testing as
-            // inlined (zukhruf #3755), and treats the build-time app/routes.tsx as
-            // shipped code (zukhruf #3756).
+            // The rule counts @sdk-it/typescript's devDependencies on @sdk-it/testing
+            // and @sdk-it/runtime (whose zod it then requires) as inlined
+            // (zukhruf #3755), and treats the build-time app/routes.tsx as shipped
+            // code (zukhruf #3756).
             'packages/apiref': {
-              ignoredDependencies: ['@zukhruf/testing', '@react-router/dev'],
+              ignoredDependencies: [
+                '@zukhruf/testing',
+                '@react-router/dev',
+                'zod',
+              ],
             },
           },
         },
