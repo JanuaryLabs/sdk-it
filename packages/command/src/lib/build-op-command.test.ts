@@ -1,29 +1,20 @@
-import { TemporaryFiles } from '@zukhruf/testing/fs';
+import { HttpServer } from '@zukhruf/testing/http';
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { type TestContext, describe, test } from 'node:test';
+import { text } from 'node:stream/consumers';
+import { describe, test } from 'node:test';
 import { ZodError, z } from 'zod';
 
-import { command } from '@sdk-it/command';
-import { ttyStdin } from '@sdk-it/testing';
+import { workspaceDirectory } from '@sdk-it/testing';
 
-async function specFile(spec: object) {
-  await using pending = new AsyncDisposableStack();
-  const directory = pending.use(
-    await new TemporaryFiles().directory('build-op-test-'),
-  );
-  const specPath = join(directory.path, 'spec.json');
-  await writeFile(specPath, JSON.stringify(spec));
-  pending.move();
-  return { ...directory, specPath };
-}
-
-function userSpec(): object {
+function userSpec(server: string): object {
   return {
     openapi: '3.1.0',
     info: { title: 'Test API', version: '1.0.0' },
-    servers: [{ url: 'http://localhost:3000' }],
+    servers: [{ url: server }],
     tags: [{ name: 'users' }],
     paths: {
       '/users': {
@@ -61,95 +52,102 @@ function userSpec(): object {
   };
 }
 
-async function stderrOf(t: TestContext, action: () => Promise<unknown>) {
-  const stderr = t.mock.method(process.stderr, 'write', () => true);
-  const stdout = t.mock.method(process.stdout, 'write', () => true);
-  await action();
-  stdout.mock.restore();
-  stderr.mock.restore();
-  return stderr.mock.calls.map((call) => String(call.arguments[0])).join('');
+/** The API the CLI calls: it records each request, which invalid input never sends. */
+async function upstream() {
+  const requests: { method?: string; url?: string }[] = [];
+  const server = await new HttpServer().start((request, response) => {
+    requests.push({ method: request.method, url: request.url });
+    response.writeHead(201, { 'content-type': 'application/json' });
+    response.end('{}');
+  });
+  return {
+    url: server.origin,
+    requests,
+    [Symbol.asyncDispose]: () => server[Symbol.asyncDispose](),
+  };
 }
 
-async function noFetch(): Promise<Response> {
-  throw new Error('fetch should not be invoked for invalid input');
+/** Runs `mycli …args` for `spec` as a shell does, with an empty stdin. */
+async function mycli(directory: string, spec: object, args: string[]) {
+  const specPath = join(directory, 'spec.json');
+  const cliPath = join(directory, 'mycli.mjs');
+  await writeFile(specPath, JSON.stringify(spec));
+  await writeFile(
+    cliPath,
+    `import { command } from '@sdk-it/command';
+const [spec, ...args] = process.argv.slice(2);
+const program = await command(spec, { name: 'mycli' });
+await program.parseAsync(['node', 'mycli', ...args]);
+`,
+  );
+  const child = spawn(process.execPath, [cliPath, specPath, ...args], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  const stdout = text(child.stdout);
+  const stderr = text(child.stderr);
+  child.stdin.end();
+  const [exitCode] = await once(child, 'close');
+  return { exitCode, stdout: await stdout, stderr: await stderr };
 }
 
 describe('build-op-command: zod validation errors are surfaced', () => {
-  test('missing required field prints Invalid input on stderr and exits 2', async (t) => {
-    using _tty = ttyStdin();
-    await using spec = await specFile(userSpec());
-    const program = await command(spec.specPath, {
-      name: 'mycli',
-      fetch: noFetch,
-    });
-    program.exitOverride();
+  test('missing required field prints Invalid input on stderr and exits 2', async () => {
+    await using workspace = await workspaceDirectory('build-op-test-');
+    await using api = await upstream();
 
-    const stderr = await stderrOf(t, () =>
-      program.parseAsync(['node', 'mycli', 'createUser']),
+    const result = await mycli(workspace.path, userSpec(api.url), [
+      'createUser',
+    ]);
+
+    assert.equal(result.exitCode, 2);
+    const parsed: { error: boolean; message: string } = JSON.parse(
+      result.stderr,
     );
-
-    assert.equal(process.exitCode, 2);
-    const parsed: { error: boolean; message: string } = JSON.parse(stderr);
     assert.equal(parsed.error, true);
     assert.equal(parsed.message, 'Invalid input');
+    assert.deepEqual(api.requests, []);
   });
 
-  test('wrong type via --input-file exits 2 with Invalid input message', async (t) => {
-    using _tty = ttyStdin();
-    await using spec = await specFile(userSpec());
-    const bodyPath = join(spec.path, 'body.json');
+  test('wrong type via --input-file exits 2 with Invalid input message', async () => {
+    await using workspace = await workspaceDirectory('build-op-test-');
+    await using api = await upstream();
+    const bodyPath = join(workspace.path, 'body.json');
     await writeFile(
       bodyPath,
       JSON.stringify({ name: 123, age: 'not-a-number' }),
     );
 
-    const program = await command(spec.specPath, {
-      name: 'mycli',
-      fetch: noFetch,
-    });
-    program.exitOverride();
+    const result = await mycli(workspace.path, userSpec(api.url), [
+      'createUser',
+      '--input-file',
+      bodyPath,
+    ]);
 
-    const stderr = await stderrOf(t, () =>
-      program.parseAsync([
-        'node',
-        'mycli',
-        'createUser',
-        '--input-file',
-        bodyPath,
-      ]),
+    assert.equal(result.exitCode, 2);
+    const parsed: { error: boolean; message: string } = JSON.parse(
+      result.stderr,
     );
-
-    assert.equal(process.exitCode, 2);
-    const parsed: { error: boolean; message: string } = JSON.parse(stderr);
     assert.equal(parsed.error, true);
     assert.equal(parsed.message, 'Invalid input');
+    assert.deepEqual(api.requests, []);
   });
 
-  test('multi-issue scenario via --input-file still surfaces Invalid input', async (t) => {
-    using _tty = ttyStdin();
-    await using spec = await specFile(userSpec());
-    const bodyPath = join(spec.path, 'body.json');
+  test('multi-issue scenario via --input-file still surfaces Invalid input', async () => {
+    await using workspace = await workspaceDirectory('build-op-test-');
+    await using api = await upstream();
+    const bodyPath = join(workspace.path, 'body.json');
     await writeFile(bodyPath, JSON.stringify({ name: 42, age: 'x' }));
 
-    const program = await command(spec.specPath, {
-      name: 'mycli',
-      fetch: noFetch,
-    });
-    program.exitOverride();
+    const result = await mycli(workspace.path, userSpec(api.url), [
+      'createUser',
+      '--input-file',
+      bodyPath,
+    ]);
 
-    const stderr = await stderrOf(t, () =>
-      program.parseAsync([
-        'node',
-        'mycli',
-        'createUser',
-        '--input-file',
-        bodyPath,
-      ]),
-    );
-
-    assert.equal(process.exitCode, 2);
-    const parsed: { message: string } = JSON.parse(stderr);
+    assert.equal(result.exitCode, 2);
+    const parsed: { message: string } = JSON.parse(result.stderr);
     assert.equal(parsed.message, 'Invalid input');
+    assert.deepEqual(api.requests, []);
   });
 });
 

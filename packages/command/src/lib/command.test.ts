@@ -1,28 +1,19 @@
-import { TemporaryFiles } from '@zukhruf/testing/fs';
+import { HttpServer } from '@zukhruf/testing/http';
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { type TestContext, describe, test } from 'node:test';
+import { text } from 'node:stream/consumers';
+import { describe, test } from 'node:test';
 
-import { command } from '@sdk-it/command';
-import { ttyStdin } from '@sdk-it/testing';
+import { workspaceDirectory } from '@sdk-it/testing';
 
-async function writeSpec(spec: object) {
-  await using pending = new AsyncDisposableStack();
-  const directory = pending.use(
-    await new TemporaryFiles().directory('command-test-'),
-  );
-  const specPath = join(directory.path, 'spec.json');
-  await writeFile(specPath, JSON.stringify(spec));
-  pending.move();
-  return { ...directory, specPath };
-}
-
-function baseSpec(): object {
+function baseSpec(server: string): object {
   return {
     openapi: '3.1.0',
     info: { title: 'Test API', version: '1.0.0' },
-    servers: [{ url: 'http://localhost:3000' }],
+    servers: [{ url: server }],
     tags: [{ name: 'users' }],
     paths: {
       '/users': {
@@ -123,179 +114,163 @@ function baseSpec(): object {
   };
 }
 
-function mockFetch() {
-  const calls: Request[] = [];
-  const fn = async (request: Request) => {
-    calls.push(request);
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
+/** The API the CLI calls: it records each request and answers 200 with `{ ok: true }`. */
+async function upstream() {
+  const requests: {
+    method?: string;
+    url: URL;
+    authorization?: string;
+    body: string;
+  }[] = [];
+  const server = await new HttpServer().start(async (request, response) => {
+    const body = await text(request);
+    requests.push({
+      method: request.method,
+      url: new URL(request.url ?? '', `http://${request.headers.host}`),
+      authorization: request.headers.authorization,
+      body,
     });
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ ok: true }));
+  });
+  return {
+    url: server.origin,
+    requests,
+    [Symbol.asyncDispose]: () => server[Symbol.asyncDispose](),
   };
-  return { calls, fn };
 }
 
-async function silenceStdout(
-  t: TestContext,
-  action: () => Promise<unknown>,
-): Promise<string> {
-  const stdout = t.mock.method(process.stdout, 'write', () => true);
-  await action();
-  stdout.mock.restore();
-  return stdout.mock.calls.map((call) => String(call.arguments[0])).join('');
+/** Runs `mycli …args` for `spec` as a shell does, with an empty stdin. */
+async function mycli(directory: string, spec: object, args: string[]) {
+  const specPath = join(directory, 'spec.json');
+  const cliPath = join(directory, 'mycli.mjs');
+  await writeFile(specPath, JSON.stringify(spec));
+  await writeFile(
+    cliPath,
+    `import { command } from '@sdk-it/command';
+const [spec, ...args] = process.argv.slice(2);
+const program = await command(spec, { name: 'mycli' });
+await program.parseAsync(['node', 'mycli', ...args]);
+`,
+  );
+  const child = spawn(process.execPath, [cliPath, specPath, ...args], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  const stdout = text(child.stdout);
+  const stderr = text(child.stderr);
+  child.stdin.end();
+  const [exitCode] = await once(child, 'close');
+  return { exitCode, stdout: await stdout, stderr: await stderr };
 }
 
 describe('command()', () => {
-  test('GET with query flags sends correct request', async (t) => {
-    using _tty = ttyStdin();
-    await using workspace = await writeSpec(baseSpec());
-    const specPath = workspace.specPath;
-    const { calls, fn } = mockFetch();
-    const program = await command(specPath, {
-      name: 'mycli',
-      fetch: fn,
-    });
-    program.exitOverride();
+  test('GET with query flags sends correct request', async () => {
+    await using workspace = await workspaceDirectory('command-test-');
+    await using api = await upstream();
 
-    await silenceStdout(t, () =>
-      program.parseAsync([
-        'node',
-        'mycli',
-        'listUsers',
-        '--limit',
-        '5',
-        '--sort',
-        'asc',
-      ]),
-    );
+    const result = await mycli(workspace.path, baseSpec(api.url), [
+      'listUsers',
+      '--limit',
+      '5',
+      '--sort',
+      'asc',
+    ]);
 
-    assert.equal(calls.length, 1);
-    const req = calls[0];
+    assert.equal(result.exitCode, 0, result.stderr);
+    assert.equal(api.requests.length, 1);
+    const req = api.requests[0];
     assert.equal(req.method, 'GET');
-    const url = new URL(req.url);
-    assert.equal(url.pathname, '/users');
-    assert.equal(url.searchParams.get('limit'), '5');
-    assert.equal(url.searchParams.get('sort'), 'asc');
+    assert.equal(req.url.pathname, '/users');
+    assert.equal(req.url.searchParams.get('limit'), '5');
+    assert.equal(req.url.searchParams.get('sort'), 'asc');
   });
 
-  test('GET with path param binds implicitly', async (t) => {
-    using _tty = ttyStdin();
-    await using workspace = await writeSpec(baseSpec());
-    const specPath = workspace.specPath;
-    const { calls, fn } = mockFetch();
-    const program = await command(specPath, {
-      name: 'mycli',
-      fetch: fn,
-    });
-    program.exitOverride();
+  test('GET with path param binds implicitly', async () => {
+    await using workspace = await workspaceDirectory('command-test-');
+    await using api = await upstream();
 
-    await silenceStdout(t, () =>
-      program.parseAsync(['node', 'mycli', 'getUser', '--userId', 'u_42']),
-    );
+    const result = await mycli(workspace.path, baseSpec(api.url), [
+      'getUser',
+      '--userId',
+      'u_42',
+    ]);
 
-    assert.equal(calls.length, 1);
-    const url = new URL(calls[0].url);
-    assert.equal(url.pathname, '/users/u_42');
+    assert.equal(result.exitCode, 0, result.stderr);
+    assert.equal(api.requests.length, 1);
+    assert.equal(api.requests[0].url.pathname, '/users/u_42');
   });
 
-  test('POST body from flags', async (t) => {
-    using _tty = ttyStdin();
-    await using workspace = await writeSpec(baseSpec());
-    const specPath = workspace.specPath;
-    const { calls, fn } = mockFetch();
-    const program = await command(specPath, {
-      name: 'mycli',
-      fetch: fn,
-    });
-    program.exitOverride();
+  test('POST body from flags', async () => {
+    await using workspace = await workspaceDirectory('command-test-');
+    await using api = await upstream();
 
-    await silenceStdout(t, () =>
-      program.parseAsync([
-        'node',
-        'mycli',
-        'createUser',
-        '--name',
-        'Alice',
-        '--age',
-        '30',
-      ]),
-    );
+    const result = await mycli(workspace.path, baseSpec(api.url), [
+      'createUser',
+      '--name',
+      'Alice',
+      '--age',
+      '30',
+    ]);
 
-    assert.equal(calls.length, 1);
-    const req = calls[0];
+    assert.equal(result.exitCode, 0, result.stderr);
+    assert.equal(api.requests.length, 1);
+    const req = api.requests[0];
     assert.equal(req.method, 'POST');
-    const body = await req.json();
-    assert.deepEqual(body, { name: 'Alice', age: 30 });
+    assert.deepEqual(JSON.parse(req.body), { name: 'Alice', age: 30 });
   });
 
-  test('POST body from --input-file', async (t) => {
-    using _tty = ttyStdin();
-    await using workspace = await writeSpec(baseSpec());
-    const specPath = workspace.specPath;
+  test('POST body from --input-file', async () => {
+    await using workspace = await workspaceDirectory('command-test-');
+    await using api = await upstream();
     const bodyPath = join(workspace.path, 'body.json');
     await writeFile(bodyPath, JSON.stringify({ name: 'Bob', age: 25 }));
-    const { calls, fn } = mockFetch();
-    const program = await command(specPath, {
-      name: 'mycli',
-      fetch: fn,
+
+    const result = await mycli(workspace.path, baseSpec(api.url), [
+      'createUser',
+      '--input-file',
+      bodyPath,
+    ]);
+
+    assert.equal(result.exitCode, 0, result.stderr);
+    assert.equal(api.requests.length, 1);
+    assert.deepEqual(JSON.parse(api.requests[0].body), {
+      name: 'Bob',
+      age: 25,
     });
-    program.exitOverride();
-
-    await silenceStdout(t, () =>
-      program.parseAsync([
-        'node',
-        'mycli',
-        'createUser',
-        '--input-file',
-        bodyPath,
-      ]),
-    );
-
-    assert.equal(calls.length, 1);
-    const body = await calls[0].json();
-    assert.deepEqual(body, { name: 'Bob', age: 25 });
   });
 
-  test('flags override --input-file', async (t) => {
-    using _tty = ttyStdin();
-    await using workspace = await writeSpec(baseSpec());
-    const specPath = workspace.specPath;
+  test('flags override --input-file', async () => {
+    await using workspace = await workspaceDirectory('command-test-');
+    await using api = await upstream();
     const bodyPath = join(workspace.path, 'body.json');
     await writeFile(bodyPath, JSON.stringify({ name: 'Bob', age: 25 }));
-    const { calls, fn } = mockFetch();
-    const program = await command(specPath, {
-      name: 'mycli',
-      fetch: fn,
+
+    const result = await mycli(workspace.path, baseSpec(api.url), [
+      'createUser',
+      '--input-file',
+      bodyPath,
+      '--name',
+      'Carol',
+    ]);
+
+    assert.equal(result.exitCode, 0, result.stderr);
+    assert.deepEqual(JSON.parse(api.requests[0].body), {
+      name: 'Carol',
+      age: 25,
     });
-    program.exitOverride();
-
-    await silenceStdout(t, () =>
-      program.parseAsync([
-        'node',
-        'mycli',
-        'createUser',
-        '--input-file',
-        bodyPath,
-        '--name',
-        'Carol',
-      ]),
-    );
-
-    const body = await calls[0].json();
-    assert.deepEqual(body, { name: 'Carol', age: 25 });
   });
 
-  test('schema subcommand emits JSON with all ops', async (t) => {
-    using _tty = ttyStdin();
-    await using workspace = await writeSpec(baseSpec());
-    const specPath = workspace.specPath;
-    const program = await command(specPath, { name: 'mycli' });
-    program.exitOverride();
+  test('schema subcommand emits JSON with all ops', async () => {
+    await using workspace = await workspaceDirectory('command-test-');
 
-    const out = await silenceStdout(t, () =>
-      program.parseAsync(['node', 'mycli', 'schema']),
+    const result = await mycli(
+      workspace.path,
+      baseSpec('http://localhost:3000'),
+      ['schema'],
     );
-    const parsed = JSON.parse(out);
+
+    assert.equal(result.exitCode, 0, result.stderr);
+    const parsed = JSON.parse(result.stdout);
     assert.ok(parsed.listUsers, 'listUsers in schema');
     assert.ok(parsed.createUser, 'createUser in schema');
     assert.ok(parsed.getUser, 'getUser in schema');
@@ -304,62 +279,49 @@ describe('command()', () => {
     assert.ok(parsed.listUsers.input.properties.limit);
   });
 
-  test('--describe prints one operation schema', async (t) => {
-    using _tty = ttyStdin();
-    await using workspace = await writeSpec(baseSpec());
-    const specPath = workspace.specPath;
-    const program = await command(specPath, { name: 'mycli' });
-    program.exitOverride();
+  test('--describe prints one operation schema', async () => {
+    await using workspace = await workspaceDirectory('command-test-');
 
-    const out = await silenceStdout(t, () =>
-      program.parseAsync(['node', 'mycli', 'listUsers', '--describe']),
+    const result = await mycli(
+      workspace.path,
+      baseSpec('http://localhost:3000'),
+      ['listUsers', '--describe'],
     );
-    const parsed = JSON.parse(out);
+
+    assert.equal(result.exitCode, 0, result.stderr);
+    const parsed = JSON.parse(result.stdout);
     assert.equal(parsed.name, 'listUsers');
     assert.equal(parsed.method, 'GET');
     assert.ok(parsed.input.properties.limit);
   });
 
-  test('--base-url overrides ir server', async (t) => {
-    using _tty = ttyStdin();
-    await using workspace = await writeSpec(baseSpec());
-    const specPath = workspace.specPath;
-    const { calls, fn } = mockFetch();
-    const program = await command(specPath, {
-      name: 'mycli',
-      fetch: fn,
-    });
-    program.exitOverride();
+  test('--base-url overrides ir server', async () => {
+    await using workspace = await workspaceDirectory('command-test-');
+    await using specServer = await upstream();
+    await using override = await upstream();
 
-    await silenceStdout(t, () =>
-      program.parseAsync([
-        'node',
-        'mycli',
-        '--base-url',
-        'http://override:9000',
-        'listUsers',
-      ]),
-    );
+    const result = await mycli(workspace.path, baseSpec(specServer.url), [
+      '--base-url',
+      override.url,
+      'listUsers',
+    ]);
 
-    const url = new URL(calls[0].url);
-    assert.equal(url.origin, 'http://override:9000');
+    assert.equal(result.exitCode, 0, result.stderr);
+    assert.equal(override.requests.length, 1);
+    assert.equal(specServer.requests.length, 0);
   });
 
-  test('--token sets Authorization: Bearer header', async (t) => {
-    using _tty = ttyStdin();
-    await using workspace = await writeSpec(baseSpec());
-    const specPath = workspace.specPath;
-    const { calls, fn } = mockFetch();
-    const program = await command(specPath, {
-      name: 'mycli',
-      fetch: fn,
-    });
-    program.exitOverride();
+  test('--token sets Authorization: Bearer header', async () => {
+    await using workspace = await workspaceDirectory('command-test-');
+    await using api = await upstream();
 
-    await silenceStdout(t, () =>
-      program.parseAsync(['node', 'mycli', '--token', 'secret', 'listUsers']),
-    );
+    const result = await mycli(workspace.path, baseSpec(api.url), [
+      '--token',
+      'secret',
+      'listUsers',
+    ]);
 
-    assert.equal(calls[0].headers.get('authorization'), 'Bearer secret');
+    assert.equal(result.exitCode, 0, result.stderr);
+    assert.equal(api.requests[0].authorization, 'Bearer secret');
   });
 });

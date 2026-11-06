@@ -1,107 +1,120 @@
-import { TemporaryFiles } from '@zukhruf/testing/fs';
+import { HttpServer } from '@zukhruf/testing/http';
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { text } from 'node:stream/consumers';
 import { test } from 'node:test';
 
-import { command } from '@sdk-it/command';
-import { ttyStdin } from '@sdk-it/testing';
+import { workspaceDirectory } from '@sdk-it/testing';
 
-const usersSpec = {
-  openapi: '3.1.0',
-  info: { title: 'Users', version: '1.0.0' },
-  servers: [{ url: 'https://api.example.com' }],
-  paths: {
-    '/users': {
-      post: {
-        operationId: 'createUser',
-        'x-fn-name': 'createUser',
-        tags: ['users'],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: { name: { type: 'string' } },
+function usersSpec(server: string): object {
+  return {
+    openapi: '3.1.0',
+    info: { title: 'Users', version: '1.0.0' },
+    servers: [{ url: server }],
+    paths: {
+      '/users': {
+        post: {
+          operationId: 'createUser',
+          'x-fn-name': 'createUser',
+          tags: ['users'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { name: { type: 'string' } },
+                },
               },
             },
           },
+          responses: { '201': { description: 'Created' } },
         },
-        responses: { '201': { description: 'Created' } },
       },
     },
-  },
-};
+  };
+}
 
-test('an --input-file that does not exist fails with the path and the read error, and sends nothing', async (t) => {
-  await using workspace = await new TemporaryFiles().directory(
+/** The API the CLI calls: it records each request, which a failed read never sends. */
+async function upstream() {
+  const requests: { method?: string; url?: string }[] = [];
+  const server = await new HttpServer().start((request, response) => {
+    requests.push({ method: request.method, url: request.url });
+    response.writeHead(201);
+    response.end();
+  });
+  return {
+    url: server.origin,
+    requests,
+    [Symbol.asyncDispose]: () => server[Symbol.asyncDispose](),
+  };
+}
+
+/** Runs `users …args` for `spec` as a shell does, with an empty stdin. */
+async function users(directory: string, spec: object, args: string[]) {
+  const specPath = join(directory, 'openapi.json');
+  const cliPath = join(directory, 'users.mjs');
+  await writeFile(specPath, JSON.stringify(spec));
+  await writeFile(
+    cliPath,
+    `import { command } from '@sdk-it/command';
+const [spec, ...args] = process.argv.slice(2);
+const program = await command(spec, { name: 'users' });
+await program.parseAsync(['node', 'users', ...args]);
+`,
+  );
+  const child = spawn(process.execPath, [cliPath, specPath, ...args], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  const stdout = text(child.stdout);
+  const stderr = text(child.stderr);
+  child.stdin.end();
+  const [exitCode] = await once(child, 'close');
+  return { exitCode, stdout: await stdout, stderr: await stderr };
+}
+
+test('an --input-file that does not exist fails with the path and the read error, and sends nothing', async () => {
+  await using workspace = await workspaceDirectory(
     'sdk-it-command-input-missing-',
   );
-  using _tty = ttyStdin();
-  const specPath = join(workspace.path, 'openapi.json');
-  await writeFile(specPath, JSON.stringify(usersSpec));
+  await using api = await upstream();
   const bodyPath = join(workspace.path, 'missing.json');
-  const program = await command(specPath, {
-    name: 'users',
-    fetch: () => {
-      throw new Error('fetch must not be called');
-    },
-  });
-  program.exitOverride();
-  const stderr = t.mock.method(process.stderr, 'write', () => true);
 
-  await program.parseAsync([
-    'node',
-    'users',
+  const result = await users(workspace.path, usersSpec(api.url), [
     'createUser',
     '--input-file',
     bodyPath,
   ]);
-  stderr.mock.restore();
 
-  const { message, ...printed } = JSON.parse(
-    stderr.mock.calls.map((call) => String(call.arguments[0])).join(''),
-  );
+  const { message, ...printed } = JSON.parse(result.stderr);
   assert.deepStrictEqual(printed, { error: true, name: 'Error' });
   assert.ok(
     message.startsWith(`Failed to read JSON from ${bodyPath}: `),
     message,
   );
   assert.match(message, /ENOENT/);
-  assert.equal(process.exitCode, 2);
+  assert.equal(result.exitCode, 2);
+  assert.deepEqual(api.requests, []);
 });
 
-test('an --input-file that is not valid JSON fails with the path and the parse error, and sends nothing', async (t) => {
-  await using workspace = await new TemporaryFiles().directory(
+test('an --input-file that is not valid JSON fails with the path and the parse error, and sends nothing', async () => {
+  await using workspace = await workspaceDirectory(
     'sdk-it-command-input-invalid-',
   );
-  using _tty = ttyStdin();
-  const specPath = join(workspace.path, 'openapi.json');
-  await writeFile(specPath, JSON.stringify(usersSpec));
+  await using api = await upstream();
   const bodyPath = join(workspace.path, 'body.json');
   await writeFile(bodyPath, '{"name": ');
-  const program = await command(specPath, {
-    name: 'users',
-    fetch: () => {
-      throw new Error('fetch must not be called');
-    },
-  });
-  program.exitOverride();
-  const stderr = t.mock.method(process.stderr, 'write', () => true);
 
-  await program.parseAsync([
-    'node',
-    'users',
+  const result = await users(workspace.path, usersSpec(api.url), [
     'createUser',
     '--input-file',
     bodyPath,
   ]);
-  stderr.mock.restore();
 
-  const { message, ...printed } = JSON.parse(
-    stderr.mock.calls.map((call) => String(call.arguments[0])).join(''),
-  );
+  const { message, ...printed } = JSON.parse(result.stderr);
   assert.deepStrictEqual(printed, { error: true, name: 'Error' });
   assert.ok(
     message.startsWith(`Failed to read JSON from ${bodyPath}: `),
@@ -111,5 +124,6 @@ test('an --input-file that is not valid JSON fails with the path and the parse e
     message.slice(`Failed to read JSON from ${bodyPath}: `.length),
     /JSON/,
   );
-  assert.equal(process.exitCode, 2);
+  assert.equal(result.exitCode, 2);
+  assert.deepEqual(api.requests, []);
 });

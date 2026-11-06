@@ -1,140 +1,155 @@
-import { TemporaryFiles } from '@zukhruf/testing/fs';
+import { HttpServer } from '@zukhruf/testing/http';
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { writeFile } from 'node:fs/promises';
+import type { ServerResponse } from 'node:http';
 import { join } from 'node:path';
+import { text } from 'node:stream/consumers';
 import { test } from 'node:test';
-import { runInNewContext } from 'node:vm';
 
-import { command } from '@sdk-it/command';
-import { ttyStdin } from '@sdk-it/testing';
+import { workspaceDirectory } from '@sdk-it/testing';
 
-const usersSpec = {
-  openapi: '3.1.0',
-  info: { title: 'Users', version: '1.0.0' },
-  servers: [{ url: 'https://api.example.com' }],
-  paths: {
-    '/users/{userId}': {
-      get: {
-        operationId: 'getUser',
-        'x-fn-name': 'getUser',
-        tags: ['users'],
-        parameters: [
-          {
-            name: 'userId',
-            in: 'path',
-            required: true,
-            schema: { type: 'string' },
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'OK',
-            content: { 'application/json': { schema: { type: 'object' } } },
-          },
-          '404': {
-            description: 'Not found',
-            content: { 'application/json': { schema: { type: 'object' } } },
+function usersSpec(server: string): object {
+  return {
+    openapi: '3.1.0',
+    info: { title: 'Users', version: '1.0.0' },
+    servers: [{ url: server }],
+    paths: {
+      '/users/{userId}': {
+        get: {
+          operationId: 'getUser',
+          'x-fn-name': 'getUser',
+          tags: ['users'],
+          parameters: [
+            {
+              name: 'userId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': {
+              description: 'OK',
+              content: { 'application/json': { schema: { type: 'object' } } },
+            },
+            '404': {
+              description: 'Not found',
+              content: { 'application/json': { schema: { type: 'object' } } },
+            },
           },
         },
       },
-    },
-    '/users': {
-      post: {
-        operationId: 'createUser',
-        'x-fn-name': 'createUser',
-        tags: ['users'],
-        responses: { '201': { description: 'Created' } },
+      '/users': {
+        post: {
+          operationId: 'createUser',
+          'x-fn-name': 'createUser',
+          tags: ['users'],
+          responses: { '201': { description: 'Created' } },
+        },
       },
     },
-  },
-};
+  };
+}
 
-test('an HTTP failure prints its status, body, message and name to stderr and exits 1', async (t) => {
-  await using workspace = await new TemporaryFiles().directory(
-    'sdk-it-command-error-',
-  );
-  using _tty = ttyStdin();
-  const specPath = join(workspace.path, 'openapi.json');
-  await writeFile(specPath, JSON.stringify(usersSpec));
-  const program = await command(specPath, {
-    name: 'users',
-    fetch: async () =>
-      Response.json({ message: 'User u_7 not found' }, { status: 404 }),
+/** The API the CLI calls: `answer` writes each response. */
+async function upstream(answer: (response: ServerResponse) => void) {
+  const server = await new HttpServer().start((_request, response) => {
+    answer(response);
   });
-  program.exitOverride();
-  const stderr = t.mock.method(process.stderr, 'write', () => true);
+  return {
+    url: server.origin,
+    [Symbol.asyncDispose]: () => server[Symbol.asyncDispose](),
+  };
+}
 
-  await program.parseAsync(['node', 'users', 'getUser', '--userId', 'u_7']);
-  stderr.mock.restore();
+/** The CLI's entry script; `options` is the source of its extra `command()` options. */
+function entry(options = '') {
+  return `import { command } from '@sdk-it/command';
+import { runInNewContext } from 'node:vm';
+const [spec, ...args] = process.argv.slice(2);
+const program = await command(spec, { name: 'users', ${options} });
+await program.parseAsync(['node', 'users', ...args]);
+`;
+}
 
-  assert.deepStrictEqual(
-    JSON.parse(
-      stderr.mock.calls.map((call) => String(call.arguments[0])).join(''),
-    ),
-    {
-      error: true,
-      status: 404,
-      data: { message: 'User u_7 not found' },
-      message:
-        'Request failed with status code 404: {"message":"User u_7 not found"}',
-      name: 'APIError',
-    },
-  );
-  assert.equal(process.exitCode, 1);
+/** Runs `users …args` for `spec` as a shell does, with an empty stdin. */
+async function users(
+  directory: string,
+  spec: object,
+  args: string[],
+  cli = entry(),
+) {
+  const specPath = join(directory, 'openapi.json');
+  const cliPath = join(directory, 'users.mjs');
+  await writeFile(specPath, JSON.stringify(spec));
+  await writeFile(cliPath, cli);
+  const child = spawn(process.execPath, [cliPath, specPath, ...args], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  const stdout = text(child.stdout);
+  const stderr = text(child.stderr);
+  child.stdin.end();
+  const [exitCode] = await once(child, 'close');
+  return { exitCode, stdout: await stdout, stderr: await stderr };
+}
+
+test('an HTTP failure prints its status, body, message and name to stderr and exits 1', async () => {
+  await using workspace = await workspaceDirectory('sdk-it-command-error-');
+  await using api = await upstream((response) => {
+    response.writeHead(404, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ message: 'User u_7 not found' }));
+  });
+
+  const result = await users(workspace.path, usersSpec(api.url), [
+    'getUser',
+    '--userId',
+    'u_7',
+  ]);
+
+  assert.deepStrictEqual(JSON.parse(result.stderr), {
+    error: true,
+    status: 404,
+    data: { message: 'User u_7 not found' },
+    message:
+      'Request failed with status code 404: {"message":"User u_7 not found"}',
+    name: 'APIError',
+  });
+  assert.equal(result.exitCode, 1);
 });
 
-test('an operation that declares no response content succeeds and prints nothing', async (t) => {
-  await using workspace = await new TemporaryFiles().directory(
-    'sdk-it-command-bodyless-',
-  );
-  const exitCode = process.exitCode;
-  using _tty = ttyStdin();
-  const specPath = join(workspace.path, 'openapi.json');
-  await writeFile(specPath, JSON.stringify(usersSpec));
-  const program = await command(specPath, {
-    name: 'users',
-    fetch: async () => new Response(null, { status: 201 }),
+test('an operation that declares no response content succeeds and prints nothing', async () => {
+  await using workspace = await workspaceDirectory('sdk-it-command-bodyless-');
+  await using api = await upstream((response) => {
+    response.writeHead(201);
+    response.end();
   });
-  program.exitOverride();
-  const stdout = t.mock.method(process.stdout, 'write', () => true);
-  const stderr = t.mock.method(process.stderr, 'write', () => true);
 
-  await program.parseAsync(['node', 'users', 'createUser']);
-  stderr.mock.restore();
-  stdout.mock.restore();
+  const result = await users(workspace.path, usersSpec(api.url), [
+    'createUser',
+  ]);
 
-  assert.equal(
-    [...stdout.mock.calls, ...stderr.mock.calls]
-      .map((call) => String(call.arguments[0]))
-      .join(''),
-    '',
-  );
-  assert.equal(process.exitCode, exitCode);
+  assert.equal(result.stdout + result.stderr, '');
+  assert.equal(result.exitCode, 0);
 });
 
-test('a fetch that fails with an Error from another realm prints its name and message to stderr', async (t) => {
-  await using workspace = await new TemporaryFiles().directory(
-    'sdk-it-command-realm-',
-  );
-  using _tty = ttyStdin();
-  const specPath = join(workspace.path, 'openapi.json');
-  await writeFile(specPath, JSON.stringify(usersSpec));
-  const program = await command(specPath, {
-    name: 'users',
-    fetch: () =>
-      Promise.reject(runInNewContext('new TypeError("network down")')),
-  });
-  program.exitOverride();
-  const stderr = t.mock.method(process.stderr, 'write', () => true);
+test('a fetch that fails with an Error from another realm prints its name and message to stderr', async () => {
+  await using workspace = await workspaceDirectory('sdk-it-command-realm-');
 
-  await program.parseAsync(['node', 'users', 'getUser', '--userId', 'u_7']);
-  stderr.mock.restore();
-
-  assert.deepStrictEqual(
-    JSON.parse(
-      stderr.mock.calls.map((call) => String(call.arguments[0])).join(''),
+  const result = await users(
+    workspace.path,
+    usersSpec('https://api.example.com'),
+    ['getUser', '--userId', 'u_7'],
+    entry(
+      `fetch: () => Promise.reject(runInNewContext('new TypeError("network down")')),`,
     ),
-    { error: true, message: 'network down', name: 'TypeError' },
   );
-  assert.equal(process.exitCode, 1);
+
+  assert.deepStrictEqual(JSON.parse(result.stderr), {
+    error: true,
+    message: 'network down',
+    name: 'TypeError',
+  });
+  assert.equal(result.exitCode, 1);
 });
