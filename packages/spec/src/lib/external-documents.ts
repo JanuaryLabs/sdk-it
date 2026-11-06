@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 
-import { pointerTokens } from '@sdk-it/core';
+import { pointerTokens, valueAtPointer } from '@sdk-it/core';
 
 import { loadLocal } from './loaders/local-loader.js';
 import { loadRemote } from './loaders/remote-loader.js';
@@ -51,14 +51,11 @@ export function isJsonObject(value: unknown): value is Record<string, unknown> {
 }
 
 export function readPointer(document: unknown, fragment: string) {
-  let current: unknown = document;
-  for (const key of pointerTokens(fragment)) {
-    if (!isJsonObject(current) || !(key in current)) {
-      throw new Error(`no value at pointer #${fragment}`);
-    }
-    current = current[key];
+  const value = valueAtPointer(document, pointerTokens(fragment));
+  if (value === undefined) {
+    throw new Error(`no value at pointer #${fragment}`);
   }
-  return current;
+  return value;
 }
 
 export function availableName(
