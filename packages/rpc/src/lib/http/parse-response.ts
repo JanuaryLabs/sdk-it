@@ -64,9 +64,10 @@ export async function buffered(response: Response) {
   if (type.startsWith('text/')) {
     return response.text();
   }
+  if (type === 'application/json' || type.endsWith('+json')) {
+    return response.json();
+  }
   switch (type) {
-    case 'application/json':
-      return response.json();
     case 'application/xml':
       return response.text();
     case 'application/x-www-form-urlencoded': {

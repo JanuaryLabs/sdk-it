@@ -4,7 +4,7 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { APIError, BadRequest, rpc } from '@sdk-it/rpc';
+import { APIError, BadRequest, NotFound, rpc } from '@sdk-it/rpc';
 
 test('RPC client rejects a declared error status with its APIError subclass, an Error with a stack and a readable message', async () => {
   await using workspace = await new TemporaryFiles().directory(
@@ -179,6 +179,66 @@ test('RPC client summarizes a JSON array error body in the message', async () =>
       error.message,
       'Request failed with status code 422: [{"field":"sku","message":"is required"}]',
     );
+    return true;
+  });
+});
+
+test('RPC client rejects a problem+json error with its APIError subclass carrying the problem details', async () => {
+  await using workspace = await new TemporaryFiles().directory(
+    'sdk-it-rpc-api-error-',
+  );
+  const specPath = join(workspace.path, 'openapi.json');
+  await writeFile(
+    specPath,
+    JSON.stringify({
+      openapi: '3.1.0',
+      info: { title: 'Orders', version: '1.0.0' },
+      paths: {
+        '/orders/latest': {
+          get: {
+            operationId: 'latestOrder',
+            tags: ['orders'],
+            responses: {
+              '200': {
+                description: 'OK',
+                content: {
+                  'application/json': { schema: { type: 'object' } },
+                },
+              },
+              '404': {
+                description: 'No order yet',
+                content: {
+                  'application/problem+json': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        title: { type: 'string' },
+                        status: { type: 'integer' },
+                        detail: { type: 'string' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }),
+  );
+  const problem = { title: 'Not Found', status: 404, detail: 'No order yet' };
+  const client = await rpc(specPath, {
+    baseUrl: 'https://api.example.com',
+    fetch: async () =>
+      new Response(JSON.stringify(problem), {
+        status: 404,
+        headers: { 'Content-Type': 'application/problem+json' },
+      }),
+  });
+
+  await assert.rejects(client.request('GET /orders/latest', {}), (error) => {
+    assert.ok(error instanceof NotFound);
+    assert.deepStrictEqual(error.data, problem);
     return true;
   });
 });
