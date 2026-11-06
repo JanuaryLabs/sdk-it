@@ -1,13 +1,11 @@
 import { HttpServer } from '@zukhruf/testing/http';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
 import { test } from 'node:test';
 
-import { workspaceDirectory } from '@sdk-it/testing';
+import { runNode, workspaceDirectory } from '@sdk-it/testing';
 
 const spec = {
   openapi: '3.1.0',
@@ -60,8 +58,8 @@ async function upstream() {
   };
 }
 
-/** Runs `acme createUser …args` the way a shell pipe does: `chunks` are its stdin. */
-async function pipe(baseUrl: string, chunks: string[], args: string[] = []) {
+/** Runs `acme createUser …args` the way a shell pipe does: `stdin` is its stdin. */
+async function pipe(baseUrl: string, stdin: string, args: string[] = []) {
   await using directory = await workspaceDirectory('piped-stdin-');
   const specPath = join(directory.path, 'spec.json');
   const cliPath = join(directory.path, 'acme.mjs');
@@ -74,23 +72,15 @@ const program = await command(spec, { name: 'acme', baseUrl });
 await program.parseAsync(['node', 'acme', ...args]);
 `,
   );
-  const child = spawn(
-    process.execPath,
-    [cliPath, specPath, baseUrl, 'createUser', ...args],
-    { stdio: ['pipe', 'pipe', 'pipe'] },
-  );
-  const stdout = text(child.stdout);
-  const stderr = text(child.stderr);
-  for (const chunk of chunks) child.stdin.write(chunk);
-  child.stdin.end();
-  const [exitCode] = await once(child, 'close');
-  return { exitCode, stdout: await stdout, stderr: await stderr };
+  return await runNode([cliPath, specPath, baseUrl, 'createUser', ...args], {
+    stdin,
+  });
 }
 
 test('invalid JSON on stdin is refused before any request', async () => {
   await using api = await upstream();
 
-  const result = await pipe(api.url, ['{"name": "Ada",']);
+  const result = await pipe(api.url, '{"name": "Ada",');
 
   assert.equal(result.exitCode, 2);
   assert.equal(result.stdout, '');
@@ -103,7 +93,7 @@ test('invalid JSON on stdin is refused before any request', async () => {
 test('empty piped stdin leaves the input to the flags', async () => {
   await using api = await upstream();
 
-  const result = await pipe(api.url, [], ['--name', 'Ada', '--age', '36']);
+  const result = await pipe(api.url, '', ['--name', 'Ada', '--age', '36']);
 
   assert.equal(result.exitCode, 0, result.stderr);
   assert.deepEqual(api.bodies(), [{ name: 'Ada', age: 36 }]);
@@ -112,7 +102,7 @@ test('empty piped stdin leaves the input to the flags', async () => {
 test('whitespace-only piped stdin, as `echo |` sends, leaves the input to the flags', async () => {
   await using api = await upstream();
 
-  const result = await pipe(api.url, ['\n'], ['--name', 'Ada', '--age', '36']);
+  const result = await pipe(api.url, '\n', ['--name', 'Ada', '--age', '36']);
 
   assert.equal(result.exitCode, 0, result.stderr);
   assert.deepEqual(api.bodies(), [{ name: 'Ada', age: 36 }]);
@@ -121,7 +111,7 @@ test('whitespace-only piped stdin, as `echo |` sends, leaves the input to the fl
 test('a UTF-8 byte order mark and whitespace around the piped JSON are tolerated', async () => {
   await using api = await upstream();
 
-  const result = await pipe(api.url, ['\uFEFF \n{"name":"Ada","age":36}\n']);
+  const result = await pipe(api.url, '\uFEFF \n{"name":"Ada","age":36}\n');
 
   assert.equal(result.exitCode, 0, result.stderr);
   assert.deepEqual(api.bodies(), [{ name: 'Ada', age: 36 }]);
@@ -130,7 +120,7 @@ test('a UTF-8 byte order mark and whitespace around the piped JSON are tolerated
 test('a piped JSON object becomes the request body and the response is printed', async () => {
   await using api = await upstream();
 
-  const result = await pipe(api.url, ['{"name":"Ada","age":36}']);
+  const result = await pipe(api.url, '{"name":"Ada","age":36}');
 
   assert.equal(result.exitCode, 0, result.stderr);
   assert.deepEqual(
@@ -144,7 +134,7 @@ test('a piped JSON object becomes the request body and the response is printed',
 test('non-ASCII text on stdin reaches the API unchanged', async () => {
   await using api = await upstream();
 
-  const result = await pipe(api.url, ['{"name":"Zoë 東京 🚀","age":36}']);
+  const result = await pipe(api.url, '{"name":"Zoë 東京 🚀","age":36}');
 
   assert.equal(result.exitCode, 0, result.stderr);
   assert.deepEqual(api.bodies(), [{ name: 'Zoë 東京 🚀', age: 36 }]);
@@ -156,7 +146,7 @@ test('a body larger than the pipe buffer reaches the API whole, across reads tha
   // several chunks, and most chunk ends fall inside a character.
   const name = '東'.repeat(100_000);
 
-  const result = await pipe(api.url, [JSON.stringify({ name, age: 36 })]);
+  const result = await pipe(api.url, JSON.stringify({ name, age: 36 }));
 
   assert.equal(result.exitCode, 0, result.stderr);
   assert.deepEqual(api.bodies(), [{ name, age: 36 }]);
@@ -165,11 +155,10 @@ test('a body larger than the pipe buffer reaches the API whole, across reads tha
 test('a flag overrides the same key piped on stdin', async () => {
   await using api = await upstream();
 
-  const result = await pipe(
-    api.url,
-    ['{"name":"Ada","age":36}'],
-    ['--age', '37'],
-  );
+  const result = await pipe(api.url, '{"name":"Ada","age":36}', [
+    '--age',
+    '37',
+  ]);
 
   assert.equal(result.exitCode, 0, result.stderr);
   assert.deepEqual(api.bodies(), [{ name: 'Ada', age: 37 }]);

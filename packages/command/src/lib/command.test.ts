@@ -1,13 +1,11 @@
 import { HttpServer } from '@zukhruf/testing/http';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { text } from 'node:stream/consumers';
 import { describe, test } from 'node:test';
 
-import { workspaceDirectory } from '@sdk-it/testing';
+import { runNode, workspaceDirectory } from '@sdk-it/testing';
 
 function baseSpec(server: string): object {
   return {
@@ -153,14 +151,7 @@ const program = await command(spec, { name: 'mycli' });
 await program.parseAsync(['node', 'mycli', ...args]);
 `,
   );
-  const child = spawn(process.execPath, [cliPath, specPath, ...args], {
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-  const stdout = text(child.stdout);
-  const stderr = text(child.stderr);
-  child.stdin.end();
-  const [exitCode] = await once(child, 'close');
-  return { exitCode, stdout: await stdout, stderr: await stderr };
+  return runNode([cliPath, specPath, ...args]);
 }
 
 describe('command()', () => {
