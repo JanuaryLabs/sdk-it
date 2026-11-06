@@ -42,17 +42,25 @@ type PathValue<T, P extends string> = P extends `${infer K}.${infer Rest}`
 export type ItemOf<Data, P extends string> =
   NonNullable<PathValue<Data, P>> extends readonly (infer I)[] ? I : never;
 
+/** Options for the request a page fetch sends; they override the first request's. */
+export interface PageRequestOptions {
+  signal?: AbortSignal;
+}
+
 export interface PageControls<Data, Item> extends AsyncIterable<Item> {
   hasNextPage(): boolean;
-  getNextPage(): Promise<Page<Data, Item>>;
+  getNextPage(options?: PageRequestOptions): Promise<Page<Data, Item>>;
   /** This page, then each following page. */
-  iterPages(): AsyncGenerator<Page<Data, Item>>;
+  iterPages(options?: PageRequestOptions): AsyncGenerator<Page<Data, Item>>;
 }
 
 /** A page: the response body's fields, and the way to the next page. */
 export type Page<Data, Item> = Data & PageControls<Data, Item>;
 
-type FetchPage = (input: Record<string, unknown>) => Promise<ResponsePage>;
+type FetchPage = (
+  input: Record<string, unknown>,
+  options: PageRequestOptions | undefined,
+) => Promise<ResponsePage>;
 
 function at(data: unknown, path: string): unknown {
   let value = data;
@@ -97,16 +105,16 @@ class ResponsePage {
     return Boolean(at(this, this.#pagination.hasMore));
   }
 
-  async getNextPage() {
-    return this.#fetchPage(this.#nextInput());
+  async getNextPage(options?: PageRequestOptions) {
+    return this.#fetchPage(this.#nextInput(), options);
   }
 
-  async *iterPages() {
+  async *iterPages(options?: PageRequestOptions) {
     yield this;
-    let page = this.hasNextPage() ? await this.getNextPage() : undefined;
+    let page = this.hasNextPage() ? await this.getNextPage(options) : undefined;
     while (page) {
       yield page;
-      page = page.hasNextPage() ? await page.getNextPage() : undefined;
+      page = page.hasNextPage() ? await page.getNextPage(options) : undefined;
     }
   }
 

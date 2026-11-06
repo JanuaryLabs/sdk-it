@@ -61,7 +61,7 @@ function itemsRoute<Body, const P extends Pagination>(
 function itemsClient<Body extends object, const P extends Pagination>(
   pagination: P,
   query: string[],
-  answer: (url: URL) => Body,
+  answer: (url: URL, request: Request) => Body,
 ) {
   return createClient(
     {
@@ -71,7 +71,8 @@ function itemsClient<Body extends object, const P extends Pagination>(
       credentials: z.object({}),
     },
     {
-      fetch: async (request) => Response.json(answer(new URL(request.url))),
+      fetch: async (request) =>
+        Response.json(answer(new URL(request.url), request)),
     },
   );
 }
@@ -217,6 +218,35 @@ describe('Page', () => {
       'item 4',
       'item 5',
     ]);
+  });
+
+  test("a page fetch takes its own signal, otherwise the first request's", async () => {
+    const aborted = AbortSignal.abort();
+    const client = itemsClient(
+      offsetPaging,
+      ['offset', 'limit'],
+      (url, request) => ({
+        ...offsetAnswer(url),
+        aborted: request.signal.aborted,
+      }),
+    );
+
+    const first = await client.request('GET /items', { limit: 2 });
+    const own = await first.getNextPage({ signal: aborted });
+    const inherited = await (
+      await client.request('GET /items', { limit: 2 }, { signal: aborted })
+    ).getNextPage();
+
+    const iterated = await Array.fromAsync(
+      first.iterPages({ signal: aborted }),
+      (page) => page.aborted,
+    );
+
+    assert.deepEqual(
+      [first.aborted, own.aborted, inherited.aborted],
+      [false, true, true],
+    );
+    assert.deepEqual(iterated, [false, true, true]);
   });
 
   test('a page serializes to the response body', async () => {

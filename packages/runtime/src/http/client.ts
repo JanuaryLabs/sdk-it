@@ -11,6 +11,7 @@ import {
   type ItemOf,
   type Page,
   PagePromise,
+  type PageRequestOptions,
   type Pagination,
   createPage,
 } from './page.ts';
@@ -235,8 +236,14 @@ async function firstPage(
       `${endpoint} pages through its input, so the input must be an object`,
     );
   }
-  const fetchPage = async (pageInput: Record<string, unknown>) => {
-    const result = await send(client, endpoint, pageInput, options);
+  const fetchPage = async (
+    pageInput: Record<string, unknown>,
+    pageOptions: PageRequestOptions | undefined,
+  ) => {
+    const result = await send(client, endpoint, pageInput, {
+      ...options,
+      ...pageOptions,
+    });
     if (
       !(result instanceof APIResponse) ||
       result.status !== pagination.statusCode
@@ -249,7 +256,7 @@ async function firstPage(
     }
     return createPage(data, pageInput, pagination, fetchPage);
   };
-  return fetchPage(Object.fromEntries(Object.entries(input)));
+  return fetchPage(Object.fromEntries(Object.entries(input)), undefined);
 }
 
 function interceptorsFor(
