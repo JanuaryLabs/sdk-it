@@ -85,6 +85,12 @@ export default [
     },
   },
   {
+    // validate() builds its input schema from the selector's keys at run time,
+    // so the type of the parsed input is a claim the checker cannot prove (#3745).
+    files: ['packages/hono/src/lib/runtime/validator.ts'],
+    rules: { '@typescript-eslint/consistent-type-assertions': 'off' },
+  },
+  {
     files: ['**/package.json'],
     rules: {
       // Nx's check compares versions with semver, which cannot read the npm
