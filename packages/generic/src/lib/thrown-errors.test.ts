@@ -1,5 +1,4 @@
 import { test } from '@zukhruf/testing/node';
-import { build, stop } from 'esbuild';
 import type { Hono } from 'hono';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
@@ -122,29 +121,28 @@ void test.each(['handler', 'middleware'] as const, (location) =>
     ] as const,
     (form) =>
       test(`generated clients document and handle ${form} HTTP errors from a ${location}`, async () => {
-        try {
-          const construction = `new HTTPException(409, {
+        const construction = `new HTTPException(409, {
         message: 'Item already exists',
         cause: { code: 'api/conflict' as const, itemId: 'item-1' },
       })`;
-          const statement = {
-            direct: `throw ${construction};`,
-            local: `const error = ${construction}; throw error;`,
-            alias: `const original = ${construction}; const alias = original; const error = alias; throw error;`,
-            'long alias': `const original = ${construction}; ${Array.from({ length: 12 }, (_, index) => `const alias${index} = ${index === 0 ? 'original' : `alias${index - 1}`};`).join(' ')} throw alias11;`,
-            wrapped: `const original = (${construction} satisfies HTTPException); const error = original as HTTPException; throw ((error as HTTPException)!);`,
-            imported: 'throw importedConflict;',
-            namespace: 'throw errors.conflict;',
-            helper: 'rejectConflict();',
-            'runtime parse':
-              'await parse(z.object({ name: z.string() }), { name: 42 });',
-          }[form];
-          const status = form === 'runtime parse' ? 400 : 409;
-          const reject = `if (c.req.query('conflict') === 'yes') { ${statement} }`;
-          const mode = location === 'handler' ? 'full' : 'minimal';
-          await using workspace = await analysisWorkspace('thrown-errors-', {
-            'errors.ts': `import { HTTPException } from 'hono/http-exception'; export const conflict = ${construction};`,
-            'route.ts': `
+        const statement = {
+          direct: `throw ${construction};`,
+          local: `const error = ${construction}; throw error;`,
+          alias: `const original = ${construction}; const alias = original; const error = alias; throw error;`,
+          'long alias': `const original = ${construction}; ${Array.from({ length: 12 }, (_, index) => `const alias${index} = ${index === 0 ? 'original' : `alias${index - 1}`};`).join(' ')} throw alias11;`,
+          wrapped: `const original = (${construction} satisfies HTTPException); const error = original as HTTPException; throw ((error as HTTPException)!);`,
+          imported: 'throw importedConflict;',
+          namespace: 'throw errors.conflict;',
+          helper: 'rejectConflict();',
+          'runtime parse':
+            'await parse(z.object({ name: z.string() }), { name: 42 });',
+        }[form];
+        const status = form === 'runtime parse' ? 400 : 409;
+        const reject = `if (c.req.query('conflict') === 'yes') { ${statement} }`;
+        const mode = location === 'handler' ? 'full' : 'minimal';
+        await using workspace = await analysisWorkspace('thrown-errors-', {
+          'errors.ts': `import { HTTPException } from 'hono/http-exception'; export const conflict = ${construction};`,
+          'route.ts': `
 import { Hono, type Context, type Next } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
@@ -170,54 +168,54 @@ app.get('/items', validate((payload) => ({
   return c.json({ id: 'item-1' });
 });
 `,
-          });
-          const { app }: { app: Hono } = await import(
-            pathToFileURL(join(workspace.path, 'route.ts')).href
-          );
-          const response = await app.request('/items?conflict=yes');
-          assert.equal(response.status, status);
-          const payload = await response.json();
-          if (form === 'runtime parse') {
-            assert.partialDeepStrictEqual(payload, {
-              message: 'Validation failed',
-              cause: {
-                code: 'api/validation-failed',
-                formErrors: [],
-                errors: { name: [{ code: 'invalid_type', path: 'name' }] },
-              },
-            });
-          } else
-            assert.deepEqual(payload, {
-              message: 'Item already exists',
-              cause: { code: 'api/conflict', itemId: 'item-1' },
-            });
-          using project = openAnalysisProject(workspace.tsconfig);
-          const spec = await analyze(project, {
-            responseAnalyzer,
-          });
-          assert.ok(
-            spec.paths['/items'].get?.responses?.[status],
-            `The real HTTP ${status} must be documented`,
-          );
-          const output = join(workspace.path, 'client');
-          await generate(
-            {
-              openapi: '3.1.0',
-              info: { title: 'Items', version: '1.0.0' },
-              paths: spec.paths,
-              components: spec.components,
+        });
+        const { app }: { app: Hono } = await import(
+          pathToFileURL(join(workspace.path, 'route.ts')).href
+        );
+        const response = await app.request('/items?conflict=yes');
+        assert.equal(response.status, status);
+        const payload = await response.json();
+        if (form === 'runtime parse') {
+          assert.partialDeepStrictEqual(payload, {
+            message: 'Validation failed',
+            cause: {
+              code: 'api/validation-failed',
+              formErrors: [],
+              errors: { name: [{ code: 'invalid_type', path: 'name' }] },
             },
-            {
-              output,
-              name: 'Items',
-              mode,
-              readme: false,
-            },
-          );
-          const source = mode === 'full' ? join(output, 'src') : output;
-          await writeFile(
-            join(source, 'consumer.ts'),
-            `
+          });
+        } else
+          assert.deepEqual(payload, {
+            message: 'Item already exists',
+            cause: { code: 'api/conflict', itemId: 'item-1' },
+          });
+        using project = openAnalysisProject(workspace.tsconfig);
+        const spec = await analyze(project, {
+          responseAnalyzer,
+        });
+        assert.ok(
+          spec.paths['/items'].get?.responses?.[status],
+          `The real HTTP ${status} must be documented`,
+        );
+        const output = join(workspace.path, 'client');
+        await generate(
+          {
+            openapi: '3.1.0',
+            info: { title: 'Items', version: '1.0.0' },
+            paths: spec.paths,
+            components: spec.components,
+          },
+          {
+            output,
+            name: 'Items',
+            mode,
+            readme: false,
+          },
+        );
+        const source = mode === 'full' ? join(output, 'src') : output;
+        await writeFile(
+          join(source, 'consumer.ts'),
+          `
 import assert from 'node:assert/strict';
 import { createItems, ${status === 400 ? 'BadRequest' : 'Conflict'} as ThrownError, type ItemsEndpoints } from './index.ts';
 
@@ -257,40 +255,28 @@ export async function exercise(fetch: typeof globalThis.fetch, expected: unknown
   });
 }
 `,
-          );
-          const { diagnostics } = typecheck({
-            tsconfig: {
-              compilerOptions: {
-                target: 'ESNext',
-                module: 'ESNext',
-                moduleResolution: 'bundler',
-                strict: true,
-                exactOptionalPropertyTypes: true,
-                skipLibCheck: true,
-                noEmit: true,
-                allowImportingTsExtensions: true,
-                types: ['node'],
-              },
-              include: ['**/*.ts'],
+        );
+        const { diagnostics } = typecheck({
+          tsconfig: {
+            compilerOptions: {
+              target: 'ESNext',
+              module: 'ESNext',
+              moduleResolution: 'bundler',
+              strict: true,
+              exactOptionalPropertyTypes: true,
+              skipLibCheck: true,
+              noEmit: true,
+              allowImportingTsExtensions: true,
+              types: ['node'],
             },
-            directory: source,
-          });
-          assert.deepEqual(diagnostics, []);
-          const bundle = join(workspace.path, 'consumer.mjs');
-          await build({
-            entryPoints: [join(source, 'consumer.ts')],
-            outfile: bundle,
-            bundle: true,
-            platform: 'node',
-            format: 'esm',
-            logLevel: 'silent',
-          });
-          await (
-            await import(pathToFileURL(bundle).href)
-          ).exercise((request: Request) => app.fetch(request), payload);
-        } finally {
-          await stop();
-        }
+            include: ['**/*.ts'],
+          },
+          directory: source,
+        });
+        assert.deepEqual(diagnostics, []);
+        await (
+          await import(pathToFileURL(join(source, 'consumer.ts')).href)
+        ).exercise((request: Request) => app.fetch(request), payload);
       }),
   ),
 );
