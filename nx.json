@@ -53,11 +53,6 @@
         "deleteOutputPath": false,
         "minify": false,
         "sourcemap": true,
-        "esbuildOptions": {
-          "loader": {
-            ".txt": "text"
-          }
-        },
         "external": [
           "@sdk-it/readme",
           "@sdk-it/core",

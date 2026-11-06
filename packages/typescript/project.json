@@ -15,10 +15,7 @@
     },
     "build": {
       "executor": "@nx/esbuild:esbuild",
-      "outputs": ["{options.outputPath}"],
-      "options": {
-        "esbuildOptions": {}
-      }
+      "outputs": ["{options.outputPath}"]
     }
   }
 }
