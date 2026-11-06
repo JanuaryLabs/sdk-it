@@ -1,9 +1,8 @@
-import type { Method as OperationMethod } from '@sdk-it/core';
-
 type Init = Omit<RequestInit, 'headers'> & { headers: Headers };
 export type RequestConfig = { init: Init; url: URL };
 /** The methods an OpenAPI operation uses, as an HTTP request line writes them. */
-export type Method = Uppercase<OperationMethod>;
+export type Method =
+  'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'TRACE' | 'HEAD';
 export type HeadersInit = [string, string][] | Record<string, string>;
 
 export type BodyInit =
@@ -214,7 +213,7 @@ export function toRequest(
     init: {
       method: method,
       headers: new Headers(input.headers),
-      body: method === 'GET' ? undefined : input.body,
+      ...(method === 'GET' ? {} : { body: input.body }),
     },
   };
 }
