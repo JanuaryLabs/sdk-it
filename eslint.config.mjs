@@ -84,14 +84,6 @@ export default [
     // restates the TypeScript bans, because a later config replaces the
     // rule's options.
     files: ['**/*.test.ts', '**/*.test.tsx'],
-    // These tests reach @sdk-it/typescript internals that the package does
-    // not export (#3911).
-    ignores: [
-      'packages/typescript/src/lib/client-runtime.test.ts',
-      'packages/typescript/src/lib/client.test.ts',
-      'packages/typescript/src/lib/emitters/interface.test.ts',
-      'packages/typescript/src/lib/emitters/zod.test.ts',
-    ],
     rules: {
       'no-restricted-imports': [
         'error',
