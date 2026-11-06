@@ -21,8 +21,9 @@ import type { Method } from '@sdk-it/core/paths.js';
 
 import type { SdkDoc } from './overview-docs/types.js';
 import type {
-  NoPaginationResult,
-  PaginationGuess,
+  CursorPaginationResult,
+  OffsetPaginationResult,
+  PagePaginationResult,
 } from './pagination/guess-pagination.js';
 import type { SidebarData } from './sidebar.js';
 
@@ -119,10 +120,12 @@ export type Operation = {
 };
 
 /** Spec processing stores a pagination only when one was configured or detected. */
-export type OperationPagination = Exclude<
-  PaginationGuess,
-  NoPaginationResult
-> & {
+export type OperationPagination = (
+  | (OffsetPaginationResult & { start?: number })
+  | (PagePaginationResult & { start?: number })
+  | CursorPaginationResult
+) & {
   items: string;
+  hasMore: string;
   statusCode: number;
 };

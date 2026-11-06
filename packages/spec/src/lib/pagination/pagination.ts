@@ -26,32 +26,60 @@ export function toPagination(spec: IR, tunedOperation: TunedOperationObject) {
   const schema = successResponse
     ? getResponseContentSchema(spec, successResponse[1], 'application/json')
     : undefined;
+  const body = tunedOperation.requestBody
+    ? getRequestContentSchema(
+        spec,
+        tunedOperation.requestBody,
+        'application/json',
+      )
+    : undefined;
   const pagination =
-    configured ??
-    guessPagination(
-      tunedOperation,
-      tunedOperation.requestBody
-        ? getRequestContentSchema(
-            spec,
-            tunedOperation.requestBody,
-            'application/json',
-          )
-        : undefined,
-      schema,
-    );
+    configured ?? guessPagination(tunedOperation, body, schema);
   if (
     pagination &&
     pagination.type !== 'none' &&
     schema &&
     statusCode !== undefined
   ) {
-    const nextCursor =
-      pagination.type === 'cursor'
-        ? getNextCursorName(schema, spec)
-        : undefined;
-    return { ...pagination, statusCode, ...(nextCursor ? { nextCursor } : {}) };
+    if (pagination.type === 'cursor') {
+      const nextCursor = getNextCursorName(schema, spec);
+      return {
+        ...pagination,
+        statusCode,
+        ...(nextCursor ? { nextCursor } : {}),
+      };
+    }
+    const start = startOf(
+      spec,
+      tunedOperation,
+      body,
+      pagination.type === 'offset'
+        ? pagination.offsetParamName
+        : pagination.pageNumberParamName,
+    );
+    return {
+      ...pagination,
+      statusCode,
+      ...(start === undefined ? {} : { start }),
+    };
   }
   return configured;
+}
+
+/** The default the spec gives the parameter that positions the first page, a query parameter or a JSON body property. */
+function startOf(
+  spec: IR,
+  operation: TunedOperationObject,
+  body: SchemaObject | undefined,
+  name: string,
+) {
+  const schema =
+    operation.parameters.find((parameter) => parameter.name === name)?.schema ??
+    body?.properties?.[name];
+  const resolved = isRef(schema)
+    ? followRef<SchemaObject>(spec, schema.$ref)
+    : schema;
+  return typeof resolved?.default === 'number' ? resolved.default : undefined;
 }
 
 function getResponseContentSchema(
