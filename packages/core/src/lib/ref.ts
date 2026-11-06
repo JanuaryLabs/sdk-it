@@ -73,15 +73,31 @@ export function followRef<
     | RequestBodyObject
     | OpenAPISecuritySchemeObject = SchemaObject,
 >(spec: unknown, ref: string): T {
-  const pathParts = cleanRef(ref).split('/');
-  const entry: T | ReferenceObject | undefined = get(spec, pathParts);
+  const followed = [ref];
+  let entry = valueAtRef<T>(spec, ref);
+  while (isRef(entry)) {
+    const next = entry.$ref;
+    const repeated = followed.indexOf(next);
+    if (repeated !== -1) {
+      throw new Error(
+        `Circular $ref ${[...followed.slice(repeated), next].join(' -> ')}: each reference points at the next, so none resolves to a value.`,
+      );
+    }
+    followed.push(next);
+    entry = valueAtRef<T>(spec, next);
+  }
+  return entry;
+}
+
+function valueAtRef<T>(spec: unknown, ref: string): T | ReferenceObject {
+  const entry: T | ReferenceObject | undefined = get(
+    spec,
+    cleanRef(ref).split('/'),
+  );
   if (entry === undefined) {
     throw new Error(
       `Unresolved $ref ${ref}: the document defines nothing there.`,
     );
-  }
-  if (isRef(entry)) {
-    return followRef<T>(spec, entry.$ref);
   }
   return entry;
 }
