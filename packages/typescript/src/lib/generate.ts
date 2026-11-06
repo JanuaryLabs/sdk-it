@@ -10,6 +10,7 @@ import {
   parseRef,
   pascalcase,
   pointerTokens,
+  valueAtPointer,
 } from '@sdk-it/core';
 import {
   type WriteContent,
@@ -155,7 +156,7 @@ function documentLocation(document: unknown, location: readonly string[]) {
   for (const token of location) {
     while (isRef(current)) {
       path = pointerTokens(current.$ref.slice(1));
-      current = valueAt(document, path);
+      current = valueAtPointer(document, path);
     }
     if (!hasMember(current, token)) {
       return undefined;
@@ -168,17 +169,6 @@ function documentLocation(document: unknown, location: readonly string[]) {
 
 function hasMember(value: unknown, token: string): value is object {
   return typeof value === 'object' && value !== null && token in value;
-}
-
-function valueAt(document: unknown, path: readonly string[]) {
-  let current = document;
-  for (const token of path) {
-    if (!hasMember(current, token)) {
-      return undefined;
-    }
-    current = Reflect.get(current, token);
-  }
-  return current;
 }
 
 /**
