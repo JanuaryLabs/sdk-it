@@ -4,8 +4,11 @@ import {
 } from '@typescript/native/sync';
 import { type TemporaryDirectory, TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { text } from 'node:stream/consumers';
 import { fileURLToPath } from 'node:url';
 
 import { preEmitDiagnostics } from '@sdk-it/core/program.js';
@@ -126,4 +129,39 @@ export function parseErrorFor(field: string) {
     assert.deepEqual(Object.keys(error.data.fieldErrors), [field]);
     return true;
   };
+}
+
+export interface NodeRun {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}
+
+/**
+ * Runs `node …args` in its own process, as a shell runs it with a pipe for
+ * stdin: `stdin` is written to the pipe, then the pipe is closed. A process
+ * that has not exited after 60 seconds is killed with SIGKILL, and the run
+ * rejects with what it printed.
+ */
+export async function runNode(
+  args: readonly string[],
+  options: { env?: NodeJS.ProcessEnv; stdin?: string } = {},
+): Promise<NodeRun> {
+  const child = spawn(process.execPath, args, {
+    env: options.env,
+    stdio: 'pipe',
+    timeout: 60_000,
+    killSignal: 'SIGKILL',
+  });
+  const stdout = text(child.stdout);
+  const stderr = text(child.stderr);
+  child.stdin.end(options.stdin);
+  await once(child, 'close');
+  const { exitCode, signalCode } = child;
+  if (exitCode === null) {
+    throw new Error(
+      `node ${args.join(' ')} was killed by ${signalCode}\nstdout: ${await stdout}\nstderr: ${await stderr}`,
+    );
+  }
+  return { exitCode, stdout: await stdout, stderr: await stderr };
 }
