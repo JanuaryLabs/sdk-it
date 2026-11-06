@@ -20,5 +20,5 @@ export function parseInput<T extends z.ZodType>(
     const error = z.flattenError(result.error, (issue) => issue);
     throw new ParseError<T>(error);
   }
-  return result.data as z.infer<T>;
+  return result.data;
 }
