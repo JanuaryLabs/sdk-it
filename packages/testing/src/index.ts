@@ -117,31 +117,6 @@ export function typecheck(project: Project): Typecheck {
 }
 
 /**
- * For a CLI run inside the test process: marks stdin as a terminal, so the CLI
- * does not wait for piped input, and on dispose restores stdin and the
- * `process.exitCode` that the CLI sets. `t.mock.property` cannot do this:
- * `isTTY` is absent on a stdin that is not a terminal.
- */
-export function ttyStdin(): Disposable {
-  const isTTY = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
-  const exitCode = process.exitCode;
-  Object.defineProperty(process.stdin, 'isTTY', {
-    value: true,
-    configurable: true,
-  });
-  return {
-    [Symbol.dispose]() {
-      process.exitCode = exitCode;
-      if (isTTY) {
-        Object.defineProperty(process.stdin, 'isTTY', isTTY);
-      } else {
-        Reflect.deleteProperty(process.stdin, 'isTTY');
-      }
-    },
-  };
-}
-
-/**
  * An `assert.rejects` matcher: the generated client refused the input with a
  * `ParseError` whose only field error is `field`.
  */
