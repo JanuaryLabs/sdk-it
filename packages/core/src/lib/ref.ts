@@ -1,4 +1,3 @@
-import { get } from 'lodash-es';
 import type {
   HeaderObject,
   OpenAPIObject,
@@ -9,6 +8,7 @@ import type {
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
+import { pointerTokens } from './json-pointer.js';
 import type {
   OpenAPIDocument,
   OpenAPISecuritySchemeObject,
@@ -90,16 +90,28 @@ export function followRef<
 }
 
 function valueAtRef<T>(spec: unknown, ref: string): T | ReferenceObject {
-  const entry: T | ReferenceObject | undefined = get(
-    spec,
-    cleanRef(ref).split('/'),
-  );
+  const entry: T | ReferenceObject | undefined = valueAt(spec, ref);
   if (entry === undefined) {
     throw new Error(
       `Unresolved $ref ${ref}: the document defines nothing there.`,
     );
   }
   return entry;
+}
+
+function valueAt(document: unknown, ref: string): any {
+  let current = document;
+  for (const token of pointerTokens(cleanRef(ref))) {
+    if (
+      typeof current !== 'object' ||
+      current === null ||
+      !Object.hasOwn(current, token)
+    ) {
+      return undefined;
+    }
+    current = Reflect.get(current, token);
+  }
+  return current;
 }
 
 export function tapRef<
@@ -114,8 +126,7 @@ export function tapRef<
   maybeRef: NoInfer<T> | ReferenceObject,
 ): T {
   if (isRef(maybeRef)) {
-    const pathParts = cleanRef(maybeRef.$ref).split('/');
-    const entry: T = get(spec, pathParts);
+    const entry: T = valueAt(spec, maybeRef.$ref);
     return entry;
   }
   return maybeRef;
