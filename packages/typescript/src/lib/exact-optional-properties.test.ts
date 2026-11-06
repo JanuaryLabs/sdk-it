@@ -1,5 +1,4 @@
 import { test } from '@zukhruf/testing/node';
-import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -14,42 +13,93 @@ void test.each(['full', 'minimal'] as const, (mode) =>
     test(`generated ${mode} SDK supports exact optional properties with parameters ${parameters}`, async () => {
       const provided = parameters === 'provided';
       await using workspace = await workspaceDirectory('exact-optional-');
-      try {
-        const spec: OpenAPIObject = {
-          openapi: '3.1.0',
-          info: { title: 'Exact', version: '1.0.0' },
-          paths: {
-            '/echo': {
-              get: {
-                operationId: 'readEcho',
-                responses: {
-                  '200': {
-                    description: 'Echo',
-                    content: {
-                      'application/json': { schema: { type: 'string' } },
+      const spec: OpenAPIObject = {
+        openapi: '3.1.0',
+        info: { title: 'Exact', version: '1.0.0' },
+        paths: {
+          '/echo': {
+            get: {
+              operationId: 'readEcho',
+              responses: {
+                '200': {
+                  description: 'Echo',
+                  content: {
+                    'application/json': { schema: { type: 'string' } },
+                  },
+                },
+              },
+            },
+            post: {
+              operationId: 'writeEcho',
+              requestBody: {
+                required: true,
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: { message: { type: 'string' } },
+                      required: ['message'],
                     },
                   },
                 },
               },
-              post: {
-                operationId: 'writeEcho',
-                requestBody: {
-                  required: true,
+              responses: {
+                '200': {
+                  description: 'Echo',
                   content: {
-                    'application/json': {
-                      schema: {
-                        type: 'object',
-                        properties: { message: { type: 'string' } },
-                        required: ['message'],
-                      },
-                    },
+                    'application/json': { schema: { type: 'string' } },
                   },
                 },
-                responses: {
-                  '200': {
-                    description: 'Echo',
-                    content: {
-                      'application/json': { schema: { type: 'string' } },
+              },
+            },
+          },
+        },
+      };
+      assert.ok(spec.paths);
+      for (const [kind, params, pagination] of [
+        [
+          'cursor',
+          ['cursor'],
+          { cursorParamName: 'cursor', nextCursor: 'nextCursor' },
+        ],
+        [
+          'page',
+          ['page', 'pageSize'],
+          { pageNumberParamName: 'page', pageSizeParamName: 'pageSize' },
+        ],
+        [
+          'offset',
+          ['offset', 'limit'],
+          { offsetParamName: 'offset', limitParamName: 'limit' },
+        ],
+      ] as const) {
+        spec.paths[`/${kind}`] = {
+          get: {
+            operationId: `list${kind}`,
+            parameters: params.map((name) => ({
+              in: 'query',
+              name,
+              schema: { type: kind === 'cursor' ? 'string' : 'integer' },
+            })),
+            'x-pagination': {
+              type: kind,
+              ...pagination,
+              items: 'items',
+              hasMore: 'hasMore',
+              statusCode: 200,
+            },
+            responses: {
+              '200': {
+                description: 'Page',
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        items: { type: 'array', items: { type: 'string' } },
+                        hasMore: { type: 'boolean' },
+                      },
+                      required: ['items', 'hasMore'],
                     },
                   },
                 },
@@ -57,70 +107,18 @@ void test.each(['full', 'minimal'] as const, (mode) =>
             },
           },
         };
-        assert.ok(spec.paths);
-        for (const [kind, params, pagination] of [
-          [
-            'cursor',
-            ['cursor'],
-            { cursorParamName: 'cursor', nextCursor: 'nextCursor' },
-          ],
-          [
-            'page',
-            ['page', 'pageSize'],
-            { pageNumberParamName: 'page', pageSizeParamName: 'pageSize' },
-          ],
-          [
-            'offset',
-            ['offset', 'limit'],
-            { offsetParamName: 'offset', limitParamName: 'limit' },
-          ],
-        ] as const) {
-          spec.paths[`/${kind}`] = {
-            get: {
-              operationId: `list${kind}`,
-              parameters: params.map((name) => ({
-                in: 'query',
-                name,
-                schema: { type: kind === 'cursor' ? 'string' : 'integer' },
-              })),
-              'x-pagination': {
-                type: kind,
-                ...pagination,
-                items: 'items',
-                hasMore: 'hasMore',
-                statusCode: 200,
-              },
-              responses: {
-                '200': {
-                  description: 'Page',
-                  content: {
-                    'application/json': {
-                      schema: {
-                        type: 'object',
-                        properties: {
-                          items: { type: 'array', items: { type: 'string' } },
-                          hasMore: { type: 'boolean' },
-                        },
-                        required: ['items', 'hasMore'],
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          };
-        }
-        await generate(spec, {
-          output: workspace.path,
-          name: 'Exact',
-          mode,
-          readme: false,
-        });
-        const source =
-          mode === 'full' ? join(workspace.path, 'src') : workspace.path;
-        await writeFile(
-          join(source, 'consumer.ts'),
-          `
+      }
+      await generate(spec, {
+        output: workspace.path,
+        name: 'Exact',
+        mode,
+        readme: false,
+      });
+      const source =
+        mode === 'full' ? join(workspace.path, 'src') : workspace.path;
+      await writeFile(
+        join(source, 'consumer.ts'),
+        `
 import assert from 'node:assert/strict';
 import { createExact, type ExactClient } from './index.ts';
 
@@ -172,38 +170,28 @@ function invalid(client: ExactClient) {
 }
 void invalid;
 `,
-        );
-        const { diagnostics } = typecheck({
-          tsconfig: {
-            compilerOptions: {
-              target: 'ESNext',
-              module: 'ESNext',
-              moduleResolution: 'bundler',
-              strict: true,
-              types: ['node'],
-              exactOptionalPropertyTypes: true,
-              skipLibCheck: true,
-              noEmit: true,
-              allowImportingTsExtensions: true,
-            },
-            include: ['**/*.ts'],
+      );
+      const { diagnostics } = typecheck({
+        tsconfig: {
+          compilerOptions: {
+            target: 'ESNext',
+            module: 'ESNext',
+            moduleResolution: 'bundler',
+            strict: true,
+            types: ['node'],
+            exactOptionalPropertyTypes: true,
+            skipLibCheck: true,
+            noEmit: true,
+            allowImportingTsExtensions: true,
           },
-          directory: source,
-        });
-        assert.deepEqual(diagnostics, []);
-        const bundle = join(workspace.path, 'consumer.mjs');
-        await build({
-          entryPoints: [join(source, 'consumer.ts')],
-          outfile: bundle,
-          bundle: true,
-          platform: 'node',
-          format: 'esm',
-          logLevel: 'silent',
-        });
-        await (await import(pathToFileURL(bundle).href)).exercise();
-      } finally {
-        await stop();
-      }
+          include: ['**/*.ts'],
+        },
+        directory: source,
+      });
+      assert.deepEqual(diagnostics, []);
+      await (
+        await import(pathToFileURL(join(source, 'consumer.ts')).href)
+      ).exercise();
     }),
   ),
 );

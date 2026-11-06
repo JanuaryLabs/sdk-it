@@ -1,5 +1,4 @@
 import { test } from '@zukhruf/testing/node';
-import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -37,59 +36,37 @@ async function checkConsumer(directory: string, consumer: string) {
 
 void test('an SDK whose spec names one server exports a default instance that builds requests to it without settings', async () => {
   await using workspace = await workspaceDirectory('default-instance-one-');
-  try {
-    await generate(notesSpec(['https://api.test/v1']), {
-      output: workspace.path,
-      name: 'Notes',
-      readme: false,
-      mode: 'full',
-    });
-    const bundle = join(workspace.path, 'client.mjs');
-    await build({
-      entryPoints: [join(workspace.path, 'src/index.ts')],
-      outfile: bundle,
-      bundle: true,
-      format: 'esm',
-      platform: 'node',
-      logLevel: 'silent',
-    });
-    const { notes } = await import(pathToFileURL(bundle).href);
+  await generate(notesSpec(['https://api.test/v1']), {
+    output: workspace.path,
+    name: 'Notes',
+    readme: false,
+    mode: 'full',
+  });
+  const { notes } = await import(
+    pathToFileURL(join(workspace.path, 'src/index.ts')).href
+  );
 
-    const { url } = await notes.prepare('GET /notes', {});
+  const { url } = await notes.prepare('GET /notes', {});
 
-    assert.equal(url.href, 'https://api.test/v1/notes');
-  } finally {
-    await stop();
-  }
+  assert.equal(url.href, 'https://api.test/v1/notes');
 });
 
 void test('an SDK whose spec names no server exports a default instance that sends to "/" (OpenAPI 3.2)', async () => {
   await using workspace = await workspaceDirectory('default-instance-none-');
-  try {
-    await generate(notesSpec([]), {
-      output: workspace.path,
-      name: 'Notes',
-      readme: false,
-      mode: 'full',
-    });
-    const bundle = join(workspace.path, 'client.mjs');
-    await build({
-      entryPoints: [join(workspace.path, 'src/index.ts')],
-      outfile: bundle,
-      bundle: true,
-      format: 'esm',
-      platform: 'node',
-      logLevel: 'silent',
-    });
-    const { notes } = await import(pathToFileURL(bundle).href);
+  await generate(notesSpec([]), {
+    output: workspace.path,
+    name: 'Notes',
+    readme: false,
+    mode: 'full',
+  });
+  const { notes } = await import(
+    pathToFileURL(join(workspace.path, 'src/index.ts')).href
+  );
 
-    await assert.rejects(notes.prepare('GET /notes', {}), {
-      message:
-        'baseUrl "/" is relative, and there is no page location to resolve it against.',
-    });
-  } finally {
-    await stop();
-  }
+  await assert.rejects(notes.prepare('GET /notes', {}), {
+    message:
+      'baseUrl "/" is relative, and there is no page location to resolve it against.',
+  });
 });
 
 void test('an SDK whose spec names two servers exports no default instance', async () => {

@@ -1,5 +1,4 @@
 import { test } from '@zukhruf/testing/node';
-import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -129,68 +128,57 @@ void client.request('PUT /group-templates/{templateId}', { templateId: 't1', nam
 
 void test('the generated client rejects a body missing a required property before fetch and sends only body fields', async () => {
   await using workspace = await workspaceDirectory('required-body-runtime-');
-  try {
-    await generate(spec, {
-      output: workspace.path,
-      name: 'Chat',
-      readme: false,
-      mode: 'full',
-    });
-    const bundle = join(workspace.path, 'client.mjs');
-    await build({
-      entryPoints: [join(workspace.path, 'src/index.ts')],
-      outfile: bundle,
-      bundle: true,
-      format: 'esm',
-      platform: 'node',
-      logLevel: 'silent',
-    });
-    const { createChat } = await import(pathToFileURL(bundle).href);
-    const requests: Request[] = [];
-    const client = createChat({
-      baseUrl: 'https://api.example.com',
-      fetch: async (request: Request) => {
-        requests.push(request);
-        return Response.json({});
-      },
-    });
+  await generate(spec, {
+    output: workspace.path,
+    name: 'Chat',
+    readme: false,
+    mode: 'full',
+  });
+  const { createChat } = await import(
+    pathToFileURL(join(workspace.path, 'src/index.ts')).href
+  );
+  const requests: Request[] = [];
+  const client = createChat({
+    baseUrl: 'https://api.example.com',
+    fetch: async (request: Request) => {
+      requests.push(request);
+      return Response.json({});
+    },
+  });
 
-    await assert.rejects(
-      client.request('POST /chat/{chatId}/messages', {
-        chatId: 'c1',
-        id: 'm1',
-      }),
-      parseErrorFor('content'),
-    );
-    await assert.rejects(
-      client.request('PUT /group-templates/{templateId}', {
-        templateId: 't1',
-        name: 'n',
-      }),
-      parseErrorFor('agents'),
-    );
-    assert.equal(requests.length, 0);
-
-    await client.request('POST /chat/{chatId}/messages', {
+  await assert.rejects(
+    client.request('POST /chat/{chatId}/messages', {
       chatId: 'c1',
-      content: 'hi',
       id: 'm1',
-    });
-    assert.deepEqual(
-      await Promise.all(
-        requests.map(async (request) => ({
-          url: request.url,
-          body: await request.json(),
-        })),
-      ),
-      [
-        {
-          url: 'https://api.example.com/chat/c1/messages',
-          body: { content: 'hi', id: 'm1' },
-        },
-      ],
-    );
-  } finally {
-    await stop();
-  }
+    }),
+    parseErrorFor('content'),
+  );
+  await assert.rejects(
+    client.request('PUT /group-templates/{templateId}', {
+      templateId: 't1',
+      name: 'n',
+    }),
+    parseErrorFor('agents'),
+  );
+  assert.equal(requests.length, 0);
+
+  await client.request('POST /chat/{chatId}/messages', {
+    chatId: 'c1',
+    content: 'hi',
+    id: 'm1',
+  });
+  assert.deepEqual(
+    await Promise.all(
+      requests.map(async (request) => ({
+        url: request.url,
+        body: await request.json(),
+      })),
+    ),
+    [
+      {
+        url: 'https://api.example.com/chat/c1/messages',
+        body: { content: 'hi', id: 'm1' },
+      },
+    ],
+  );
 });

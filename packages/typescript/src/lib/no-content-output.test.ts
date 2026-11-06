@@ -1,5 +1,4 @@
 import { test } from '@zukhruf/testing/node';
-import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -74,30 +73,19 @@ void [
 
 void test('a 204 response resolves to null at runtime', async () => {
   await using workspace = await workspaceDirectory('no-content-runtime-');
-  try {
-    await generate(spec, {
-      output: workspace.path,
-      name: 'Account',
-      readme: false,
-      mode: 'full',
-    });
-    const bundle = join(workspace.path, 'client.mjs');
-    await build({
-      entryPoints: [join(workspace.path, 'src/index.ts')],
-      outfile: bundle,
-      bundle: true,
-      format: 'esm',
-      platform: 'node',
-      logLevel: 'silent',
-    });
-    const { createAccount } = await import(pathToFileURL(bundle).href);
-    const client = createAccount({
-      baseUrl: 'https://api.example.com',
-      fetch: async () => new Response(null, { status: 204 }),
-    });
+  await generate(spec, {
+    output: workspace.path,
+    name: 'Account',
+    readme: false,
+    mode: 'full',
+  });
+  const { createAccount } = await import(
+    pathToFileURL(join(workspace.path, 'src/index.ts')).href
+  );
+  const client = createAccount({
+    baseUrl: 'https://api.example.com',
+    fetch: async () => new Response(null, { status: 204 }),
+  });
 
-    assert.equal(await client.request('POST /me/password', {}), null);
-  } finally {
-    await stop();
-  }
+  assert.equal(await client.request('POST /me/password', {}), null);
 });

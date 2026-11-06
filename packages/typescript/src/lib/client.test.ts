@@ -1,4 +1,3 @@
-import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
@@ -206,48 +205,37 @@ describe('the servers a generated SDK exports', () => {
 
 test('a generated client puts the signal passed to prepare in the prepared request', async () => {
   await using directory = await workspaceDirectory('client-prepare-signal-');
-  try {
-    await generate(
-      {
-        openapi: '3.1.0',
-        info: { title: 'Signals', version: '1.0.0' },
-        paths: {
-          '/users': {
-            get: {
-              operationId: 'listUsers',
-              tags: ['users'],
-              responses: {
-                '200': {
-                  description: 'OK',
-                  content: {
-                    'application/json': { schema: { type: 'object' } },
-                  },
+  await generate(
+    {
+      openapi: '3.1.0',
+      info: { title: 'Signals', version: '1.0.0' },
+      paths: {
+        '/users': {
+          get: {
+            operationId: 'listUsers',
+            tags: ['users'],
+            responses: {
+              '200': {
+                description: 'OK',
+                content: {
+                  'application/json': { schema: { type: 'object' } },
                 },
               },
             },
           },
         },
       },
-      { output: directory.path, name: 'Signals', readme: false },
-    );
-    const bundle = join(directory.path, 'client.mjs');
-    await build({
-      entryPoints: [join(directory.path, 'client.ts')],
-      outfile: bundle,
-      bundle: true,
-      format: 'esm',
-      platform: 'node',
-      logLevel: 'silent',
-    });
-    const { createSignals } = await import(pathToFileURL(bundle).href);
-    const controller = new AbortController();
+    },
+    { output: directory.path, name: 'Signals', readme: false },
+  );
+  const { createSignals } = await import(
+    pathToFileURL(join(directory.path, 'client.ts')).href
+  );
+  const controller = new AbortController();
 
-    const prepared = await createSignals({
-      baseUrl: 'https://api.example.com',
-    }).prepare('GET /users', {}, { signal: controller.signal });
+  const prepared = await createSignals({
+    baseUrl: 'https://api.example.com',
+  }).prepare('GET /users', {}, { signal: controller.signal });
 
-    assert.equal(prepared.init.signal, controller.signal);
-  } finally {
-    await stop();
-  }
+  assert.equal(prepared.init.signal, controller.signal);
 });

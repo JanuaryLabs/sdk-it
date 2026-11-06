@@ -1,6 +1,5 @@
 import { HttpServer } from '@zukhruf/testing/http';
 import { test } from '@zukhruf/testing/node';
-import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -18,92 +17,91 @@ void test.each(['full', 'minimal'] as const, (mode) =>
         await using workspace = await workspaceDirectory(
           'nullable-pagination-',
         );
-        try {
-          const offset = renamed ? 'start_index' : 'offset';
-          const limit = renamed ? 'count' : 'limit';
-          const page = renamed ? 'page_number' : 'page';
-          const pageSize = renamed ? 'per_page' : 'pageSize';
-          const spec: OpenAPIObject = {
-            openapi: '3.1.0',
-            info: { title: 'Pages', version: '1.0.0' },
-            paths: {},
+        const offset = renamed ? 'start_index' : 'offset';
+        const limit = renamed ? 'count' : 'limit';
+        const page = renamed ? 'page_number' : 'page';
+        const pageSize = renamed ? 'per_page' : 'pageSize';
+        const spec: OpenAPIObject = {
+          openapi: '3.1.0',
+          info: { title: 'Pages', version: '1.0.0' },
+          paths: {},
+        };
+        assert.ok(spec.paths);
+        for (const [path, names, nullable] of [
+          ['/offset', [offset, limit], true],
+          ['/page', [page, pageSize], true],
+          ['/strict-offset', [offset, limit], false],
+          ['/strict-page', [page, pageSize], false],
+        ] as const) {
+          const properties: Record<string, SchemaObject> = {
+            tag: { type: 'string' },
+            ...Object.fromEntries(
+              names.map((name) => [
+                name,
+                { type: nullable ? ['integer', 'null'] : 'integer' },
+              ]),
+            ),
           };
-          assert.ok(spec.paths);
-          for (const [path, names, nullable] of [
-            ['/offset', [offset, limit], true],
-            ['/page', [page, pageSize], true],
-            ['/strict-offset', [offset, limit], false],
-            ['/strict-page', [page, pageSize], false],
-          ] as const) {
-            const properties: Record<string, SchemaObject> = {
-              tag: { type: 'string' },
-              ...Object.fromEntries(
-                names.map((name) => [
-                  name,
-                  { type: nullable ? ['integer', 'null'] : 'integer' },
-                ]),
-              ),
-            };
-            spec.paths[path] = {
-              [transport === 'query' ? 'get' : 'post']: {
-                operationId: `list${path.slice(1).replaceAll('-', '')}`,
-                ...(transport === 'query'
-                  ? {
-                      parameters: Object.entries(properties).map(
-                        ([name, schema]) => ({
-                          in: 'query',
-                          name,
-                          required: name === 'tag',
-                          schema,
-                        }),
-                      ),
-                    }
-                  : {
-                      requestBody: {
-                        required: true,
-                        content: {
-                          'application/json': {
-                            schema: {
-                              type: 'object',
-                              properties,
-                              required: ['tag'],
-                            },
+          spec.paths[path] = {
+            [transport === 'query' ? 'get' : 'post']: {
+              operationId: `list${path.slice(1).replaceAll('-', '')}`,
+              ...(transport === 'query'
+                ? {
+                    parameters: Object.entries(properties).map(
+                      ([name, schema]) => ({
+                        in: 'query',
+                        name,
+                        required: name === 'tag',
+                        schema,
+                      }),
+                    ),
+                  }
+                : {
+                    requestBody: {
+                      required: true,
+                      content: {
+                        'application/json': {
+                          schema: {
+                            type: 'object',
+                            properties,
+                            required: ['tag'],
                           },
                         },
                       },
-                    }),
-                responses: {
-                  '200': {
-                    description: 'Page',
-                    content: {
-                      'application/json': {
-                        schema: {
-                          type: 'object',
-                          properties: {
-                            items: { type: 'array', items: { type: 'string' } },
-                            hasMore: { type: 'boolean' },
-                          },
-                          required: ['items', 'hasMore'],
+                    },
+                  }),
+              responses: {
+                '200': {
+                  description: 'Page',
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'object',
+                        properties: {
+                          items: { type: 'array', items: { type: 'string' } },
+                          hasMore: { type: 'boolean' },
                         },
+                        required: ['items', 'hasMore'],
                       },
                     },
                   },
                 },
               },
-            };
-          }
-          await generate(spec, {
-            output: workspace.path,
-            name: 'Pages',
-            mode,
-            readme: false,
-          });
-          const source =
-            mode === 'full' ? join(workspace.path, 'src') : workspace.path;
-          const method = transport === 'query' ? 'GET' : 'POST';
-          await writeFile(
-            join(source, 'consumer.ts'),
-            `
+            },
+          };
+        }
+        await generate(spec, {
+          output: workspace.path,
+          name: 'Pages',
+          mode,
+          readme: false,
+        });
+        const source =
+          mode === 'full' ? join(workspace.path, 'src') : workspace.path;
+        const method = transport === 'query' ? 'GET' : 'POST';
+        await writeFile(
+          join(source, 'consumer.ts'),
+          `
 import assert from 'node:assert/strict';
 import { createPages, type PagesClient } from './index.ts';
 
@@ -156,67 +154,55 @@ function invalid(client: PagesClient) {
 }
 void invalid;
 `,
-          );
-          const { diagnostics } = typecheck({
-            tsconfig: {
-              compilerOptions: {
-                target: 'ESNext',
-                module: 'ESNext',
-                moduleResolution: 'bundler',
-                types: ['node'],
-                strict: true,
-                exactOptionalPropertyTypes: true,
-                skipLibCheck: true,
-                noEmit: true,
-                allowImportingTsExtensions: true,
-              },
-              include: ['**/*.ts'],
+        );
+        const { diagnostics } = typecheck({
+          tsconfig: {
+            compilerOptions: {
+              target: 'ESNext',
+              module: 'ESNext',
+              moduleResolution: 'bundler',
+              types: ['node'],
+              strict: true,
+              exactOptionalPropertyTypes: true,
+              skipLibCheck: true,
+              noEmit: true,
+              allowImportingTsExtensions: true,
             },
-            directory: source,
-          });
-          assert.deepEqual(diagnostics, []);
-          const bundle = join(workspace.path, 'consumer.mjs');
-          await build({
-            entryPoints: [join(source, 'consumer.ts')],
-            outfile: bundle,
-            bundle: true,
-            platform: 'node',
-            format: 'esm',
-            logLevel: 'silent',
-          });
-          await using server = await new HttpServer().start(
-            async (request, response) => {
-              const url = new URL(request.url ?? '/', 'http://localhost');
-              let input: unknown;
-              if (request.method === 'GET') {
-                input = Object.fromEntries(
-                  [...url.searchParams].map(([name, value]) => [
-                    name,
-                    value === 'null'
-                      ? null
-                      : /^\d+$/.test(value)
-                        ? Number(value)
-                        : value,
-                  ]),
-                );
-              } else {
-                input = await json(request);
-              }
-              response.setHeader('Content-Type', 'application/json');
-              response.end(
-                JSON.stringify({
-                  items: [JSON.stringify(input)],
-                  hasMore: false,
-                }),
+            include: ['**/*.ts'],
+          },
+          directory: source,
+        });
+        assert.deepEqual(diagnostics, []);
+        await using server = await new HttpServer().start(
+          async (request, response) => {
+            const url = new URL(request.url ?? '/', 'http://localhost');
+            let input: unknown;
+            if (request.method === 'GET') {
+              input = Object.fromEntries(
+                [...url.searchParams].map(([name, value]) => [
+                  name,
+                  value === 'null'
+                    ? null
+                    : /^\d+$/.test(value)
+                      ? Number(value)
+                      : value,
+                ]),
               );
-            },
-          );
-          await (
-            await import(pathToFileURL(bundle).href)
-          ).exercise(server.origin);
-        } finally {
-          await stop();
-        }
+            } else {
+              input = await json(request);
+            }
+            response.setHeader('Content-Type', 'application/json');
+            response.end(
+              JSON.stringify({
+                items: [JSON.stringify(input)],
+                hasMore: false,
+              }),
+            );
+          },
+        );
+        await (
+          await import(pathToFileURL(join(source, 'consumer.ts')).href)
+        ).exercise(server.origin);
       }),
     ),
   ),

@@ -1,5 +1,4 @@
 import { test } from '@zukhruf/testing/node';
-import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -110,48 +109,37 @@ void test.each(variants, ({ variant, path, endpoint, params, parameters }) =>
     await using workspace = await workspaceDirectory(
       'required-multipart-runtime-',
     );
-    try {
-      await generate(transcriptionSpec(path, [...parameters]), {
-        output: workspace.path,
-        name: 'Transcribe',
-        readme: false,
-        mode: 'full',
-      });
-      const bundle = join(workspace.path, 'client.mjs');
-      await build({
-        entryPoints: [join(workspace.path, 'src/index.ts')],
-        outfile: bundle,
-        bundle: true,
-        format: 'esm',
-        platform: 'node',
-        logLevel: 'silent',
-      });
-      const { createTranscribe } = await import(pathToFileURL(bundle).href);
-      const requests: Request[] = [];
-      const client = createTranscribe({
-        baseUrl: 'https://api.example.com',
-        fetch: async (request: Request) => {
-          requests.push(request);
-          return Response.json({});
-        },
-      });
+    await generate(transcriptionSpec(path, [...parameters]), {
+      output: workspace.path,
+      name: 'Transcribe',
+      readme: false,
+      mode: 'full',
+    });
+    const { createTranscribe } = await import(
+      pathToFileURL(join(workspace.path, 'src/index.ts')).href
+    );
+    const requests: Request[] = [];
+    const client = createTranscribe({
+      baseUrl: 'https://api.example.com',
+      fetch: async (request: Request) => {
+        requests.push(request);
+        return Response.json({});
+      },
+    });
 
-      await assert.rejects(
-        client.request(endpoint, { ...params }),
-        parseErrorFor('file'),
-      );
-      assert.equal(requests.length, 0);
+    await assert.rejects(
+      client.request(endpoint, { ...params }),
+      parseErrorFor('file'),
+    );
+    assert.equal(requests.length, 0);
 
-      await client.request(endpoint, {
-        ...params,
-        file: new Blob(['audio']),
-      });
-      const form = await requests[0].formData();
-      const file = form.get('file');
-      assert.ok(file instanceof Blob);
-      assert.equal(await file.text(), 'audio');
-    } finally {
-      await stop();
-    }
+    await client.request(endpoint, {
+      ...params,
+      file: new Blob(['audio']),
+    });
+    const form = await requests[0].formData();
+    const file = form.get('file');
+    assert.ok(file instanceof Blob);
+    assert.equal(await file.text(), 'audio');
   }),
 );

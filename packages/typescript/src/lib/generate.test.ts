@@ -173,20 +173,13 @@ describe('generate — dictionary inputs', () => {
       readme: false,
     });
 
-    const bundlePath = join(directory.path, 'settings-schema.cjs');
-    await esbuild({
-      entryPoints: [join(directory.path, 'inputs', 'settings.ts')],
-      bundle: true,
-      outfile: bundlePath,
-      format: 'cjs',
-      platform: 'node',
-      logLevel: 'silent',
-    });
     const generated: {
       updateSettingsSchema: {
         safeParse(value: unknown): { success: boolean };
       };
-    } = createRequire(import.meta.url)(bundlePath);
+    } = await import(
+      pathToFileURL(join(directory.path, 'inputs', 'settings.ts')).href
+    );
 
     assert.equal(
       generated.updateSettingsSchema.safeParse({
@@ -263,22 +256,15 @@ test('generated input validators keep required type unions required', async () =
     },
     { output: directory.path, name: 'Values', readme: false },
   );
-  const bundlePath = join(directory.path, 'values-schema.cjs');
-  await esbuild({
-    entryPoints: [join(directory.path, 'inputs', 'values.ts')],
-    bundle: true,
-    outfile: bundlePath,
-    format: 'cjs',
-    platform: 'node',
-    logLevel: 'silent',
-  });
   const {
     createValueSchema,
   }: {
     createValueSchema: {
       safeParse(value: unknown): { success: boolean };
     };
-  } = createRequire(import.meta.url)(bundlePath);
+  } = await import(
+    pathToFileURL(join(directory.path, 'inputs', 'values.ts')).href
+  );
 
   for (const [input, expected] of [
     [{ requiredValue: 'hello' }, true],
@@ -357,20 +343,13 @@ test('generated nullable anyOf contracts preserve null separately from omission'
   const config = JSON.parse(readFileSync(configPath, 'utf8'));
   config.compilerOptions.strict = true;
   writeFileSync(configPath, JSON.stringify(config));
-  const bundlePath = join(directory.path, 'values-schema.cjs');
-  await esbuild({
-    entryPoints: [join(directory.path, 'src', 'inputs', 'values.ts')],
-    bundle: true,
-    outfile: bundlePath,
-    format: 'cjs',
-    platform: 'node',
-    logLevel: 'silent',
-  });
   const {
     createValueSchema,
   }: {
     createValueSchema: { safeParse(value: unknown): { success: boolean } };
-  } = createRequire(import.meta.url)(bundlePath);
+  } = await import(
+    pathToFileURL(join(directory.path, 'src', 'inputs', 'values.ts')).href
+  );
   for (const [input, expected] of [
     [{ price: null }, true],
     [{ price: 0, optionalPrice: null }, true],
@@ -537,20 +516,13 @@ test('allOf parts keep their required properties in generated types and input va
     },
     { output: directory.path, name: 'Spaces', readme: false, mode: 'full' },
   );
-  const bundlePath = join(directory.path, 'spaces-schema.cjs');
-  await esbuild({
-    entryPoints: [join(directory.path, 'src', 'inputs', 'spaces.ts')],
-    bundle: true,
-    outfile: bundlePath,
-    format: 'cjs',
-    platform: 'node',
-    logLevel: 'silent',
-  });
   const {
     createSpaceSchema,
   }: {
     createSpaceSchema: { safeParse(value: unknown): { success: boolean } };
-  } = createRequire(import.meta.url)(bundlePath);
+  } = await import(
+    pathToFileURL(join(directory.path, 'src', 'inputs', 'spaces.ts')).href
+  );
   for (const [input, expected] of [
     [{ _count: 1, id: 'a', name: 'b' }, true],
     [{ id: 'a', name: 'b' }, false],
@@ -644,22 +616,13 @@ describe('generate — discriminated input unions', () => {
       { output: directory.path, name: 'Messages', readme: false },
     );
 
-    const bundlePath = join(directory.path, 'client.cjs');
-    await esbuild({
-      entryPoints: [join(directory.path, 'index.ts')],
-      bundle: true,
-      outfile: bundlePath,
-      format: 'cjs',
-      platform: 'node',
-      logLevel: 'silent',
-    });
     const {
       createMessages,
     }: {
       createMessages: (settings: { baseUrl: string }) => {
         prepare(endpoint: string, input: unknown): Promise<unknown>;
       };
-    } = createRequire(import.meta.url)(bundlePath);
+    } = await import(pathToFileURL(join(directory.path, 'index.ts')).href);
     const client = createMessages({ baseUrl: 'https://api.example.com' });
 
     for (const role of ['system', 'user']) {
@@ -760,15 +723,6 @@ describe('generate — http runtime', () => {
       },
       { output: directory.path, name: 'Items', readme: false, mode: 'minimal' },
     );
-    const bundlePath = join(directory.path, 'client.cjs');
-    await esbuild({
-      entryPoints: [join(directory.path, 'index.ts')],
-      bundle: true,
-      outfile: bundlePath,
-      format: 'cjs',
-      platform: 'node',
-      logLevel: 'silent',
-    });
     type HttpError = Error & {
       status: number;
       headers: Headers;
@@ -780,7 +734,7 @@ describe('generate — http runtime', () => {
       };
       APIError: new (...args: never[]) => HttpError;
       NotFound: new (...args: never[]) => HttpError;
-    } = createRequire(import.meta.url)(bundlePath);
+    } = await import(pathToFileURL(join(directory.path, 'index.ts')).href);
     const client = generated.createItems({
       baseUrl: 'https://api.example.com',
       fetch: async () =>
@@ -839,15 +793,6 @@ describe('generate — http runtime', () => {
       },
       { output: directory.path, name: 'Items', readme: false, mode: 'minimal' },
     );
-    const bundlePath = join(directory.path, 'client.cjs');
-    await esbuild({
-      entryPoints: [join(directory.path, 'index.ts')],
-      bundle: true,
-      outfile: bundlePath,
-      format: 'cjs',
-      platform: 'node',
-      logLevel: 'silent',
-    });
     const generated: {
       createItems: (settings: unknown) => {
         request(endpoint: string, input: unknown): Promise<unknown>;
@@ -856,7 +801,7 @@ describe('generate — http runtime', () => {
         status: number;
         data: unknown;
       };
-    } = createRequire(import.meta.url)(bundlePath);
+    } = await import(pathToFileURL(join(directory.path, 'index.ts')).href);
     const page = `<!DOCTYPE html>\n<html>\n  <body>\n    <h1>503 Service Unavailable</h1>\n${'    <p>The upstream did not answer in time.</p>\n'.repeat(60)}  </body>\n</html>\n`;
     const client = generated.createItems({
       baseUrl: 'https://api.example.com',
@@ -911,21 +856,12 @@ describe('generate — http runtime', () => {
       },
       { output: directory.path, name: 'Items', readme: false, mode: 'minimal' },
     );
-    const bundlePath = join(directory.path, 'client.cjs');
-    await esbuild({
-      entryPoints: [join(directory.path, 'index.ts')],
-      bundle: true,
-      outfile: bundlePath,
-      format: 'cjs',
-      platform: 'node',
-      logLevel: 'silent',
-    });
     const generated: {
       createItems: (settings: unknown) => {
         request(endpoint: string, input: unknown): Promise<unknown>;
       };
       APIError: new (...args: never[]) => Error & { data: unknown };
-    } = createRequire(import.meta.url)(bundlePath);
+    } = await import(pathToFileURL(join(directory.path, 'index.ts')).href);
     const client = generated.createItems({
       baseUrl: 'https://api.example.com',
       fetch: async () =>
@@ -964,21 +900,12 @@ describe('generate — http runtime', () => {
       },
       { output: directory.path, name: 'Items', readme: false, mode: 'minimal' },
     );
-    const bundlePath = join(directory.path, 'client.cjs');
-    await esbuild({
-      entryPoints: [join(directory.path, 'index.ts')],
-      bundle: true,
-      outfile: bundlePath,
-      format: 'cjs',
-      platform: 'node',
-      logLevel: 'silent',
-    });
     const generated: {
       createItems: (settings: unknown) => {
         request(endpoint: string, input: unknown): Promise<unknown>;
       };
       APIError: new (...args: never[]) => Error;
-    } = createRequire(import.meta.url)(bundlePath);
+    } = await import(pathToFileURL(join(directory.path, 'index.ts')).href);
     const client = generated.createItems({
       baseUrl: 'https://api.example.com',
       fetch: async () =>
@@ -1027,15 +954,6 @@ describe('generate — http runtime', () => {
         mode: 'minimal',
       },
     );
-    const bundlePath = join(directory.path, 'client.cjs');
-    await esbuild({
-      entryPoints: [join(directory.path, 'index.ts')],
-      bundle: true,
-      outfile: bundlePath,
-      format: 'cjs',
-      platform: 'node',
-      logLevel: 'silent',
-    });
     const generated: {
       createEvents: (settings: unknown) => {
         request(
@@ -1043,7 +961,7 @@ describe('generate — http runtime', () => {
           input: unknown,
         ): Promise<(eventType: string) => AsyncIterable<string>>;
       };
-    } = createRequire(import.meta.url)(bundlePath);
+    } = await import(pathToFileURL(join(directory.path, 'index.ts')).href);
     const connectionReset = new Error('connection reset');
     const streamErrored = Promise.withResolvers<void>();
     const client = generated.createEvents({
@@ -1104,22 +1022,15 @@ describe('generate — response bodies follow the spec body kind', () => {
       },
       { output: directory.path, name: 'Things', readme: false, mode: 'full' },
     );
-    const bundlePath = join(directory.path, 'client.cjs');
-    await esbuild({
-      entryPoints: [join(directory.path, 'src', 'index.ts')],
-      bundle: true,
-      outfile: bundlePath,
-      format: 'cjs',
-      platform: 'node',
-      logLevel: 'silent',
-    });
     const {
       createThings,
     }: {
       createThings: (settings: unknown) => {
         request(endpoint: string, input: unknown): Promise<unknown>;
       };
-    } = createRequire(import.meta.url)(bundlePath);
+    } = await import(
+      pathToFileURL(join(directory.path, 'src', 'index.ts')).href
+    );
     const client = createThings({
       baseUrl: 'https://api.example.com',
       fetch: async () =>
@@ -1180,15 +1091,6 @@ void [nothing, something];
       },
       { output: directory.path, name: 'Events', readme: false, mode: 'full' },
     );
-    const bundlePath = join(directory.path, 'client.cjs');
-    await esbuild({
-      entryPoints: [join(directory.path, 'src', 'index.ts')],
-      bundle: true,
-      outfile: bundlePath,
-      format: 'cjs',
-      platform: 'node',
-      logLevel: 'silent',
-    });
     const {
       createEvents,
     }: {
@@ -1198,7 +1100,9 @@ void [nothing, something];
           input: unknown,
         ): Promise<(eventType: string) => AsyncIterable<string>>;
       };
-    } = createRequire(import.meta.url)(bundlePath);
+    } = await import(
+      pathToFileURL(join(directory.path, 'src', 'index.ts')).href
+    );
     const client = createEvents({
       baseUrl: 'https://api.example.com',
       fetch: async () =>
@@ -1266,22 +1170,15 @@ void [listener, model];
       },
       { output: directory.path, name: 'Chunks', readme: false, mode: 'full' },
     );
-    const bundlePath = join(directory.path, 'client.cjs');
-    await esbuild({
-      entryPoints: [join(directory.path, 'src', 'index.ts')],
-      bundle: true,
-      outfile: bundlePath,
-      format: 'cjs',
-      platform: 'node',
-      logLevel: 'silent',
-    });
     const {
       createChunks,
     }: {
       createChunks: (settings: unknown) => {
         request(endpoint: string, input: unknown): Promise<unknown>;
       };
-    } = createRequire(import.meta.url)(bundlePath);
+    } = await import(
+      pathToFileURL(join(directory.path, 'src', 'index.ts')).href
+    );
     const client = createChunks({
       baseUrl: 'https://api.example.com',
       fetch: async () =>
@@ -1598,15 +1495,6 @@ describe('generate — security options assembly', () => {
       { output, name: 'ResolvedSecurity', readme: false },
     );
 
-    const bundlePath = join(directory.path, 'client.cjs');
-    await esbuild({
-      entryPoints: [join(output, 'index.ts')],
-      bundle: true,
-      outfile: bundlePath,
-      format: 'cjs',
-      platform: 'node',
-      logLevel: 'silent',
-    });
     const {
       createResolvedSecurity,
     }: {
@@ -1616,7 +1504,7 @@ describe('generate — security options assembly', () => {
           input: unknown,
         ): Promise<{ init: { headers: Headers } }>;
       };
-    } = createRequire(import.meta.url)(bundlePath);
+    } = await import(pathToFileURL(join(output, 'index.ts')).href);
     const client = createResolvedSecurity({
       baseUrl: 'https://api.example.com',
       credentials: { apiKey: 'secret' },
@@ -1770,15 +1658,6 @@ describe('generate — security options assembly', () => {
       { output: directory.path, name: 'Security', readme: false },
     );
 
-    const bundlePath = join(directory.path, 'client.cjs');
-    await esbuild({
-      entryPoints: [join(directory.path, 'index.ts')],
-      bundle: true,
-      outfile: bundlePath,
-      format: 'cjs',
-      platform: 'node',
-      logLevel: 'silent',
-    });
     const {
       createSecurity,
     }: {
@@ -1790,7 +1669,7 @@ describe('generate — security options assembly', () => {
           init: { headers: Headers };
         }>;
       };
-    } = createRequire(import.meta.url)(bundlePath);
+    } = await import(pathToFileURL(join(directory.path, 'index.ts')).href);
     const client = createSecurity({
       baseUrl: 'https://api.example.com',
       credentials: {
@@ -1847,15 +1726,6 @@ describe('generate — security options assembly', () => {
       { output: directory.path, name: 'HttpScheme', readme: false },
     );
 
-    const bundlePath = join(directory.path, 'client.cjs');
-    await esbuild({
-      entryPoints: [join(directory.path, 'index.ts')],
-      bundle: true,
-      outfile: bundlePath,
-      format: 'cjs',
-      platform: 'node',
-      logLevel: 'silent',
-    });
     const {
       createHttpScheme,
     }: {
@@ -1865,7 +1735,7 @@ describe('generate — security options assembly', () => {
           input: unknown,
         ): Promise<{ init: { headers: Headers } }>;
       };
-    } = createRequire(import.meta.url)(bundlePath);
+    } = await import(pathToFileURL(join(directory.path, 'index.ts')).href);
     const client = createHttpScheme({
       baseUrl: 'https://api.example.com',
       credentials: { lower: 'token-a', titled: 'token-b' },
@@ -1917,15 +1787,6 @@ describe('generate — security options assembly', () => {
       { output: directory.path, name: 'OptionalSecurity', readme: false },
     );
 
-    const bundlePath = join(directory.path, 'client.cjs');
-    await esbuild({
-      entryPoints: [join(directory.path, 'index.ts')],
-      bundle: true,
-      outfile: bundlePath,
-      format: 'cjs',
-      platform: 'node',
-      logLevel: 'silent',
-    });
     const {
       createOptionalSecurity,
     }: {
@@ -1937,7 +1798,7 @@ describe('generate — security options assembly', () => {
           init: { headers: Headers };
         }>;
       };
-    } = createRequire(import.meta.url)(bundlePath);
+    } = await import(pathToFileURL(join(directory.path, 'index.ts')).href);
     const contexts: unknown[] = [];
     const client = createOptionalSecurity({
       baseUrl: 'https://api.example.com',
@@ -1995,15 +1856,6 @@ describe('generate — security options assembly', () => {
       { output: directory.path, name: 'AndSecurity', readme: false },
     );
 
-    const bundlePath = join(directory.path, 'client.cjs');
-    await esbuild({
-      entryPoints: [join(directory.path, 'index.ts')],
-      bundle: true,
-      outfile: bundlePath,
-      format: 'cjs',
-      platform: 'node',
-      logLevel: 'silent',
-    });
     const {
       createAndSecurity,
     }: {
@@ -2016,7 +1868,7 @@ describe('generate — security options assembly', () => {
           init: { headers: Headers };
         }>;
       };
-    } = createRequire(import.meta.url)(bundlePath);
+    } = await import(pathToFileURL(join(directory.path, 'index.ts')).href);
     const client = createAndSecurity({
       baseUrl: 'https://api.example.com',
       credentials: {
@@ -2302,15 +2154,6 @@ describe('generate — transport-owned credentials', () => {
       { output, name: 'TransportOwned', readme: false },
     );
 
-    const bundlePath = join(directory.path, 'client.cjs');
-    await esbuild({
-      entryPoints: [join(output, 'index.ts')],
-      bundle: true,
-      outfile: bundlePath,
-      format: 'cjs',
-      platform: 'node',
-      logLevel: 'silent',
-    });
     const {
       createTransportOwned,
     }: {
@@ -2320,7 +2163,7 @@ describe('generate — transport-owned credentials', () => {
           input: unknown,
         ): Promise<{ init: { headers: Headers } }>;
       };
-    } = createRequire(import.meta.url)(bundlePath);
+    } = await import(pathToFileURL(join(output, 'index.ts')).href);
     const baseUrl = 'https://api.example.com';
 
     const proxied = await createTransportOwned({
@@ -2604,22 +2447,15 @@ export async function read(fetch: (request: Request) => Promise<Response>) {
           [],
         );
 
-        const bundlePath = join(directory.path, 'consumer.cjs');
-        await esbuild({
-          entryPoints: [join(directory.path, 'src', 'consumer.ts')],
-          bundle: true,
-          outfile: bundlePath,
-          format: 'cjs',
-          platform: 'node',
-          logLevel: 'silent',
-        });
         const {
           read,
         }: {
           read(
             fetch: (request: Request) => Promise<Response>,
           ): Promise<unknown>;
-        } = createRequire(import.meta.url)(bundlePath);
+        } = await import(
+          pathToFileURL(join(directory.path, 'src', 'consumer.ts')).href
+        );
         const pages = [
           { data: ['a', 'b'], hasMore: true, nextCursor: '2' },
           { hasMore: false },
@@ -2729,22 +2565,15 @@ export async function read(fetch: (request: Request) => Promise<Response>) {
           [],
         );
 
-        const bundlePath = join(directory.path, 'consumer.cjs');
-        await esbuild({
-          entryPoints: [join(directory.path, 'src', 'consumer.ts')],
-          bundle: true,
-          outfile: bundlePath,
-          format: 'cjs',
-          platform: 'node',
-          logLevel: 'silent',
-        });
         const {
           read,
         }: {
           read(
             fetch: (request: Request) => Promise<Response>,
           ): Promise<unknown>;
-        } = createRequire(import.meta.url)(bundlePath);
+        } = await import(
+          pathToFileURL(join(directory.path, 'src', 'consumer.ts')).href
+        );
         const queries: string[] = [];
         const pages = [
           { data: ['a', 'b'], hasMore: true },

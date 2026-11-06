@@ -1,6 +1,5 @@
 import { HttpServer } from '@zukhruf/testing/http';
 import { test } from '@zukhruf/testing/node';
-import { build } from 'esbuild';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -104,15 +103,6 @@ export async function exercise(baseUrl: string) {
 }
 `,
       );
-      const bundle = join(workspace.path, 'consumer.mjs');
-      await build({
-        entryPoints: [join(workspace.path, 'consumer.ts')],
-        outfile: bundle,
-        bundle: true,
-        platform: 'node',
-        format: 'esm',
-        logLevel: 'silent',
-      });
       const requests: string[] = [];
       await using server = await new HttpServer().start((request, response) => {
         const query = new URL(request.url ?? '/', 'http://localhost')
@@ -133,7 +123,7 @@ export async function exercise(baseUrl: string) {
       });
 
       const received = await (
-        await import(pathToFileURL(bundle).href)
+        await import(pathToFileURL(join(workspace.path, 'consumer.ts')).href)
       ).exercise(server.origin);
 
       assert.deepEqual(received, [['a', 'b'], ['c', 'd'], ['e']]);

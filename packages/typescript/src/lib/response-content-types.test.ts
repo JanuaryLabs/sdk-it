@@ -1,5 +1,4 @@
 import { test } from '@zukhruf/testing/node';
-import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -113,7 +112,7 @@ const spec: OpenAPIObject = {
   },
 };
 
-/** Generates the SDK into `directory`, loads its bundle, and builds a client whose fetch answers `response`. */
+/** Generates the SDK into `directory`, imports it, and builds a client whose fetch answers `response`. */
 async function generateClient(directory: string, response: Response) {
   await generate(spec, {
     output: directory,
@@ -121,21 +120,12 @@ async function generateClient(directory: string, response: Response) {
     readme: false,
     mode: 'full',
   });
-  const bundle = join(directory, 'client.mjs');
-  await build({
-    entryPoints: [join(directory, 'src/index.ts')],
-    outfile: bundle,
-    bundle: true,
-    format: 'esm',
-    platform: 'node',
-    logLevel: 'silent',
-  });
   const sdk: {
     createStore: (settings: unknown) => {
       request(endpoint: string, input: unknown): Promise<unknown>;
     };
     NotFound: new (...args: never[]) => Error & { data: unknown };
-  } = await import(pathToFileURL(bundle).href);
+  } = await import(pathToFileURL(join(directory, 'src/index.ts')).href);
   const client = sdk.createStore({
     baseUrl: 'https://api.test',
     fetch: async () => response,
@@ -145,122 +135,102 @@ async function generateClient(directory: string, response: Response) {
 
 void test('a problem+json error rejects with the declared error carrying the problem details', async () => {
   await using workspace = await workspaceDirectory('json-problem-');
-  try {
-    const problem = { title: 'Not Found', status: 404, detail: 'No order yet' };
-    const { sdk, client } = await generateClient(
-      workspace.path,
-      new Response(JSON.stringify(problem), {
-        status: 404,
-        headers: { 'Content-Type': 'Application/Problem+JSON; charset=utf-8' },
-      }),
-    );
+  const problem = { title: 'Not Found', status: 404, detail: 'No order yet' };
+  const { sdk, client } = await generateClient(
+    workspace.path,
+    new Response(JSON.stringify(problem), {
+      status: 404,
+      headers: { 'Content-Type': 'Application/Problem+JSON; charset=utf-8' },
+    }),
+  );
 
-    await assert.rejects(client.request('GET /orders/latest', {}), (error) => {
-      assert.ok(error instanceof sdk.NotFound);
-      assert.deepEqual(error.data, problem);
-      return true;
-    });
-  } finally {
-    await stop();
-  }
+  await assert.rejects(client.request('GET /orders/latest', {}), (error) => {
+    assert.ok(error instanceof sdk.NotFound);
+    assert.deepEqual(error.data, problem);
+    return true;
+  });
 });
 
 void test('a vendor +json response resolves to the parsed JSON', async () => {
   await using workspace = await workspaceDirectory('json-vendor-');
-  try {
-    const { client } = await generateClient(
-      workspace.path,
-      new Response(JSON.stringify({ full_name: 'octo/hello' }), {
-        headers: {
-          'Content-Type': 'application/vnd.github.v3+json; charset=utf-8',
-        },
-      }),
-    );
+  const { client } = await generateClient(
+    workspace.path,
+    new Response(JSON.stringify({ full_name: 'octo/hello' }), {
+      headers: {
+        'Content-Type': 'application/vnd.github.v3+json; charset=utf-8',
+      },
+    }),
+  );
 
-    const repo = await client.request('GET /repos/current', {});
+  const repo = await client.request('GET /repos/current', {});
 
-    assert.deepEqual(repo, { full_name: 'octo/hello' });
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(repo, { full_name: 'octo/hello' });
 });
 
 void test('a JSON attachment resolves to the parsed JSON its type declares', async () => {
   await using workspace = await workspaceDirectory('attachment-json-');
-  try {
-    const { client } = await generateClient(
-      workspace.path,
-      new Response(JSON.stringify({ name: 'Ada' }), {
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Disposition': 'attachment; filename="profile.json"',
-        },
-      }),
-    );
-    await writeFile(
-      join(workspace.path, 'src/consumer.ts'),
-      `import { createStore } from './index.ts';
+  const { client } = await generateClient(
+    workspace.path,
+    new Response(JSON.stringify({ name: 'Ada' }), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Disposition': 'attachment; filename="profile.json"',
+      },
+    }),
+  );
+  await writeFile(
+    join(workspace.path, 'src/consumer.ts'),
+    `import { createStore } from './index.ts';
 const client = createStore({ baseUrl: 'https://api.test' });
 export async function nameOf(): Promise<string> {
   const profile = await client.request('GET /profile', {});
   return profile.name;
 }
 `,
-    );
+  );
 
-    const profile = await client.request('GET /profile', {});
-    const { files, diagnostics } = typecheck(
-      join(workspace.path, 'tsconfig.json'),
-    );
+  const profile = await client.request('GET /profile', {});
+  const { files, diagnostics } = typecheck(
+    join(workspace.path, 'tsconfig.json'),
+  );
 
-    assert.deepEqual(profile, { name: 'Ada' });
-    assert.ok(files.some((file) => file.endsWith('src/consumer.ts')));
-    assert.deepEqual(diagnostics, []);
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(profile, { name: 'Ada' });
+  assert.ok(files.some((file) => file.endsWith('src/consumer.ts')));
+  assert.deepEqual(diagnostics, []);
 });
 
 void test('a PDF download is read as a Blob by its Content-Type', async () => {
   await using workspace = await workspaceDirectory('attachment-pdf-');
-  try {
-    const { client } = await generateClient(
-      workspace.path,
-      new Response('%PDF-1.7', {
-        headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': 'attachment; filename="report.pdf"',
-        },
-      }),
-    );
+  const { client } = await generateClient(
+    workspace.path,
+    new Response('%PDF-1.7', {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename="report.pdf"',
+      },
+    }),
+  );
 
-    const report = await client.request('GET /report', {});
+  const report = await client.request('GET /report', {});
 
-    assert.ok(report instanceof Blob);
-    assert.equal(await report.text(), '%PDF-1.7');
-  } finally {
-    await stop();
-  }
+  assert.ok(report instanceof Blob);
+  assert.equal(await report.text(), '%PDF-1.7');
 });
 
 void test('an octet-stream download is read as a Blob by its Content-Type', async () => {
   await using workspace = await workspaceDirectory('attachment-octet-');
-  try {
-    const { client } = await generateClient(
-      workspace.path,
-      new Response(new Uint8Array([1, 2, 3]), {
-        headers: {
-          'Content-Type': 'application/octet-stream',
-          'Content-Disposition': 'attachment; filename="export.bin"',
-        },
-      }),
-    );
+  const { client } = await generateClient(
+    workspace.path,
+    new Response(new Uint8Array([1, 2, 3]), {
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Disposition': 'attachment; filename="export.bin"',
+      },
+    }),
+  );
 
-    const archive = await client.request('GET /export', {});
+  const archive = await client.request('GET /export', {});
 
-    assert.ok(archive instanceof Blob);
-    assert.deepEqual([...(await archive.bytes())], [1, 2, 3]);
-  } finally {
-    await stop();
-  }
+  assert.ok(archive instanceof Blob);
+  assert.deepEqual([...(await archive.bytes())], [1, 2, 3]);
 });

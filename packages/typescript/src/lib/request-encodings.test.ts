@@ -1,6 +1,5 @@
 import { HttpServer } from '@zukhruf/testing/http';
 import { test } from '@zukhruf/testing/node';
-import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -42,7 +41,7 @@ function notesSpec(
 
 /**
  * Generates the SDK into `directory`, type-checks it with `consumer` as
- * src/consumer.ts, and loads its bundle (and its agent tools, when asked for).
+ * src/consumer.ts, and imports it (and its agent tools, when asked for).
  */
 async function generateClient(
   directory: string,
@@ -63,25 +62,9 @@ async function generateClient(
   );
   const { files, diagnostics } = typecheck(join(directory, 'tsconfig.json'));
   assert.ok(files.some((file) => file.endsWith('src/consumer.ts')));
-  // The agent tools' libraries load CommonJS dependencies, so the bundles
-  // leave npm packages to Node, as the user's app does.
-  const outdir = join(directory, 'bundle');
-  await build({
-    entryPoints: [
-      join(directory, 'src/index.ts'),
-      ...(agentTools ? [join(directory, 'src/agents.ts')] : []),
-    ],
-    outdir,
-    outExtension: { '.js': '.mjs' },
-    bundle: true,
-    packages: 'external',
-    format: 'esm',
-    platform: 'node',
-    logLevel: 'silent',
-  });
-  const sdk = await import(pathToFileURL(join(outdir, 'index.mjs')).href);
+  const sdk = await import(pathToFileURL(join(directory, 'src/index.ts')).href);
   const agents = agentTools
-    ? await import(pathToFileURL(join(outdir, 'agents.mjs')).href)
+    ? await import(pathToFileURL(join(directory, 'src/agents.ts')).href)
     : undefined;
   const { createNotes } = sdk;
   const sent: Request[] = [];
@@ -116,7 +99,7 @@ async function upstream() {
 }
 
 /**
- * Runs `script` as a module in `directory` (beside the SDK bundle) in its own
+ * Runs `script` as a module in `directory` (beside the generated SDK) in its own
  * Node process, with `baseUrl` as its first argument, and returns what it
  * printed.
  */
@@ -195,80 +178,69 @@ void test.each(
   ({ media, schema, accepted, rejected, input, body }) =>
     test(`a ${media} request body reaches the server unchanged with its media type`, async () => {
       await using workspace = await workspaceDirectory('request-encoding-');
-      try {
-        const { diagnostics, client, sent } = await generateClient(
-          workspace.path,
-          notesSpec({ [media]: schema ? { schema } : {} }),
-          `void client.request('POST /notes', ${accepted});\n// @ts-expect-error the body has the wrong type for ${media}.\nvoid client.request('POST /notes', ${rejected});`,
-        );
+      const { diagnostics, client, sent } = await generateClient(
+        workspace.path,
+        notesSpec({ [media]: schema ? { schema } : {} }),
+        `void client.request('POST /notes', ${accepted});\n// @ts-expect-error the body has the wrong type for ${media}.\nvoid client.request('POST /notes', ${rejected});`,
+      );
 
-        await client.request('POST /notes', input());
+      await client.request('POST /notes', input());
 
-        assert.deepEqual(diagnostics, []);
-        assert.equal(sent.length, 1);
-        assert.equal(sent[0].method, 'POST');
-        assert.equal(sent[0].url, 'https://api.test/notes');
-        assert.equal(sent[0].headers.get('content-type'), media);
-        assert.equal(await sent[0].text(), body);
-      } finally {
-        await stop();
-      }
+      assert.deepEqual(diagnostics, []);
+      assert.equal(sent.length, 1);
+      assert.equal(sent[0].method, 'POST');
+      assert.equal(sent[0].url, 'https://api.test/notes');
+      assert.equal(sent[0].headers.get('content-type'), media);
+      assert.equal(await sent[0].text(), body);
     }),
 );
 
 test('a binary body beside a path parameter fills the URL and sends the Blob', async () => {
   await using workspace = await workspaceDirectory('request-binary-path-');
-  try {
-    const { diagnostics, client, sent } = await generateClient(
-      workspace.path,
-      {
-        openapi: '3.1.0',
-        info: { title: 'Files', version: '1.0.0' },
-        servers: [{ url: 'https://api.test' }],
-        paths: {
-          '/files/{id}': {
-            put: {
-              operationId: 'putFile',
-              tags: ['files'],
-              parameters: [
-                {
-                  name: 'id',
-                  in: 'path',
-                  required: true,
-                  schema: { type: 'string' },
-                },
-              ],
-              requestBody: {
+  const { diagnostics, client, sent } = await generateClient(
+    workspace.path,
+    {
+      openapi: '3.1.0',
+      info: { title: 'Files', version: '1.0.0' },
+      servers: [{ url: 'https://api.test' }],
+      paths: {
+        '/files/{id}': {
+          put: {
+            operationId: 'putFile',
+            tags: ['files'],
+            parameters: [
+              {
+                name: 'id',
+                in: 'path',
                 required: true,
-                content: { 'application/octet-stream': { schema: binary } },
+                schema: { type: 'string' },
               },
-              responses: { '204': { description: 'Stored' } },
+            ],
+            requestBody: {
+              required: true,
+              content: { 'application/octet-stream': { schema: binary } },
             },
+            responses: { '204': { description: 'Stored' } },
           },
         },
       },
-      `void client.request('PUT /files/{id}', { id: 'f1', $body: new Blob(['bytes']) });
+    },
+    `void client.request('PUT /files/{id}', { id: 'f1', $body: new Blob(['bytes']) });
 // @ts-expect-error the path parameter is required beside the body.
 void client.request('PUT /files/{id}', { $body: new Blob(['bytes']) });`,
-    );
+  );
 
-    await client.request('PUT /files/{id}', {
-      id: 'f1',
-      $body: new Blob(['bytes']),
-    });
+  await client.request('PUT /files/{id}', {
+    id: 'f1',
+    $body: new Blob(['bytes']),
+  });
 
-    assert.deepEqual(diagnostics, []);
-    assert.equal(sent.length, 1);
-    assert.equal(sent[0].method, 'PUT');
-    assert.equal(sent[0].url, 'https://api.test/files/f1');
-    assert.equal(
-      sent[0].headers.get('content-type'),
-      'application/octet-stream',
-    );
-    assert.equal(await sent[0].text(), 'bytes');
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(diagnostics, []);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].method, 'PUT');
+  assert.equal(sent[0].url, 'https://api.test/files/f1');
+  assert.equal(sent[0].headers.get('content-type'), 'application/octet-stream');
+  assert.equal(await sent[0].text(), 'bytes');
 });
 
 const everyEncoding = {
@@ -291,60 +263,55 @@ const everyEncoding = {
 
 test('an operation that accepts several encodings sends each through its own key, the preferred one unprefixed', async () => {
   await using workspace = await workspaceDirectory('request-variants-');
-  try {
-    const { diagnostics, client, sent } = await generateClient(
-      workspace.path,
-      notesSpec(everyEncoding),
-      '',
-    );
+  const { diagnostics, client, sent } = await generateClient(
+    workspace.path,
+    notesSpec(everyEncoding),
+    '',
+  );
 
-    await client.request('POST /notes', { title: 'json' });
-    await client.request('urlencoded POST /notes', { title: 'form' });
-    await client.request('formdata POST /notes', {
-      title: 'upload',
-      file: new Blob(['bytes']),
-    });
-    await client.request('text POST /notes', { $body: 'plain' });
-    await client.request('binary POST /notes', {
-      $body: new Blob(['raw']),
-    });
+  await client.request('POST /notes', { title: 'json' });
+  await client.request('urlencoded POST /notes', { title: 'form' });
+  await client.request('formdata POST /notes', {
+    title: 'upload',
+    file: new Blob(['bytes']),
+  });
+  await client.request('text POST /notes', { $body: 'plain' });
+  await client.request('binary POST /notes', {
+    $body: new Blob(['raw']),
+  });
 
-    assert.deepEqual(diagnostics, []);
-    assert.deepEqual(
-      sent.map((request) => [
-        request.method,
-        request.url,
-        request.headers.get('content-type')?.split(';')[0],
-      ]),
-      [
-        ['POST', 'https://api.test/notes', 'application/json'],
-        ['POST', 'https://api.test/notes', 'application/x-www-form-urlencoded'],
-        ['POST', 'https://api.test/notes', 'multipart/form-data'],
-        ['POST', 'https://api.test/notes', 'text/plain'],
-        ['POST', 'https://api.test/notes', 'application/octet-stream'],
-      ],
-    );
-    assert.equal(await sent[0].text(), '{"title":"json"}');
-    assert.equal(await sent[1].text(), 'title=form');
-    const form = await sent[2].formData();
-    assert.equal(form.get('title'), 'upload');
-    const file = form.get('file');
-    assert.ok(file instanceof Blob);
-    assert.equal(await file.text(), 'bytes');
-    assert.equal(await sent[3].text(), 'plain');
-    assert.equal(await sent[4].text(), 'raw');
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(diagnostics, []);
+  assert.deepEqual(
+    sent.map((request) => [
+      request.method,
+      request.url,
+      request.headers.get('content-type')?.split(';')[0],
+    ]),
+    [
+      ['POST', 'https://api.test/notes', 'application/json'],
+      ['POST', 'https://api.test/notes', 'application/x-www-form-urlencoded'],
+      ['POST', 'https://api.test/notes', 'multipart/form-data'],
+      ['POST', 'https://api.test/notes', 'text/plain'],
+      ['POST', 'https://api.test/notes', 'application/octet-stream'],
+    ],
+  );
+  assert.equal(await sent[0].text(), '{"title":"json"}');
+  assert.equal(await sent[1].text(), 'title=form');
+  const form = await sent[2].formData();
+  assert.equal(form.get('title'), 'upload');
+  const file = form.get('file');
+  assert.ok(file instanceof Blob);
+  assert.equal(await file.text(), 'bytes');
+  assert.equal(await sent[3].text(), 'plain');
+  assert.equal(await sent[4].text(), 'raw');
 });
 
 test('an operation with several encodings has exactly one key per encoding, each typed by its own input', async () => {
   await using workspace = await workspaceDirectory('request-variant-types-');
-  try {
-    const { diagnostics } = await generateClient(
-      workspace.path,
-      notesSpec(everyEncoding),
-      `type Endpoint = Parameters<typeof client.request>[0];
+  const { diagnostics } = await generateClient(
+    workspace.path,
+    notesSpec(everyEncoding),
+    `type Endpoint = Parameters<typeof client.request>[0];
 const keys: Record<Endpoint, true> = {
   'POST /notes': true,
   'urlencoded POST /notes': true,
@@ -359,75 +326,67 @@ void client.request('formdata POST /notes', { title: 'upload' });
 void client.request('text POST /notes', { $body: 'plain' });
 // @ts-expect-error a text body is a string.
 void client.request('text POST /notes', { $body: new Blob(['raw']) });`,
-    );
+  );
 
-    assert.deepEqual(diagnostics, []);
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(diagnostics, []);
 });
 
 test('the generated AI SDK tools give every input a JSON tool call can send its own tool, each validating and sending its own input without printing it', async () => {
   await using workspace = await workspaceDirectory('request-variant-tools-');
   await using api = await upstream();
-  try {
-    const { diagnostics, agents } = await generateClient(
-      workspace.path,
-      notesSpec(everyEncoding),
-      '',
-      'ai-sdk',
-    );
-    const { tools } = agents.notes;
+  const { diagnostics, agents } = await generateClient(
+    workspace.path,
+    notesSpec(everyEncoding),
+    '',
+    'ai-sdk',
+  );
+  const { tools } = agents.notes;
 
-    const printed = await runScript(
-      workspace.path,
-      `import { createNotes } from './bundle/index.mjs';
-import { notes } from './bundle/agents.mjs';
+  const printed = await runScript(
+    workspace.path,
+    `import { createNotes } from './src/index.ts';
+import { notes } from './src/agents.ts';
 const context = { context: { client: createNotes({ baseUrl: process.argv[2] }) } };
 await notes.tools.createNote.execute({ title: 'json' }, context);
 await notes.tools.createNoteUrlencoded.execute({ title: 'form' }, context);
 await notes.tools.createNoteText.execute({ $body: 'plain' }, context);
 `,
-      api.url,
-    );
+    api.url,
+  );
 
-    assert.deepEqual(printed, { exitCode: 0, stdout: '', stderr: '' });
-    assert.deepEqual(diagnostics, []);
-    assert.deepEqual(Object.keys(tools), [
-      'createNote',
-      'createNoteUrlencoded',
-      'createNoteText',
-    ]);
-    assert.equal(
-      tools.createNoteText.inputSchema.safeParse({ $body: 'x' }).success,
-      true,
-    );
-    assert.equal(
-      tools.createNote.inputSchema.safeParse({ $body: 'x' }).success,
-      false,
-    );
-    assert.deepEqual(api.requests, toolCalls(api.url));
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(printed, { exitCode: 0, stdout: '', stderr: '' });
+  assert.deepEqual(diagnostics, []);
+  assert.deepEqual(Object.keys(tools), [
+    'createNote',
+    'createNoteUrlencoded',
+    'createNoteText',
+  ]);
+  assert.equal(
+    tools.createNoteText.inputSchema.safeParse({ $body: 'x' }).success,
+    true,
+  );
+  assert.equal(
+    tools.createNote.inputSchema.safeParse({ $body: 'x' }).success,
+    false,
+  );
+  assert.deepEqual(api.requests, toolCalls(api.url));
 });
 
 test('the generated OpenAI Agents tools load, with a tool for every input a JSON tool call can send, each parsing and sending its own input without printing it', async () => {
   await using workspace = await workspaceDirectory('request-variant-agents-');
   await using api = await upstream();
-  try {
-    const { diagnostics, agents } = await generateClient(
-      workspace.path,
-      notesSpec(everyEncoding),
-      '',
-      'openai-agents',
-    );
-    const tools: { name: string }[] = agents.notes;
+  const { diagnostics, agents } = await generateClient(
+    workspace.path,
+    notesSpec(everyEncoding),
+    '',
+    'openai-agents',
+  );
+  const tools: { name: string }[] = agents.notes;
 
-    const printed = await runScript(
-      workspace.path,
-      `import { createNotes } from './bundle/index.mjs';
-import { notes } from './bundle/agents.mjs';
+  const printed = await runScript(
+    workspace.path,
+    `import { createNotes } from './src/index.ts';
+import { notes } from './src/agents.ts';
 const context = { context: { client: createNotes({ baseUrl: process.argv[2] }) } };
 for (const [name, input] of [
   ['createNote', { title: 'json' }],
@@ -437,19 +396,16 @@ for (const [name, input] of [
   await notes.find((tool) => tool.name === name).invoke(context, JSON.stringify(input));
 }
 `,
-      api.url,
-    );
+    api.url,
+  );
 
-    assert.deepEqual(printed, { exitCode: 0, stdout: '', stderr: '' });
-    assert.deepEqual(diagnostics, []);
-    assert.deepEqual(
-      tools.map((tool) => tool.name),
-      ['createNote', 'createNoteUrlencoded', 'createNoteText'],
-    );
-    assert.deepEqual(api.requests, toolCalls(api.url));
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(printed, { exitCode: 0, stdout: '', stderr: '' });
+  assert.deepEqual(diagnostics, []);
+  assert.deepEqual(
+    tools.map((tool) => tool.name),
+    ['createNote', 'createNoteUrlencoded', 'createNoteText'],
+  );
+  assert.deepEqual(api.requests, toolCalls(api.url));
 });
 
 test('the README snippet shows the body the client sends, not the first media type the spec lists', async () => {
@@ -490,89 +446,73 @@ const attachments: SchemaObject = {
 
 test('a multipart array of files reaches the server as one part per file', async () => {
   await using workspace = await workspaceDirectory('request-multipart-files-');
-  try {
-    const { diagnostics, client, sent } = await generateClient(
-      workspace.path,
-      notesSpec({ 'multipart/form-data': { schema: attachments } }),
-      `void client.request('POST /notes', { files: [new Blob(['a'])] });
+  const { diagnostics, client, sent } = await generateClient(
+    workspace.path,
+    notesSpec({ 'multipart/form-data': { schema: attachments } }),
+    `void client.request('POST /notes', { files: [new Blob(['a'])] });
 // @ts-expect-error files is a list of Blobs, not one Blob.
 void client.request('POST /notes', { files: new Blob(['a']) });`,
-    );
+  );
 
-    await client.request('POST /notes', {
-      files: [new Blob(['a']), new Blob(['b'])],
-    });
+  await client.request('POST /notes', {
+    files: [new Blob(['a']), new Blob(['b'])],
+  });
 
-    assert.deepEqual(diagnostics, []);
-    const files = (await sent[0].formData()).getAll('files');
-    assert.deepEqual(
-      await Promise.all(
-        files.map((file) => (typeof file === 'string' ? file : file.text())),
-      ),
-      ['a', 'b'],
-    );
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(diagnostics, []);
+  const files = (await sent[0].formData()).getAll('files');
+  assert.deepEqual(
+    await Promise.all(
+      files.map((file) => (typeof file === 'string' ? file : file.text())),
+    ),
+    ['a', 'b'],
+  );
 });
 
 test('a multipart array of strings reaches the server as one part per string', async () => {
   await using workspace = await workspaceDirectory('request-multipart-tags-');
-  try {
-    const { diagnostics, client, sent } = await generateClient(
-      workspace.path,
-      notesSpec({ 'multipart/form-data': { schema: attachments } }),
-      `void client.request('POST /notes', { files: [], tags: ['x'] });`,
-    );
+  const { diagnostics, client, sent } = await generateClient(
+    workspace.path,
+    notesSpec({ 'multipart/form-data': { schema: attachments } }),
+    `void client.request('POST /notes', { files: [], tags: ['x'] });`,
+  );
 
-    await client.request('POST /notes', { files: [], tags: ['x', 'y'] });
+  await client.request('POST /notes', { files: [], tags: ['x', 'y'] });
 
-    assert.deepEqual(diagnostics, []);
-    assert.deepEqual((await sent[0].formData()).getAll('tags'), ['x', 'y']);
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(diagnostics, []);
+  assert.deepEqual((await sent[0].formData()).getAll('tags'), ['x', 'y']);
 });
 
 test('a multipart field the caller leaves out sends no part', async () => {
   await using workspace = await workspaceDirectory('request-multipart-absent-');
-  try {
-    const { diagnostics, client, sent } = await generateClient(
-      workspace.path,
-      notesSpec({ 'multipart/form-data': { schema: attachments } }),
-      `void client.request('POST /notes', { files: [] });`,
-    );
+  const { diagnostics, client, sent } = await generateClient(
+    workspace.path,
+    notesSpec({ 'multipart/form-data': { schema: attachments } }),
+    `void client.request('POST /notes', { files: [] });`,
+  );
 
-    await client.request('POST /notes', { files: [new Blob(['a'])] });
+  await client.request('POST /notes', { files: [new Blob(['a'])] });
 
-    assert.deepEqual(diagnostics, []);
-    const form = await sent[0].formData();
-    assert.deepEqual([...form.keys()], ['files']);
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(diagnostics, []);
+  const form = await sent[0].formData();
+  assert.deepEqual([...form.keys()], ['files']);
 });
 
 test('an empty multipart array sends no part', async () => {
   await using workspace = await workspaceDirectory('request-multipart-empty-');
-  try {
-    const { diagnostics, client, sent } = await generateClient(
-      workspace.path,
-      notesSpec({ 'multipart/form-data': { schema: attachments } }),
-      `void client.request('POST /notes', { files: [], tags: [] });`,
-    );
+  const { diagnostics, client, sent } = await generateClient(
+    workspace.path,
+    notesSpec({ 'multipart/form-data': { schema: attachments } }),
+    `void client.request('POST /notes', { files: [], tags: [] });`,
+  );
 
-    await client.request('POST /notes', {
-      files: [new Blob(['a'])],
-      tags: [],
-    });
+  await client.request('POST /notes', {
+    files: [new Blob(['a'])],
+    tags: [],
+  });
 
-    assert.deepEqual(diagnostics, []);
-    const form = await sent[0].formData();
-    assert.deepEqual([...form.keys()], ['files']);
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(diagnostics, []);
+  const form = await sent[0].formData();
+  assert.deepEqual([...form.keys()], ['files']);
 });
 
 const form: SchemaObject = {
@@ -589,115 +529,99 @@ test('a urlencoded field the caller leaves out sends no entry', async () => {
   await using workspace = await workspaceDirectory(
     'request-urlencoded-absent-',
   );
-  try {
-    const { diagnostics, client, sent } = await generateClient(
-      workspace.path,
-      notesSpec({ 'application/x-www-form-urlencoded': { schema: form } }),
-      `void client.request('POST /notes', { title: 't' });`,
-    );
+  const { diagnostics, client, sent } = await generateClient(
+    workspace.path,
+    notesSpec({ 'application/x-www-form-urlencoded': { schema: form } }),
+    `void client.request('POST /notes', { title: 't' });`,
+  );
 
-    await client.request('POST /notes', { title: 't' });
+  await client.request('POST /notes', { title: 't' });
 
-    assert.deepEqual(diagnostics, []);
-    assert.equal(await sent[0].text(), 'title=t');
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(diagnostics, []);
+  assert.equal(await sent[0].text(), 'title=t');
 });
 
 test('a urlencoded array sends one entry per item under its key', async () => {
   await using workspace = await workspaceDirectory('request-urlencoded-array-');
-  try {
-    const { diagnostics, client, sent } = await generateClient(
-      workspace.path,
-      notesSpec({ 'application/x-www-form-urlencoded': { schema: form } }),
-      `void client.request('POST /notes', { title: 't', tags: ['x'] });`,
-    );
+  const { diagnostics, client, sent } = await generateClient(
+    workspace.path,
+    notesSpec({ 'application/x-www-form-urlencoded': { schema: form } }),
+    `void client.request('POST /notes', { title: 't', tags: ['x'] });`,
+  );
 
-    await client.request('POST /notes', { title: 't', tags: ['x', 'y'] });
+  await client.request('POST /notes', { title: 't', tags: ['x', 'y'] });
 
-    assert.deepEqual(diagnostics, []);
-    assert.deepEqual(new URLSearchParams(await sent[0].text()).getAll('tags'), [
-      'x',
-      'y',
-    ]);
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(diagnostics, []);
+  assert.deepEqual(new URLSearchParams(await sent[0].text()).getAll('tags'), [
+    'x',
+    'y',
+  ]);
 });
 
 test('a query array sends one entry per item under its key', async () => {
   await using workspace = await workspaceDirectory('request-query-array-');
-  try {
-    const { diagnostics, client, sent } = await generateClient(
-      workspace.path,
-      {
-        openapi: '3.1.0',
-        info: { title: 'Notes', version: '1.0.0' },
-        servers: [{ url: 'https://api.test' }],
-        paths: {
-          '/notes': {
-            get: {
-              operationId: 'listNotes',
-              tags: ['notes'],
-              parameters: [
-                {
-                  name: 'tags',
-                  in: 'query',
-                  schema: { type: 'array', items: { type: 'string' } },
-                },
-              ],
-              responses: { '204': { description: 'Listed' } },
-            },
+  const { diagnostics, client, sent } = await generateClient(
+    workspace.path,
+    {
+      openapi: '3.1.0',
+      info: { title: 'Notes', version: '1.0.0' },
+      servers: [{ url: 'https://api.test' }],
+      paths: {
+        '/notes': {
+          get: {
+            operationId: 'listNotes',
+            tags: ['notes'],
+            parameters: [
+              {
+                name: 'tags',
+                in: 'query',
+                schema: { type: 'array', items: { type: 'string' } },
+              },
+            ],
+            responses: { '204': { description: 'Listed' } },
           },
         },
       },
-      `void client.request('GET /notes', { tags: ['x'] });`,
-    );
+    },
+    `void client.request('GET /notes', { tags: ['x'] });`,
+  );
 
-    await client.request('GET /notes', { tags: ['x', 'y'] });
+  await client.request('GET /notes', { tags: ['x', 'y'] });
 
-    assert.deepEqual(diagnostics, []);
-    assert.equal(new URL(sent[0].url).search, '?tags=x&tags=y');
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(diagnostics, []);
+  assert.equal(new URL(sent[0].url).search, '?tags=x&tags=y');
 });
 
 test('a generated OpenAI Agents tool sends a call whose optional fields the model leaves null without those fields, and advertises them as required and nullable', async () => {
   await using workspace = await workspaceDirectory('request-agents-null-');
-  try {
-    const { diagnostics, client, sent, agents } = await generateClient(
-      workspace.path,
-      notesSpec({ 'application/json': { schema: form } }),
-      '',
-      'openai-agents',
-    );
-    const [createNote]: {
-      parameters: { required: string[]; properties: Record<string, unknown> };
-      invoke: (context: unknown, input: string) => Promise<unknown>;
-    }[] = agents.notes;
+  const { diagnostics, client, sent, agents } = await generateClient(
+    workspace.path,
+    notesSpec({ 'application/json': { schema: form } }),
+    '',
+    'openai-agents',
+  );
+  const [createNote]: {
+    parameters: { required: string[]; properties: Record<string, unknown> };
+    invoke: (context: unknown, input: string) => Promise<unknown>;
+  }[] = agents.notes;
 
-    await createNote.invoke(
-      { context: { client } },
-      JSON.stringify({ title: 't', note: null, tags: null }),
-    );
+  await createNote.invoke(
+    { context: { client } },
+    JSON.stringify({ title: 't', note: null, tags: null }),
+  );
 
-    assert.deepEqual(diagnostics, []);
-    assert.deepEqual(await Promise.all(sent.map((request) => request.text())), [
-      '{"title":"t"}',
-    ]);
-    assert.deepEqual(createNote.parameters.required.toSorted(), [
-      'note',
-      'tags',
-      'title',
-    ]);
-    assert.deepEqual(createNote.parameters.properties.note, {
-      anyOf: [{ type: 'string' }, { type: 'null' }],
-    });
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(diagnostics, []);
+  assert.deepEqual(await Promise.all(sent.map((request) => request.text())), [
+    '{"title":"t"}',
+  ]);
+  assert.deepEqual(createNote.parameters.required.toSorted(), [
+    'note',
+    'tags',
+    'title',
+  ]);
+  assert.deepEqual(createNote.parameters.properties.note, {
+    anyOf: [{ type: 'string' }, { type: 'null' }],
+  });
 });
 
 function accountsSpec(): OpenAPIObject {
@@ -740,146 +664,130 @@ function accountsSpec(): OpenAPIObject {
 
 test('the generated AI SDK tools keep every group: a spaced, a digit-leading and an untagged one', async () => {
   await using workspace = await workspaceDirectory('request-tool-groups-');
-  try {
-    const { diagnostics, agents } = await generateClient(
-      workspace.path,
-      accountsSpec(),
-      '',
-      'ai-sdk',
-    );
+  const { diagnostics, agents } = await generateClient(
+    workspace.path,
+    accountsSpec(),
+    '',
+    'ai-sdk',
+  );
 
-    assert.deepEqual(diagnostics, []);
-    assert.deepEqual(Object.keys(agents.userProfiles.tools), ['listProfiles']);
-    assert.deepEqual(Object.keys(agents._2fa.tools), ['enableTwoFactor']);
-    assert.deepEqual(Object.keys(agents.billing.tools), ['listInvoices']);
-    const everyTool = Object.values(agents).flatMap((value) =>
-      value && typeof value === 'object' && 'tools' in value
-        ? Object.keys(Object(value.tools))
-        : [],
-    );
-    assert.ok(everyTool.includes('checkHealth'));
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(diagnostics, []);
+  assert.deepEqual(Object.keys(agents.userProfiles.tools), ['listProfiles']);
+  assert.deepEqual(Object.keys(agents._2fa.tools), ['enableTwoFactor']);
+  assert.deepEqual(Object.keys(agents.billing.tools), ['listInvoices']);
+  const everyTool = Object.values(agents).flatMap((value) =>
+    value && typeof value === 'object' && 'tools' in value
+      ? Object.keys(Object(value.tools))
+      : [],
+  );
+  assert.ok(everyTool.includes('checkHealth'));
 });
 
 test('the generated OpenAI Agents tools compile and keep every group under the identifiers userProfiles, _2fa and billing', async () => {
   await using workspace = await workspaceDirectory('request-agent-groups-');
-  try {
-    const { diagnostics, agents } = await generateClient(
-      workspace.path,
-      accountsSpec(),
-      '',
-      'openai-agents',
-    );
-    const names = (group: unknown) =>
-      Array.isArray(group) ? group.map((tool) => tool.name) : [];
+  const { diagnostics, agents } = await generateClient(
+    workspace.path,
+    accountsSpec(),
+    '',
+    'openai-agents',
+  );
+  const names = (group: unknown) =>
+    Array.isArray(group) ? group.map((tool) => tool.name) : [];
 
-    assert.deepEqual(diagnostics, []);
-    assert.deepEqual(names(agents.userProfiles), ['listProfiles']);
-    assert.deepEqual(names(agents._2fa), ['enableTwoFactor']);
-    assert.deepEqual(names(agents.billing), ['listInvoices']);
-    assert.ok(Object.values(agents).flatMap(names).includes('checkHealth'));
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(diagnostics, []);
+  assert.deepEqual(names(agents.userProfiles), ['listProfiles']);
+  assert.deepEqual(names(agents._2fa), ['enableTwoFactor']);
+  assert.deepEqual(names(agents.billing), ['listInvoices']);
+  assert.ok(Object.values(agents).flatMap(names).includes('checkHealth'));
 });
 
 test("the generated AI SDK groups are ToolLoopAgent settings: an id from the tag's summary or name, instructions from its description", async () => {
   await using workspace = await workspaceDirectory('request-agent-settings-');
-  try {
-    const { diagnostics, agents } = await generateClient(
-      workspace.path,
-      accountsSpec(),
-      `import { ToolLoopAgent } from 'ai';
+  const { diagnostics, agents } = await generateClient(
+    workspace.path,
+    accountsSpec(),
+    `import { ToolLoopAgent } from 'ai';
 import { billing } from './agents.ts';
 void new ToolLoopAgent({ model: 'openai/gpt-5', ...billing });`,
-      'ai-sdk',
-    );
+    'ai-sdk',
+  );
 
-    assert.deepEqual(diagnostics, []);
-    assert.deepEqual(Object.keys(agents.userProfiles).sort(), [
-      'id',
-      'instructions',
-      'tools',
-    ]);
-    assert.equal(agents.userProfiles.id, 'User Profiles');
-    assert.equal(agents.userProfiles.instructions, 'Profiles of users');
-    assert.equal(agents.billing.id, 'billing');
-    assert.equal(agents.billing.instructions, 'Invoices');
-    const health = Object.values(agents).find(
-      (value) =>
-        value &&
-        typeof value === 'object' &&
-        'tools' in value &&
-        Object.keys(Object(value.tools)).includes('checkHealth'),
-    );
-    assert.deepEqual(Object.keys(Object(health)).sort(), ['id', 'tools']);
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(diagnostics, []);
+  assert.deepEqual(Object.keys(agents.userProfiles).sort(), [
+    'id',
+    'instructions',
+    'tools',
+  ]);
+  assert.equal(agents.userProfiles.id, 'User Profiles');
+  assert.equal(agents.userProfiles.instructions, 'Profiles of users');
+  assert.equal(agents.billing.id, 'billing');
+  assert.equal(agents.billing.instructions, 'Invoices');
+  const health = Object.values(agents).find(
+    (value) =>
+      value &&
+      typeof value === 'object' &&
+      'tools' in value &&
+      Object.keys(Object(value.tools)).includes('checkHealth'),
+  );
+  assert.deepEqual(Object.keys(Object(health)).sort(), ['id', 'tools']);
 });
 
 test("a generated AI SDK group takes the tag's authored x-name and x-instructions first, and its description round-trips with backticks, ${} and newlines", async () => {
   await using workspace = await workspaceDirectory('request-agent-precedence-');
-  try {
-    const { diagnostics, agents } = await generateClient(
-      workspace.path,
-      {
-        openapi: '3.2.0',
-        info: { title: 'Agents', version: '1.0.0' },
-        servers: [{ url: 'https://api.test' }],
-        tags: [
-          {
-            name: 'billing',
-            summary: 'Billing',
-            description: 'Invoices',
-            'x-name': "Billing 'Agent'",
-            'x-instructions': 'Handle invoices',
+  const { diagnostics, agents } = await generateClient(
+    workspace.path,
+    {
+      openapi: '3.2.0',
+      info: { title: 'Agents', version: '1.0.0' },
+      servers: [{ url: 'https://api.test' }],
+      tags: [
+        {
+          name: 'billing',
+          summary: 'Billing',
+          description: 'Invoices',
+          'x-name': "Billing 'Agent'",
+          'x-instructions': 'Handle invoices',
+        },
+        {
+          name: 'notes',
+          summary: 'Notes',
+          description: 'Use `notes` and ${x}\nthen stop',
+        },
+        { name: 'plain' },
+      ],
+      paths: {
+        '/invoices': {
+          get: {
+            operationId: 'listInvoices',
+            tags: ['billing'],
+            responses: { '204': { description: 'Done' } },
           },
-          {
-            name: 'notes',
-            summary: 'Notes',
-            description: 'Use `notes` and ${x}\nthen stop',
+        },
+        '/notes': {
+          get: {
+            operationId: 'listNotes',
+            tags: ['notes'],
+            responses: { '204': { description: 'Done' } },
           },
-          { name: 'plain' },
-        ],
-        paths: {
-          '/invoices': {
-            get: {
-              operationId: 'listInvoices',
-              tags: ['billing'],
-              responses: { '204': { description: 'Done' } },
-            },
-          },
-          '/notes': {
-            get: {
-              operationId: 'listNotes',
-              tags: ['notes'],
-              responses: { '204': { description: 'Done' } },
-            },
-          },
-          '/plain': {
-            get: {
-              operationId: 'getPlain',
-              tags: ['plain'],
-              responses: { '204': { description: 'Done' } },
-            },
+        },
+        '/plain': {
+          get: {
+            operationId: 'getPlain',
+            tags: ['plain'],
+            responses: { '204': { description: 'Done' } },
           },
         },
       },
-      '',
-      'ai-sdk',
-    );
+    },
+    '',
+    'ai-sdk',
+  );
 
-    assert.deepEqual(diagnostics, []);
-    assert.equal(agents.billing.id, "Billing 'Agent'");
-    assert.equal(agents.billing.instructions, 'Handle invoices');
-    assert.equal(agents.notes.id, 'Notes');
-    assert.equal(agents.notes.instructions, 'Use `notes` and ${x}\nthen stop');
-    assert.deepEqual(Object.keys(agents.plain).sort(), ['id', 'tools']);
-    assert.equal(agents.plain.id, 'plain');
-  } finally {
-    await stop();
-  }
+  assert.deepEqual(diagnostics, []);
+  assert.equal(agents.billing.id, "Billing 'Agent'");
+  assert.equal(agents.billing.instructions, 'Handle invoices');
+  assert.equal(agents.notes.id, 'Notes');
+  assert.equal(agents.notes.instructions, 'Use `notes` and ${x}\nthen stop');
+  assert.deepEqual(Object.keys(agents.plain).sort(), ['id', 'tools']);
+  assert.equal(agents.plain.id, 'plain');
 });
