@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
+import { setTimeout } from 'node:timers/promises';
 
 import { rpc } from '@sdk-it/rpc';
 import {
@@ -109,7 +110,7 @@ describe('Client options: token resolution', () => {
     let received: Request | undefined;
     const client = await rpc(spec.specPath, {
       token: async () => {
-        await new Promise((r) => setTimeout(r, 5));
+        await setTimeout(5);
         return 'async-token';
       },
       fetch: async (req) => {
@@ -178,7 +179,7 @@ describe('Client options: baseUrl resolution', () => {
     let received: Request | undefined;
     const client = await rpc(spec.specPath, {
       baseUrl: async () => {
-        await new Promise((r) => setTimeout(r, 5));
+        await setTimeout(5);
         return 'http://async.example.com';
       },
       fetch: async (req) => {

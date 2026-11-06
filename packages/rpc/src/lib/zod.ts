@@ -88,15 +88,12 @@ export class RuntimeZodConverter {
     if (!isRecursiveRef(this.#spec, $ref)) {
       return this.handle(followRef(this.#spec, $ref), true);
     }
-    let deferred = this.#recursive.get($ref);
-    if (!deferred) {
+    return this.#recursive.getOrInsertComputed($ref, () => {
       let resolved: ZodType | undefined;
-      deferred = z.lazy(
+      return z.lazy(
         () => (resolved ??= this.handle(followRef(this.#spec, $ref), true)),
       );
-      this.#recursive.set($ref, deferred);
-    }
-    return deferred;
+    });
   }
 
   #toIntersection(schemas: ZodType[]): ZodType {

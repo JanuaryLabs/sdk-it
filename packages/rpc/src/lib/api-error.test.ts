@@ -66,7 +66,7 @@ test('RPC client rejects a declared error status with its APIError subclass, an 
     (error) => {
       assert.ok(error instanceof BadRequest);
       assert.equal(error instanceof APIError, true);
-      assert.equal(error instanceof Error, true, 'an HTTP error is an Error');
+      assert.equal(Error.isError(error), true, 'an HTTP error is an Error');
       assert.equal(error.status, 400);
       assert.equal(error.headers.get('content-type'), 'application/json');
       assert.deepStrictEqual(error.data, { message: 'id must be numeric' });
@@ -126,7 +126,7 @@ test('RPC client rejects an undeclared error status with an APIError whose messa
   await assert.rejects(client.request('GET /orders', {}), (error) => {
     assert.ok(error instanceof APIError);
     assert.equal(error.constructor, APIError);
-    assert.equal(error instanceof Error, true, 'an HTTP error is an Error');
+    assert.equal(Error.isError(error), true, 'an HTTP error is an Error');
     assert.equal(error.status, 502);
     assert.equal(error.data, page);
     assert.equal(
