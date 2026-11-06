@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 
-import { pointerTokens } from './json-pointer.js';
+import { pointerTokens } from '@sdk-it/core';
+
 import { loadLocal } from './loaders/local-loader.js';
 import { loadRemote } from './loaders/remote-loader.js';
 
