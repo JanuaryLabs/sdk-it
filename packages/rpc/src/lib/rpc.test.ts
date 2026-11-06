@@ -5,7 +5,7 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
-import { rpc, toAgents } from './rpc.ts';
+import { rpc, toAgents } from '@sdk-it/rpc';
 
 async function advertisedSchema(inputSchema: Parameters<typeof asSchema>[0]) {
   const schema = await asSchema(inputSchema).jsonSchema;
