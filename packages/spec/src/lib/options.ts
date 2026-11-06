@@ -74,12 +74,6 @@ export function coeraceConfig(config: GenerateSdkConfig) {
     paths: config.spec.paths ?? {},
     'x-docs': [],
     'x-sdks': [],
-    'x-tagGroups': config.spec['x-tagGroups'] ?? [
-      {
-        name: 'API',
-        tags: config.spec.tags?.map((tag) => tag.name) ?? [],
-      },
-    ],
     servers: config.spec.servers ?? [],
     tags: config.spec.tags ?? [],
   };

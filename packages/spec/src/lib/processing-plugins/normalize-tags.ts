@@ -1,4 +1,4 @@
-import type { TagObject } from 'openapi3-ts/oas31';
+import type { TagObject } from 'openapi3-ts/oas32';
 
 import { snakecase } from '@sdk-it/core/utils.js';
 
@@ -7,9 +7,9 @@ import type { DocumentPlugin } from '../processing.js';
 
 /**
  * Gives each operation one group tag, and keeps every group defined: an
- * authored definition and tag group entry take the group's name (the authored
- * name stays as its display name), and a group nothing defines gets a bare
- * definition, so a host finds the definition of every operation's tag.
+ * authored definition takes the group's name (the authored name stays as its
+ * summary), a tag's parent follows the rename, and a group nothing defines
+ * gets a definition, so a host finds the definition of every operation's tag.
  */
 export function normalizeTags(): DocumentPlugin {
   return {
@@ -30,25 +30,27 @@ export function normalizeTags(): DocumentPlugin {
       }
 
       const definitions = new Map<string, TagObject>();
-      for (const definition of spec.tags) {
-        const name = renamed.get(definition.name) ?? definition.name;
+      for (const authored of spec.tags) {
+        const name = renamed.get(authored.name) ?? authored.name;
         if (definitions.has(name)) {
           continue;
         }
-        definitions.set(
-          name,
-          name === definition.name
-            ? definition
+        const definition: TagObject =
+          name === authored.name
+            ? { ...authored }
             : {
-                ...definition,
+                ...authored,
                 name,
-                'x-displayName': definition['x-displayName'] ?? definition.name,
-              },
-        );
+                summary: authored.summary ?? authored.name,
+              };
+        if (authored.parent !== undefined) {
+          definition.parent = renamed.get(authored.parent) ?? authored.parent;
+        }
+        definitions.set(name, definition);
       }
       for (const [authored, group] of renamed) {
         if (!definitions.has(group)) {
-          definitions.set(group, { name: group, 'x-displayName': authored });
+          definitions.set(group, { name: group, summary: authored });
         }
       }
       for (const group of groups) {
@@ -57,10 +59,6 @@ export function normalizeTags(): DocumentPlugin {
         }
       }
       spec.tags = [...definitions.values()];
-      spec['x-tagGroups'] = spec['x-tagGroups'].map((tagGroup) => ({
-        ...tagGroup,
-        tags: tagGroup.tags.map((tag) => renamed.get(tag) ?? tag),
-      }));
     },
   };
 }

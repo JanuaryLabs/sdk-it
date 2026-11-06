@@ -1,3 +1,4 @@
+import type { TagObject } from 'openapi3-ts/oas32';
 import { camelcase } from 'stringcase';
 
 import { notNullOrUndefined } from '@sdk-it/core/file-system.js';
@@ -29,39 +30,65 @@ export type CategoryItem = {
 
 export type SidebarData = CategoryItem[];
 
-export interface TagGroups {
-  name: string;
-  tags: string[];
-}
-
+/**
+ * The documentation pages, then one section per tag hierarchy (OpenAPI 3.2
+ * `parent`): each group with operations sits under its top-most ancestor's
+ * section, and a group with no parent sits in the API section.
+ */
 export function toSidebar(spec: IR) {
   const sidebar: SidebarData = [...spec['x-docs']];
-  for (const tagGroup of spec['x-tagGroups']) {
-    sidebar.push({
-      id: camelcase(tagGroup.name),
-      category: tagGroup.name,
-      items: tagGroup.tags.map((tag) => {
-        const tagSpec = spec.tags?.find((t) => t.name === tag);
-        return {
-          id: crypto.randomUUID(),
-          description: tagSpec?.description,
-          title: tagSpec
-            ? tagSpec['x-displayName'] || tagSpec.name || tag
-            : tag,
-          items: forEachOperation(spec, (entry, operation) => {
-            if (operation.tags.includes(tag)) {
-              const title = operation.summary || operation.operationId;
-              return {
-                id: operation.operationId,
-                title,
-                url: `${camelcase(tag)}/${camelcase(operation.operationId)}`,
-              };
-            }
-            return null;
-          }).filter(notNullOrUndefined),
-        };
-      }),
+  const tags = new Map(spec.tags.map((tag) => [tag.name, tag]));
+  const sections = new Map<TagObject | undefined, CategoryItem>();
+  for (const tag of spec.tags) {
+    const operations = forEachOperation(spec, (entry, operation) =>
+      operation.tags.includes(tag.name)
+        ? {
+            id: operation.operationId,
+            title: operation.summary || operation.operationId,
+            url: `${camelcase(tag.name)}/${camelcase(operation.operationId)}`,
+          }
+        : null,
+    ).filter(notNullOrUndefined);
+    if (operations.length === 0) {
+      continue;
+    }
+    const root = topAncestor(tag, tags);
+    let section = sections.get(root);
+    if (!section) {
+      section = root
+        ? {
+            id: camelcase(root.name),
+            category: root.summary ?? root.name,
+            description: root.description,
+            items: [],
+          }
+        : { id: camelcase('API'), category: 'API', items: [] };
+      sections.set(root, section);
+      sidebar.push(section);
+    }
+    section.items.push({
+      id: crypto.randomUUID(),
+      title: tag.summary ?? tag.name,
+      description: tag.description,
+      items: operations,
     });
   }
   return sidebar;
+}
+
+/** The tag that `tag`'s parent chain ends at; none for a tag without a parent. A chain stops at a name no tag has or one it already passed. */
+function topAncestor(tag: TagObject, tags: Map<string, TagObject>) {
+  let ancestor: TagObject | undefined;
+  const passed = new Set([tag.name]);
+  let parent = tag.parent;
+  while (parent !== undefined && !passed.has(parent)) {
+    const next = tags.get(parent);
+    if (!next) {
+      break;
+    }
+    passed.add(parent);
+    ancestor = next;
+    parent = next.parent;
+  }
+  return ancestor;
 }

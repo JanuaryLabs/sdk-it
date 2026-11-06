@@ -252,7 +252,11 @@ test('toSidebar leaves the IR untouched', async () => {
   const second = toSidebar(spec);
 
   assert.deepEqual(second, first);
-  assert.equal(first.length, 2);
+  // A document with no operations has only its overview pages.
+  assert.deepEqual(
+    first.map((category) => category.category),
+    ['Overview'],
+  );
   assert.deepEqual(
     spec['x-docs'].map((category) => category.category),
     ['Overview'],

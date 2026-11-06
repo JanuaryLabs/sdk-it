@@ -9,8 +9,8 @@ import type {
   SchemaObject,
   SecurityRequirementObject,
   ServerObject,
-  TagObject,
 } from 'openapi3-ts/oas31';
+import type { TagObject } from 'openapi3-ts/oas32';
 
 import type {
   OpenAPIComponentsObject,
@@ -24,7 +24,7 @@ import type {
   NoPaginationResult,
   PaginationGuess,
 } from './pagination/guess-pagination.js';
-import type { SidebarData, TagGroups } from './sidebar.js';
+import type { SidebarData } from './sidebar.js';
 
 type SpecDocument<Paths> = Omit<
   OpenAPIDocument,
@@ -37,7 +37,6 @@ type SpecDocument<Paths> = Omit<
   };
   'x-docs': SidebarData;
   'x-sdks': SdkDoc[];
-  'x-tagGroups': TagGroups[];
   components: Omit<OpenAPIComponentsObject, 'schemas' | 'securitySchemes'> & {
     schemas: Record<string, SchemaObject | ReferenceObject>;
     securitySchemes: Record<string, OpenAPISecuritySchemeObject>;
