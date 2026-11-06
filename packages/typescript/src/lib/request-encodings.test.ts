@@ -674,7 +674,7 @@ test('a generated OpenAI Agents tool sends a call whose optional fields the mode
     assert.deepEqual(await Promise.all(sent.map((request) => request.text())), [
       '{"title":"t"}',
     ]);
-    assert.deepEqual([...createNote.parameters.required].sort(), [
+    assert.deepEqual(createNote.parameters.required.toSorted(), [
       'note',
       'tags',
       'title',

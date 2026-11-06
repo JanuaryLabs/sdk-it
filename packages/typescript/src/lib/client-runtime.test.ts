@@ -1,9 +1,10 @@
 import { build as esbuild } from 'esbuild';
 import assert from 'node:assert/strict';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { findPackageJSON } from 'node:module';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 
 import { workspaceDirectory } from '@sdk-it/testing';
 
@@ -11,11 +12,9 @@ import backend from './client.ts';
 import type { Spec } from './sdk.ts';
 
 // The http layer every generated SDK embeds is @sdk-it/runtime's source.
-const runtimeHttpDir = join(
-  dirname(fileURLToPath(import.meta.resolve('@sdk-it/runtime/package.json'))),
-  'src',
-  'http',
-);
+const runtimeManifest = findPackageJSON('@sdk-it/runtime', import.meta.url);
+assert.ok(runtimeManifest, '@sdk-it/runtime resolves from this test');
+const runtimeHttpDir = join(dirname(runtimeManifest), 'src', 'http');
 const runtimeHttpFiles = await Promise.all(
   (await readdir(runtimeHttpDir))
     .filter((file) => !file.endsWith('.test.ts'))
