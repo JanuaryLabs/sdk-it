@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import type { ParameterObject } from 'openapi3-ts/oas31';
 
+import type { TunedOperationObject } from '@sdk-it/spec';
 import {
   CURSOR_LIMIT_REGEXES,
   CURSOR_REGEXES,
@@ -10,8 +11,7 @@ import {
   PAGE_NUMBER_REGEXES,
   PAGE_SIZE_REGEXES,
   guessPagination,
-} from '../../../dist/lib/pagination/guess-pagination.js';
-import type { TunedOperationObject } from '../types.ts';
+} from '@sdk-it/spec/pagination/guess-pagination.js';
 
 // Minimal response schema helper to avoid early "no response" exits
 function minimalResponse() {
