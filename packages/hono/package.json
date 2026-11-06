@@ -52,8 +52,5 @@
     "openapi3-ts": {
       "optional": true
     }
-  },
-  "devDependencies": {
-    "@types/debug": "^4.1.12"
   }
 }

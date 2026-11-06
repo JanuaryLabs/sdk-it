@@ -2,16 +2,15 @@ import { notInstalled } from '@zukhruf/testing/preload';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import { findPackageJSON } from 'node:module';
 import { test } from 'node:test';
 
-const require = createRequire(import.meta.url);
-
 test('@sdk-it/hono/runtime does not require compiler dependencies', async () => {
-  const manifest = (packageName: string) =>
-    JSON.parse(
-      readFileSync(require.resolve(`${packageName}/package.json`), 'utf8'),
-    );
+  const manifest = (packageName: string) => {
+    const path = findPackageJSON(packageName, import.meta.url);
+    assert.ok(path, `${packageName} resolves from this test`);
+    return JSON.parse(readFileSync(path, 'utf8'));
+  };
 
   assert.equal(
     typeof (await import('@sdk-it/hono/runtime')).validate,
