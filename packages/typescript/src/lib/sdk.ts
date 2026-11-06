@@ -7,9 +7,9 @@ import {
   type TunedResponseObject,
 } from '@sdk-it/spec';
 
-import { groupIdentifier } from './group-identifier.ts';
 import { type MakeImportFn } from './import-utilities.ts';
 import type { ModelNamer } from './model-name.ts';
+import type { References } from './references.ts';
 import statusMap from './status-map.ts';
 
 export type Parser = 'chunked' | 'buffered' | 'sse' | 'bodyless';
@@ -57,22 +57,23 @@ export function toEndpoint(
   specOperation: TunedOperationObject,
   operation: Operation,
   modelName: ModelNamer,
+  refs: References,
 ) {
   const schemas: string[] = [];
   specOperation.responses ??= {};
   const outputs = Object.keys(specOperation.responses).map((status) =>
-    toHttpOutput(status, specOperation.responses[status], modelName),
+    toHttpOutput(status, specOperation.responses[status], modelName, refs),
   );
 
   for (const route of operation.inputs) {
-    const schemaRef = `${groupIdentifier(groupName)}.${route.schemaName}`;
+    const schemaRef = refs.input(groupName, route.schemaName);
     schemas.push(
       `"${route.endpoint}": {
-          security: ${JSON.stringify(specOperation.security ?? [])} as readonly Record<string, readonly string[]>[],
+          security: ${JSON.stringify(specOperation.security)} as readonly ${refs.global('Record')}<string, readonly string[]>[],
           schema: ${schemaRef},
           output:[${outputs.join(',')}],
           toRequest(input: z.input<typeof ${schemaRef}>, baseUrl: string) {
-           return toRequest('${operation.method.toUpperCase()}', '${operation.path}', ${route.input.encoding}(input, {
+           return ${refs.runtime('toRequest')}('${operation.method.toUpperCase()}', '${operation.path}', ${refs.runtime(route.input.encoding)}(input, {
               contentType: ${JSON.stringify(route.input.contentType)},
               inputHeaders: [${quoted(route.input.header)}],
               inputQuery: [${quoted(route.input.query)}],
@@ -80,19 +81,22 @@ export function toEndpoint(
               inputParams: [${quoted(route.input.path)}],
             }), baseUrl);},
          async dispatch(input: z.output<typeof ${schemaRef}>,options: {
-            signal?: AbortSignal;
-            interceptors: Interceptor[];
-            fetch: z.infer<typeof fetchType>;
+            signal?: ${refs.global('AbortSignal')};
+            interceptors: ${refs.runtime('Interceptor')}[];
+            fetch: z.infer<typeof ${refs.runtime('fetchType')}>;
             baseUrl: string;
-          })${normalOperation(specOperation['x-pagination'])}`,
+          })${normalOperation(specOperation['x-pagination'], refs)}`,
     );
   }
   return { schemas };
 }
 
-function normalOperation(pagination: OperationPagination | undefined) {
+function normalOperation(
+  pagination: OperationPagination | undefined,
+  refs: References,
+) {
   return `{
-            const dispatcher = new Dispatcher(options.interceptors, options.fetch);
+            const dispatcher = new ${refs.runtime('Dispatcher')}(options.interceptors, options.fetch);
             return dispatcher.send(this.toRequest(input, options.baseUrl), this.output, options?.signal);
             },${pagination ? `\n          pagination: ${JSON.stringify(runtimePagination(pagination))} as const,` : ''}
           }`;
@@ -150,35 +154,37 @@ export function toHttpOutput(
   status: string,
   response: TunedResponseObject,
   modelName: ModelNamer,
+  refs: References,
 ) {
   const body = response['x-body'];
-  const type = status.endsWith('XX')
-    ? 'http.APIError'
-    : `http.${statusMap[status] || 'APIResponse'}`;
+  const type = refs.status(
+    status.endsWith('XX') ? 'APIError' : statusMap[status] || 'APIResponse',
+  );
   if (status === '204') {
     return type;
   }
-  const data = dataType(status, response, modelName);
+  const data = dataType(status, response, modelName, refs);
   const parser = bodyParser[body];
   return parser === 'buffered'
     ? `${type}<${data}>`
-    : `{type: ${type}<${data}>, parser: ${parser}}`;
+    : `{type: ${type}<${data}>, parser: ${refs.runtime(parser)}}`;
 }
 
 function dataType(
   status: string,
   response: TunedResponseObject,
   modelName: ModelNamer,
+  refs: References,
 ) {
   switch (response['x-body']) {
     case 'empty':
       return 'null';
     case 'stream':
-      return 'ReadableStream';
+      return refs.global('ReadableStream');
     case 'sse':
-      return 'SSEListener';
+      return refs.runtime('SSEListener');
     default:
-      return `outputs.${modelName(outputName(status, response))}`;
+      return refs.model(modelName(outputName(status, response)));
   }
 }
 

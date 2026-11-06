@@ -33,6 +33,7 @@ import { type ModelNamer, createModelNamer } from './model-name.ts';
 import { moduleFileName } from './module-file.ts';
 import type { TypeScriptGeneratorOptions } from './options.ts';
 import { toReadme } from './readme/readme.ts';
+import { fileReferences } from './references.ts';
 import type { Operation } from './sdk.ts';
 import { expandServerUrls } from './server-urls.ts';
 import type { Style } from './style.ts';
@@ -276,6 +277,7 @@ function renderFiles(spec: IR, options: RenderOptions) {
 }
 
 function serializeModels(spec: IR, modelName: ModelNamer) {
+  const refs = fileReferences('models');
   const filesMap: Record<string, string[]> = {};
   const files: Record<string, string> = {};
   const responseBodies = new Map<string, ResponseBody>();
@@ -306,11 +308,14 @@ function serializeModels(spec: IR, modelName: ModelNamer) {
     const folder = isResponseBody ? 'outputs' : 'models';
     let typeContent: string;
     if (body === 'sse') {
-      typeContent = 'SSEListener';
+      typeContent = refs.runtime('SSEListener');
     } else if (body === 'stream') {
-      typeContent = 'ReadableStream';
+      typeContent = refs.global('ReadableStream');
     } else {
-      typeContent = new TypeScriptEmitter(spec, modelName).handle(schema, true);
+      typeContent = new TypeScriptEmitter(spec, modelName, refs).handle(
+        schema,
+        true,
+      );
     }
 
     const imports: string[] = [];

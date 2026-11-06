@@ -10,6 +10,7 @@ import {
 import { isInlinable, isRecursiveRef } from '@sdk-it/spec';
 
 import type { ModelNamer } from '../model-name.ts';
+import type { References } from '../references.ts';
 
 type OnRefCallback = (ref: string, content: string) => void;
 
@@ -20,15 +21,18 @@ export class ZodEmitter {
   #generatedRefs = new Set<string>();
   #spec: OpenAPIDocument;
   #modelName: ModelNamer;
+  #refs: References;
   #onRef?: OnRefCallback;
 
   constructor(
     spec: OpenAPIDocument,
     modelName: ModelNamer,
+    refs: References,
     onRef?: OnRefCallback,
   ) {
     this.#spec = spec;
     this.#modelName = modelName;
+    this.#refs = refs;
     this.#onRef = onRef;
   }
 
@@ -104,7 +108,7 @@ export class ZodEmitter {
           (schema['x-zod-type'] === 'date' ||
             schema['x-zod-type'] === 'coerce-date') &&
           schema.default
-            ? `new Date(${JSON.stringify(schema.default)})`
+            ? `new ${this.#refs.global('Date')}(${JSON.stringify(schema.default)})`
             : JSON.stringify(schema.default);
         return `${this.string(schema)}${this.#suffixes(defaultVal, required, nullable)}`;
       }
@@ -144,12 +148,13 @@ export class ZodEmitter {
     }
     this.#generatedRefs.add(schemaName);
     const body = this.handle(schema, required);
+    const modelType = this.#refs.model(schemaName);
     // A schema that reaches itself is read only when it validates, and its
     // model type names what TypeScript cannot infer from its own initializer.
     this.#onRef?.(
       schemaName,
       isRecursiveRef(this.#spec, $ref)
-        ? `z.lazy((): z.ZodType<models.${schemaName}, models.${schemaName}> => ${body})`
+        ? `z.lazy((): z.ZodType<${modelType}, ${modelType}> => ${body})`
         : body,
     );
 
@@ -223,7 +228,7 @@ export class ZodEmitter {
       // it throws ReferenceError where the global is missing and fails
       // instanceof for cross-realm/polyfill Blobs (see e62c4e1 and
       // docs/recipes/file-upload.md).
-      base = 'z.custom<Blob>()';
+      base = `z.custom<${this.#refs.global('Blob')}>()`;
       return base;
     }
 
@@ -284,7 +289,7 @@ export class ZodEmitter {
       case 'byte':
       case 'binary':
         // Bare z.custom on purpose — see the contentEncoding branch above.
-        base = 'z.custom<Blob>()';
+        base = `z.custom<${this.#refs.global('Blob')}>()`;
         break;
       default:
         // No special format

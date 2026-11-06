@@ -4,6 +4,7 @@ import { describe, test } from 'node:test';
 import type { OpenAPIDocument } from '@sdk-it/core';
 import { createModelNamer } from '@sdk-it/typescript';
 
+import { fileReferences } from '../references.ts';
 import { TypeScriptEmitter } from './interface.ts';
 
 const emptySpec: OpenAPIDocument = {
@@ -17,6 +18,7 @@ describe('TypeScriptEmitter date handling', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     assert.equal(
       emitter.handle({ type: 'string', format: 'date-time' }, true),
@@ -28,6 +30,7 @@ describe('TypeScriptEmitter date handling', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     assert.equal(
       emitter.handle({ type: 'string', format: 'datetime' }, true),
@@ -39,6 +42,7 @@ describe('TypeScriptEmitter date handling', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     assert.equal(
       emitter.handle({ type: 'string', format: 'date' }, true),
@@ -50,6 +54,7 @@ describe('TypeScriptEmitter date handling', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     assert.equal(
       emitter.handle({ type: 'string', format: 'date-time' }, false),
@@ -61,6 +66,7 @@ describe('TypeScriptEmitter date handling', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     assert.equal(emitter.handle({ type: 'string' }, true), 'string');
   });
@@ -71,6 +77,7 @@ describe('TypeScriptEmitter union of string and string literals', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     const out = emitter.handle(
       {
@@ -89,6 +96,7 @@ describe('TypeScriptEmitter union of string and string literals', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     const out = emitter.handle(
       { anyOf: [{ type: 'string' }, { type: 'number' }] },
@@ -101,6 +109,7 @@ describe('TypeScriptEmitter union of string and string literals', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     const out = emitter.handle(
       {
@@ -118,6 +127,7 @@ describe('TypeScriptEmitter union of string and string literals', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     const out = emitter.handle(
       {
@@ -136,6 +146,7 @@ describe('TypeScriptEmitter union of string and string literals', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     const out = emitter.handle(
       {
@@ -150,6 +161,7 @@ describe('TypeScriptEmitter union of string and string literals', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     const out = emitter.handle(
       { anyOf: [{ type: 'string' }, { const: 1 }] },
@@ -171,6 +183,7 @@ describe('TypeScriptEmitter union of string and string literals', () => {
     const emitter = new TypeScriptEmitter(
       specWithRefs,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     const out = emitter.handle(
       {
@@ -192,6 +205,7 @@ describe('TypeScriptEmitter 64-bit integers', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     assert.equal(
       emitter.handle({ type: 'integer', format: 'int64' }, true),
@@ -203,6 +217,7 @@ describe('TypeScriptEmitter 64-bit integers', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     assert.equal(
       emitter.handle({ type: 'integer', format: 'uint64' }, true),
@@ -214,6 +229,7 @@ describe('TypeScriptEmitter 64-bit integers', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     assert.equal(
       emitter.handle({ type: 'string', format: 'int64' }, true),
@@ -231,6 +247,7 @@ describe('TypeScriptEmitter nullable unions', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     assert.equal(
       emitter.handle({ anyOf: [{ type: 'null' }, { type: 'string' }] }, true),
@@ -242,6 +259,7 @@ describe('TypeScriptEmitter nullable unions', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     assert.equal(
       emitter.handle({ anyOf: [{ type: 'string' }, { type: 'null' }] }, false),
@@ -253,6 +271,7 @@ describe('TypeScriptEmitter nullable unions', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     assert.equal(
       emitter.handle({ type: ['string', 'null'] }, true),
@@ -264,6 +283,7 @@ describe('TypeScriptEmitter nullable unions', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     assert.equal(
       emitter.handle({ type: ['string', 'null'] }, false),
@@ -275,6 +295,7 @@ describe('TypeScriptEmitter nullable unions', () => {
     const emitter = new TypeScriptEmitter(
       emptySpec,
       createModelNamer('Client'),
+      fileReferences('models'),
     );
     assert.equal(
       emitter.handle({ type: ['string', 'number'] }, true),

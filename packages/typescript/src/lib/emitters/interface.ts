@@ -11,14 +11,17 @@ import {
 import { isInlinable } from '@sdk-it/spec';
 
 import type { ModelNamer } from '../model-name.ts';
+import type { References } from '../references.ts';
 
 export class TypeScriptEmitter {
   #spec: OpenAPIDocument;
   #modelName: ModelNamer;
+  #refs: References;
 
-  constructor(spec: OpenAPIDocument, modelName: ModelNamer) {
+  constructor(spec: OpenAPIDocument, modelName: ModelNamer, refs: References) {
     this.#spec = spec;
     this.#modelName = modelName;
+    this.#refs = refs;
   }
   #stringifyKey = (value: string): string => {
     return `'${value}'`;
@@ -97,7 +100,7 @@ export class TypeScriptEmitter {
       return this.handle(followRef(this.#spec, $ref), required);
     }
 
-    return `models.${appendOptional(schemaName, required)}`;
+    return appendOptional(this.#refs.model(schemaName), required);
   }
 
   allOf(schemas: (SchemaObject | ReferenceObject)[]): string {
@@ -161,7 +164,7 @@ export class TypeScriptEmitter {
     let type: string;
 
     if (schema.contentEncoding === 'binary') {
-      return appendOptional('Blob', required);
+      return appendOptional(this.#refs.global('Blob'), required);
     }
 
     switch (schema.format) {
@@ -172,7 +175,7 @@ export class TypeScriptEmitter {
         break;
       case 'binary':
       case 'byte':
-        type = 'Blob';
+        type = this.#refs.global('Blob');
         break;
       default:
         type = 'string';

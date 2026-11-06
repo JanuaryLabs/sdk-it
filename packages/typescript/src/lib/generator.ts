@@ -12,6 +12,7 @@ import { groupIdentifier } from './group-identifier.ts';
 import { inputSchemaName } from './input-schema-name.ts';
 import type { ModelNamer } from './model-name.ts';
 import { moduleFileName } from './module-file.ts';
+import { fileReferences } from './references.ts';
 import { type Operation, type Spec, toEndpoint } from './sdk.ts';
 import type { Style } from './style.ts';
 
@@ -43,6 +44,7 @@ export function generateCode(config: {
   const zodDeserialzer = new ZodEmitter(
     config.spec,
     config.modelName,
+    fileReferences('models'),
     (model, schema) => {
       commonZod.set(model, schema);
       commonZodImports.push({
@@ -74,7 +76,13 @@ export function generateCode(config: {
       })),
     };
     endpoints[entry.tag].push(
-      toEndpoint(entry.tag, operation, route, config.modelName),
+      toEndpoint(
+        entry.tag,
+        operation,
+        route,
+        config.modelName,
+        fileReferences('outputs'),
+      ),
     );
     groups[entry.tag].push(route);
   });
