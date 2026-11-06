@@ -15,6 +15,14 @@
         "cwd": "{projectRoot}"
       }
     },
+    "test": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["^build"],
+      "options": {
+        "command": "vitest run",
+        "cwd": "{projectRoot}"
+      }
+    },
     "dev": {
       "executor": "nx:run-commands",
       "options": {

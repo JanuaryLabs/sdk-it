@@ -21,6 +21,7 @@
     "**/.client/**/*.tsx"
   ],
   "exclude": [
+    "app/**/*.test.tsx",
     "out-tsc",
     "dist",
     "tests/**/*.spec.ts",

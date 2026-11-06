@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "lib": ["DOM", "ESNext"],
+    "types": ["@react-router/node", "vite/client", "node"],
+    "jsx": "react-jsx",
+    "rootDir": "app",
+    "tsBuildInfoFile": "dist/tsconfig.test.tsbuildinfo"
+  },
+  "include": ["app/**/*.test.tsx"],
+  "references": [
+    {
+      "path": "./tsconfig.app.json"
+    }
+  ]
+}
