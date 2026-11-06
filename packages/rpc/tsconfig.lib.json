@@ -17,6 +17,9 @@
       "path": "../core/tsconfig.lib.json"
     },
     {
+      "path": "../typescript/tsconfig.lib.json"
+    },
+    {
       "path": "../testing/tsconfig.lib.json"
     }
   ]
