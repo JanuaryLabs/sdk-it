@@ -4,4 +4,5 @@ export * from './http/parse-response.ts';
 export * from './http/parser.ts';
 export * from './http/request.ts';
 export * from './http/response.ts';
+export * from './http/security.ts';
 export * from './http/sse.ts';
