@@ -51,5 +51,18 @@ const agents = await toAgents('./openapi.yaml', {
 const userTools = agents.users.tools;
 ```
 
+Each agent is AI SDK `ToolLoopAgent` settings (`{ id, instructions?, tools }`),
+so you can give it to the agent class as is:
+
+```typescript
+import { ToolLoopAgent } from 'ai';
+
+const users = new ToolLoopAgent({ model: 'openai/gpt-5', ...agents.users });
+```
+
+The `id` is the tag's `x-name`, else its `summary`, else its `name`. The
+`instructions` are the tag's `x-instructions`, else its `description`. An agent
+whose tag has neither has no `instructions`.
+
 With `useTools: 'defined'`, only operations carrying SDK-IT's `x-tool`
 metadata are exposed.
