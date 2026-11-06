@@ -27,7 +27,11 @@ export default defineConfig((config) => ({
       'decode-named-character-reference': './entities.ts',
     },
   },
-  plugins: [tailwindcss(), reactRouter(), nxReadySignal()],
+  plugins: [
+    tailwindcss(),
+    !process.env.VITEST && reactRouter(),
+    nxReadySignal(),
+  ],
   build: {
     sourcemap: true,
     outDir: './dist',
