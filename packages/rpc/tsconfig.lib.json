@@ -14,10 +14,10 @@
       "path": "../spec/tsconfig.lib.json"
     },
     {
-      "path": "../core/tsconfig.lib.json"
+      "path": "../runtime/tsconfig.lib.json"
     },
     {
-      "path": "../typescript/tsconfig.lib.json"
+      "path": "../core/tsconfig.lib.json"
     },
     {
       "path": "../testing/tsconfig.lib.json"

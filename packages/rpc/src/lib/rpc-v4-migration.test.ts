@@ -4,6 +4,7 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
+import { rpc } from '@sdk-it/rpc';
 import {
   Dispatcher,
   type Interceptor,
@@ -11,8 +12,7 @@ import {
   type RequestConfig,
   createHeadersInterceptor,
   fetchType,
-  rpc,
-} from '@sdk-it/rpc';
+} from '@sdk-it/runtime';
 
 async function specFile(spec: object) {
   await using pending = new AsyncDisposableStack();

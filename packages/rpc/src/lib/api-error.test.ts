@@ -4,7 +4,8 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { APIError, BadRequest, NotFound, rpc } from '@sdk-it/rpc';
+import { rpc } from '@sdk-it/rpc';
+import { APIError, BadRequest, NotFound } from '@sdk-it/runtime';
 
 test('RPC client rejects a declared error status with its APIError subclass, an Error with a stack and a readable message', async () => {
   await using workspace = await new TemporaryFiles().directory(

@@ -4,7 +4,8 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { Created, Ok, rpc } from '@sdk-it/rpc';
+import { rpc } from '@sdk-it/rpc';
+import { Created, Ok } from '@sdk-it/runtime';
 
 test('RPC client resolves a response that declares no content with null data', async () => {
   await using workspace = await new TemporaryFiles().directory(

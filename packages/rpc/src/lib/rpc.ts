@@ -3,6 +3,29 @@ import type { TagObject } from 'openapi3-ts/oas32';
 import { z } from 'zod';
 
 import type { Method as OperationMethod } from '@sdk-it/core';
+import * as http from '@sdk-it/runtime';
+import {
+  Dispatcher,
+  type HeadersInit,
+  type Interceptor,
+  type Method,
+  type OutputType,
+  type Parser,
+  binary,
+  bodyless,
+  buffered,
+  chunked,
+  createHeadersInterceptor,
+  empty,
+  fetchType,
+  formdata,
+  json,
+  parseInput,
+  sse,
+  text,
+  toRequest,
+  urlencoded,
+} from '@sdk-it/runtime';
 import {
   type IR,
   type RequestEncoding,
@@ -17,31 +40,6 @@ import {
   toIR,
 } from '@sdk-it/spec';
 
-import {
-  Dispatcher,
-  type OutputType,
-  type Parser,
-  fetchType,
-} from './http/dispatcher.ts';
-import {
-  type Interceptor,
-  createHeadersInterceptor,
-} from './http/interceptors.ts';
-import { bodyless, buffered, chunked } from './http/parse-response.ts';
-import { parseInput } from './http/parser.ts';
-import {
-  type HeadersInit,
-  type Method,
-  binary,
-  empty,
-  formdata,
-  json,
-  text,
-  toRequest,
-  urlencoded,
-} from './http/request.ts';
-import * as http from './http/response.ts';
-import { sse } from './http/sse.ts';
 import { schemaToZod } from './zod.ts';
 
 const bodyParser: Record<ResponseBody, Parser> = {
@@ -54,7 +52,7 @@ const bodyParser: Record<ResponseBody, Parser> = {
 };
 
 const statusClasses = Object.values(http).filter(
-  (value) => typeof value.status === 'number',
+  (value) => 'status' in value && typeof value.status === 'number',
 );
 
 function toOutputs(operation: TunedOperationObject): OutputType[] {
