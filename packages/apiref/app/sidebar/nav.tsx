@@ -23,15 +23,9 @@ import type { CategoryItem, NavItem, SidebarData } from '@sdk-it/spec';
 
 import { useRootData } from '../use-root-data';
 
-// Helper function to check if a URL is external
 const isExternalUrl = (url: string): boolean => {
-  try {
-    const urlObj = new URL(url);
-    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
-  } catch {
-    // If URL parsing fails, it's likely a relative URL
-    return false;
-  }
+  const protocol = URL.parse(url)?.protocol;
+  return protocol === 'http:' || protocol === 'https:';
 };
 
 export function SidebarItem({ item }: { item: NavItem }) {
