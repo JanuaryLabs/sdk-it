@@ -107,7 +107,7 @@ async function operations() {
 }
 
 function sorted(values: readonly string[] | undefined) {
-  return [...(values ?? [])].sort();
+  return (values ?? []).toSorted();
 }
 
 function propertyNames(schema: OperationInput['schema']) {
