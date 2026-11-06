@@ -56,34 +56,40 @@ async function generateClient(
   });
   await writeFile(
     join(directory, 'src/consumer.ts'),
-    `import { Notes } from './index.ts';\nconst client = new Notes({ baseUrl: 'https://api.test' });\n${consumer}\n`,
+    `import { createNotes } from './index.ts';\nconst client = createNotes({ baseUrl: 'https://api.test' });\n${consumer}\n`,
   );
   const { files, diagnostics } = typecheck(join(directory, 'tsconfig.json'));
   assert.ok(files.some((file) => file.endsWith('src/consumer.ts')));
-  // The generated index re-exports the agent tools, whose libraries load
-  // CommonJS dependencies, so the bundle leaves npm packages to Node, as the
-  // user's app does.
-  const bundle = join(directory, 'client.mjs');
+  // The agent tools' libraries load CommonJS dependencies, so the bundles
+  // leave npm packages to Node, as the user's app does.
+  const outdir = join(directory, 'bundle');
   await build({
-    entryPoints: [join(directory, 'src/index.ts')],
-    outfile: bundle,
+    entryPoints: [
+      join(directory, 'src/index.ts'),
+      ...(agentTools ? [join(directory, 'src/agents.ts')] : []),
+    ],
+    outdir,
+    outExtension: { '.js': '.mjs' },
     bundle: true,
     packages: 'external',
     format: 'esm',
     platform: 'node',
     logLevel: 'silent',
   });
-  const sdk = await import(pathToFileURL(bundle).href);
-  const { Notes } = sdk;
+  const sdk = await import(pathToFileURL(join(outdir, 'index.mjs')).href);
+  const agents = agentTools
+    ? await import(pathToFileURL(join(outdir, 'agents.mjs')).href)
+    : undefined;
+  const { createNotes } = sdk;
   const sent: Request[] = [];
-  const client = new Notes({
+  const client = createNotes({
     baseUrl: 'https://api.test',
     fetch: async (request: Request) => {
       sent.push(request);
       return new Response(null, { status: 204 });
     },
   });
-  return { diagnostics, client, sent, sdk };
+  return { diagnostics, client, sent, sdk, agents };
 }
 
 /** Captures what `run` prints through console, stdout or stderr, restoring each once it settles. */
@@ -358,13 +364,13 @@ void client.request('text POST /notes', { $body: new Blob(['raw']) });`,
 test('the generated AI SDK tools give every input a JSON tool call can send its own tool, each validating and sending its own input without printing it', async (t) => {
   await using workspace = await workspaceDirectory('request-variant-tools-');
   try {
-    const { diagnostics, client, sent, sdk } = await generateClient(
+    const { diagnostics, client, sent, agents } = await generateClient(
       workspace.path,
       notesSpec(everyEncoding),
       '',
       'ai-sdk',
     );
-    const { tools } = sdk.notes;
+    const { tools } = agents.notes;
     const context = { context: { client } };
 
     const printed = await printedBy(t, async () => {
@@ -397,7 +403,7 @@ test('the generated AI SDK tools give every input a JSON tool call can send its 
 test('the generated OpenAI Agents tools load, with a tool for every input a JSON tool call can send, each parsing and sending its own input without printing it', async (t) => {
   await using workspace = await workspaceDirectory('request-variant-agents-');
   try {
-    const { diagnostics, client, sent, sdk } = await generateClient(
+    const { diagnostics, client, sent, agents } = await generateClient(
       workspace.path,
       notesSpec(everyEncoding),
       '',
@@ -406,7 +412,7 @@ test('the generated OpenAI Agents tools load, with a tool for every input a JSON
     const tools: {
       name: string;
       invoke: (context: unknown, input: string) => Promise<unknown>;
-    }[] = sdk.notes;
+    }[] = agents.notes;
     const context = { context: { client } };
 
     const printed = await printedBy(t, async () => {
@@ -648,7 +654,7 @@ test('a query array sends one entry per item under its key', async () => {
 test('a generated OpenAI Agents tool sends a call whose optional fields the model leaves null without those fields, and advertises them as required and nullable', async () => {
   await using workspace = await workspaceDirectory('request-agents-null-');
   try {
-    const { diagnostics, client, sent, sdk } = await generateClient(
+    const { diagnostics, client, sent, agents } = await generateClient(
       workspace.path,
       notesSpec({ 'application/json': { schema: form } }),
       '',
@@ -657,7 +663,7 @@ test('a generated OpenAI Agents tool sends a call whose optional fields the mode
     const [createNote]: {
       parameters: { required: string[]; properties: Record<string, unknown> };
       invoke: (context: unknown, input: string) => Promise<unknown>;
-    }[] = sdk.notes;
+    }[] = agents.notes;
 
     await createNote.invoke(
       { context: { client } },
@@ -722,7 +728,7 @@ function accountsSpec(): OpenAPIObject {
 test('the generated AI SDK tools keep every group: a spaced, a digit-leading and an untagged one', async () => {
   await using workspace = await workspaceDirectory('request-tool-groups-');
   try {
-    const { diagnostics, sdk } = await generateClient(
+    const { diagnostics, agents } = await generateClient(
       workspace.path,
       accountsSpec(),
       '',
@@ -730,10 +736,10 @@ test('the generated AI SDK tools keep every group: a spaced, a digit-leading and
     );
 
     assert.deepEqual(diagnostics, []);
-    assert.deepEqual(Object.keys(sdk.userProfiles.tools), ['listProfiles']);
-    assert.deepEqual(Object.keys(sdk._2fa.tools), ['enableTwoFactor']);
-    assert.deepEqual(Object.keys(sdk.billing.tools), ['listInvoices']);
-    const everyTool = Object.values(sdk).flatMap((value) =>
+    assert.deepEqual(Object.keys(agents.userProfiles.tools), ['listProfiles']);
+    assert.deepEqual(Object.keys(agents._2fa.tools), ['enableTwoFactor']);
+    assert.deepEqual(Object.keys(agents.billing.tools), ['listInvoices']);
+    const everyTool = Object.values(agents).flatMap((value) =>
       value && typeof value === 'object' && 'tools' in value
         ? Object.keys(Object(value.tools))
         : [],
@@ -747,7 +753,7 @@ test('the generated AI SDK tools keep every group: a spaced, a digit-leading and
 test('the generated OpenAI Agents tools compile and keep every group under the identifiers userProfiles, _2fa and billing', async () => {
   await using workspace = await workspaceDirectory('request-agent-groups-');
   try {
-    const { diagnostics, sdk } = await generateClient(
+    const { diagnostics, agents } = await generateClient(
       workspace.path,
       accountsSpec(),
       '',
@@ -757,10 +763,10 @@ test('the generated OpenAI Agents tools compile and keep every group under the i
       Array.isArray(group) ? group.map((tool) => tool.name) : [];
 
     assert.deepEqual(diagnostics, []);
-    assert.deepEqual(names(sdk.userProfiles), ['listProfiles']);
-    assert.deepEqual(names(sdk._2fa), ['enableTwoFactor']);
-    assert.deepEqual(names(sdk.billing), ['listInvoices']);
-    assert.ok(Object.values(sdk).flatMap(names).includes('checkHealth'));
+    assert.deepEqual(names(agents.userProfiles), ['listProfiles']);
+    assert.deepEqual(names(agents._2fa), ['enableTwoFactor']);
+    assert.deepEqual(names(agents.billing), ['listInvoices']);
+    assert.ok(Object.values(agents).flatMap(names).includes('checkHealth'));
   } finally {
     await stop();
   }
@@ -769,26 +775,26 @@ test('the generated OpenAI Agents tools compile and keep every group under the i
 test("the generated AI SDK groups are ToolLoopAgent settings: an id from the tag's summary or name, instructions from its description", async () => {
   await using workspace = await workspaceDirectory('request-agent-settings-');
   try {
-    const { diagnostics, sdk } = await generateClient(
+    const { diagnostics, agents } = await generateClient(
       workspace.path,
       accountsSpec(),
       `import { ToolLoopAgent } from 'ai';
-import { billing } from './index.ts';
+import { billing } from './agents.ts';
 void new ToolLoopAgent({ model: 'openai/gpt-5', ...billing });`,
       'ai-sdk',
     );
 
     assert.deepEqual(diagnostics, []);
-    assert.deepEqual(Object.keys(sdk.userProfiles).sort(), [
+    assert.deepEqual(Object.keys(agents.userProfiles).sort(), [
       'id',
       'instructions',
       'tools',
     ]);
-    assert.equal(sdk.userProfiles.id, 'User Profiles');
-    assert.equal(sdk.userProfiles.instructions, 'Profiles of users');
-    assert.equal(sdk.billing.id, 'billing');
-    assert.equal(sdk.billing.instructions, 'Invoices');
-    const health = Object.values(sdk).find(
+    assert.equal(agents.userProfiles.id, 'User Profiles');
+    assert.equal(agents.userProfiles.instructions, 'Profiles of users');
+    assert.equal(agents.billing.id, 'billing');
+    assert.equal(agents.billing.instructions, 'Invoices');
+    const health = Object.values(agents).find(
       (value) =>
         value &&
         typeof value === 'object' &&
@@ -804,7 +810,7 @@ void new ToolLoopAgent({ model: 'openai/gpt-5', ...billing });`,
 test("a generated AI SDK group takes the tag's authored x-name and x-instructions first, and its description round-trips with backticks, ${} and newlines", async () => {
   await using workspace = await workspaceDirectory('request-agent-precedence-');
   try {
-    const { diagnostics, sdk } = await generateClient(
+    const { diagnostics, agents } = await generateClient(
       workspace.path,
       {
         openapi: '3.2.0',
@@ -854,12 +860,12 @@ test("a generated AI SDK group takes the tag's authored x-name and x-instruction
     );
 
     assert.deepEqual(diagnostics, []);
-    assert.equal(sdk.billing.id, "Billing 'Agent'");
-    assert.equal(sdk.billing.instructions, 'Handle invoices');
-    assert.equal(sdk.notes.id, 'Notes');
-    assert.equal(sdk.notes.instructions, 'Use `notes` and ${x}\nthen stop');
-    assert.deepEqual(Object.keys(sdk.plain).sort(), ['id', 'tools']);
-    assert.equal(sdk.plain.id, 'plain');
+    assert.equal(agents.billing.id, "Billing 'Agent'");
+    assert.equal(agents.billing.instructions, 'Handle invoices');
+    assert.equal(agents.notes.id, 'Notes');
+    assert.equal(agents.notes.instructions, 'Use `notes` and ${x}\nthen stop');
+    assert.deepEqual(Object.keys(agents.plain).sort(), ['id', 'tools']);
+    assert.equal(agents.plain.id, 'plain');
   } finally {
     await stop();
   }

@@ -280,7 +280,7 @@ test('generated project client is directly importable by Node.js', async () => {
     [
       '--input-type=module',
       '--eval',
-      `import('@sdk-it/client').then(({ Client }) => console.log(typeof Client))`,
+      `import('@sdk-it/client').then(({ createClient }) => console.log(typeof createClient))`,
     ],
     { cwd: consumer.path, encoding: 'utf8' },
   );

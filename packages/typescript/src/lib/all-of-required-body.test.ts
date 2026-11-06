@@ -95,8 +95,8 @@ const typecheckConsumer = async (prefix: string, consumer: string) => {
   await writeFile(
     join(workspace.path, 'src/consumer.ts'),
     `
-import { Sources } from './index.ts';
-const client = new Sources({ baseUrl: 'https://example.test' });
+import { createSources } from './index.ts';
+const client = createSources({ baseUrl: 'https://example.test' });
 ${consumer}`,
   );
   const config = JSON.parse(

@@ -85,8 +85,8 @@ describe('a Prisma-style const-object enum field', () => {
     const consumerPath = join(output, 'src', 'consumer.ts');
     await writeFile(
       consumerPath,
-      `import { Shares } from './index.ts';
-const client = new Shares({ baseUrl: 'https://example.test' });
+      `import { createShares } from './index.ts';
+const client = createShares({ baseUrl: 'https://example.test' });
 const share = await client.request('GET /share', {});
 const v: 'public' | 'team' = share.visibility;
 // @ts-expect-error 'other' is not a ShareVisibility.

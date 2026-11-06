@@ -84,10 +84,10 @@ app.get('/second', validate(() => ({})), (c) => {
   const consumerPath = join(output, 'src', 'consumer.ts');
   await writeFile(
     consumerPath,
-    `import type { Endpoints } from './index.ts';
+    `import type { ChatsEndpoints } from './index.ts';
 import type { UiMessage } from './models/index.ts';
-declare const first: Endpoints['GET /first']['output'];
-declare const second: Endpoints['GET /second']['output'];
+declare const first: ChatsEndpoints['GET /first']['output'];
+declare const second: ChatsEndpoints['GET /second']['output'];
 const firstMessages: UiMessage[] = first.messages;
 const secondMessages: UiMessage[] = second.messages;
 const parts = firstMessages[0].parts;

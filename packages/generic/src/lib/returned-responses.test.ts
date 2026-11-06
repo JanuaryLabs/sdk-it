@@ -258,8 +258,8 @@ app.get('/widget', validate(() => ({})), (c) => c.json({ id: Number('1'), name: 
   const consumerPath = join(output, 'src', 'consumer.ts');
   await writeFile(
     consumerPath,
-    `import { Widgets } from './index.ts';
-const client = new Widgets({ baseUrl: 'https://example.test' });
+    `import { createWidgets } from './index.ts';
+const client = createWidgets({ baseUrl: 'https://example.test' });
 const widget = await client.request('GET /widget', {});
 const id: number = widget.id;
 const name: string = widget.name;

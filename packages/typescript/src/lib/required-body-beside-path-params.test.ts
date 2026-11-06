@@ -98,8 +98,8 @@ void test('required body properties stay required in the input type beside a pat
   await writeFile(
     join(workspace.path, 'src/consumer.ts'),
     `
-import { Chat } from './index.ts';
-const client = new Chat({ baseUrl: 'https://example.test' });
+import { createChat } from './index.ts';
+const client = createChat({ baseUrl: 'https://example.test' });
 void client.request('POST /chat/{chatId}/messages', { chatId: 'c1', content: 'hi', id: 'm1' });
 void client.request('POST /chat/{chatId}/messages', { chatId: 'c1', content: 'hi', id: 'm1', note: 'n' });
 // @ts-expect-error content is required by the request body.
@@ -145,9 +145,9 @@ void test('the generated client rejects a body missing a required property befor
       platform: 'node',
       logLevel: 'silent',
     });
-    const { Chat } = await import(pathToFileURL(bundle).href);
+    const { createChat } = await import(pathToFileURL(bundle).href);
     const requests: Request[] = [];
-    const client = new Chat({
+    const client = createChat({
       baseUrl: 'https://api.example.com',
       fetch: async (request: Request) => {
         requests.push(request);

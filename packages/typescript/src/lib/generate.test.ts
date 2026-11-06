@@ -389,8 +389,8 @@ test('generated nullable anyOf contracts preserve null separately from omission'
   writeFileSync(
     join(directory.path, 'src', 'consumer.ts'),
     `
-import { Values } from './index.ts';
-const client = new Values({ baseUrl: 'https://example.test' });
+import { createValues } from './index.ts';
+const client = createValues({ baseUrl: 'https://example.test' });
 const read = () => client.request('POST /values', { price: null });
 // @ts-expect-error A required request price cannot be omitted.
 client.request('POST /values', {});
@@ -470,8 +470,8 @@ Owner:
   writeFileSync(
     join(directory.path, 'src', 'consumer.ts'),
     `
-import { Pets } from './index.ts';
-const client = new Pets({ baseUrl: 'https://example.test' });
+import { createPets } from './index.ts';
+const client = createPets({ baseUrl: 'https://example.test' });
 const read = () => client.request('GET /pets/{id}', { id: 'a' });
 type Pet = Awaited<ReturnType<typeof read>>;
 const pet: Pet = { id: 'a', owner: { name: 'Ada' } };
@@ -564,8 +564,8 @@ test('allOf parts keep their required properties in generated types and input va
   writeFileSync(
     join(directory.path, 'src', 'consumer.ts'),
     `
-import { Spaces } from './index.ts';
-const client = new Spaces({ baseUrl: 'https://example.test' });
+import { createSpaces } from './index.ts';
+const client = createSpaces({ baseUrl: 'https://example.test' });
 const read = () => client.request('GET /spaces', {});
 type Space = Awaited<ReturnType<typeof read>>[number];
 const complete: Space = { _count: 1, id: 'a', name: 'b' };
@@ -653,13 +653,13 @@ describe('generate — discriminated input unions', () => {
       logLevel: 'silent',
     });
     const {
-      Messages,
+      createMessages,
     }: {
-      Messages: new (options: { baseUrl: string }) => {
+      createMessages: (settings: { baseUrl: string }) => {
         prepare(endpoint: string, input: unknown): Promise<unknown>;
       };
     } = createRequire(import.meta.url)(bundlePath);
-    const client = new Messages({ baseUrl: 'https://api.example.com' });
+    const client = createMessages({ baseUrl: 'https://api.example.com' });
 
     for (const role of ['system', 'user']) {
       await client.prepare('POST /messages', {
@@ -774,13 +774,13 @@ describe('generate — http runtime', () => {
       data: unknown;
     };
     const generated: {
-      Items: new (options: unknown) => {
+      createItems: (settings: unknown) => {
         request(endpoint: string, input: unknown): Promise<unknown>;
       };
       APIError: new (...args: never[]) => HttpError;
       NotFound: new (...args: never[]) => HttpError;
     } = createRequire(import.meta.url)(bundlePath);
-    const client = new generated.Items({
+    const client = generated.createItems({
       baseUrl: 'https://api.example.com',
       fetch: async () =>
         Response.json({ message: 'Item not found' }, { status: 404 }),
@@ -848,7 +848,7 @@ describe('generate — http runtime', () => {
       logLevel: 'silent',
     });
     const generated: {
-      Items: new (options: unknown) => {
+      createItems: (settings: unknown) => {
         request(endpoint: string, input: unknown): Promise<unknown>;
       };
       APIError: new (...args: never[]) => Error & {
@@ -857,7 +857,7 @@ describe('generate — http runtime', () => {
       };
     } = createRequire(import.meta.url)(bundlePath);
     const page = `<!DOCTYPE html>\n<html>\n  <body>\n    <h1>503 Service Unavailable</h1>\n${'    <p>The upstream did not answer in time.</p>\n'.repeat(60)}  </body>\n</html>\n`;
-    const client = new generated.Items({
+    const client = generated.createItems({
       baseUrl: 'https://api.example.com',
       fetch: async () =>
         new Response(page, {
@@ -920,12 +920,12 @@ describe('generate — http runtime', () => {
       logLevel: 'silent',
     });
     const generated: {
-      Items: new (options: unknown) => {
+      createItems: (settings: unknown) => {
         request(endpoint: string, input: unknown): Promise<unknown>;
       };
       APIError: new (...args: never[]) => Error & { data: unknown };
     } = createRequire(import.meta.url)(bundlePath);
-    const client = new generated.Items({
+    const client = generated.createItems({
       baseUrl: 'https://api.example.com',
       fetch: async () =>
         new Response(new Uint8Array([0x1f, 0x8b, 0x08, 0x00]), {
@@ -973,12 +973,12 @@ describe('generate — http runtime', () => {
       logLevel: 'silent',
     });
     const generated: {
-      Items: new (options: unknown) => {
+      createItems: (settings: unknown) => {
         request(endpoint: string, input: unknown): Promise<unknown>;
       };
       APIError: new (...args: never[]) => Error;
     } = createRequire(import.meta.url)(bundlePath);
-    const client = new generated.Items({
+    const client = generated.createItems({
       baseUrl: 'https://api.example.com',
       fetch: async () =>
         Response.json([{ field: 'name', message: 'is required' }], {
@@ -1036,7 +1036,7 @@ describe('generate — http runtime', () => {
       logLevel: 'silent',
     });
     const generated: {
-      Events: new (options: unknown) => {
+      createEvents: (settings: unknown) => {
         request(
           endpoint: string,
           input: unknown,
@@ -1045,7 +1045,7 @@ describe('generate — http runtime', () => {
     } = createRequire(import.meta.url)(bundlePath);
     const connectionReset = new Error('connection reset');
     const streamErrored = Promise.withResolvers<void>();
-    const client = new generated.Events({
+    const client = generated.createEvents({
       baseUrl: 'https://api.example.com',
       fetch: async () =>
         new Response(
@@ -1113,13 +1113,13 @@ describe('generate — response bodies follow the spec body kind', () => {
       logLevel: 'silent',
     });
     const {
-      Things,
+      createThings,
     }: {
-      Things: new (options: unknown) => {
+      createThings: (settings: unknown) => {
         request(endpoint: string, input: unknown): Promise<unknown>;
       };
     } = createRequire(import.meta.url)(bundlePath);
-    const client = new Things({
+    const client = createThings({
       baseUrl: 'https://api.example.com',
       fetch: async () =>
         new Response(null, {
@@ -1132,8 +1132,8 @@ describe('generate — response bodies follow the spec body kind', () => {
     writeFileSync(
       join(directory.path, 'src', 'consumer.ts'),
       `
-import { Things } from './index.ts';
-const client = new Things({ baseUrl: 'https://example.test' });
+import { createThings } from './index.ts';
+const client = createThings({ baseUrl: 'https://example.test' });
 const create = () => client.request('POST /things', {});
 const nothing: Awaited<ReturnType<typeof create>> = null;
 // @ts-expect-error A response without content carries no data.
@@ -1189,16 +1189,16 @@ void [nothing, something];
       logLevel: 'silent',
     });
     const {
-      Events,
+      createEvents,
     }: {
-      Events: new (options: unknown) => {
+      createEvents: (settings: unknown) => {
         request(
           endpoint: string,
           input: unknown,
         ): Promise<(eventType: string) => AsyncIterable<string>>;
       };
     } = createRequire(import.meta.url)(bundlePath);
-    const client = new Events({
+    const client = createEvents({
       baseUrl: 'https://api.example.com',
       fetch: async () =>
         new Response('data: {"id":"a"}\n\ndata: {"id":"b"}\n\n', {
@@ -1213,9 +1213,9 @@ void [nothing, something];
     writeFileSync(
       join(directory.path, 'src', 'consumer.ts'),
       `
-import { Events } from './index.ts';
+import { createEvents } from './index.ts';
 import type { SSEListener } from './http/sse.ts';
-const client = new Events({ baseUrl: 'https://example.test' });
+const client = createEvents({ baseUrl: 'https://example.test' });
 const read = () => client.request('GET /events', {});
 type Data = Awaited<ReturnType<typeof read>>;
 const listener: SSEListener = {} as Data;
@@ -1275,13 +1275,13 @@ void [listener, model];
       logLevel: 'silent',
     });
     const {
-      Chunks,
+      createChunks,
     }: {
-      Chunks: new (options: unknown) => {
+      createChunks: (settings: unknown) => {
         request(endpoint: string, input: unknown): Promise<unknown>;
       };
     } = createRequire(import.meta.url)(bundlePath);
-    const client = new Chunks({
+    const client = createChunks({
       baseUrl: 'https://api.example.com',
       fetch: async () =>
         new Response('{"id":"a"}', {
@@ -1296,8 +1296,8 @@ void [listener, model];
     writeFileSync(
       join(directory.path, 'src', 'consumer.ts'),
       `
-import { Chunks } from './index.ts';
-const client = new Chunks({ baseUrl: 'https://example.test' });
+import { createChunks } from './index.ts';
+const client = createChunks({ baseUrl: 'https://example.test' });
 const read = () => client.request('GET /chunks', {});
 type Data = Awaited<ReturnType<typeof read>>;
 const stream: Data = new ReadableStream();
@@ -1605,16 +1605,16 @@ describe('generate — security options assembly', () => {
       logLevel: 'silent',
     });
     const {
-      ResolvedSecurity,
+      createResolvedSecurity,
     }: {
-      ResolvedSecurity: new (options: unknown) => {
+      createResolvedSecurity: (settings: unknown) => {
         prepare(
           endpoint: string,
           input: unknown,
         ): Promise<{ init: { headers: Headers } }>;
       };
     } = createRequire(import.meta.url)(bundlePath);
-    const client = new ResolvedSecurity({
+    const client = createResolvedSecurity({
       baseUrl: 'https://api.example.com',
       credentials: { apiKey: 'secret' },
     });
@@ -1709,8 +1709,8 @@ describe('generate — security options assembly', () => {
       'utf8',
     );
     const credentialsBlock = clientSource.slice(
-      clientSource.indexOf('const credentialsSchema'),
-      clientSource.indexOf('const optionsSchema'),
+      clientSource.indexOf('const __credentialsSchema'),
+      clientSource.indexOf('const __api'),
     );
     assert.deepStrictEqual(
       ['oauth2', 'personalToken', 'planToken'].map(
@@ -1777,9 +1777,9 @@ describe('generate — security options assembly', () => {
       logLevel: 'silent',
     });
     const {
-      Security,
+      createSecurity,
     }: {
-      Security: new (options: unknown) => {
+      createSecurity: (settings: unknown) => {
         prepare(
           endpoint: string,
           input: unknown,
@@ -1788,7 +1788,7 @@ describe('generate — security options assembly', () => {
         }>;
       };
     } = createRequire(import.meta.url)(bundlePath);
-    const client = new Security({
+    const client = createSecurity({
       baseUrl: 'https://api.example.com',
       credentials: {
         apiKey: 'secret',
@@ -1854,16 +1854,16 @@ describe('generate — security options assembly', () => {
       logLevel: 'silent',
     });
     const {
-      HttpScheme,
+      createHttpScheme,
     }: {
-      HttpScheme: new (options: unknown) => {
+      createHttpScheme: (settings: unknown) => {
         prepare(
           endpoint: string,
           input: unknown,
         ): Promise<{ init: { headers: Headers } }>;
       };
     } = createRequire(import.meta.url)(bundlePath);
-    const client = new HttpScheme({
+    const client = createHttpScheme({
       baseUrl: 'https://api.example.com',
       credentials: { lower: 'token-a', titled: 'token-b' },
     });
@@ -1924,9 +1924,9 @@ describe('generate — security options assembly', () => {
       logLevel: 'silent',
     });
     const {
-      OptionalSecurity,
+      createOptionalSecurity,
     }: {
-      OptionalSecurity: new (options: unknown) => {
+      createOptionalSecurity: (settings: unknown) => {
         prepare(
           endpoint: string,
           input: unknown,
@@ -1936,7 +1936,7 @@ describe('generate — security options assembly', () => {
       };
     } = createRequire(import.meta.url)(bundlePath);
     const contexts: unknown[] = [];
-    const client = new OptionalSecurity({
+    const client = createOptionalSecurity({
       baseUrl: 'https://api.example.com',
       credentials: {
         oauth: (context: unknown) => {
@@ -2002,9 +2002,9 @@ describe('generate — security options assembly', () => {
       logLevel: 'silent',
     });
     const {
-      AndSecurity,
+      createAndSecurity,
     }: {
-      AndSecurity: new (options: unknown) => {
+      createAndSecurity: (settings: unknown) => {
         prepare(
           endpoint: string,
           input: unknown,
@@ -2014,7 +2014,7 @@ describe('generate — security options assembly', () => {
         }>;
       };
     } = createRequire(import.meta.url)(bundlePath);
-    const client = new AndSecurity({
+    const client = createAndSecurity({
       baseUrl: 'https://api.example.com',
       credentials: {
         queryKey: 'query-secret',
@@ -2027,7 +2027,7 @@ describe('generate — security options assembly', () => {
     assert.equal(request.url.searchParams.get('api_key'), 'query-secret');
     assert.equal(request.init.headers.get('Cookie'), 'session=cookie-secret');
 
-    const incomplete = new AndSecurity({
+    const incomplete = createAndSecurity({
       baseUrl: 'https://api.example.com',
       credentials: { queryKey: 'query-secret' },
     });
@@ -2071,12 +2071,12 @@ describe('generate — security options assembly', () => {
     );
     writeFileSync(
       join(directory.path, 'src/invalid-mtls.ts'),
-      `import { MutualTls } from './index.ts';
-new MutualTls({ baseUrl: '', credentials: { mtls: false } });
-new MutualTls({ baseUrl: '', credentials: { mtls: 'certificate' } });
-new MutualTls({ baseUrl: '', credentials: { mtls: () => 'certificate' } });
-new MutualTls({ baseUrl: '', credentials: { basic: 'user:password' } });
-new MutualTls({ baseUrl: '', credentials: { basic: () => 'user:password' } });
+      `import { createMutualTls } from './index.ts';
+createMutualTls({ baseUrl: '', credentials: { mtls: false } });
+createMutualTls({ baseUrl: '', credentials: { mtls: 'certificate' } });
+createMutualTls({ baseUrl: '', credentials: { mtls: () => 'certificate' } });
+createMutualTls({ baseUrl: '', credentials: { basic: 'user:password' } });
+createMutualTls({ baseUrl: '', credentials: { basic: () => 'user:password' } });
 `,
     );
 
@@ -2236,7 +2236,10 @@ describe('generate — emitted code is cross-runtime portable', () => {
     // Module scope of the real SDK — including zod schema construction
     // for the binary upload input — must evaluate without web globals.
     const sdk = evaluate(await bundle());
-    assert.ok(sdk['Uploads'], 'client class exported from sandboxed realm');
+    assert.ok(
+      sdk['createUploads'],
+      'client factory exported from sandboxed realm',
+    );
 
     // Negative control: reintroduce the historical bug (e62c4e1) and
     // prove this harness catches it.
@@ -2306,9 +2309,9 @@ describe('generate — transport-owned credentials', () => {
       logLevel: 'silent',
     });
     const {
-      TransportOwned,
+      createTransportOwned,
     }: {
-      TransportOwned: new (options: unknown) => {
+      createTransportOwned: (settings: unknown) => {
         prepare(
           endpoint: string,
           input: unknown,
@@ -2317,14 +2320,14 @@ describe('generate — transport-owned credentials', () => {
     } = createRequire(import.meta.url)(bundlePath);
     const baseUrl = 'https://api.example.com';
 
-    const proxied = await new TransportOwned({
+    const proxied = await createTransportOwned({
       baseUrl,
       credentials: { bearer: true },
     }).prepare('GET /records', {});
     assert.equal(proxied.init.headers.get('Authorization'), null);
 
     const browserSession = await withBrowserGlobals(() =>
-      new TransportOwned({
+      createTransportOwned({
         baseUrl,
         credentials: { session: true },
       }).prepare('GET /records', {}),
@@ -2333,7 +2336,7 @@ describe('generate — transport-owned credentials', () => {
 
     await withBrowserGlobals(() =>
       assert.rejects(
-        new TransportOwned({
+        createTransportOwned({
           baseUrl,
           credentials: { session: 'abc' },
         }).prepare('GET /records', {}),
@@ -2342,14 +2345,14 @@ describe('generate — transport-owned credentials', () => {
     );
 
     await assert.rejects(
-      new TransportOwned({ baseUrl, credentials: {} }).prepare(
+      createTransportOwned({ baseUrl, credentials: {} }).prepare(
         'GET /records',
         {},
       ),
       /Missing credentials for security requirements: bearer or session/,
     );
 
-    const explicit = await new TransportOwned({
+    const explicit = await createTransportOwned({
       baseUrl,
       credentials: { bearer: 'token' },
     }).prepare('GET /records', {});
@@ -2427,7 +2430,13 @@ describe('generate — model names', () => {
     const runtimeNames = rootExports(plain.path).filter(
       (name) => /^[A-Z]/.test(name) && name !== 'Widget',
     );
-    for (const name of ['Endpoints', 'NotFound', 'Ok', 'Servers', 'Shop']) {
+    for (const name of [
+      'ShopEndpoints',
+      'NotFound',
+      'Ok',
+      'ShopServers',
+      'ShopClient',
+    ]) {
       assert.ok(runtimeNames.includes(name), `root exports ${name}`);
     }
 
@@ -2440,16 +2449,16 @@ describe('generate — model names', () => {
     writeFileSync(
       join(directory.path, 'src', 'consumer.ts'),
       [
-        `import { APIError, NotFound, ParseError, Shop, type Endpoints, type NotFound_, type Ok_, type Shop_ } from './index.ts';`,
-        `const client = new Shop({ baseUrl: 'https://shop.test' });`,
+        `import { APIError, NotFound, ParseError, createShop, type ShopEndpoints, type NotFound_, type Ok_, type ShopClient_ } from './index.ts';`,
+        `const client = createShop({ baseUrl: 'https://shop.test' });`,
         ...runtimeNames.map(
           (name, index) =>
             `const read${index} = () => client.request('GET /models/${index}', {});\nexport const model${index}: Awaited<ReturnType<typeof read${index}>> = { kind: ${JSON.stringify(name)} };`,
         ),
         `export const ok: Ok_ = { kind: 'Ok' };`,
         `export const notFound: NotFound_ = { kind: 'NotFound' };`,
-        `export const shop: Shop_ = { kind: 'Shop' };`,
-        `export type Routes = keyof Endpoints;`,
+        `export const shop: ShopClient_ = { kind: 'ShopClient' };`,
+        `export type Routes = keyof ShopEndpoints;`,
         `void [APIError, NotFound, ParseError];`,
       ].join('\n'),
     );
@@ -2464,7 +2473,7 @@ describe('generate — model names', () => {
     await using directory = await workspaceDirectory(
       'generate-reserved-lowercase-',
     );
-    await generate(specWithModels(['ok', 'not_found', 'client']), {
+    await generate(specWithModels(['ok', 'not_found', 'client_client']), {
       output: directory.path,
       readme: false,
       mode: 'full',
@@ -2472,11 +2481,11 @@ describe('generate — model names', () => {
     writeFileSync(
       join(directory.path, 'src', 'consumer.ts'),
       `
-import { Client, NotFound, type Client_, type NotFound_, type Ok_ } from './index.ts';
+import { createClient, NotFound, type ClientClient_, type NotFound_, type Ok_ } from './index.ts';
 export const ok: Ok_ = { kind: 'ok' };
 export const notFound: NotFound_ = { kind: 'not_found' };
-export const client: Client_ = { kind: 'client' };
-void [new Client({ baseUrl: 'https://shop.test' }), NotFound];
+export const client: ClientClient_ = { kind: 'client_client' };
+void [createClient({ baseUrl: 'https://shop.test' }), NotFound];
 `,
     );
 
@@ -2580,9 +2589,9 @@ describe('generate — pagination with an optional items array', () => {
         writeFileSync(
           join(directory.path, 'src', 'consumer.ts'),
           `
-import { Paged } from './index.ts';
+import { createPaged } from './index.ts';
 export async function read(fetch: (request: Request) => Promise<Response>) {
-  const pages = await new Paged({ baseUrl: 'https://paged.test', fetch }).request('GET /items', ${JSON.stringify(input)});
+  const pages = await createPaged({ baseUrl: 'https://paged.test', fetch }).request('GET /items', ${JSON.stringify(input)});
   const received: string[][] = [];
   for await (const page of pages) received.push(page.data);
   return received;
@@ -2704,9 +2713,9 @@ describe('generate — pagination with coerced numeric parameters', () => {
         writeFileSync(
           join(directory.path, 'src', 'consumer.ts'),
           `
-import { Paged } from './index.ts';
+import { createPaged } from './index.ts';
 export async function read(fetch: (request: Request) => Promise<Response>) {
-  const pages = await new Paged({ baseUrl: 'https://paged.test', fetch }).request('GET /items', ${JSON.stringify(input)});
+  const pages = await createPaged({ baseUrl: 'https://paged.test', fetch }).request('GET /items', ${JSON.stringify(input)});
   const received: string[][] = [];
   for await (const page of pages) received.push(page.data);
   return received;
@@ -2796,8 +2805,8 @@ test('operation groups whose tag starts with a digit generate valid identifiers'
   writeFileSync(
     join(directory.path, 'src', 'consumer.ts'),
     `
-import { Nums } from './index.ts';
-const client = new Nums({ baseUrl: 'https://nums.test' });
+import { createNums } from './index.ts';
+const client = createNums({ baseUrl: 'https://nums.test' });
 export const zero = () => client.request('GET /models/0', {});
 export const twoFactor = () => client.request('POST /v2/2fa', {});
 `,
@@ -2875,8 +2884,8 @@ test('a schema or operation group named index keeps its module beside the folder
   writeFileSync(
     join(directory.path, 'src', 'consumer.ts'),
     `
-import { Idx, type Catalog, type Index } from './index.ts';
-const client = new Idx({ baseUrl: 'https://idx.test' });
+import { createIdx, type Catalog, type Index } from './index.ts';
+const client = createIdx({ baseUrl: 'https://idx.test' });
 export const index: () => Promise<Index> = () => client.request('GET /index', {});
 export const catalog: () => Promise<Catalog> = () => client.request('GET /catalog', {});
 export const entry: Index = { name: 'a' };

@@ -14,7 +14,6 @@ import type { ModelNamer } from './model-name.ts';
 import { moduleFileName } from './module-file.ts';
 import { type Operation, type Spec, toEndpoint } from './sdk.ts';
 import type { Style } from './style.ts';
-import endpointsTxt from './styles/github/endpoints.txt';
 
 export interface NamedImport {
   name: string;
@@ -88,16 +87,6 @@ export function generateCode(config: {
     groups,
     commonZod,
     endpoints: {
-      [join('api', 'endpoints.ts')]: `
-import type { z } from 'zod';
-import type { ParseError } from '${config.makeImport('../http/parser')}';
-import type { ProblematicResponse, SuccessfulResponse, APIResponse } from '${config.makeImport(
-        '../http/response',
-      )}';
-
-import schemas from '${config.makeImport('./schemas')}';
-import type { Unionize } from '${config.makeImport('../http/dispatcher')}';
-      ${endpointsTxt}`,
       [`${join('api', 'schemas.ts')}`]:
         `${allSchemas.map((it) => it.import).join('\n')}
 

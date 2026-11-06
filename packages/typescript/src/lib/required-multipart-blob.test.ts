@@ -83,8 +83,8 @@ void test.each(variants, ({ variant, path, endpoint, params, parameters }) =>
     await writeFile(
       join(workspace.path, 'src/consumer.ts'),
       `
-import { Transcribe } from './index.ts';
-const client = new Transcribe({ baseUrl: 'https://example.test' });
+import { createTranscribe } from './index.ts';
+const client = createTranscribe({ baseUrl: 'https://example.test' });
 void client.request('${endpoint}', { ${paramFields}${paramFields ? ', ' : ''}file: new Blob(['audio']) });
 // @ts-expect-error file is required by the multipart body.
 void client.request('${endpoint}', { ${paramFields} });
@@ -126,9 +126,9 @@ void test.each(variants, ({ variant, path, endpoint, params, parameters }) =>
         platform: 'node',
         logLevel: 'silent',
       });
-      const { Transcribe } = await import(pathToFileURL(bundle).href);
+      const { createTranscribe } = await import(pathToFileURL(bundle).href);
       const requests: Request[] = [];
-      const client = new Transcribe({
+      const client = createTranscribe({
         baseUrl: 'https://api.example.com',
         fetch: async (request: Request) => {
           requests.push(request);

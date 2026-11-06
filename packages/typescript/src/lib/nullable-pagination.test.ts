@@ -104,7 +104,7 @@ void test.each(['full', 'minimal'] as const, (mode) =>
             join(source, 'consumer.ts'),
             `
 import assert from 'node:assert/strict';
-import { Pages } from './index.ts';
+import { createPages, type PagesClient } from './index.ts';
 
 function received(value: unknown) {
   assert.ok(typeof value === 'string');
@@ -112,7 +112,7 @@ function received(value: unknown) {
 }
 
 export async function exercise(baseUrl: string) {
-  const client = new Pages({ baseUrl });
+  const client = createPages({ baseUrl });
   for (const [initial, expectedOffset, nextOffset, expectedPage, nextPage] of [
     [null, 0, 0, null, 1],
     [undefined, 0, 0, undefined, 1],
@@ -147,7 +147,7 @@ export async function exercise(baseUrl: string) {
   await assert.rejects(client.request('${method} /strict-page', { tag: 'preserved', ${page}: null }));
 }
 
-function invalid(client: Pages) {
+function invalid(client: PagesClient) {
   // @ts-expect-error Unrelated required fields remain required.
   void client.request('${method} /offset', { ${offset}: null });
   // @ts-expect-error Pagination values must still be numeric or null.

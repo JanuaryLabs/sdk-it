@@ -177,8 +177,8 @@ void test("evlogErrors documents each catalog throw at its status with evlog's w
   const consumerPath = join(output, 'src', 'consumer.ts');
   await writeFile(
     consumerPath,
-    `import type { Endpoints } from './index.ts';
-type PayError = Endpoints['POST /pay']['error'];
+    `import type { BillingEndpoints } from './index.ts';
+type PayError = BillingEndpoints['POST /pay']['error'];
 declare const declined: Extract<PayError, { status: 402 }>;
 const code: 'billing.PAYMENT_DECLINED' = declined.data.data.code;
 const message: string = declined.data.message;

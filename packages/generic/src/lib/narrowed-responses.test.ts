@@ -87,8 +87,8 @@ app.get('/compare', validate((payload) => ({
   const consumerPath = join(output, 'src', 'consumer.ts');
   await writeFile(
     consumerPath,
-    `import { Comparison } from './index.ts';
-const client = new Comparison({ baseUrl: 'https://example.test' });
+    `import { createComparison } from './index.ts';
+const client = createComparison({ baseUrl: 'https://example.test' });
 const value = await client.request('GET /compare', {
   baseline: 'baseline', candidate: 'candidate',
 });

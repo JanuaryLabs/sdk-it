@@ -51,9 +51,9 @@ test('a 204 route is typed null in the Endpoints output', async () => {
   const consumerPath = join(output, 'src', 'consumer.ts');
   await writeFile(
     consumerPath,
-    `import type { Endpoints } from './index.ts';
+    `import type { AccountEndpoints } from './index.ts';
 type IsNever<T> = [T] extends [never] ? true : false;
-type Output = Endpoints['POST /me/password']['output'];
+type Output = AccountEndpoints['POST /me/password']['output'];
 const check: IsNever<Output> = false;
 const nothing: Output = null;
 // @ts-expect-error A 204 response carries no data.
@@ -83,10 +83,10 @@ test('a 204 response resolves without throwing', async () => {
     },
     { output, name: 'Account', readme: false, mode: 'full' },
   );
-  const { Account } = await import(
+  const { createAccount } = await import(
     pathToFileURL(join(output, 'src/index.ts')).href
   );
-  const client = new Account({
+  const client = createAccount({
     baseUrl: 'https://example.test',
     fetch: async () => new Response(null, { status: 204 }),
   });

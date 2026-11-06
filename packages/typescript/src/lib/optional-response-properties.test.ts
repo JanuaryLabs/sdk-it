@@ -83,8 +83,8 @@ void test.each(
       await writeFile(
         join(workspace.path, 'src/consumer.ts'),
         `
-import { Records } from './index.ts';
-const client = new Records({ baseUrl: 'https://example.test' });
+import { createRecords } from './index.ts';
+const client = createRecords({ baseUrl: 'https://example.test' });
 const read = () => client.request('GET /records', {});
 type Value = Awaited<ReturnType<typeof read>>;
 const omitted: Value = { status: true, requiredRecord: ${value("id: 'required'")} };

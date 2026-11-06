@@ -146,8 +146,8 @@ describe('nullable response types keep null', () => {
     const consumerPath = join(output, 'src', 'consumer.ts');
     await writeFile(
       consumerPath,
-      `import { Chat } from './index.ts';
-const client = new Chat({ baseUrl: 'https://example.test' });
+      `import { createChat } from './index.ts';
+const client = createChat({ baseUrl: 'https://example.test' });
 const session = await client.request('GET /session', {});
 // @ts-expect-error session is null when nobody is signed in.
 const unchecked: string = session.userId;

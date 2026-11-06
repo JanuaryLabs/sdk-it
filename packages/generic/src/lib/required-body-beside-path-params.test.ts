@@ -65,8 +65,8 @@ test('required body fields beside path params stay required in the generated cli
   const consumerPath = join(output, 'src', 'consumer.ts');
   await writeFile(
     consumerPath,
-    `import { Chats } from './index.ts';
-const client = new Chats({ baseUrl: 'https://example.test' });
+    `import { createChats } from './index.ts';
+const client = createChats({ baseUrl: 'https://example.test' });
 await client.request('POST /chat/{chatId}/messages', {
   chatId: 'c1', content: 'hello', id: 'm1',
 });
@@ -104,11 +104,11 @@ test('generated client rejects a request missing a required body field before fe
     },
     { output, name: 'Chats', readme: false, mode: 'full' },
   );
-  const { Chats } = await import(
+  const { createChats } = await import(
     pathToFileURL(join(output, 'src/index.ts')).href
   );
   const requests: Request[] = [];
-  const client = new Chats({
+  const client = createChats({
     baseUrl: 'https://example.test',
     fetch: async (request: Request) => {
       requests.push(request);

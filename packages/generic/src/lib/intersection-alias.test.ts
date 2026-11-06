@@ -90,8 +90,8 @@ describe('an inherited response type returned as JSON', () => {
         const consumerPath = join(output, 'src', 'consumer.ts');
         await writeFile(
           consumerPath,
-          `import { Apps } from './index.ts';
-const client = new Apps({ baseUrl: 'https://example.test' });
+          `import { createApps } from './index.ts';
+const client = createApps({ baseUrl: 'https://example.test' });
 const summary = await client.request('GET /apps/current', {});
 const name: string = summary.name;
 const projectName: string = summary.projectName;

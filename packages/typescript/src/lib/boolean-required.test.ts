@@ -76,8 +76,8 @@ test('a schema whose required is a boolean generates a client: a required proper
     });
     await writeFile(
       join(workspace.path, 'src/consumer.ts'),
-      `import { Profiles } from './index.ts';
-const client = new Profiles({ baseUrl: 'https://api.test' });
+      `import { createProfiles } from './index.ts';
+const client = createProfiles({ baseUrl: 'https://api.test' });
 void client.request('POST /profiles', { name: 'Ada' });
 // @ts-expect-error name was marked required on the property.
 void client.request('POST /profiles', { bio: 'x' });
@@ -98,9 +98,9 @@ void client.request('PUT /profiles/{id}/avatar', { id: 'p1', $body: new Blob(['j
       platform: 'node',
       logLevel: 'silent',
     });
-    const { Profiles } = await import(pathToFileURL(bundle).href);
+    const { createProfiles } = await import(pathToFileURL(bundle).href);
     const sent: Request[] = [];
-    const client = new Profiles({
+    const client = createProfiles({
       baseUrl: 'https://api.test',
       fetch: async (request: Request) => {
         sent.push(request);

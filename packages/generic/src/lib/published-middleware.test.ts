@@ -161,14 +161,14 @@ app.post('/items', validate('application/json', (payload) => ({
       mode: 'full',
     },
   );
-  const { Items, BadRequest, UnsupportedMediaType } = await import(
+  const { createItems, BadRequest, UnsupportedMediaType } = await import(
     pathToFileURL(join(output, 'src/index.ts')).href
   );
   for (const [contentType, body, ErrorClass] of [
     ['application/json', '{', BadRequest],
     ['text/plain', 'Ada', UnsupportedMediaType],
   ] as const) {
-    const client = new Items({
+    const client = createItems({
       baseUrl: 'http://localhost',
       fetch: (request: Request) =>
         app.fetch(
@@ -185,8 +185,8 @@ app.post('/items', validate('application/json', (payload) => ({
   }
   await writeFile(
     join(output, 'src/consumer.ts'),
-    `import type { Endpoints } from './index.ts';
-type ErrorResponse = Extract<Endpoints['POST /items']['error'], { status: number }>;
+    `import type { ItemsEndpoints } from './index.ts';
+type ErrorResponse = Extract<ItemsEndpoints['POST /items']['error'], { status: number }>;
 const statuses: ErrorResponse['status'][] = [400, 415];
 function describe(error: ErrorResponse): string {
   return error.data.cause.detail;

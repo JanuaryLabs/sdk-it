@@ -18,12 +18,14 @@ const runtimeHttpDir = join(
 );
 const runtimeHttpFiles = await Promise.all(
   [
+    'client.ts',
     'dispatcher.ts',
     'interceptors.ts',
     'parse-response.ts',
     'parser.ts',
     'request.ts',
     'response.ts',
+    'security.ts',
     'sse.ts',
   ].map(
     async (file) =>
@@ -97,6 +99,7 @@ export default {
   'GET /users': {
     schema: listUsersSchema,
     output: operationOutput,
+    security: [],
     toRequest(input: z.input<typeof listUsersSchema>, baseUrl: string) {
       return toRequest('GET', '/users', empty(input as any, {
         contentType: 'application/empty',
@@ -122,6 +125,7 @@ export default {
   'POST /users': {
     schema: listUsersSchema,
     output: operationOutput,
+    security: [],
     toRequest(input: z.input<typeof listUsersSchema>, baseUrl: string) {
       return toRequest('POST', '/users', json(input as any, {
         contentType: 'application/json',
@@ -145,21 +149,6 @@ export default {
     },
   },
 };
-`,
-  );
-
-  await writeFile(
-    join(apiDir, 'endpoints.ts'),
-    `import type { z } from 'zod';
-import type schemas from './schemas';
-import type { APIResponse, SuccessfulResponse } from '../http/response';
-import type { Unionize } from '../http/dispatcher';
-
-type DispatchReturn<E extends keyof typeof schemas> = Awaited<
-  ReturnType<(typeof schemas)[E]['dispatch']>
->;
-export type InferData<E extends keyof typeof schemas> =
-  DispatchReturn<E> extends APIResponse<infer D> ? D : DispatchReturn<E>;
 `,
   );
 
@@ -212,7 +201,7 @@ describe('emitted client runtime', () => {
       },
     });
 
-    const client = new module.TestClient({
+    const client = module.createTestClient({
       baseUrl: 'https://api.example.com',
       fetch: fetchShim,
     });
@@ -235,7 +224,7 @@ describe('emitted client runtime', () => {
       },
     });
 
-    const client = new module.ApiClient({ fetch: fetchShim });
+    const client = module.createApiClient({ fetch: fetchShim });
 
     await client.request('GET /users', {});
 
@@ -251,7 +240,7 @@ describe('emitted client runtime', () => {
       },
     });
 
-    const client = new module.ApiClient({ fetch: fetchShim });
+    const client = module.createApiClient({ fetch: fetchShim });
 
     await assert.rejects(client.request('GET /users', {}), /baseUrl/);
     assert.strictEqual(fetchCalls.length, 0);
@@ -266,7 +255,7 @@ describe('emitted client runtime', () => {
       },
     });
 
-    const client = new module.ApiClient({
+    const client = module.createApiClient({
       fetch: fetchShim,
       baseUrl: 'https://staging.example.com',
     });
@@ -290,7 +279,7 @@ describe('emitted client runtime', () => {
       },
     });
 
-    const client = new module.ApiClient({
+    const client = module.createApiClient({
       baseUrl: 'https://production.api.example.com/v1',
       fetch: fetchShim,
     });
@@ -318,7 +307,7 @@ describe('emitted client runtime', () => {
       },
     });
 
-    const client = new module.TestClient({
+    const client = module.createTestClient({
       baseUrl: 'https://api.example.com',
       fetch: fetchShim,
       headers: { 'x-custom': 'hello' },
@@ -338,7 +327,7 @@ describe('emitted client runtime', () => {
       },
     });
 
-    const client = new module.TestClient({
+    const client = module.createTestClient({
       baseUrl: 'https://api.example.com',
       fetch: fetchShim,
       headers: { 'x-custom': 'default' },
@@ -362,7 +351,7 @@ describe('emitted client runtime', () => {
       },
     });
 
-    const client = new module.TestClient({
+    const client = module.createTestClient({
       baseUrl: 'https://api.example.com',
       fetch: fetchShim,
     });
@@ -385,7 +374,7 @@ describe('emitted client runtime', () => {
       },
     });
 
-    const client = new module.TestClient({
+    const client = module.createTestClient({
       baseUrl: 'https://api.example.com',
       fetch: fetchShim,
     });
@@ -410,7 +399,7 @@ describe('emitted client runtime', () => {
       },
     });
 
-    const client = new module.TestClient({
+    const client = module.createTestClient({
       baseUrl: () => 'https://dynamic.example.com',
       fetch: fetchShim,
     });
@@ -429,7 +418,7 @@ describe('emitted client runtime', () => {
       },
     });
 
-    const client = new module.TestClient({
+    const client = module.createTestClient({
       baseUrl: async () => 'https://async.example.com',
       fetch: fetchShim,
     });
@@ -449,7 +438,7 @@ describe('emitted client runtime', () => {
       extraSchema: `z.object({ limit: z.number() })`,
     });
 
-    const client = new module.TestClient({
+    const client = module.createTestClient({
       baseUrl: 'https://api.example.com',
       fetch: fetchShim,
       skipValidation: true,
@@ -472,7 +461,7 @@ describe('emitted client runtime: 204 No Content responses', () => {
       respond: () => new Response(null, { status: 204 }),
     });
 
-    const client = new module.NoContentClient({
+    const client = module.createNoContentClient({
       baseUrl: 'https://api.example.com',
       fetch: fetchShim,
     });
@@ -496,7 +485,7 @@ describe('emitted client runtime: 204 No Content responses', () => {
         }),
     });
 
-    const client = new module.NoContentClient({
+    const client = module.createNoContentClient({
       baseUrl: 'https://api.example.com',
       fetch: fetchShim,
     });
@@ -516,7 +505,7 @@ describe('emitted client runtime: 204 No Content responses', () => {
       respond: () => new Response(null, { status: 205 }),
     });
 
-    const client = new module.NoContentClient({
+    const client = module.createNoContentClient({
       baseUrl: 'https://api.example.com',
       fetch: fetchShim,
     });
@@ -536,7 +525,7 @@ describe('emitted client runtime: 204 No Content responses', () => {
       respond: () => new Response(null, { status: 200 }),
     });
 
-    const client = new module.NoContentClient({
+    const client = module.createNoContentClient({
       baseUrl: 'https://api.example.com',
       fetch: fetchShim,
     });
@@ -557,7 +546,7 @@ describe('emitted client runtime: 204 No Content responses', () => {
       respond: () => new Response(null, { status: 304 }),
     });
 
-    const client = new module.NoContentClient({
+    const client = module.createNoContentClient({
       baseUrl: 'https://api.example.com',
       fetch: fetchShim,
     });
@@ -587,7 +576,7 @@ describe('emitted client runtime: 204 No Content responses', () => {
       respond: () => new Response(null, { status: 204 }),
     });
 
-    const client = new module.NoContentClient({
+    const client = module.createNoContentClient({
       baseUrl: 'https://api.example.com',
       fetch: fetchShim,
     });

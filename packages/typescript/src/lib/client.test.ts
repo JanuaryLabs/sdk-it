@@ -1,29 +1,13 @@
+import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { describe, test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { pathToFileURL } from 'node:url';
 
-import backend from './client.ts';
-import type { Spec } from './sdk.ts';
+import { workspaceDirectory } from '@sdk-it/testing';
+import { generate } from '@sdk-it/typescript';
+
 import { expandServerUrls } from './server-urls.ts';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const fixturesDir = join(__dirname, '../../test/fixtures/client');
-const UPDATE_GOLDEN = process.env['UPDATE_GOLDEN'] === '1';
-
-async function assertMatchesGolden(name: string, actual: string) {
-  const goldenPath = join(fixturesDir, `${name}.txt`);
-
-  if (UPDATE_GOLDEN) {
-    await mkdir(dirname(goldenPath), { recursive: true });
-    await writeFile(goldenPath, actual);
-    return;
-  }
-
-  const expected = await readFile(goldenPath, 'utf-8');
-  assert.strictEqual(actual, expected, `Golden file mismatch: ${name}`);
-}
 
 describe('expandServerUrls', () => {
   test('passes through URLs without variables', () => {
@@ -201,68 +185,50 @@ describe('expandServerUrls', () => {
   });
 });
 
-describe('client template', () => {
-  test('basic client without servers or options', async () => {
-    const spec: Omit<Spec, 'operations'> = {
-      name: 'TestClient',
-      servers: [],
-      securitySchemes: {},
-      makeImport: (p) => p,
-    };
-    await assertMatchesGolden('basic', backend(spec));
-  });
-
-  test('prepare accepts signal and includes it in the prepared request config', () => {
-    const spec: Omit<Spec, 'operations'> = {
-      name: 'TestClient',
-      servers: [],
-      securitySchemes: {},
-      makeImport: (p) => p,
-    };
-
-    const result = backend(spec);
-
-    assert.match(
-      result,
-      /async prepare<const E extends keyof typeof schemas>\([\s\S]*?options\?: \{ signal\?: AbortSignal; headers\?: HeadersInit \},/,
-    );
-    assert.match(
-      result,
-      /let config = route\.toRequest\(parsedInput as never, options\.baseUrl\);\n {2}if \(requestOptions\?\.signal\) \{\n {4}config = \{\n {6}\.\.\.config,\n {6}init: \{\n {8}\.\.\.config\.init,\n {8}signal: requestOptions\.signal,\n {6}\},\n {4}\};\n {2}\}/,
-    );
-  });
-
-  test('client with server URLs', async () => {
-    const spec: Omit<Spec, 'operations'> = {
-      name: 'ApiClient',
-      servers: ['https://api.example.com', 'https://staging.example.com'],
-      securitySchemes: {},
-      makeImport: (p) => p,
-    };
-    await assertMatchesGolden('with-servers', backend(spec));
-  });
-
-  test('client with server URL variables expanded', async () => {
-    const spec: Omit<Spec, 'operations'> = {
-      name: 'ApiClient',
-      servers: expandServerUrls([
-        {
-          url: 'https://{environment}.api.example.com/v{version}',
-          variables: {
-            environment: {
-              default: 'production',
-              enum: ['production', 'staging'],
-            },
-            version: {
-              default: '1',
-              enum: ['1', '2'],
+test('a generated client puts the signal passed to prepare in the prepared request', async () => {
+  await using directory = await workspaceDirectory('client-prepare-signal-');
+  try {
+    await generate(
+      {
+        openapi: '3.1.0',
+        info: { title: 'Signals', version: '1.0.0' },
+        paths: {
+          '/users': {
+            get: {
+              operationId: 'listUsers',
+              tags: ['users'],
+              responses: {
+                '200': {
+                  description: 'OK',
+                  content: {
+                    'application/json': { schema: { type: 'object' } },
+                  },
+                },
+              },
             },
           },
         },
-      ]),
-      securitySchemes: {},
-      makeImport: (p) => p,
-    };
-    await assertMatchesGolden('with-server-variables', backend(spec));
-  });
+      },
+      { output: directory.path, name: 'Signals', readme: false },
+    );
+    const bundle = join(directory.path, 'client.mjs');
+    await build({
+      entryPoints: [join(directory.path, 'client.ts')],
+      outfile: bundle,
+      bundle: true,
+      format: 'esm',
+      platform: 'node',
+      logLevel: 'silent',
+    });
+    const { createSignals } = await import(pathToFileURL(bundle).href);
+    const controller = new AbortController();
+
+    const prepared = await createSignals({
+      baseUrl: 'https://api.example.com',
+    }).prepare('GET /users', {}, { signal: controller.signal });
+
+    assert.equal(prepared.init.signal, controller.signal);
+  } finally {
+    await stop();
+  }
 });

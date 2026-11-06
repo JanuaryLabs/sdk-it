@@ -80,8 +80,8 @@ test('a named z.json() inside a record becomes a JSON component, and the generat
   const consumerPath = join(output, 'src', 'consumer.ts');
   await writeFile(
     consumerPath,
-    `import { Shortcuts } from './index.ts';
-const client = new Shortcuts({ baseUrl: 'https://example.test' });
+    `import { createShortcuts } from './index.ts';
+const client = createShortcuts({ baseUrl: 'https://example.test' });
 void client.request('POST /shortcuts', {
   integrations: { slack: { channels: ['a', 'b'], muted: null, depth: { n: 1 } } },
 });

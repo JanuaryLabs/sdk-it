@@ -54,8 +54,8 @@ describe('z.record inside a validator body', () => {
     const consumerPath = join(output, 'src', 'consumer.ts');
     await writeFile(
       consumerPath,
-      `import { Agents } from './index.ts';
-const client = new Agents({ baseUrl: 'https://example.test' });
+      `import { createAgents } from './index.ts';
+const client = createAgents({ baseUrl: 'https://example.test' });
 await client.request('POST /agents', {
   capabilities: {
     skills: { search: { enabled: true }, web: { enabled: false } },

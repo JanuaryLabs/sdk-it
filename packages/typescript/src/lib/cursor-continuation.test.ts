@@ -295,10 +295,10 @@ void test.each(['full', 'minimal'] as const, (mode) =>
               join(source, 'consumer.ts'),
               `
 import assert from 'node:assert/strict';
-import { Cursor } from './index.ts';
+import { createCursor } from './index.ts';
 
 export async function exercise(baseUrl: string) {
-  const client = new Cursor({ baseUrl });
+  const client = createCursor({ baseUrl });
   const input = { ${input}: 'start/? &+#', limit: 2, filter: 'preserved', scenario: 'complete' };
   const pages = await client.request('${method} /items', input);
   const received = [pages.getCurrentPage().data];

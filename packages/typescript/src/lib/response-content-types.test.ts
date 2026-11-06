@@ -131,12 +131,12 @@ async function generateClient(directory: string, response: Response) {
     logLevel: 'silent',
   });
   const sdk: {
-    Store: new (options: unknown) => {
+    createStore: (settings: unknown) => {
       request(endpoint: string, input: unknown): Promise<unknown>;
     };
     NotFound: new (...args: never[]) => Error & { data: unknown };
   } = await import(pathToFileURL(bundle).href);
-  const client = new sdk.Store({
+  const client = sdk.createStore({
     baseUrl: 'https://api.test',
     fetch: async () => response,
   });
@@ -199,8 +199,8 @@ void test('a JSON attachment resolves to the parsed JSON its type declares', asy
     );
     await writeFile(
       join(workspace.path, 'src/consumer.ts'),
-      `import { Store } from './index.ts';
-const client = new Store({ baseUrl: 'https://api.test' });
+      `import { createStore } from './index.ts';
+const client = createStore({ baseUrl: 'https://api.test' });
 export async function nameOf(): Promise<string> {
   const profile = await client.request('GET /profile', {});
   return profile.name;

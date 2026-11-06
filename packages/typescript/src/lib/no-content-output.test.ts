@@ -34,14 +34,14 @@ void test('a 204 response is typed null, not never, in the Endpoints map and the
   await writeFile(
     join(workspace.path, 'src/consumer.ts'),
     `
-import { Account, type Endpoints } from './index.ts';
-type Output = Endpoints['POST /me/password']['output'];
+import { createAccount, type AccountEndpoints } from './index.ts';
+type Output = AccountEndpoints['POST /me/password']['output'];
 type IsNever<T> = [T] extends [never] ? true : false;
 const notNever: IsNever<Output> = false;
 const nothing: Output = null;
 // @ts-expect-error A response without content carries no data.
 const something: Output = {};
-const client = new Account({ baseUrl: 'https://example.test' });
+const client = createAccount({ baseUrl: 'https://example.test' });
 const change = () => client.request('POST /me/password', {});
 type Result = Awaited<ReturnType<typeof change>>;
 const resultNotNever: IsNever<Result> = false;
@@ -90,8 +90,8 @@ void test('a 204 response resolves to null at runtime', async () => {
       platform: 'node',
       logLevel: 'silent',
     });
-    const { Account } = await import(pathToFileURL(bundle).href);
-    const client = new Account({
+    const { createAccount } = await import(pathToFileURL(bundle).href);
+    const client = createAccount({
       baseUrl: 'https://api.example.com',
       fetch: async () => new Response(null, { status: 204 }),
     });

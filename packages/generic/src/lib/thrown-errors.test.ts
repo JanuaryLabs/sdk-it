@@ -219,9 +219,9 @@ app.get('/items', validate((payload) => ({
             join(source, 'consumer.ts'),
             `
 import assert from 'node:assert/strict';
-import { Items, ${status === 400 ? 'BadRequest' : 'Conflict'} as ThrownError, type Endpoints } from './index.ts';
+import { createItems, ${status === 400 ? 'BadRequest' : 'Conflict'} as ThrownError, type ItemsEndpoints } from './index.ts';
 
-type ThrownResponse = Extract<Endpoints['GET /items']['error'], { status: ${status} }>;
+type ThrownResponse = Extract<ItemsEndpoints['GET /items']['error'], { status: ${status} }>;
 function describe(error: ThrownResponse): string {
   const status: ${status} = error.status;
   const code: ${status === 400 ? 'string' : "'api/conflict'"} = error.data.cause.code;
@@ -247,7 +247,7 @@ function describe(error: ThrownResponse): string {
 void describe;
 
 export async function exercise(fetch: typeof globalThis.fetch, expected: unknown) {
-  const client = new Items({ baseUrl: 'http://sdk.test', fetch });
+  const client = createItems({ baseUrl: 'http://sdk.test', fetch });
   assert.deepEqual(await client.request('GET /items', {}), { id: 'item-1' });
   await assert.rejects(client.request('GET /items', { conflict: 'yes' }), (error) => {
     assert.ok(error instanceof ThrownError);

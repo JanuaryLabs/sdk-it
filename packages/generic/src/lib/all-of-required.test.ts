@@ -100,14 +100,14 @@ app.post('/sources/:sourceId/links', validate('application/json', (payload) => (
   const consumerPath = join(output, 'src', 'consumer.ts');
   await writeFile(
     consumerPath,
-    `import type { Endpoints } from './index.ts';
-declare const discovered: Endpoints['GET /sources/{sourceId}/accounts']['output'];
+    `import type { SourcesEndpoints } from './index.ts';
+declare const discovered: SourcesEndpoints['GET /sources/{sourceId}/accounts']['output'];
 const detail: string = discovered.found[0].detail;
 const displayName: string = discovered.found[0].displayName;
 const dataSourceId: string = discovered.found[0].dataSourceId;
 // @ts-expect-error detail is a string, so found is not any[].
 const notNumber: number = discovered.found[0].detail;
-type AddAccount = Endpoints['POST /sources/{sourceId}/accounts']['input'];
+type AddAccount = SourcesEndpoints['POST /sources/{sourceId}/accounts']['input'];
 const full: AddAccount = {
   sourceId: 's1',
   account: { detail: 'd', displayName: 'n', externalId: 'e', dataSourceId: 'ds' },
@@ -117,7 +117,7 @@ const missingDetail: AddAccount = {
   // @ts-expect-error detail is required by the extended schema.
   account: { displayName: 'n', externalId: 'e', dataSourceId: 'ds' },
 };
-type LinkAccount = Endpoints['POST /sources/{sourceId}/links']['input'];
+type LinkAccount = SourcesEndpoints['POST /sources/{sourceId}/links']['input'];
 const fullLink: LinkAccount = {
   sourceId: 's1',
   account: { detail: 'd', displayName: 'n', externalId: 'e', dataSourceId: 'ds' },

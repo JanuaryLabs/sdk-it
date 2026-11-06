@@ -118,7 +118,7 @@ void test.each(['full', 'minimal'] as const, (mode) =>
           join(source, 'consumer.ts'),
           `
 import assert from 'node:assert/strict';
-import { Exact } from './index.ts';
+import { createExact, type ExactClient } from './index.ts';
 import { CursorPagination } from './pagination/cursor-pagination.ts';
 import { Pagination } from './pagination/page-pagination.ts';
 
@@ -126,7 +126,7 @@ export async function exercise() {
   const controller = new AbortController();
   const options = ${provided ? '{ signal: controller.signal }' : '{}'};
   const requests: Request[] = [];
-  const client = new Exact({ baseUrl: 'https://example.test', fetch: async (request: Request) => {
+  const client = createExact({ baseUrl: 'https://example.test', fetch: async (request: Request) => {
     requests.push(request);
     return new URL(request.url).pathname === '/echo' ? Response.json('ok') : Response.json({ items: ['item'], hasMore: false });
   } });
@@ -166,7 +166,7 @@ export async function exercise() {
   assert.deepEqual(pageInputs, ${provided ? '[{ page: 2, pageSize: 3 }, { page: 3, pageSize: 3 }]' : '[{}, { page: 1 }]'});
 }
 
-function invalid(client: Exact) {
+function invalid(client: ExactClient) {
   // @ts-expect-error Required request values cannot be omitted.
   void client.request('POST /echo', {});
   // @ts-expect-error Required request values cannot be undefined.

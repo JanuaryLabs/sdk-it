@@ -89,8 +89,8 @@ describe('a Date field inside a named response type', () => {
       const consumerPath = join(output, 'src', 'consumer.ts');
       await writeFile(
         consumerPath,
-        `import { Tickets } from './index.ts';
-const client = new Tickets({ baseUrl: 'https://example.test' });
+        `import { createTickets } from './index.ts';
+const client = createTickets({ baseUrl: 'https://example.test' });
 const ticket = await client.request('GET /tickets/current', {});
 const id: string = ticket.id;
 const at: string = ticket.createdAt;

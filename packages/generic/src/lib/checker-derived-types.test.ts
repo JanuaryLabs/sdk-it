@@ -119,9 +119,9 @@ test('a validation error derives its field errors as a record of issues, so the 
   const consumer = join(output, 'src', 'consumer.ts');
   await writeFile(
     consumer,
-    `import { type Endpoints } from './index.ts';
+    `import { type NamesEndpoints } from './index.ts';
 
-type Rejected = Extract<Endpoints['POST /names']['error'], { status: 400 }>;
+type Rejected = Extract<NamesEndpoints['POST /names']['error'], { status: 400 }>;
 export function issues(error: Rejected) {
   if ('errors' in error.data.cause) {
     const name: { message: string; code: string; path: string }[] | undefined =
@@ -177,9 +177,9 @@ app.post('/items', validate('application/json', (payload) => ({
   const consumer = join(output, 'src', 'consumer.ts');
   await writeFile(
     consumer,
-    `import { type Endpoints } from './index.ts';
+    `import { type ItemsEndpoints } from './index.ts';
 
-type Rejected = Extract<Endpoints['POST /items']['error'], { status: 400 }>;
+type Rejected = Extract<ItemsEndpoints['POST /items']['error'], { status: 400 }>;
 export function issues(error: Rejected) {
   const { cause } = error.data;
   if (cause.code === 'api/validation-failed') {

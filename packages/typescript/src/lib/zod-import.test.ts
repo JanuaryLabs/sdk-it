@@ -95,7 +95,6 @@ test('generated SDK imports zod by name so bundlers can drop the parts it does n
   for (const file of [
     'client.ts',
     'agents.ts',
-    'api/endpoints.ts',
     'http/dispatcher.ts',
     'http/parser.ts',
     'http/security.ts',

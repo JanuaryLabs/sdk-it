@@ -74,8 +74,8 @@ describe('a required multipart Blob beside a path param', () => {
     const consumerPath = join(output, 'src', 'consumer.ts');
     await writeFile(
       consumerPath,
-      `import { Chat } from './index.ts';
-const client = new Chat({ baseUrl: 'https://example.test' });
+      `import { createChat } from './index.ts';
+const client = createChat({ baseUrl: 'https://example.test' });
 await client.request('POST /chat/{chatId}/transcription', {
   chatId: 'c1',
   file: new Blob([]),

@@ -94,10 +94,10 @@ void test.each(
             join(source, 'consumer.ts'),
             `
 import assert from 'node:assert/strict';
-import { Records } from './index.ts';
+import { createRecords, type RecordsClient } from './index.ts';
 
 export async function exercise() {
-  const client = new Records({ baseUrl: 'https://example.test', fetch: async (request: Request) => Response.json(await request.json()) });
+  const client = createRecords({ baseUrl: 'https://example.test', fetch: async (request: Request) => Response.json(await request.json()) });
   const valid = [
     { requiredRecord: ${value('null')} },
     { requiredRecord: ${value("{ id: 'required' }")}, optionalRecord: ${value('null')} },
@@ -120,7 +120,7 @@ export async function exercise() {
   }
 }
 
-function checkTypes(client: Records) {
+function checkTypes(client: RecordsClient) {
   const read = () => client.request('POST /records', { requiredRecord: ${value('null')} });
   type Value = Awaited<ReturnType<typeof read>>;
   const omitted: Value = { requiredRecord: ${value('null')} };

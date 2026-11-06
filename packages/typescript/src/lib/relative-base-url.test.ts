@@ -29,7 +29,7 @@ const spec: OpenAPIObject = {
   },
 };
 
-type ItemsClient = new (options: unknown) => {
+type CreateItems = (settings: unknown) => {
   request(endpoint: string, input: unknown): Promise<unknown>;
 };
 
@@ -51,7 +51,9 @@ const loadClient = async (globals: Record<string, unknown>) => {
       platform: 'node',
       logLevel: 'silent',
     });
-    const moduleShim: { exports: { Items?: ItemsClient } } = { exports: {} };
+    const moduleShim: { exports: { createItems?: CreateItems } } = {
+      exports: {},
+    };
     const context = createContext({
       module: moduleShim,
       exports: moduleShim.exports,
@@ -71,9 +73,9 @@ const loadClient = async (globals: Record<string, unknown>) => {
       ...globals,
     });
     runInContext(await readFile(outfile, 'utf8'), context);
-    const { Items } = moduleShim.exports;
-    assert.ok(Items);
-    return Items;
+    const { createItems } = moduleShim.exports;
+    assert.ok(createItems);
+    return createItems;
   } finally {
     await stop();
   }
@@ -96,11 +98,11 @@ const recordingFetch = () => {
 
 void test('a relative baseUrl resolves against the page location', async () => {
   const { urls, fetch } = recordingFetch();
-  const Items = await loadClient({
+  const createItems = await loadClient({
     fetch,
     location: new URL('https://app.example.com/dashboard'),
   });
-  const client = new Items({ baseUrl: '/api', fetch });
+  const client = createItems({ baseUrl: '/api', fetch });
 
   await client.request('GET /items', {});
 
@@ -109,8 +111,8 @@ void test('a relative baseUrl resolves against the page location', async () => {
 
 void test('a relative baseUrl without a page location rejects the request naming baseUrl', async () => {
   const { urls, fetch } = recordingFetch();
-  const Items = await loadClient({ fetch });
-  const client = new Items({ baseUrl: '/api', fetch });
+  const createItems = await loadClient({ fetch });
+  const client = createItems({ baseUrl: '/api', fetch });
 
   await assert.rejects(client.request('GET /items', {}), {
     name: 'TypeError',
@@ -132,8 +134,8 @@ void test('an absolute baseUrl works where URL rejects non-http bases as React N
       super(url, base);
     }
   }
-  const Items = await loadClient({ fetch, URL: ReactNativeURL });
-  const client = new Items({ baseUrl: 'https://api.example.com', fetch });
+  const createItems = await loadClient({ fetch, URL: ReactNativeURL });
+  const client = createItems({ baseUrl: 'https://api.example.com', fetch });
 
   await client.request('GET /items', {});
 

@@ -1,4 +1,4 @@
-import { toLitObject } from '@sdk-it/core';
+import { camelcase } from 'stringcase';
 
 import type { Spec } from './sdk.ts';
 import { securityTypeExports } from './security.ts';
@@ -15,209 +15,62 @@ function credentialSchemaName(scheme: SecurityScheme) {
   return 'stringCredentialSchema';
 }
 
+/** Names the generated client module exports at the SDK root besides its models. */
+export function clientExports(name: string) {
+  return [
+    `${name}Client`,
+    `${name}Credentials`,
+    `${name}Endpoints`,
+    `${name}Servers`,
+    `${name}Settings`,
+  ];
+}
+
+/**
+ * The spec-specific part of a generated SDK's client: its endpoint table,
+ * servers and security as an `api`, a `create<Name>(settings)` factory over
+ * @sdk-it/runtime's Client, and a default instance when the spec names at most
+ * one server.
+ */
 export default (spec: Omit<Spec, 'operations'>) => {
-  const callableString = `z.custom<() => string | Promise<string>>((value) => typeof value === 'function')`;
-  const baseUrlSchema = `z.union([z.string(),${callableString},])${spec.servers.length === 1 ? '.default(servers[0])' : ''}`;
-  const securitySchemeNames = Object.keys(spec.securitySchemes);
+  const { name, makeImport } = spec;
   const credentialSchemas = Object.entries(spec.securitySchemes).map(
-    ([name, scheme]) => [name, credentialSchemaName(scheme)] as const,
+    ([scheme, definition]) =>
+      [scheme, credentialSchemaName(definition)] as const,
   );
-  const securityImports = [
-    'createSecurityInterceptor',
+  const secured = credentialSchemas.length > 0;
+  const credentialImports = [
     ...new Set(credentialSchemas.map(([, schema]) => schema)),
   ].sort();
 
-  const specOptions: Record<string, { schema: string }> = {
-    ...(securitySchemeNames.length
-      ? {
-          credentials: {
-            schema: `credentialsSchema.optional().describe('Credentials keyed by OpenAPI security scheme name.')`,
-          },
-        }
-      : {}),
-    fetch: {
-      schema: `fetchType.describe('Custom fetch implementation. Defaults to globalThis.fetch.')`,
-    },
-    baseUrl: {
-      schema: `${baseUrlSchema}.transform(async (baseUrl, ctx) => {
-      const value = typeof baseUrl === 'function' ? await baseUrl() : baseUrl;
-      if (typeof value !== 'string') {
-        ctx.addIssue({ code: 'custom', message: 'baseUrl must resolve to a string' });
-        return z.NEVER;
-      }
-      if (/^[a-z][a-z\\d+.-]*:/i.test(value)) {
-        return value;
-      }
-      const page: { href: string } | undefined = Reflect.get(globalThis, 'location');
-      if (page === undefined) {
-        throw new TypeError(\`baseUrl "\${value}" is relative, and there is no page location to resolve it against.\`);
-      }
-      return new URL(value, page.href).href;
-    }).describe('Base URL of the API server. Can be a string or a function that returns a string; a relative URL resolves against the page location.')`,
-    },
-    headers: {
-      schema: `z.record(z.string(), z.string()).optional().describe('Default headers to include in all requests.')`,
-    },
-    skipValidation: {
-      schema: `z.boolean().optional().describe('Skip request input validation. Client options and TypeScript types still enforce correct usage.')`,
-    },
-  };
-
   return `import { z } from 'zod';
-import { APIResponse } from '${spec.makeImport('./http/response')}';
-import type { HeadersInit, RequestConfig } from './http/${spec.makeImport('request')}';
-import { fetchType, parse } from './http/${spec.makeImport('dispatcher')}';
-import schemas from './api/${spec.makeImport('schemas')}';
-import type { InferData } from '${spec.makeImport('./api/endpoints')}';
-import { createHeadersInterceptor } from './http/${spec.makeImport('interceptors')}';
-
-import { type ParseError, parseInput } from './http/${spec.makeImport('parser')}';${
-    securitySchemeNames.length
+import __schemas from './api/${makeImport('schemas')}';
+import { type Client as __Client, type ClientSettings as __ClientSettings, type EndpointsOf as __EndpointsOf, createClient as __createClient } from './http/${makeImport('client')}';${
+    secured
       ? `
-import { ${securityImports.join(', ')} } from './http/${spec.makeImport('security')}';
+import { ${credentialImports.join(', ')} } from './http/${makeImport('security')}';
 export type {
-${securityTypeExports.map((name) => `  ${name},`).join('\n')}
-} from './http/${spec.makeImport('security')}';
-
-const securitySchemes = ${JSON.stringify(spec.securitySchemes, null, 2)} as const;
-const credentialsSchema = z.object({
-${credentialSchemas.map(([name, schema]) => `  ${JSON.stringify(name)}: ${schema}.optional(),`).join('\n')}
-});`
+${securityTypeExports.map((type) => `  ${type},`).join('\n')}
+} from './http/${makeImport('security')}';`
       : ''
   }
+export { prepare, request } from './http/${makeImport('client')}';
 
-${spec.servers.length ? `export const servers = ${JSON.stringify(spec.servers, null, 2)} as const` : ''}
-const optionsSchema = z.object(${toLitObject(specOptions, (x) => x.schema)});
-${spec.servers.length ? `export type Servers = typeof servers[number];` : ''}
+${spec.servers.length ? 'export ' : ''}const servers = ${JSON.stringify(spec.servers, null, 2)} as const;
+${spec.servers.length ? `export type ${name}Servers = (typeof servers)[number];` : ''}
+const __securitySchemes = ${JSON.stringify(spec.securitySchemes, null, 2)} as const;
+const __credentialsSchema = z.object({
+${credentialSchemas.map(([scheme, schema]) => `  ${JSON.stringify(scheme)}: ${schema}.optional(),`).join('\n')}
+});
+const __api = { routes: __schemas, servers, securitySchemes: __securitySchemes, credentials: __credentialsSchema };
 
-type ${spec.name}Options = z.input<typeof optionsSchema>;
+export interface ${name}Client extends __Client<typeof __api> {}
+export type ${name}Settings = __ClientSettings<typeof __api>;
+export type ${name}Endpoints = __EndpointsOf<typeof __api>;
+${secured ? `export type ${name}Credentials = z.input<typeof __credentialsSchema>;` : ''}
 
-export class ${spec.name} {
-  public options: ${spec.name}Options;
-  constructor(options: ${spec.name}Options) {
-    this.options = options;
-  }
-
-  /** Sends a request and returns the unwrapped response data. Delegates to the standalone {@link request} function. */
-  async request<const E extends keyof typeof schemas>(
-    endpoint: E,
-    input: z.input<(typeof schemas)[E]['schema']>,
-    options?: { signal?: AbortSignal; headers?: HeadersInit },
-  ) {
-    return request(this, endpoint, input, options).then(function unwrap(
-      it: unknown,
-    ) {
-      if (it instanceof APIResponse) {
-        return it.data as InferData<E>;
-      }
-      return it as InferData<E>;
-    });
-  }
-
-  /** Builds a ready-to-send request without sending it. Delegates to the standalone {@link prepare} function. */
-  async prepare<const E extends keyof typeof schemas>(
-    endpoint: E,
-    input: z.input<(typeof schemas)[E]['schema']>,
-    options?: { signal?: AbortSignal; headers?: HeadersInit },
-  ) {
-    return prepare(this, endpoint, input, options);
-  }
-
-  async defaultHeaders() {
-    const options = await optionsSchema.parseAsync(this.options);
-    return { ...options.headers };
-  }
-
-  setOptions(options: Partial<${spec.name}Options>) {
-    this.options = {
-      ...this.options,
-      ...options,
-    };
-  }
-
+export function create${name}(settings: ${name}Settings): ${name}Client {
+  return __createClient(__api, settings);
 }
-
-/**
- * Sends a validated request using the client's configuration and returns the parsed response.
- * Applies the client's default headers before sending.
- * Throws \`APIError\` on non-ok responses.
- *
- * @example
- * \`\`\`ts
- * const result = await request(client, 'GET /users', { limit: 10 });
- * \`\`\`
- */
-export async function request<const E extends keyof typeof schemas>(
-  client: ${spec.name},
-  endpoint: E,
-  input: z.input<(typeof schemas)[E]['schema']>,
-  requestOptions?: { signal?: AbortSignal; headers?: HeadersInit },
-): Promise<Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>> {
-  const route = schemas[endpoint];
-  const options = await optionsSchema.parseAsync(client.options);
-  const parsedInput = options.skipValidation ? input : parseInput(route.schema, input);
-  const result = await route.dispatch(parsedInput as never, {
-    fetch: options.fetch,
-    baseUrl: options.baseUrl,
-    interceptors: [
-      createHeadersInterceptor(
-        { ...options.headers },
-        requestOptions?.headers ?? {},
-      ),
-${securitySchemeNames.length ? '      createSecurityInterceptor(route.security, options.credentials, securitySchemes),\n' : ''}    ],
-    ...(requestOptions?.signal ? { signal: requestOptions.signal } : {}),
-  });
-  return result as Awaited<ReturnType<(typeof schemas)[E]['dispatch']>>;
-}
-
-/**
- * Builds a validated \`RequestConfig\` (url + init) with a \`parse\` function attached, without sending.
- * Use when you need control over the fetch call — framework integration (Next.js, SvelteKit),
- * custom retry/logging, request batching, or testing.
- *
- * @example
- * \`\`\`ts
- * const { url, init, parse } = await prepare(client, 'GET /users', { limit: 10 });
- * const response = await fetch(new Request(url, init));
- * const result = await parse(response);
- * \`\`\`
- */
-export async function prepare<const E extends keyof typeof schemas>(
-  client: ${spec.name},
-  endpoint: E,
-  input: z.input<(typeof schemas)[E]['schema']>,
-  requestOptions?: { signal?: AbortSignal; headers?: HeadersInit },
-): Promise<RequestConfig & {
-  parse: (response: Response) => ReturnType<typeof parse>;
-}> {
-  const route = schemas[endpoint];
-  const options = await optionsSchema.parseAsync(client.options);
-  const parsedInput = options.skipValidation ? input : parseInput(route.schema, input);
-  const interceptors = [
-    createHeadersInterceptor(
-      { ...options.headers },
-      requestOptions?.headers ?? {},
-    ),
-${securitySchemeNames.length ? '    createSecurityInterceptor(route.security, options.credentials, securitySchemes),\n' : ''}  ];
-
-  let config = route.toRequest(parsedInput as never, options.baseUrl);
-  if (requestOptions?.signal) {
-    config = {
-      ...config,
-      init: {
-        ...config.init,
-        signal: requestOptions.signal,
-      },
-    };
-  }
-  for (const interceptor of interceptors) {
-    if (interceptor.before) {
-      config = await interceptor.before(config);
-    }
-  }
-  return { ...config, parse: (response: Response) => parse(route.output as never, response, (d) => d) as never } as any;
-}
-
-
-`;
+${spec.servers.length <= 1 ? `\nexport const ${camelcase(name)} = create${name}({});\n` : ''}`;
 };

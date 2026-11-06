@@ -155,8 +155,8 @@ test('the generated client takes a whole-body selection as its body fields, or $
   const consumerPath = join(output, 'src', 'consumer.ts');
   await writeFile(
     consumerPath,
-    `import { Schedules } from './index.ts';
-const client = new Schedules({ baseUrl: 'https://example.test' });
+    `import { createSchedules } from './index.ts';
+const client = createSchedules({ baseUrl: 'https://example.test' });
 await client.request('PATCH /schedules/{taskId}', { taskId: 't1', name: 'nightly' });
 await client.request('PATCH /schedules/{taskId}', {
   taskId: 't1', name: 'nightly', cron: '0 0 * * *',
@@ -181,11 +181,11 @@ await client.request('POST /logs', { $body: [{ level: 'info' }] });
 test('the generated client sends a whole-body selection as the request body', async () => {
   await using dir = await workspace();
   const output = await generateClient(dir);
-  const { Schedules } = await import(
+  const { createSchedules } = await import(
     pathToFileURL(join(output, 'src/index.ts')).href
   );
   const requests: Request[] = [];
-  const client = new Schedules({
+  const client = createSchedules({
     baseUrl: 'https://example.test',
     fetch: async (request: Request) => {
       requests.push(request.clone());

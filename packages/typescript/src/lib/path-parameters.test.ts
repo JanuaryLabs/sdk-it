@@ -76,9 +76,9 @@ void test.each(
           platform: 'node',
           logLevel: 'silent',
         });
-        const { Files } = await import(pathToFileURL(bundle).href);
+        const { createFiles } = await import(pathToFileURL(bundle).href);
         const requests: Request[] = [];
-        const client = new Files({
+        const client = createFiles({
           baseUrl: 'https://api.example.com',
           fetch: async (request: Request) => {
             requests.push(request);

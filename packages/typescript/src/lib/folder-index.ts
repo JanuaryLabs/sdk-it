@@ -25,10 +25,13 @@ const folders: IndexedFolder[] = [
   { folder: 'pagination' },
 ];
 
+// Agent tool groups are named after tags, so they stay out of the root, where
+// a group could share a name with the client's default instance.
 const root: IndexedFolder = {
   folder: '',
   ignore: (entry) =>
-    entry.name.endsWith('pagination') || entry.name.endsWith('agents'),
+    (entry.isFolder && entry.name === 'pagination') ||
+    entry.name === 'agents.ts',
 };
 
 /**

@@ -92,10 +92,10 @@ app.get('/annotated', validate(() => ({})), (c) => {
   const consumerPath = join(output, 'src', 'consumer.ts');
   await writeFile(
     consumerPath,
-    `import type { Endpoints } from './index.ts';
+    `import type { ChatsEndpoints } from './index.ts';
 import type { JsonObject } from './models/index.ts';
-declare const satisfied: Endpoints['GET /satisfied']['output'];
-declare const annotated: Endpoints['GET /annotated']['output'];
+declare const satisfied: ChatsEndpoints['GET /satisfied']['output'];
+declare const annotated: ChatsEndpoints['GET /annotated']['output'];
 const satisfiedMessages: JsonObject[] = satisfied.messages;
 const annotatedMessages: JsonObject[] = annotated.messages;
 const satisfiedRecords: Array<Record<string, unknown>> = satisfied.messages;

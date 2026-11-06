@@ -89,9 +89,9 @@ test('a generated client validates and sends recursive inputs, a self-referencin
       platform: 'node',
       logLevel: 'silent',
     });
-    const { Shortcuts } = await import(pathToFileURL(bundle).href);
+    const { createShortcuts } = await import(pathToFileURL(bundle).href);
     const sent: Request[] = [];
-    const client = new Shortcuts({
+    const client = createShortcuts({
       baseUrl: 'https://api.test',
       fetch: async (request: Request) => {
         sent.push(request);

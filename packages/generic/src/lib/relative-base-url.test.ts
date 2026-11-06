@@ -85,7 +85,7 @@ test('a relative baseUrl resolves against location in a browser-like realm', asy
     runInContext(await readFile(bundle, 'utf8'), realm);
 
     await runInContext(
-      `new sdk.Items({ baseUrl: '/api', fetch: (request) => fetch(request) })
+      `sdk.createItems({ baseUrl: '/api', fetch: (request) => fetch(request) })
         .request('GET /items', {})`,
       realm,
     );
@@ -113,13 +113,13 @@ test('a relative baseUrl without location rejects the request with a TypeError n
     },
     { output, name: 'Items', readme: false, mode: 'full' },
   );
-  const { Items } = await import(
+  const { createItems } = await import(
     pathToFileURL(join(output, 'src/index.ts')).href
   );
   assert.equal('location' in globalThis, false);
   const fetch = async () => Response.json({ items: ['a'] });
 
-  const client = new Items({ baseUrl: '/api', fetch });
+  const client = createItems({ baseUrl: '/api', fetch });
 
   await assert.rejects(client.request('GET /items', {}), {
     name: 'TypeError',

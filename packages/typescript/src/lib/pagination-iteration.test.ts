@@ -94,10 +94,10 @@ void test.each(
       await writeFile(
         join(workspace.path, 'consumer.ts'),
         `
-import { Paged } from './index.ts';
+import { createPaged } from './index.ts';
 
 export async function exercise(baseUrl: string) {
-  const pages = await new Paged({ baseUrl }).request('GET /items', ${JSON.stringify(input)});
+  const pages = await createPaged({ baseUrl }).request('GET /items', ${JSON.stringify(input)});
   const received: string[][] = [];
   for await (const page of pages) received.push(page.data);
   return received;
