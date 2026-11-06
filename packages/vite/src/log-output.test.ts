@@ -1,16 +1,13 @@
 import { settleWithin } from '@zukhruf/testing/async';
 import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { text } from 'node:stream/consumers';
 import { test } from 'node:test';
 import { stripVTControlCharacters } from 'node:util';
 import { createServer } from 'vite';
 
-import { workspaceDirectory } from '@sdk-it/testing';
+import { runNode, workspaceDirectory } from '@sdk-it/testing';
 import sdkIt from '@sdk-it/vite';
 
 const spec = JSON.stringify({
@@ -47,14 +44,10 @@ await build({
 });
 `,
   );
-  const child = spawn(process.execPath, [join(app, 'build.mjs')], {
+  const { exitCode, stdout, stderr } = await runNode([join(app, 'build.mjs')], {
     env,
-    stdio: ['ignore', 'pipe', 'pipe'],
   });
-  const stdout = text(child.stdout);
-  const stderr = text(child.stderr);
-  const [exitCode] = await once(child, 'close');
-  assert.equal(exitCode, 0, await stderr);
+  assert.equal(exitCode, 0, stderr);
   return stdout;
 }
 
