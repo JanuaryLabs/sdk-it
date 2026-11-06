@@ -7,6 +7,13 @@ import {
   parse,
 } from './dispatcher.ts';
 import { type Interceptor, createHeadersInterceptor } from './interceptors.ts';
+import {
+  type ItemOf,
+  type Page,
+  PagePromise,
+  type Pagination,
+  createPage,
+} from './page.ts';
 import { type ParseError, parseInput } from './parser.ts';
 import type { HeadersInit, RequestConfig } from './request.ts';
 import {
@@ -34,6 +41,8 @@ export interface Route {
   security: readonly Record<string, readonly string[]>[];
   toRequest(input: unknown, baseUrl: string): RequestConfig;
   dispatch(input: unknown, options: DispatchOptions): Promise<unknown>;
+  /** Present when the operation pages; `request()` then resolves to a Page. */
+  pagination?: Pagination;
 }
 
 /** What a generated SDK knows about its API: its endpoint table, servers and security. */
@@ -81,6 +90,17 @@ type DispatchReturn<A extends Api, E extends keyof A['routes']> = Awaited<
 
 export type InferData<A extends Api, E extends keyof A['routes']> =
   DispatchReturn<A, E> extends APIResponse<infer D> ? D : DispatchReturn<A, E>;
+
+/** What `client.request(endpoint)` returns: a PagePromise for an operation that pages. */
+export type RequestResult<
+  A extends Api,
+  E extends keyof A['routes'],
+> = A['routes'][E] extends { pagination: { items: infer P extends string } }
+  ? PagePromise<
+      Page<InferData<A, E>, ItemOf<InferData<A, E>, P>>,
+      ItemOf<InferData<A, E>, P>
+    >
+  : Promise<InferData<A, E>>;
 
 export type EndpointsOf<A extends Api> = {
   [E in keyof A['routes']]: {
@@ -152,19 +172,29 @@ export class Client<A extends Api> {
     return this.#settings.parseAsync(this.options);
   }
 
-  /** Sends a request and returns the unwrapped response data. */
-  async request<const E extends keyof A['routes'] & string>(
+  /**
+   * Sends a request and returns the unwrapped response data, or, for an
+   * operation that pages, its first Page.
+   */
+  request<const E extends keyof A['routes'] & string>(
     endpoint: E,
     input: z.input<A['routes'][E]['schema']>,
     options?: RequestOptions,
-  ): Promise<InferData<A, E>>;
-  async request(
+  ): RequestResult<A, E>;
+  request(
     endpoint: string,
     input: unknown,
     options?: RequestOptions,
   ): Promise<unknown> {
-    const result = await send(this, endpoint, input, options);
-    return result instanceof APIResponse ? result.data : result;
+    const { pagination } = this.api.routes[endpoint];
+    if (pagination) {
+      return new PagePromise(
+        firstPage(this, endpoint, input, pagination, options),
+      );
+    }
+    return send(this, endpoint, input, options).then((result) =>
+      result instanceof APIResponse ? result.data : result,
+    );
   }
 
   /** Builds a ready-to-send request without sending it. */
@@ -191,6 +221,35 @@ export function createClient<A extends Api>(
   settings: ClientSettings<A>,
 ): Client<A> {
   return new Client(api, settings);
+}
+
+async function firstPage(
+  client: Client<Api>,
+  endpoint: string,
+  input: unknown,
+  pagination: Pagination,
+  options: RequestOptions | undefined,
+) {
+  if (typeof input !== 'object' || input === null) {
+    throw new TypeError(
+      `${endpoint} pages through its input, so the input must be an object`,
+    );
+  }
+  const fetchPage = async (pageInput: Record<string, unknown>) => {
+    const result = await send(client, endpoint, pageInput, options);
+    if (
+      !(result instanceof APIResponse) ||
+      result.status !== pagination.statusCode
+    ) {
+      throw result;
+    }
+    const data: unknown = result.data;
+    if (typeof data !== 'object' || data === null) {
+      throw new TypeError(`${endpoint} answered a page that is not an object`);
+    }
+    return createPage(data, pageInput, pagination, fetchPage);
+  };
+  return fetchPage(Object.fromEntries(Object.entries(input)));
 }
 
 function interceptorsFor(

@@ -1,6 +1,6 @@
 import { build as esbuild } from 'esbuild';
 import assert from 'node:assert/strict';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -17,20 +17,12 @@ const runtimeHttpDir = join(
   'http',
 );
 const runtimeHttpFiles = await Promise.all(
-  [
-    'client.ts',
-    'dispatcher.ts',
-    'interceptors.ts',
-    'parse-response.ts',
-    'parser.ts',
-    'request.ts',
-    'response.ts',
-    'security.ts',
-    'sse.ts',
-  ].map(
-    async (file) =>
-      [file, await readFile(join(runtimeHttpDir, file), 'utf-8')] as const,
-  ),
+  (await readdir(runtimeHttpDir))
+    .filter((file) => !file.endsWith('.test.ts'))
+    .map(
+      async (file) =>
+        [file, await readFile(join(runtimeHttpDir, file), 'utf-8')] as const,
+    ),
 );
 
 interface BuiltClient {
