@@ -1,3 +1,5 @@
+import type { TagObject } from 'openapi3-ts/oas32';
+
 import {
   type IR,
   type OperationEntry,
@@ -18,9 +20,7 @@ export function generateAISDKTools(ir: IR, makeImport: MakeImportFn) {
     string,
     {
       tools: string[];
-      instructions: string;
-      displayName: string;
-      name: string;
+      definition: TagObject;
     }
   > = {};
   forEachOperation(ir, (entry, operation) => {
@@ -30,33 +30,37 @@ export function generateAISDKTools(ir: IR, makeImport: MakeImportFn) {
       throw new Error(`The IR defines no tag ${entry.tag}`);
     }
 
-    groups[entry.tag] ??= {
-      tools: [],
-      instructions: '',
-      displayName: '',
-      name: '',
-    };
+    groups[entry.tag] ??= { tools: [], definition: tagDef };
     groups[entry.tag].tools.push(...createTools(ir, entry, operation));
-    groups[entry.tag].instructions = tagDef['x-instructions'];
-    groups[entry.tag].name = tagDef.name;
-    groups[entry.tag].displayName = tagDef['x-name'];
   });
   const imports = [
     `import { z } from 'zod';`,
     `import { tool } from 'ai';`,
     `import * as schemas from '${makeImport('./inputs/index')}';`,
   ];
-  const agent = Object.entries(groups).map(
-    ([group, { instructions, tools, displayName }]) => {
-      return `export const ${groupIdentifier(group)} = {
-    name: '${displayName}',
-    instructions: \`${instructions}\`,
-    tools: { ${tools.join(', ')} }
-    }`;
-    },
-  );
+  // Each group is ToolLoopAgent settings: new ToolLoopAgent({ model, ...group }).
+  const agent = Object.entries(groups).map(([group, { tools, definition }]) => {
+    const { id, instructions } = agentSettings(definition);
+    const instructionsLine =
+      instructions === undefined
+        ? ''
+        : `\n    instructions: ${JSON.stringify(instructions)},`;
+    return `export const ${groupIdentifier(group)} = {
+    id: ${JSON.stringify(id)},${instructionsLine}
+    tools: { ${tools.join(', ')} },
+    };`;
+  });
 
   return [...imports, ...agent].join('\n\n');
+}
+
+/** A group's agent id and instructions: the tag's x-name, else its display name, and its x-instructions, else its description. rpc's toAgents repeats this rule. */
+function agentSettings(definition: TagObject) {
+  const id: string =
+    definition['x-name'] ?? definition.summary ?? definition.name;
+  const instructions: string | undefined =
+    definition['x-instructions'] ?? definition.description;
+  return { id, instructions };
 }
 
 /**

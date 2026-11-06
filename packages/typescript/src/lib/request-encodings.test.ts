@@ -765,3 +765,102 @@ test('the generated OpenAI Agents tools compile and keep every group under the i
     await stop();
   }
 });
+
+test("the generated AI SDK groups are ToolLoopAgent settings: an id from the tag's summary or name, instructions from its description", async () => {
+  await using workspace = await workspaceDirectory('request-agent-settings-');
+  try {
+    const { diagnostics, sdk } = await generateClient(
+      workspace.path,
+      accountsSpec(),
+      `import { ToolLoopAgent } from 'ai';
+import { billing } from './index.ts';
+void new ToolLoopAgent({ model: 'openai/gpt-5', ...billing });`,
+      'ai-sdk',
+    );
+
+    assert.deepEqual(diagnostics, []);
+    assert.deepEqual(Object.keys(sdk.userProfiles).sort(), [
+      'id',
+      'instructions',
+      'tools',
+    ]);
+    assert.equal(sdk.userProfiles.id, 'User Profiles');
+    assert.equal(sdk.userProfiles.instructions, 'Profiles of users');
+    assert.equal(sdk.billing.id, 'billing');
+    assert.equal(sdk.billing.instructions, 'Invoices');
+    const health = Object.values(sdk).find(
+      (value) =>
+        value &&
+        typeof value === 'object' &&
+        'tools' in value &&
+        Object.keys(Object(value.tools)).includes('checkHealth'),
+    );
+    assert.deepEqual(Object.keys(Object(health)).sort(), ['id', 'tools']);
+  } finally {
+    await stop();
+  }
+});
+
+test("a generated AI SDK group takes the tag's authored x-name and x-instructions first, and its description round-trips with backticks, ${} and newlines", async () => {
+  await using workspace = await workspaceDirectory('request-agent-precedence-');
+  try {
+    const { diagnostics, sdk } = await generateClient(
+      workspace.path,
+      {
+        openapi: '3.2.0',
+        info: { title: 'Agents', version: '1.0.0' },
+        servers: [{ url: 'https://api.test' }],
+        tags: [
+          {
+            name: 'billing',
+            summary: 'Billing',
+            description: 'Invoices',
+            'x-name': "Billing 'Agent'",
+            'x-instructions': 'Handle invoices',
+          },
+          {
+            name: 'notes',
+            summary: 'Notes',
+            description: 'Use `notes` and ${x}\nthen stop',
+          },
+          { name: 'plain' },
+        ],
+        paths: {
+          '/invoices': {
+            get: {
+              operationId: 'listInvoices',
+              tags: ['billing'],
+              responses: { '204': { description: 'Done' } },
+            },
+          },
+          '/notes': {
+            get: {
+              operationId: 'listNotes',
+              tags: ['notes'],
+              responses: { '204': { description: 'Done' } },
+            },
+          },
+          '/plain': {
+            get: {
+              operationId: 'getPlain',
+              tags: ['plain'],
+              responses: { '204': { description: 'Done' } },
+            },
+          },
+        },
+      },
+      '',
+      'ai-sdk',
+    );
+
+    assert.deepEqual(diagnostics, []);
+    assert.equal(sdk.billing.id, "Billing 'Agent'");
+    assert.equal(sdk.billing.instructions, 'Handle invoices');
+    assert.equal(sdk.notes.id, 'Notes');
+    assert.equal(sdk.notes.instructions, 'Use `notes` and ${x}\nthen stop');
+    assert.deepEqual(Object.keys(sdk.plain).sort(), ['id', 'tools']);
+    assert.equal(sdk.plain.id, 'plain');
+  } finally {
+    await stop();
+  }
+});
