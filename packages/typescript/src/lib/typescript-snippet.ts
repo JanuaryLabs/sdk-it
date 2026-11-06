@@ -124,7 +124,7 @@ export class TypeScriptSnippet implements Generator {
   #pagination(entry: OperationEntry, payload: string) {
     return {
       content: `const controller = new AbortController();\nconst result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload}, { signal: controller.signal });`,
-      footer: `for await (const page of result.iter({ signal: controller.signal })) {\n\t\tconsole.log(page);\n}`,
+      footer: `for await (const page of result.iterPages({ signal: controller.signal })) {\n\t\tconsole.log(page);\n}`,
     };
   }
 
@@ -347,7 +347,7 @@ export class TypeScriptSnippet implements Generator {
     sections.push('### How it Works');
     sections.push('');
     sections.push(
-      'When you call a paginated endpoint, the SDK returns a pagination object that allows you to iterate through all results:',
+      'A paginated endpoint resolves to a page: the response body, plus `hasNextPage()`, `getNextPage()` and `iterPages()`. `for await` over the request or the page yields every item across pages:',
     );
     sections.push('');
 
@@ -372,19 +372,15 @@ export class TypeScriptSnippet implements Generator {
 
     sections.push(
       createCodeBlock('typescript', [
-        '// The SDK automatically handles pagination',
         paginationExample.content,
+        'console.log(result); // the response body of the first page',
         '',
-        '// Access the current page data',
-        'const currentPage = result.getCurrentPage();',
-        'console.log(currentPage.data); // Array of product items',
-        '',
-        '// Check if more pages exist',
-        'if (result.hasMore) {',
-        '  await result.getNextPage({ signal: controller.signal });',
+        'if (result.hasNextPage()) {',
+        '  const next = await result.getNextPage({ signal: controller.signal });',
+        '  console.log(next);',
         '}',
         '',
-        '// Or iterate through all pages with cancellable page fetches',
+        '// Or iterate through every page, each fetch cancellable',
         paginationExample.footer,
       ]),
     );
@@ -399,10 +395,14 @@ export class TypeScriptSnippet implements Generator {
     );
     sections.push(
       createCodeBlock('typescript', [
-        '// Using async iteration to process all pages',
         iterationExample.content,
         '',
         iterationExample.footer,
+        '',
+        '// Or every item across pages',
+        `for await (const product of ${camelcase(this.#clientName)}.request('GET /products', { limit: 100 })) {`,
+        '  console.log(product);',
+        '}',
       ]),
     );
     sections.push('');

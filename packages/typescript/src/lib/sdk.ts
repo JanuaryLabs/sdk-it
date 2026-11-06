@@ -1,6 +1,7 @@
 import { type OpenAPISecuritySchemeObject } from '@sdk-it/core';
 import {
   type OperationInput,
+  type OperationPagination,
   type ResponseBody,
   type TunedOperationObject,
   type TunedResponseObject,
@@ -9,7 +10,6 @@ import {
 import { groupIdentifier } from './group-identifier.ts';
 import { type MakeImportFn } from './import-utilities.ts';
 import type { ModelNamer } from './model-name.ts';
-import { paginationOperation } from './pagination-emit.ts';
 import statusMap from './status-map.ts';
 
 export type Parser = 'chunked' | 'buffered' | 'sse' | 'bodyless';
@@ -84,18 +84,57 @@ export function toEndpoint(
             interceptors: Interceptor[];
             fetch: z.infer<typeof fetchType>;
             baseUrl: string;
-          })${specOperation['x-pagination'] ? paginationOperation(specOperation['x-pagination']) : normalOperation()}`,
+          })${normalOperation(specOperation['x-pagination'])}`,
     );
   }
   return { schemas };
 }
 
-function normalOperation() {
+function normalOperation(pagination: OperationPagination | undefined) {
   return `{
             const dispatcher = new Dispatcher(options.interceptors, options.fetch);
             return dispatcher.send(this.toRequest(input, options.baseUrl), this.output, options?.signal);
-            },
+            },${pagination ? `\n          pagination: ${JSON.stringify(runtimePagination(pagination))} as const,` : ''}
           }`;
+}
+
+/**
+ * The fields of an operation's pagination that @sdk-it/runtime's Page reads.
+ * `JSON.stringify` omits the optional ones that are undefined.
+ */
+function runtimePagination(pagination: OperationPagination) {
+  const { items, hasMore, statusCode } = pagination;
+  switch (pagination.type) {
+    case 'offset':
+      return {
+        type: pagination.type,
+        offsetParamName: pagination.offsetParamName,
+        limitParamName: pagination.limitParamName,
+        items,
+        hasMore,
+        statusCode,
+        start: pagination.start,
+      };
+    case 'page':
+      return {
+        type: pagination.type,
+        pageNumberParamName: pagination.pageNumberParamName,
+        pageSizeParamName: pagination.pageSizeParamName,
+        items,
+        hasMore,
+        statusCode,
+        start: pagination.start,
+      };
+    case 'cursor':
+      return {
+        type: pagination.type,
+        cursorParamName: pagination.cursorParamName,
+        items,
+        hasMore,
+        statusCode,
+        nextCursor: pagination.nextCursor,
+      };
+  }
 }
 
 const bodyParser: Record<ResponseBody, Parser> = {

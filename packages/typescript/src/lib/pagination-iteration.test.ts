@@ -99,7 +99,7 @@ import { createPaged } from './index.ts';
 export async function exercise(baseUrl: string) {
   const pages = await createPaged({ baseUrl }).request('GET /items', ${JSON.stringify(input)});
   const received: string[][] = [];
-  for await (const page of pages) received.push(page.data);
+  for await (const page of pages.iterPages()) received.push(page.data);
   return received;
 }
 `,

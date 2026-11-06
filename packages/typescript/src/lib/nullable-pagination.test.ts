@@ -113,34 +113,34 @@ function received(value: unknown) {
 
 export async function exercise(baseUrl: string) {
   const client = createPages({ baseUrl });
-  for (const [initial, expectedOffset, nextOffset, expectedPage, nextPage] of [
-    [null, 0, 0, null, 1],
-    [undefined, 0, 0, undefined, 1],
-    [0, 0, 0, 0, 1],
-    [3, 3, 6, 3, 4],
+  for (const [initial, firstOffsets, nextOffsets, firstPages, nextPages] of [
+    [null, { ${offset}: null, ${limit}: null }, { ${offset}: 1, ${limit}: null }, { ${page}: null, ${pageSize}: null }, { ${page}: 2, ${pageSize}: null }],
+    [undefined, {}, { ${offset}: 1 }, {}, { ${page}: 2 }],
+    [0, { ${offset}: 0, ${limit}: 0 }, { ${offset}: 1, ${limit}: 0 }, { ${page}: 0, ${pageSize}: 0 }, { ${page}: 1, ${pageSize}: 0 }],
+    [3, { ${offset}: 3, ${limit}: 3 }, { ${offset}: 4, ${limit}: 3 }, { ${page}: 3, ${pageSize}: 3 }, { ${page}: 4, ${pageSize}: 3 }],
   ] as const) {
     const offsets = await client.request('${method} /offset', { tag: 'preserved', ${offset}: initial, ${limit}: initial });
-    assert.deepEqual(received(offsets.getCurrentPage().data[0]!), { tag: 'preserved', ${offset}: expectedOffset, ${limit}: expectedOffset });
-    await offsets.getNextPage();
-    assert.deepEqual(received(offsets.getCurrentPage().data[0]!), { tag: 'preserved', ${offset}: nextOffset, ${limit}: expectedOffset });
+    assert.deepEqual(received(offsets.items[0]!), { tag: 'preserved', ...firstOffsets });
+    const nextOffsetPage = await offsets.getNextPage();
+    assert.deepEqual(received(nextOffsetPage.items[0]!), { tag: 'preserved', ...nextOffsets });
 
     const pages = await client.request('${method} /page', { tag: 'preserved', ${page}: initial, ${pageSize}: initial });
-    assert.deepEqual(received(pages.getCurrentPage().data[0]!), expectedPage === undefined ? { tag: 'preserved' } : { tag: 'preserved', ${page}: expectedPage, ${pageSize}: expectedPage });
-    await pages.getNextPage();
-    assert.deepEqual(received(pages.getCurrentPage().data[0]!), expectedPage === undefined ? { tag: 'preserved', ${page}: nextPage } : { tag: 'preserved', ${page}: nextPage, ${pageSize}: expectedPage });
+    assert.deepEqual(received(pages.items[0]!), { tag: 'preserved', ...firstPages });
+    const nextPage = await pages.getNextPage();
+    assert.deepEqual(received(nextPage.items[0]!), { tag: 'preserved', ...nextPages });
   }
   const omitted = await client.request('${method} /offset', { tag: 'preserved' });
-  assert.deepEqual(received(omitted.getCurrentPage().data[0]!), { tag: 'preserved', ${offset}: 0, ${limit}: 0 });
+  assert.deepEqual(received(omitted.items[0]!), { tag: 'preserved' });
   const omittedPage = await client.request('${method} /page', { tag: 'preserved' });
-  assert.deepEqual(received(omittedPage.getCurrentPage().data[0]!), { tag: 'preserved' });
+  assert.deepEqual(received(omittedPage.items[0]!), { tag: 'preserved' });
   const mixedOffsets = await client.request('${method} /offset', { tag: 'preserved', ${offset}: null, ${limit}: 2 });
-  assert.deepEqual(received(mixedOffsets.getCurrentPage().data[0]!), { tag: 'preserved', ${offset}: 0, ${limit}: 2 });
-  await mixedOffsets.getNextPage();
-  assert.deepEqual(received(mixedOffsets.getCurrentPage().data[0]!), { tag: 'preserved', ${offset}: 2, ${limit}: 2 });
+  assert.deepEqual(received(mixedOffsets.items[0]!), { tag: 'preserved', ${offset}: null, ${limit}: 2 });
+  const nextMixedOffsets = await mixedOffsets.getNextPage();
+  assert.deepEqual(received(nextMixedOffsets.items[0]!), { tag: 'preserved', ${offset}: 1, ${limit}: 2 });
   const mixedPages = await client.request('${method} /page', { tag: 'preserved', ${page}: null, ${pageSize}: 2 });
-  assert.deepEqual(received(mixedPages.getCurrentPage().data[0]!), { tag: 'preserved', ${page}: null, ${pageSize}: 2 });
-  await mixedPages.getNextPage();
-  assert.deepEqual(received(mixedPages.getCurrentPage().data[0]!), { tag: 'preserved', ${page}: 1, ${pageSize}: 2 });
+  assert.deepEqual(received(mixedPages.items[0]!), { tag: 'preserved', ${page}: null, ${pageSize}: 2 });
+  const nextMixedPages = await mixedPages.getNextPage();
+  assert.deepEqual(received(nextMixedPages.items[0]!), { tag: 'preserved', ${page}: 2, ${pageSize}: 2 });
   // @ts-expect-error Null remains invalid when the schema is not nullable.
   await assert.rejects(client.request('${method} /strict-offset', { tag: 'preserved', ${offset}: null }));
   // @ts-expect-error Null remains invalid for non-nullable page fields.

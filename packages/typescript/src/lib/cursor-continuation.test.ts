@@ -291,6 +291,11 @@ void test.each(['full', 'minimal'] as const, (mode) =>
             });
             const source =
               mode === 'full' ? join(workspace.path, 'src') : workspace.path;
+            const cursorOf = (page: string) =>
+              `${page}${cursorPath
+                .split('.')
+                .map((key) => `?.[${JSON.stringify(key)}]`)
+                .join('')}`;
             await writeFile(
               join(source, 'consumer.ts'),
               `
@@ -301,22 +306,21 @@ export async function exercise(baseUrl: string) {
   const client = createCursor({ baseUrl });
   const input = { ${input}: 'start/? &+#', limit: 2, filter: 'preserved', scenario: 'complete' };
   const pages = await client.request('${method} /items', input);
-  const received = [pages.getCurrentPage().data];
-  assert.equal(pages.metadata.nextCursor, 'next/? &+#');
-  await pages.getNextPage();
-  assert.equal(pages.metadata.nextCursor, '');
-  for await (const page of pages) received.push(page.data);
-  assert.deepEqual(received, [['first'], ['second'], ['third']]);
-  assert.equal(pages.hasMore, false);
-  assert.equal(pages.metadata.nextCursor, undefined);
-  const afterLastPage: string[][] = [];
-  for await (const page of pages) afterLastPage.push(page.data);
+  assert.equal(${cursorOf('pages')}, 'next/? &+#');
+  const second = await pages.getNextPage();
+  assert.equal(${cursorOf('second')}, '');
+  const following = await Array.fromAsync(second.iterPages());
+  assert.deepEqual([pages.items, ...following.map((page) => page.items)], [['first'], ['second'], ['third']]);
+  const last = following.at(-1)!;
+  assert.equal(last.hasNextPage(), false);
+  assert.equal(${cursorOf('last')}, null);
+  const afterLastPage = await Array.fromAsync(last.iterPages(), (page) => page.items);
   assert.deepEqual(afterLastPage, [['third']]);
   assert.deepEqual(input, { ${input}: 'start/? &+#', limit: 2, filter: 'preserved', scenario: 'complete' });
 
   for (const scenario of ${JSON.stringify(name === 'mixed token' ? ['missing', 'null', 'number'] : ['missing', 'null'])}) {
     const broken = await client.request('${method} /items', { ...input, scenario });
-    assert.deepEqual(broken.getCurrentPage().data, ['first']);
+    assert.deepEqual(broken.items, ['first']);
     await assert.rejects(broken.getNextPage(), /next cursor/i);
   }
 }

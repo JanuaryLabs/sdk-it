@@ -32,9 +32,6 @@ import { type MakeImportFn } from './import-utilities.ts';
 import { type ModelNamer, createModelNamer } from './model-name.ts';
 import { moduleFileName } from './module-file.ts';
 import type { TypeScriptGeneratorOptions } from './options.ts';
-import cursorPaginationTxt from './paginations/cursor-pagination.txt';
-import offsetPaginationTxt from './paginations/offset-pagination.txt';
-import paginationTxt from './paginations/page-pagination.txt';
 import { toReadme } from './readme/readme.ts';
 import type { Operation } from './sdk.ts';
 import { expandServerUrls } from './server-urls.ts';
@@ -266,9 +263,6 @@ function renderFiles(spec: IR, options: RenderOptions) {
     ...toInputs(groups, commonZod, makeImport),
     ...endpoints,
     ...serializeModels(spec, modelName),
-    'pagination/cursor-pagination.ts': cursorPaginationTxt,
-    'pagination/offset-pagination.ts': offsetPaginationTxt,
-    'pagination/page-pagination.ts': paginationTxt,
     ...(options.agentTools
       ? {
           'agents.ts': `${agentTools[options.agentTools](spec, makeImport)}\n${utilsTxt}`,

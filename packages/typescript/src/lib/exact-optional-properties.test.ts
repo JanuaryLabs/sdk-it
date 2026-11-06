@@ -59,7 +59,11 @@ void test.each(['full', 'minimal'] as const, (mode) =>
         };
         assert.ok(spec.paths);
         for (const [kind, params, pagination] of [
-          ['cursor', ['cursor'], { cursorParamName: 'cursor' }],
+          [
+            'cursor',
+            ['cursor'],
+            { cursorParamName: 'cursor', nextCursor: 'nextCursor' },
+          ],
           [
             'page',
             ['page', 'pageSize'],
@@ -119,8 +123,6 @@ void test.each(['full', 'minimal'] as const, (mode) =>
           `
 import assert from 'node:assert/strict';
 import { createExact, type ExactClient } from './index.ts';
-import { CursorPagination } from './pagination/cursor-pagination.ts';
-import { Pagination } from './pagination/page-pagination.ts';
 
 export async function exercise() {
   const controller = new AbortController();
@@ -140,30 +142,24 @@ export async function exercise() {
   const cursorPage = await client.request('GET /cursor', ${provided ? "{ cursor: 'start' }" : parameters === 'undefined' ? '{ cursor: undefined }' : '{}'}, options);
   const page = await client.request('GET /page', ${provided ? '{ page: 2, pageSize: 3 }' : parameters === 'undefined' ? '{ page: undefined, pageSize: undefined }' : '{}'}, options);
   const offsetPage = await client.request('GET /offset', ${provided ? '{ offset: 2, limit: 3 }' : parameters === 'undefined' ? '{ offset: undefined, limit: undefined }' : '{}'}, options);
-  assert.deepEqual([cursorPage.getCurrentPage().data, page.getCurrentPage().data, offsetPage.getCurrentPage().data], [['item'], ['item'], ['item']]);
-  assert.deepEqual(requests.map((request) => new URL(request.url).search), ${provided ? JSON.stringify(['', '', '?cursor=start', '?page=2&pageSize=3', '?limit=3&offset=2']) : JSON.stringify(['', '', '', '', '?limit=0&offset=0'])});
+  assert.deepEqual([cursorPage.items, page.items, offsetPage.items], [['item'], ['item'], ['item']]);
+  assert.deepEqual(requests.map((request) => new URL(request.url).search), ${provided ? JSON.stringify(['', '', '?cursor=start', '?page=2&pageSize=3', '?limit=3&offset=2']) : JSON.stringify(['', '', '', '', ''])});
   assert.equal(await requests[0]!.text(), '');
   assert.equal(await requests[1]!.text(), JSON.stringify({ message: 'hello' }));
   controller.abort();
   assert.ok(requests.every((request) => request.signal.aborted === ${provided}));
 
-  const cursorInputs: unknown[] = [];
-  const cursor = new CursorPagination(${provided ? "{ cursor: 'start' }" : parameters === 'undefined' ? '{ cursor: undefined }' : '{ cursor: null }'}, async (input) => {
-    cursorInputs.push({ ...input });
-    return { data: [], meta: cursorInputs.length === 1 ? { nextCursor: 'next' } : {} };
-  });
-  await cursor.getNextPage();
-  await cursor.getNextPage();
-  await cursor.getNextPage();
-  assert.deepEqual(cursorInputs, [${provided ? "{ cursor: 'start' }" : '{}'}, { cursor: 'next' }, {}]);
-  const pageInputs: unknown[] = [];
-  const pages = new Pagination(${provided ? '{ page: 2, pageSize: 3 }' : parameters === 'undefined' ? '{ page: undefined, pageSize: undefined }' : '{}'}, async (input) => {
-    pageInputs.push({ ...input });
-    return { data: [], meta: {} };
-  });
-  await pages.getNextPage();
-  await pages.getNextPage();
-  assert.deepEqual(pageInputs, ${provided ? '[{ page: 2, pageSize: 3 }, { page: 3, pageSize: 3 }]' : '[{}, { page: 1 }]'});
+  const echo = createExact({ baseUrl: 'https://example.test', fetch: async (request: Request) => {
+    const { search, searchParams } = new URL(request.url);
+    return Response.json({ items: [search], hasMore: false, ...(searchParams.get('cursor') === 'next' ? {} : { nextCursor: 'next' }) });
+  } });
+  const firstCursor = await echo.request('GET /cursor', ${provided ? "{ cursor: 'start' }" : parameters === 'undefined' ? '{ cursor: undefined }' : '{}'});
+  const nextCursor = await firstCursor.getNextPage();
+  assert.deepEqual([firstCursor.items, nextCursor.items], [[${provided ? "'?cursor=start'" : "''"}], ['?cursor=next']]);
+  await assert.rejects(nextCursor.getNextPage(), { message: 'The response says more pages exist but names no next cursor' });
+  const firstPage = await echo.request('GET /page', ${provided ? '{ page: 2, pageSize: 3 }' : parameters === 'undefined' ? '{ page: undefined, pageSize: undefined }' : '{}'});
+  const nextPage = await firstPage.getNextPage();
+  assert.deepEqual([firstPage.items, nextPage.items], ${provided ? "[['?page=2&pageSize=3'], ['?page=3&pageSize=3']]" : "[[''], ['?page=2']]"});
 }
 
 function invalid(client: ExactClient) {

@@ -2594,9 +2594,7 @@ describe('generate — pagination with an optional items array', () => {
 import { createPaged } from './index.ts';
 export async function read(fetch: (request: Request) => Promise<Response>) {
   const pages = await createPaged({ baseUrl: 'https://paged.test', fetch }).request('GET /items', ${JSON.stringify(input)});
-  const received: string[][] = [];
-  for await (const page of pages) received.push(page.data);
-  return received;
+  return Array.fromAsync(pages);
 }
 `,
         );
@@ -2628,7 +2626,8 @@ export async function read(fetch: (request: Request) => Promise<Response>) {
 
         const received = await read(async () => Response.json(pages.shift()));
 
-        assert.deepEqual(received, [['a', 'b'], []]);
+        assert.deepEqual(received, ['a', 'b']);
+        assert.deepEqual(pages, []);
       }),
   );
 });
@@ -2719,7 +2718,7 @@ import { createPaged } from './index.ts';
 export async function read(fetch: (request: Request) => Promise<Response>) {
   const pages = await createPaged({ baseUrl: 'https://paged.test', fetch }).request('GET /items', ${JSON.stringify(input)});
   const received: string[][] = [];
-  for await (const page of pages) received.push(page.data);
+  for await (const page of pages.iterPages()) received.push(page.data);
   return received;
 }
 `,

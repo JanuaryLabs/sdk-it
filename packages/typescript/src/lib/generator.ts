@@ -114,7 +114,6 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
                   `import * as ${groupIdentifier(name)} from '../inputs/${config.makeImport(moduleFileName(name))}';`,
                   `import { createHeadersInterceptor, type Interceptor } from '${config.makeImport('../http/interceptors')}';`,
                   `import { Dispatcher, fetchType, type InstanceType } from '${config.makeImport('../http/dispatcher')}';`,
-                  `import { Pagination, OffsetPagination, CursorPagination } from "${config.makeImport('../pagination/index')}";`,
                 ].join('\n')}\nexport default {\n${operations}\n}`,
               ],
             ];
