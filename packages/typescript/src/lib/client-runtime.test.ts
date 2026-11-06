@@ -10,27 +10,25 @@ import { workspaceDirectory } from '@sdk-it/testing';
 import backend from './client.ts';
 import type { Spec } from './sdk.ts';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const httpTemplatesDir = join(__dirname, 'http');
-
-const [
-  dispatcherTxt,
-  interceptorsTxt,
-  parseResponseTxt,
-  parserTxt,
-  requestTxt,
-  responseTxt,
-  sseTxt,
-] = await Promise.all(
+// The http layer every generated SDK embeds is @sdk-it/runtime's source.
+const runtimeHttpDir = join(
+  dirname(fileURLToPath(import.meta.resolve('@sdk-it/runtime/package.json'))),
+  'src',
+  'http',
+);
+const runtimeHttpFiles = await Promise.all(
   [
-    'dispatcher.txt',
-    'interceptors.txt',
-    'parse-response.txt',
-    'parser.txt',
-    'request.txt',
-    'response.txt',
-    'sse.txt',
-  ].map((file) => readFile(join(httpTemplatesDir, file), 'utf-8')),
+    'dispatcher.ts',
+    'interceptors.ts',
+    'parse-response.ts',
+    'parser.ts',
+    'request.ts',
+    'response.ts',
+    'sse.ts',
+  ].map(
+    async (file) =>
+      [file, await readFile(join(runtimeHttpDir, file), 'utf-8')] as const,
+  ),
 );
 
 interface BuiltClient {
@@ -76,26 +74,9 @@ async function bundleSdk(options: BuildOptions): Promise<any> {
   await mkdir(httpDir, { recursive: true });
   await mkdir(apiDir, { recursive: true });
 
-  await writeFile(
-    join(httpDir, 'dispatcher.ts'),
-    `import { z } from 'zod';
-import { type Interceptor } from './interceptors';
-import { type RequestConfig } from './request';
-import { buffered } from './parse-response';
-import { type SSEListener } from './sse';
-import { APIError, APIResponse, type SuccessfulResponse, type RebindSuccessPayload } from './response';
-
-${dispatcherTxt}`,
-  );
-  await writeFile(
-    join(httpDir, 'interceptors.ts'),
-    `import type { RequestConfig, HeadersInit } from './request';\n${interceptorsTxt}`,
-  );
-  await writeFile(join(httpDir, 'parse-response.ts'), parseResponseTxt);
-  await writeFile(join(httpDir, 'parser.ts'), parserTxt);
-  await writeFile(join(httpDir, 'request.ts'), requestTxt);
-  await writeFile(join(httpDir, 'response.ts'), responseTxt);
-  await writeFile(join(httpDir, 'sse.ts'), sseTxt);
+  for (const [file, source] of runtimeHttpFiles) {
+    await writeFile(join(httpDir, file), source);
+  }
 
   const operationSchema =
     options.extraSchema ??

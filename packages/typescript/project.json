@@ -15,7 +15,10 @@
     },
     "build": {
       "executor": "@nx/esbuild:esbuild",
-      "outputs": ["{options.outputPath}"]
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "esbuildConfig": "packages/typescript/esbuild.config.mjs"
+      }
     }
   }
 }

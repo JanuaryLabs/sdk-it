@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
+import runtimeSources from 'runtime-sources';
 import { spinalcase } from 'stringcase';
 
 import { type OpenAPIDocument, pascalcase } from '@sdk-it/core';
@@ -27,13 +28,6 @@ import backend from './client.ts';
 import { TypeScriptEmitter } from './emitters/interface.ts';
 import { indexFiles } from './folder-index.ts';
 import { generateCode } from './generator.ts';
-import dispatcherTxt from './http/dispatcher.txt';
-import interceptors from './http/interceptors.txt';
-import parseResponse from './http/parse-response.txt';
-import parserTxt from './http/parser.txt';
-import requestTxt from './http/request.txt';
-import responseTxt from './http/response.txt';
-import sseTxt from './http/sse.txt';
 import { type MakeImportFn } from './import-utilities.ts';
 import { type ModelNamer, createModelNamer } from './model-name.ts';
 import { moduleFileName } from './module-file.ts';
@@ -234,6 +228,15 @@ const agentTools = {
   'openai-agents': generateOpenAIAgentTools,
 };
 
+/** Runtime files import their siblings as './x.ts'; the SDK's import style decides the extension. */
+function withSdkImports(source: string, makeImport: MakeImportFn) {
+  return source.replaceAll(
+    /(from ')(\.\.?\/[^']+)\.ts(')/g,
+    (_, from: string, path: string, quote: string) =>
+      `${from}${makeImport(path)}${quote}`,
+  );
+}
+
 function renderFiles(spec: IR, options: RenderOptions) {
   const { style, useTsExtension } = options;
   const makeImport = (moduleSpecifier: string) => {
@@ -249,23 +252,12 @@ function renderFiles(spec: IR, options: RenderOptions) {
   });
 
   const files: Record<string, string> = {
-    'http/parse-response.ts': parseResponse,
-    'http/response.ts': responseTxt,
-    'http/parser.ts': parserTxt,
-    'http/request.ts': requestTxt,
-    'http/sse.ts': sseTxt,
-    'http/dispatcher.ts': `import { z } from 'zod';
-import { type Interceptor } from '${makeImport('../http/interceptors')}';
-import { type RequestConfig } from '${makeImport('../http/request')}';
-import { buffered } from '${makeImport('./parse-response')}';
-import { type SSEListener } from '${makeImport('./sse')}';
-import { APIError, APIResponse, type SuccessfulResponse, type RebindSuccessPayload } from '${makeImport('./response')}';
-
-${dispatcherTxt}`,
-
-    'http/interceptors.ts': `
-    import type { RequestConfig, HeadersInit } from './${makeImport('request')}';
-    ${interceptors}`,
+    ...Object.fromEntries(
+      Object.entries(runtimeSources).map(([path, source]) => [
+        path,
+        withSdkImports(source, makeImport),
+      ]),
+    ),
     ...(Object.keys(spec.components.securitySchemes).length
       ? {
           'http/security.ts': security({

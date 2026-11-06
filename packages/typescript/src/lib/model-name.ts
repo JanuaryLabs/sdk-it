@@ -1,8 +1,8 @@
+import runtimeSources from 'runtime-sources';
+
 import { pascalcase } from '@sdk-it/core';
 import { sanitizeTag } from '@sdk-it/spec';
 
-import parserTxt from './http/parser.txt';
-import responseTxt from './http/response.txt';
 import { securityTypeExports } from './security.ts';
 import endpointsTxt from './styles/github/endpoints.txt';
 
@@ -13,7 +13,11 @@ const exportedName =
 
 /** PascalCase names the generated SDK root exports besides its models; consumers import them (APIError, NotFound, Endpoints, …). */
 const runtimeRootExports = new Set([
-  ...[responseTxt, parserTxt, endpointsTxt].flatMap((source) =>
+  ...[
+    runtimeSources['http/response.ts'],
+    runtimeSources['http/parser.ts'],
+    endpointsTxt,
+  ].flatMap((source) =>
     [...source.matchAll(exportedName)].map(([, name]) => name),
   ),
   'Servers',

@@ -30,6 +30,7 @@
     "@sdk-it/readme": "0.46.11"
   },
   "devDependencies": {
-    "@sdk-it/testing": "*"
+    "@sdk-it/testing": "*",
+    "@sdk-it/runtime": "0.46.11"
   }
 }
