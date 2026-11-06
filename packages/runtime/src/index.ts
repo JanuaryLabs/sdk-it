@@ -1,3 +1,4 @@
+export * from './http/client.ts';
 export * from './http/dispatcher.ts';
 export * from './http/interceptors.ts';
 export * from './http/parse-response.ts';
