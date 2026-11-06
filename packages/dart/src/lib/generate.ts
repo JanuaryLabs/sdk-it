@@ -1,6 +1,6 @@
-import { parse as partContentType } from 'fast-content-type-parse';
 import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { MIMEType } from 'node:util';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 import yaml from 'yaml';
@@ -292,7 +292,7 @@ function toInputs(spec: IR, { entry, operation }: Operation) {
       noEmit: true,
     });
     encode = serialized.encode;
-    const [mediaType, mediaSubType] = partContentType(type).type.split('/');
+    const { type: mediaType, subtype: mediaSubType } = new MIMEType(type);
     if (mediaSubType === 'empty') {
       contentType = 'empty';
     } else if (mediaSubType === 'x-www-form-urlencoded') {
