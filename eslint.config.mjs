@@ -9,6 +9,10 @@ const typescriptSubpaths = {
   group: ['typescript/*'],
   message: typescriptMessage,
 };
+export const typescriptImportBans = {
+  paths: [typescriptPath],
+  patterns: [typescriptSubpaths],
+};
 
 export default [
   ...nx.configs['flat/base'],
@@ -71,10 +75,7 @@ export default [
       '**/*.mjs',
     ],
     rules: {
-      'no-restricted-imports': [
-        'error',
-        { paths: [typescriptPath], patterns: [typescriptSubpaths] },
-      ],
+      'no-restricted-imports': ['error', typescriptImportBans],
     },
   },
   {
