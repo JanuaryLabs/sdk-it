@@ -9,10 +9,8 @@ import {
 } from 'openapi3-ts/oas31';
 
 import { openAnalysisProject } from '@sdk-it/core/program.js';
+import { analyze, responseAnalyzer } from '@sdk-it/generic';
 import { analysisWorkspace } from '@sdk-it/testing';
-
-import { analyze } from './generic.ts';
-import { responseAnalyzer } from './response-analyzer.ts';
 
 function getNonNullBranch(schema: any) {
   if (Array.isArray(schema.anyOf)) {
