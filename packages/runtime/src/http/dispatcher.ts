@@ -110,14 +110,10 @@ export function isTypeOf<T extends Type<APIResponse>>(
   instance: any,
   baseType: T,
 ): instance is T {
-  if (instance === baseType) {
-    return true;
-  }
-  const prototype = Object.getPrototypeOf(instance);
-  if (prototype === null) {
-    return false;
-  }
-  return isTypeOf(prototype, baseType);
+  return (
+    instance === baseType ||
+    Object.prototype.isPrototypeOf.call(baseType, instance)
+  );
 }
 
 export class Dispatcher {
