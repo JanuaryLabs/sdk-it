@@ -1,7 +1,7 @@
-import chalk from 'chalk';
-import { createHash } from 'node:crypto';
+import crypto from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { styleText } from 'node:util';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import {
   type FSWatcher,
@@ -15,6 +15,8 @@ import { loadSpec } from '@sdk-it/spec';
 import { generate } from '@sdk-it/typescript';
 
 import { type ProjectPluginOptions, projectPlugin } from './project.ts';
+
+const sdkit = styleText('blue', 'SDKIT');
 
 type Settings = Parameters<typeof generate>[1];
 interface SourcePlugin {
@@ -40,14 +42,13 @@ export default function sdkIt(
       ...projectPlugin(openapi),
     };
   }
-  return {
-    name: 'sdk-it',
-    ...(typeof openapi === 'function'
-      ? functionPlugin(openapi, settings!)
-      : typeof openapi === 'string'
-        ? filePlugin(openapi, settings!)
-        : specPlugin(openapi, settings!)),
-  };
+  if (typeof openapi === 'function') {
+    return { name: 'sdk-it', ...functionPlugin(openapi, settings!) };
+  }
+  if (typeof openapi === 'string') {
+    return { name: 'sdk-it', ...filePlugin(openapi, settings!) };
+  }
+  return { name: 'sdk-it', ...specPlugin(openapi, settings!) };
 }
 
 function isProjectPluginOptions(
@@ -64,10 +65,7 @@ function functionPlugin(
 
   return {
     async configResolved(config) {
-      // Resolve the function once
       const resolved = await openapi();
-
-      // Create the appropriate delegate plugin based on the resolved type
       delegatePlugin =
         typeof resolved === 'string'
           ? filePlugin(resolved, settings)
@@ -107,9 +105,9 @@ function filePlugin(openapi: string, settings: Settings): SourcePlugin {
     const { spec, documents } = await loadSpec(ref);
     if (load === loads) watch(documents);
     return cachedGeneration(settings.output, hashSpec(spec), async () => {
-      console.log(`${chalk.blue('SDKIT')}: Generating SDK.`);
+      console.log(`${sdkit}: Generating SDK.`);
       await generate(spec, settings);
-      console.log(`${chalk.blue('SDKIT')}: SDK generated successfully.`);
+      console.log(`${sdkit}: SDK generated successfully.`);
     });
   };
 
@@ -117,18 +115,18 @@ function filePlugin(openapi: string, settings: Settings): SourcePlugin {
     async configureServer(server) {
       const { ref, watchPath } = await source.promise;
       if (!watchPath) return;
-      console.log(
-        `${chalk.blue('SDKIT')}: Watching for spec changes in`,
-        watchPath,
-      );
+      console.log(`${sdkit}: Watching for spec changes in`, watchPath);
       server.watcher.add([...watched]);
       devWatcher.resolve(server.watcher);
       const regenerate = (file: string) => {
         if (!watched.has(normalizePath(file))) return;
-        console.log(`${chalk.blue('SDKIT')}: OpenAPI spec changed`, file);
+        console.log(`${sdkit}: OpenAPI spec changed`, file);
         // A half-saved file fails to load; the next save tries again.
         generateIfNeeded(ref).catch((error: unknown) =>
-          console.error(`${chalk.red('SDKIT')}: SDK generation failed.`, error),
+          console.error(
+            `${styleText('red', 'SDKIT', { stream: process.stderr })}: SDK generation failed.`,
+            error,
+          ),
         );
       };
       server.watcher.on('change', regenerate);
@@ -142,11 +140,12 @@ function filePlugin(openapi: string, settings: Settings): SourcePlugin {
       const ref = startsWithProtocol(openapi)
         ? openapi
         : join(config.root, openapi);
-      const watchPath = startsWithProtocol(openapi)
-        ? openapi.startsWith('file:')
-          ? fileURLToPath(openapi)
-          : undefined
-        : ref;
+      let watchPath: string | undefined;
+      if (!startsWithProtocol(openapi)) {
+        watchPath = ref;
+      } else if (openapi.startsWith('file:')) {
+        watchPath = fileURLToPath(openapi);
+      }
       if (watchPath) watched = new Set([normalizePath(watchPath)]);
       source.resolve({ ref, watchPath });
     },
@@ -157,15 +156,13 @@ function specPlugin(openapi: OpenAPIObject, settings: Settings): SourcePlugin {
   const generateIfNeeded = async (document: OpenAPIObject) => {
     const spec = structuredClone(document);
     return cachedGeneration(settings.output, hashSpec(spec), async () => {
-      console.log(`${chalk.blue('SDKIT')}: Generating SDK.`);
+      console.log(`${sdkit}: Generating SDK.`);
       await generate(spec, settings);
-      console.log(`${chalk.blue('SDKIT')}: SDK generated successfully.`);
+      console.log(`${sdkit}: SDK generated successfully.`);
     });
   };
   return {
-    async configResolved() {
-      // No-op for specPlugin
-    },
+    async configResolved() {},
     async configureServer() {
       await generateIfNeeded(openapi);
     },
@@ -203,7 +200,7 @@ function cachedGeneration(
 }
 
 function hashSpec(spec: OpenAPIObject): string {
-  return createHash('sha256').update(JSON.stringify(spec)).digest('hex');
+  return crypto.hash('sha256', JSON.stringify(spec));
 }
 
 function startsWithProtocol(url: string): boolean {
