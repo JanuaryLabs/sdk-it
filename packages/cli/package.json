@@ -31,7 +31,7 @@
     "@sdk-it/generic": "0.46.11",
     "@sdk-it/hono": "0.46.11",
     "libnpmpublish": "^11.0.0",
-    "openapi3-ts": "4.5.0",
+    "openapi3-ts": "4.6.2",
     "registry-auth-token": "^5.1.0",
     "@sdk-it/python": "0.46.11",
     "execa": "^9.6.0",
