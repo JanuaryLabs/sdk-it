@@ -4,9 +4,8 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type TestContext, describe, test } from 'node:test';
 
+import { command } from '@sdk-it/command';
 import { ttyStdin } from '@sdk-it/testing';
-
-import { command } from './command.ts';
 
 async function writeSpec(spec: object) {
   await using pending = new AsyncDisposableStack();
