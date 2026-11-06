@@ -2,6 +2,14 @@ import nx from '@nx/eslint-plugin';
 import zukhruf from '@zukhruf/eslint';
 import { manifest, moduleBoundaries } from '@zukhruf/eslint/nx';
 
+const typescriptMessage =
+  "Import TypeScript 7 from '@typescript/native/*'. The root 'typescript' package is the TypeScript 6 API that Nx and typescript-eslint load.";
+const typescriptPath = { name: 'typescript', message: typescriptMessage };
+const typescriptSubpaths = {
+  group: ['typescript/*'],
+  message: typescriptMessage,
+};
+
 export default [
   ...nx.configs['flat/base'],
   ...nx.configs['flat/typescript'],
@@ -65,19 +73,36 @@ export default [
     rules: {
       'no-restricted-imports': [
         'error',
+        { paths: [typescriptPath], patterns: [typescriptSubpaths] },
+      ],
+    },
+  },
+  {
+    // A test imports what the package exports, by its package specifier: a
+    // class with #private fields from source and the same class from dist are
+    // two incompatible types (AGENTS.md 'Test Import Rules'). This entry
+    // restates the TypeScript bans, because a later config replaces the
+    // rule's options.
+    files: ['**/*.test.ts', '**/*.test.tsx'],
+    // These tests reach @sdk-it/typescript internals that the package does
+    // not export (#3911).
+    ignores: [
+      'packages/typescript/src/lib/client-runtime.test.ts',
+      'packages/typescript/src/lib/client.test.ts',
+      'packages/typescript/src/lib/emitters/interface.test.ts',
+      'packages/typescript/src/lib/emitters/zod.test.ts',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
         {
-          paths: [
-            {
-              name: 'typescript',
-              message:
-                "Import TypeScript 7 from '@typescript/native/*'. The root 'typescript' package is the TypeScript 6 API that Nx and typescript-eslint load.",
-            },
-          ],
+          paths: [typescriptPath],
           patterns: [
+            typescriptSubpaths,
             {
-              group: ['typescript/*'],
+              regex: '^\\.\\.?/',
               message:
-                "Import TypeScript 7 from '@typescript/native/*'. The root 'typescript' package is the TypeScript 6 API that Nx and typescript-eslint load.",
+                "Import the package by its module specifier ('@sdk-it/<name>' or an exported subpath), not by a relative path.",
             },
           ],
         },
