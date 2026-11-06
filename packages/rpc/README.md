@@ -33,6 +33,13 @@ Inputs are validated before dispatch. Non-success HTTP responses throw an
 `APIError` subclass; successful calls return an `APIResponse` with `status`,
 `headers`, and `data`.
 
+These classes come from [`@sdk-it/runtime`](../runtime/README.md). Import them
+from that package:
+
+```typescript
+import { APIError, NotFound } from '@sdk-it/runtime';
+```
+
 Use `createRpc(ir, options)` instead when you already have a processed
 [`IR`](../spec/README.md).
 

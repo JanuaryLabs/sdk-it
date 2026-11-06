@@ -12,7 +12,10 @@ Copy the following code into your project.
 <summary>View the API code</summary>
 
 ```ts
-import { Client, type Endpoints } from '@datahub/client';
+import {
+  type ClientEndpoints as Endpoints,
+  createClient,
+} from '@datahub/client';
 import {
   type MutationFunctionContext,
   QueryClient,
@@ -29,7 +32,7 @@ const BASE_URL = 'https://api.example.com';
 
 export const queryClient = new QueryClient();
 
-export const client = new Client({
+export const client = createClient({
   baseUrl: BASE_URL,
 });
 
@@ -460,7 +463,7 @@ await invalidateData('GET /payments');
 If your API relies on cookie-based authentication (e.g. session cookies), update the `client` instance in the code above to send credentials with every request:
 
 ```ts
-export const client = new Client({
+export const client = createClient({
   baseUrl: BASE_URL,
   fetch: (request) => fetch(request, { credentials: 'include' }),
 });

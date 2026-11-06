@@ -17,10 +17,12 @@ npx @sdk-it/cli@latest generate typescript \
 ## Create the client
 
 ```typescript
-import { Discord } from './src/generated/discord/index.ts';
+import { createDiscord } from './src/generated/discord/index.ts';
 
-const discord = new Discord({
-  Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+const discord = createDiscord({
+  credentials: {
+    BotToken: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+  },
 });
 ```
 

@@ -17,12 +17,17 @@ npx @sdk-it/cli@latest generate typescript \
 ## Create the client
 
 ```typescript
-import { Hetzner } from './src/generated/hetzner/index.ts';
+import { createHetzner } from './src/generated/hetzner/index.ts';
 
-const hetzner = new Hetzner({
-  token: process.env.HETZNER_API_TOKEN,
+const hetzner = createHetzner({
+  baseUrl: 'https://api.hetzner.cloud/v1',
+  credentials: {
+    APIToken: process.env.HETZNER_API_TOKEN,
+  },
 });
 ```
+
+The specification names two servers, so `baseUrl` is necessary.
 
 ## Get all servers
 

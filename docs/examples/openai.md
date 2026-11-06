@@ -17,10 +17,16 @@ npx @sdk-it/cli@latest generate typescript \
 ## Create the client
 
 ```typescript
-import { APIError, OpenAI, ParseError } from './src/generated/openai/index.ts';
+import {
+  APIError,
+  ParseError,
+  createOpenAI,
+} from './src/generated/openai/index.ts';
 
-const openai = new OpenAI({
-  token: process.env.OPENAI_API_KEY,
+const openai = createOpenAI({
+  credentials: {
+    ApiKeyAuth: process.env.OPENAI_API_KEY,
+  },
 });
 ```
 

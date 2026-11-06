@@ -21,9 +21,9 @@ import {
   resource,
 } from '@angular/core';
 
-import { Client, type Endpoints } from '../client/src';
+import { type ClientEndpoints as Endpoints, createClient } from '../client/src';
 
-export const client = new Client({
+export const client = createClient({
   baseUrl: 'http://localhost:3000',
 });
 
@@ -37,7 +37,7 @@ type MutationEndpoints = {
   ]: K extends `${'POST' | 'PUT' | 'PATCH' | 'DELETE'} ${string}` ? K : never;
 }[keyof Endpoints];
 
-type RequestOptions = NonNullable<Parameters<Client['request']>[2]>;
+type RequestOptions = NonNullable<Parameters<typeof client.request>[2]>;
 
 export function useData<E extends DataEndpoints>(
   endpoint: E,

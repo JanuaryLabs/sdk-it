@@ -29,7 +29,8 @@ await generate(spec, {
 ```
 
 `loadSpec` accepts a URL or a local path and reads JSON or YAML. `name`
-controls the generated client class name. `minimal` mode writes client source
+sets the names of the generated exports, such as `createOpenStatus` and
+`OpenStatusEndpoints`. `minimal` mode writes client source
 files directly to `output`.
 
 ## Render the SDK in memory
@@ -54,9 +55,9 @@ index files. `generate` writes the same source files to `output`.
 ## Use the generated client
 
 ```typescript
-import { OpenStatus } from './src/generated/openstatus/index.ts';
+import { createOpenStatus } from './src/generated/openstatus/index.ts';
 
-const client = new OpenStatus({
+const client = createOpenStatus({
   baseUrl: 'https://api.openstatus.dev',
   credentials: {
     ApiKeyAuth: process.env.OPENSTATUS_API_KEY,
@@ -68,6 +69,23 @@ const reports = await client.request(
   {},
 );
 console.log(reports);
+```
+
+`create<Name>(settings)` returns a client. The settings are `baseUrl`,
+`headers`, `credentials`, `fetch`, and `skipValidation`.
+
+When the spec names one server or no servers, the SDK also exports a default
+instance with no settings. Its name is `<Name>` in camel case, such as
+`openStatus`. Without servers, its `baseUrl` is `/`, as OpenAPI 3.2 specifies.
+When the spec names two or more servers, the SDK has no default instance, and
+`create<Name>` requires `baseUrl`.
+
+```typescript
+import { openStatus } from './src/generated/openstatus/index.ts';
+
+openStatus.setOptions({
+  credentials: { ApiKeyAuth: process.env.OPENSTATUS_API_KEY },
+});
 ```
 
 `baseUrl` can be absolute or relative, such as `'/api'`. A relative `baseUrl` resolves against the page location (`globalThis.location`). Where there is no page location, as in Node.js or React Native, a request with a relative `baseUrl` rejects with a `TypeError`. Use an absolute URL there.
@@ -90,7 +108,7 @@ configured `fetch` passes `credentials: 'include'`) and for a host proxy that
 injects `Authorization` on the client's behalf:
 
 ```typescript
-const client = new ExampleClient({
+const client = createExample({
   baseUrl: '/api',
   fetch: (request) => fetch(request, { credentials: 'include' }),
   credentials: { session: true },
@@ -101,7 +119,7 @@ Each value may instead be a sync or async provider. Providers receive the
 scheme name plus the current operation's OpenAPI scopes or roles:
 
 ```typescript
-const client = new ExampleClient({
+const client = createExample({
   baseUrl: 'https://api.example.com',
   credentials: {
     oauth: async ({ scopes }) => issueToken(scopes),
@@ -123,11 +141,11 @@ non-successful response:
 ```typescript
 import {
   APIError,
-  OpenStatus,
   ParseError,
+  createOpenStatus,
 } from './src/generated/openstatus/index.ts';
 
-const client = new OpenStatus({
+const client = createOpenStatus({
   baseUrl: 'https://api.openstatus.dev',
   credentials: {
     ApiKeyAuth: process.env.OPENSTATUS_API_KEY,
@@ -148,6 +166,25 @@ try {
   } else {
     throw error;
   }
+}
+```
+
+## Page through results
+
+When an operation has pagination, `client.request` resolves to a page. A page
+has the fields of the response body, such as `page.items`, and these methods:
+
+- `hasNextPage()` tells if there is a next page.
+- `getNextPage({ signal })` fetches the next page and returns it as a new page.
+- `iterPages({ signal })` yields the current page, then each next page.
+
+The `signal` option is optional. Iterate a page, or the result of
+`client.request` without `await`, to get each item of all pages. In this
+example, `GET /items` is an operation with pagination:
+
+```typescript
+for await (const item of client.request('GET /items', { limit: 20 })) {
+  console.log(item);
 }
 ```
 

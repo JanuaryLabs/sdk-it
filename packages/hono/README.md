@@ -272,9 +272,9 @@ node openapi.ts
 The generated client returns response data and throws typed errors:
 
 ```typescript
-import { Client, Unauthorized } from './client/index.ts';
+import { Unauthorized, createClient } from './client/index.ts';
 
-const client = new Client({
+const client = createClient({
   baseUrl: 'http://localhost:3000',
 });
 

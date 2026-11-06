@@ -73,9 +73,9 @@ apps/backend/.sdk-it/
 Application code imports the generated package normally:
 
 ```ts
-import { Client } from '@acme/backend-client';
+import { createClient } from '@acme/backend-client';
 
-const api = new Client({
+const api = createClient({
   baseUrl: '/api',
 });
 

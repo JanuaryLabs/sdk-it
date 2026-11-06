@@ -17,10 +17,12 @@ npx @sdk-it/cli@latest generate typescript \
 ## Create the client
 
 ```typescript
-import { Figma } from './src/generated/figma/index.ts';
+import { createFigma } from './src/generated/figma/index.ts';
 
-const figma = new Figma({
-  'X-Figma-Token': process.env.FIGMA_ACCESS_TOKEN,
+const figma = createFigma({
+  credentials: {
+    PersonalAccessToken: process.env.FIGMA_ACCESS_TOKEN,
+  },
 });
 ```
 

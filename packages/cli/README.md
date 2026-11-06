@@ -38,9 +38,9 @@ npx @sdk-it/cli@latest generate typescript \
 Use it:
 
 ```typescript
-import { MyApi } from './src/generated/api/index.ts';
+import { createMyApi } from './src/generated/api/index.ts';
 
-const client = new MyApi({
+const client = createMyApi({
   baseUrl: 'https://api.example.com',
 });
 
@@ -61,7 +61,7 @@ npx @sdk-it/cli@latest generate typescript [options]
 | -------------------------- | ------------------------------------------------------------ | --------- |
 | `--spec`, `-s`             | Local path or remote URL to an OpenAPI JSON or YAML document | Required  |
 | `--output`, `-o`           | Output directory                                             | Required  |
-| `--name`, `-n`             | Generated client class name                                  | `Client`  |
+| `--name`, `-n`             | Name in the generated exports, such as `create<Name>`        | `Client`  |
 | `--mode`, `-m`             | `minimal` source files or a `full` standalone project        | `minimal` |
 | `--useTsExtension [value]` | Include `.ts` in generated imports                           | `true`    |
 | `--formatter <command>`    | Command used to format the generated source directory        |           |
@@ -95,10 +95,13 @@ npx @sdk-it/cli@latest generate typescript \
 ```
 
 ```typescript
-import { Hetzner } from './src/generated/hetzner/index.ts';
+import { createHetzner } from './src/generated/hetzner/index.ts';
 
-const hetzner = new Hetzner({
-  token: process.env.HETZNER_API_TOKEN,
+const hetzner = createHetzner({
+  baseUrl: 'https://api.hetzner.cloud/v1',
+  credentials: {
+    APIToken: process.env.HETZNER_API_TOKEN,
+  },
 });
 
 const result = await hetzner.request('GET /servers', {});

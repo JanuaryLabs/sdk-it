@@ -25,10 +25,10 @@ import Modem from 'docker-modem';
 import { IncomingMessage } from 'node:http';
 import { Readable } from 'node:stream';
 
-import { DockerEngine } from './src/generated/docker-engine/index.ts';
+import { createDockerEngine } from './src/generated/docker-engine/index.ts';
 
 const modem = new Modem();
-const docker = new DockerEngine({
+const docker = createDockerEngine({
   baseUrl: 'http://localhost',
   fetch: (request) => {
     const url = new URL(request.url);

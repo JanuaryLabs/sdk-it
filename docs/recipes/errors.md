@@ -18,9 +18,9 @@ Three error categories:
 Use `try...catch` to handle errors from `client.request`:
 
 ```typescript
-import { Client } from './client';
+import { createClient } from './client';
 
-const client = new Client({ baseUrl: '...' });
+const client = createClient({ baseUrl: '...' });
 
 try {
   const item = await client.request('GET /items/{id}', { id: '123' });

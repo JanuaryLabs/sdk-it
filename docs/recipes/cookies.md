@@ -9,9 +9,9 @@ servers need the incoming cookie header forwarded to the API.
 Pass a custom `fetch` implementation when creating the client:
 
 ```typescript
-import { Client } from '@acme/client';
+import { createClient } from '@acme/client';
 
-export const client = new Client({
+export const client = createClient({
   baseUrl: 'https://api.example.com',
   fetch: (request) => fetch(request, { credentials: 'include' }),
 });
@@ -34,9 +34,9 @@ cookies. Read the `cookie` header from the incoming request and pass it through
 the SDK's per-request headers:
 
 ```typescript
-import { Client } from '@acme/client';
+import { createClient } from '@acme/client';
 
-const client = new Client({
+const client = createClient({
   baseUrl: 'https://api.example.com',
 });
 

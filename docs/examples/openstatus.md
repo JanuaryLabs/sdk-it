@@ -28,9 +28,9 @@ npx @sdk-it/cli@latest generate typescript \
 The v2 document declares no servers, so pass `baseUrl` explicitly:
 
 ```typescript
-import { OpenStatus } from './src/generated/openstatus/index.ts';
+import { createOpenStatus } from './src/generated/openstatus/index.ts';
 
-const openstatus = new OpenStatus({
+const openstatus = createOpenStatus({
   baseUrl: 'https://api.openstatus.dev',
   credentials: {
     ApiKeyAuth: process.env.OPENSTATUS_API_KEY,

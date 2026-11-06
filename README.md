@@ -43,9 +43,9 @@ npx @sdk-it/cli@latest generate typescript \
 Use the generated SDK:
 
 ```typescript
-import { OpenStatus } from './src/openstatus/index.ts';
+import { createOpenStatus } from './src/openstatus/index.ts';
 
-const client = new OpenStatus({
+const client = createOpenStatus({
   baseUrl: 'https://api.openstatus.dev',
   credentials: {
     ApiKeyAuth: process.env.OPENSTATUS_API_KEY!,

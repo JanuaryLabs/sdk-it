@@ -36,7 +36,7 @@ await generate(spec, {
 });
 ```
 
-`name` controls the generated client class name (`MyApi`). `packageName` controls the `package.json` name — this is what you'll use in import statements.
+`name` controls the names of the generated SDK's exports (`createMyApi`, `MyApiEndpoints`). `packageName` controls the `package.json` name — this is what you'll use in import statements.
 
 ### 2. Register as Workspace
 
@@ -75,9 +75,9 @@ The package manager creates a symlink: `node_modules/@my-api/sdk` -> `.sdk-it/`.
 ### 5. Import
 
 ```typescript
-import { MyApi } from '@my-api/sdk';
+import { createMyApi } from '@my-api/sdk';
 
-const client = new MyApi({
+const client = createMyApi({
   baseUrl: 'https://api.example.com',
 });
 
@@ -169,7 +169,7 @@ npm install @acme/api-client
 ```
 
 ```typescript
-import { Client } from '@acme/api-client';
+import { createClient } from '@acme/api-client';
 ```
 
 SDK-IT generates the client package; your release process still owns versioning
