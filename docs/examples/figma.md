@@ -11,6 +11,7 @@ npx @sdk-it/cli@latest generate typescript \
   --spec https://raw.githubusercontent.com/figma/rest-api-spec/refs/heads/main/openapi/openapi.yaml \
   --output ./src/generated/figma \
   --name Figma \
+  --package-name @acme/figma \
   --mode minimal
 ```
 

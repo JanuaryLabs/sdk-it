@@ -37,6 +37,7 @@ npx @sdk-it/cli@latest generate typescript \
   --spec https://api.openstatus.dev/openapi.yaml \
   --output ./src/openstatus \
   --name OpenStatus \
+  --package-name @acme/open-status \
   --mode minimal
 ```
 

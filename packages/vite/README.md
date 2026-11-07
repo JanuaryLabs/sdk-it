@@ -20,11 +20,15 @@ export default defineConfig({
     sdkIt('./openapi.yaml', {
       output: './src/sdk',
       name: 'Example',
+      packageName: '@acme/example-client',
       mode: 'minimal',
     }),
   ],
 });
 ```
+
+The settings are the options of `generate` from `@sdk-it/typescript`, so `name`
+and `packageName` are required.
 
 Relative paths are resolved from Vite's project root. Generation runs at build
 start. During development, the plugin watches the specification file and each

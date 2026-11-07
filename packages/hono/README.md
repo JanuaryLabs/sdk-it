@@ -260,6 +260,7 @@ await writeFile('openapi.json', JSON.stringify(spec, null, 2));
 await generate(spec, {
   output: resolve('client'),
   name: 'MyApi',
+  packageName: '@acme/my-api',
 });
 ```
 

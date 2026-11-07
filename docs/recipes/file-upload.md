@@ -110,6 +110,7 @@ console.log('Generating TypeScript SDK...');
 await generate(spec, {
   output: resolve('client'),
   name: 'Client',
+  packageName: '@acme/client',
 });
 
 console.log('SDK generated successfully!');

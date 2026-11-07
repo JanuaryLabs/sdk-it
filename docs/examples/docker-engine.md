@@ -12,6 +12,7 @@ npx @sdk-it/cli@latest generate typescript \
   --spec https://docs.docker.com/reference/api/engine/version/v1.48.yaml \
   --output ./src/generated/docker-engine \
   --name DockerEngine \
+  --package-name @acme/docker-engine \
   --mode minimal
 ```
 

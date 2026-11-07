@@ -159,6 +159,7 @@ const spec: Parameters<typeof generate>[0] = {
 await generate(spec, {
   output: './generated-sdk',
   name: 'Backend',
+  packageName: '@acme/backend-client',
 });
 ```
 

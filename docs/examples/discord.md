@@ -11,6 +11,7 @@ npx @sdk-it/cli@latest generate typescript \
   --spec https://raw.githubusercontent.com/discord/discord-api-spec/refs/heads/main/specs/openapi.json \
   --output ./src/generated/discord \
   --name Discord \
+  --package-name @acme/discord \
   --mode minimal
 ```
 

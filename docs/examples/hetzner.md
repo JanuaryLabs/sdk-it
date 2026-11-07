@@ -11,6 +11,7 @@ npx @sdk-it/cli@latest generate typescript \
   --spec https://raw.githubusercontent.com/MaximilianKoestler/hcloud-openapi/refs/heads/main/openapi/hcloud.json \
   --output ./src/generated/hetzner \
   --name Hetzner \
+  --package-name @acme/hetzner \
   --mode minimal
 ```
 

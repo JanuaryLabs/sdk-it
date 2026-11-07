@@ -11,6 +11,7 @@ npx @sdk-it/cli@latest generate typescript \
   --spec https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/main/openapi.yaml \
   --output ./src/generated/openai \
   --name OpenAI \
+  --package-name @acme/openai \
   --mode minimal
 ```
 
