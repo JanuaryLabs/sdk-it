@@ -49,7 +49,7 @@ void test('each request body content type selects its dispatcher call', async ()
     ),
   };
 
-  await generate(spec, { output, mode: 'minimal' });
+  await generate(spec, { output, name: 'Uploads', mode: 'minimal' });
 
   const client = await readFile(join(output, 'lib/api/uploads.dart'), 'utf8');
   assert.deepEqual(
@@ -92,7 +92,7 @@ void test('a content type with a parameter that has no value generates a json ca
     },
   };
 
-  await generate(spec, { output, mode: 'minimal' });
+  await generate(spec, { output, name: 'Uploads', mode: 'minimal' });
 
   const client = await readFile(join(output, 'lib/api/notes.dart'), 'utf8');
   assert.equal(dispatcherCallOf(client, 'createNote'), 'json');

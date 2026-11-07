@@ -51,7 +51,7 @@ void test.each([undefined, true, false] as const, (cleanup) =>
         },
       },
     };
-    await generate(spec, { output });
+    await generate(spec, { output, name: 'Health' });
     const oldApi = await readFile(join(output, 'lib/api/health.dart'), 'utf8');
     const oldModel = await readFile(
       join(output, 'lib/models/health_details.dart'),
@@ -79,7 +79,7 @@ void test.each([undefined, true, false] as const, (cleanup) =>
 
     await generate(
       { openapi: '3.1.0', info: spec.info, paths: {} },
-      { output, cleanup },
+      { output, name: 'Health', cleanup },
     );
 
     if (cleanup === false) {
@@ -113,7 +113,7 @@ void test.each([undefined, true, false] as const, (cleanup) =>
       metadata.userFiles,
     );
     const client = await readFile(join(output, 'lib/package.dart'), 'utf8');
-    assert.match(client, /class Client/);
+    assert.match(client, /class Health /);
     assert.doesNotMatch(client, /HealthClient|api\/health\.dart/);
     assert.deepEqual(
       JSON.parse(await readFile(join(output, 'openapi.json'), 'utf8')).paths,

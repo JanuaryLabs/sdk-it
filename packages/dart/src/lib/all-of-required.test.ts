@@ -110,7 +110,7 @@ void test('allOf keeps every part required wherever the schema appears', async (
     },
   };
 
-  await generate(spec, { output });
+  await generate(spec, { output, name: 'Shapes' });
 
   const sources = await dartSources(join(output, 'lib'));
   const optionalFields = [...sources.matchAll(/final String\? (\w+)/g)].map(

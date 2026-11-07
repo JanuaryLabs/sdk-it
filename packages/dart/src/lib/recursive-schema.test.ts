@@ -53,7 +53,7 @@ void test('a self-referencing array component generates instead of recursing for
     },
   };
 
-  await generate(spec, { output });
+  await generate(spec, { output, name: 'Trees' });
 
   const message = await readFile(
     join(output, 'lib/outputs/message.dart'),

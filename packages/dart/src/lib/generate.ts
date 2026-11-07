@@ -42,7 +42,7 @@ export async function generate(
   settings: {
     output: string;
     cleanup?: boolean;
-    name?: string;
+    name: string;
     pagination?: PaginationConfig | false;
     writer?: Writer;
     readFolder?: ReadFolderFn;
@@ -63,7 +63,7 @@ export async function generate(
     true,
   );
 
-  const clientName = settings.name || 'Client';
+  const clientName = settings.name;
   const output = join(settings.output, 'lib');
   const { writer, files: writtenFiles } = createWriterProxy(
     settings.writer ?? writeFiles,
@@ -248,9 +248,7 @@ class Options {
     'pubspec.yaml': {
       ignoreIfExists: true,
       content: yaml.stringify({
-        name: settings.name
-          ? `${snakecase(clientName.toLowerCase())}_sdk`
-          : 'sdk',
+        name: `${snakecase(clientName.toLowerCase())}_sdk`,
         version: '0.0.1',
         environment: {
           sdk: '^3.7.2',

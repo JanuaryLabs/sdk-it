@@ -30,10 +30,11 @@ void test.each(['new', 'nested', 'existing'] as const, (directory) =>
       },
       {
         output,
+        name: 'Empty',
         formatCode: async ({ output }) => {
           assert.match(
             await readFile(join(output, 'package.dart'), 'utf8'),
-            /class Client/,
+            /class Empty /,
           );
           formattedOutput = output;
         },
@@ -74,7 +75,7 @@ void test.each(['new', 'nested', 'existing'] as const, (directory) =>
         'My SDK documentation',
       );
     } else {
-      assert.match(pubspec, /name: sdk/);
+      assert.match(pubspec, /name: empty_sdk/);
       assert.match(pubspec, /dependencies:/);
     }
   }),

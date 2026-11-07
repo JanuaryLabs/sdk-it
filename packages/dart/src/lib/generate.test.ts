@@ -170,6 +170,7 @@ test('generate writes metadata.json through the caller writer', async () => {
     },
     {
       output,
+      name: 'Pets',
       writer: async (folder, contents) => {
         for (const file of Object.keys(contents)) {
           written.push(relative(output, join(folder, file)));

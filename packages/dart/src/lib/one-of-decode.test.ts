@@ -83,7 +83,11 @@ void test(
     await using workspace = await new TemporaryFiles().directory(
       'sdk-it-dart-one-of-',
     );
-    await generate(spec, { output: workspace.path, mode: 'full' });
+    await generate(spec, {
+      output: workspace.path,
+      name: 'Shapes',
+      mode: 'full',
+    });
     await writeFile(
       join(workspace.path, 'main.dart'),
       `import 'dart:convert';
