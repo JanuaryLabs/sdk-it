@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig((config) => ({
-  root: __dirname,
+  root: import.meta.dirname,
   base:
     config.command === 'build' && process.env.VITE_BASE
       ? `/apiref/${process.env.VITE_BASE}/`
