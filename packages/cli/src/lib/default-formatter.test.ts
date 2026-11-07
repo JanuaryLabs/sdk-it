@@ -75,6 +75,8 @@ writeFileSync('installed.txt', existsSync('src/formatted.txt') ? readFileSync('s
             ),
             'generate',
             'typescript',
+            '--name',
+            'Formatter',
             '--spec',
             spec,
             '--output',

@@ -115,6 +115,8 @@ writeFileSync('installed.txt', readFileSync('src/formatted.txt', 'utf8'));
             ),
             'generate',
             generator.language,
+            '--name',
+            'Formatter',
             '--spec',
             spec,
             '--output',

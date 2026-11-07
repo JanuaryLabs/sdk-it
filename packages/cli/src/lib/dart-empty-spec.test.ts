@@ -49,6 +49,8 @@ await writeFile(join(process.env.SDK_IT_OUTPUT, 'formatted.txt'), client);
         ),
         'generate',
         'dart',
+        '--name',
+        'Empty',
         '--spec',
         spec,
         '--output',
@@ -64,11 +66,11 @@ await writeFile(join(process.env.SDK_IT_OUTPUT, 'formatted.txt'), client);
     assert.equal(result.status, 0, result.stderr);
     assert.match(
       await readFile(join(output, 'lib', 'formatted.txt'), 'utf8'),
-      /class Client/,
+      /class Empty/,
     );
     assert.match(
       await readFile(join(output, 'pubspec.yaml'), 'utf8'),
-      /name: client_sdk/,
+      /name: empty_sdk/,
     );
     assert.deepEqual(
       JSON.parse(await readFile(join(output, 'openapi.json'), 'utf8')).paths,

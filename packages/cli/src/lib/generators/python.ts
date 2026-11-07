@@ -16,7 +16,7 @@ export default new Command('python')
   .description('Generate Python SDK')
   .addOption(specOption.makeOptionMandatory(true))
   .addOption(outputOption.makeOptionMandatory(true))
-  .option('-n, --name <n>', 'Name of the generated client', 'Client')
+  .requiredOption('-n, --name <name>', 'Name of the generated client')
   .option('-v, --verbose', 'Verbose output', false)
   .option('--formatter <formatter>', 'Formatter to use for the generated code')
   .action(async (options: PythonOptions) => {

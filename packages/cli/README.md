@@ -61,7 +61,7 @@ npx @sdk-it/cli@latest generate typescript [options]
 | -------------------------- | ------------------------------------------------------------ | --------- |
 | `--spec`, `-s`             | Local path or remote URL to an OpenAPI JSON or YAML document | Required  |
 | `--output`, `-o`           | Output directory                                             | Required  |
-| `--name`, `-n`             | Name in the generated exports, such as `create<Name>`        | `Client`  |
+| `--name`, `-n`             | Name in the generated exports, such as `create<Name>`        | Required  |
 | `--mode`, `-m`             | `minimal` source files or a `full` standalone project        | `minimal` |
 | `--useTsExtension [value]` | Include `.ts` in generated imports                           | `true`    |
 | `--formatter <command>`    | Command used to format the generated source directory        |           |
@@ -81,6 +81,7 @@ For a custom formatter, include the generated path explicitly:
 npx @sdk-it/cli@latest generate typescript \
   --spec ./openapi.json \
   --output ./src/generated/api \
+  --name MyApi \
   --formatter "prettier ./src/generated/api --write"
 ```
 

@@ -2,12 +2,13 @@ import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import type { OpenAPISecuritySchemeObject } from '@sdk-it/core';
+import { type OpenAPISecuritySchemeObject, pascalcase } from '@sdk-it/core';
 import type { MiddlewareSecurityRule } from '@sdk-it/generic';
 
 import { generatedPackageManifest } from './compiler.ts';
 
 export interface ProjectConfig {
+  name: string;
   tsconfig: string;
   framework?: 'auto' | 'hono';
   preset?: 'auto' | 'prisma' | 'none';
@@ -57,6 +58,11 @@ export async function loadProjectConfig(
       `Expected ${configPath} to default export an SDK-IT config with a tsconfig path.`,
     );
   }
+  if (typeof config.name !== 'string') {
+    throw new Error(
+      `Expected ${configPath} to set \`name\`, the name of the generated client (name: 'Books' exports createBooks).`,
+    );
+  }
 
   const directory = dirname(configPath);
   return {
@@ -102,6 +108,7 @@ export async function initializeProject(
   const configSource = `import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
+  name: '${pascalcase(basename(projectDirectory))}',
   tsconfig: '${relativeTsconfig}',
 ${projectDirectory === workspaceDirectory ? '' : `  packageName: '${packageName}',\n`}});
 `;

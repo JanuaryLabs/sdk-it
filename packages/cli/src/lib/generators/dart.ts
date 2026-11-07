@@ -22,7 +22,7 @@ export default new Command('dart')
   .description('Generate Dart SDK')
   .addOption(specOption.makeOptionMandatory(true))
   .addOption(outputOption.makeOptionMandatory(true))
-  .option('-n, --name <name>', 'Name of the generated client', 'Client')
+  .requiredOption('-n, --name <name>', 'Name of the generated client')
   .option(
     '--pagination <pagination>',
     'Configure pagination (e.g., "false", "true", "guess=false")',

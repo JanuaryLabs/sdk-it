@@ -10,12 +10,14 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { test } from 'node:test';
 import { setTimeout } from 'node:timers/promises';
+import { pathToFileURL } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
 
 import { generateProject, initializeProject } from '@sdk-it/cli';
+import { pascalcase } from '@sdk-it/core';
 import { workspaceDirectory } from '@sdk-it/testing';
 
 const repoRoot = join(import.meta.dirname, '..', '..', '..', '..');
@@ -54,6 +56,39 @@ test('help identifies sdk-it and exposes the nested generators', () => {
     /^Usage: sdk-it generate typescript\|ts \[options\]/,
   );
   assert.match(typescriptHelp.stdout, /--spec <spec>/);
+});
+
+test('sdk-it generate typescript without --name fails and writes nothing', async () => {
+  await using workspace = await new TemporaryFiles().directory(
+    'sdk-it-unnamed-client-',
+  );
+  const spec = join(workspace.path, 'openapi.json');
+  const output = join(workspace.path, 'client');
+  writeFileSync(
+    spec,
+    JSON.stringify({
+      openapi: '3.1.0',
+      info: { title: 'Unnamed', version: '1.0.0' },
+      paths: {},
+    }),
+  );
+
+  const result = runCli(
+    workspace.path,
+    'generate',
+    'typescript',
+    '--spec',
+    spec,
+    '--output',
+    output,
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /required option '-n, --name <name>' not specified/,
+  );
+  assert.equal(existsSync(output), false);
 });
 
 async function createHonoWorkspace() {
@@ -224,6 +259,7 @@ test('generateProject creates a client from a Hono TypeScript project', async ()
   await using project = await createHonoWorkspace();
   const { output, tsconfig } = project;
   await generateProject({
+    name: 'Books',
     tsconfig,
     output,
   });
@@ -235,7 +271,7 @@ test('generateProject creates a client from a Hono TypeScript project', async ()
 test("generateProject detects Hono when framework is explicitly 'auto'", async () => {
   await using project = await createHonoWorkspace();
   const { output, tsconfig } = project;
-  await generateProject({ tsconfig, output, framework: 'auto' });
+  await generateProject({ name: 'Books', tsconfig, output, framework: 'auto' });
 
   const endpoint = readFileSync(join(output, 'src', 'api', 'books.ts'), 'utf8');
   assert.match(endpoint, /"GET \/books"/);
@@ -256,7 +292,7 @@ test('generated project client is directly importable by Node.js', async () => {
       join(consumer.path, 'node_modules', dependency),
     );
   }
-  await generateProject({ tsconfig: project.tsconfig, output });
+  await generateProject({ name: 'Books', tsconfig: project.tsconfig, output });
 
   const manifest = JSON.parse(
     readFileSync(join(output, 'package.json'), 'utf8'),
@@ -274,7 +310,7 @@ test('generated project client is directly importable by Node.js', async () => {
     [
       '--input-type=module',
       '--eval',
-      `import('@sdk-it/client').then(({ createClient }) => console.log(typeof createClient))`,
+      `import('@sdk-it/client').then(({ createBooks }) => console.log(typeof createBooks))`,
     ],
     { cwd: consumer.path, encoding: 'utf8' },
   );
@@ -292,6 +328,7 @@ test('loadProjectConfig finds a typed config and resolves its paths', async () =
 import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
+  name: 'Books',
   tsconfig: './tsconfig.json',
   securitySchemes: {
     bearer: { type: 'http', scheme: 'bearer' },
@@ -311,6 +348,7 @@ export default defineConfig({
     cwd: join(workspace, 'src'),
   });
   assert.deepEqual(config, {
+    name: 'Books',
     tsconfig: join(workspace, 'tsconfig.json'),
     output: join(workspace, '.sdk-it'),
     securitySchemes: {
@@ -328,6 +366,26 @@ export default defineConfig({
   });
 });
 
+test('loadProjectConfig rejects a config without a client name', async () => {
+  await using project = await createHonoWorkspace();
+  const { path: workspace } = project;
+  const configPath = join(workspace, 'sdk-it.config.ts');
+  writeFileSync(
+    configPath,
+    `
+export default { tsconfig: './tsconfig.json' };
+`,
+  );
+
+  const cli = await import('@sdk-it/cli');
+  await assert.rejects(
+    cli.loadProjectConfig({ cwd: workspace }),
+    new Error(
+      `Expected ${configPath} to set \`name\`, the name of the generated client (name: 'Books' exports createBooks).`,
+    ),
+  );
+});
+
 test('sdk-it generate uses the project config through the CLI', async () => {
   await using project = await createHonoWorkspace();
   const { output, path: workspace } = project;
@@ -337,6 +395,7 @@ test('sdk-it generate uses the project config through the CLI', async () => {
 import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
+  name: 'Books',
   tsconfig: './tsconfig.json',
 });
 `,
@@ -360,6 +419,7 @@ test('sdk-it generate accepts an explicit TypeScript config path', async () => {
 import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
+  name: 'Books',
   tsconfig: './tsconfig.json',
   output: './generated-client',
 });
@@ -454,6 +514,7 @@ app.get(
     `import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
+  name: 'Api',
   tsconfig: './tsconfig.app.json',
   packageName: '@acme/api-client',
 });
@@ -530,12 +591,16 @@ apps/api/.sdk-it/*
     readFileSync(join(project, '.sdk-it', 'package.json'), 'utf8'),
     stubManifest,
   );
+  const sdk = await import(
+    pathToFileURL(join(project, '.sdk-it', 'dist', 'index.js')).href
+  );
+  assert.equal(typeof sdk.createApi, 'function');
 });
 
 test('generateProject detects a custom Prisma client and maps Decimal to string', async () => {
   await using project = await createPrismaHonoWorkspace();
   const { output, tsconfig } = project;
-  await generateProject({ tsconfig, output });
+  await generateProject({ name: 'Books', tsconfig, output });
 
   const generatedOutput = readFileSync(
     join(output, 'src', 'outputs', 'list-books.ts'),
@@ -547,7 +612,7 @@ test('generateProject detects a custom Prisma client and maps Decimal to string'
 test("generateProject applies preset: 'prisma' when the client resolves", async () => {
   await using project = await createPrismaHonoWorkspace();
   const { output, tsconfig } = project;
-  await generateProject({ tsconfig, output, preset: 'prisma' });
+  await generateProject({ name: 'Books', tsconfig, output, preset: 'prisma' });
 
   const generatedOutput = readFileSync(
     join(output, 'src', 'outputs', 'list-books.ts'),
@@ -561,7 +626,7 @@ test("generateProject skips Prisma detection with preset: 'none'", async () => {
     enumSchema: false,
   });
   const { output, tsconfig } = project;
-  await generateProject({ tsconfig, output, preset: 'none' });
+  await generateProject({ name: 'Books', tsconfig, output, preset: 'none' });
 
   const generatedOutput = readFileSync(
     join(output, 'src', 'outputs', 'list-books.ts'),
@@ -575,7 +640,7 @@ test("generateProject rejects preset: 'prisma' when Prisma cannot be resolved", 
   const { output, tsconfig } = project;
 
   await assert.rejects(
-    generateProject({ tsconfig, output, preset: 'prisma' }),
+    generateProject({ name: 'Books', tsconfig, output, preset: 'prisma' }),
     new Error(
       `Prisma preset was requested, but no Prisma client import was found in ${tsconfig}. Run prisma generate or set preset to 'none'.`,
     ),
@@ -611,6 +676,7 @@ test('initializeProject preserves repository settings and is idempotent', async 
     `import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
+  name: '${pascalcase(basename(workspace))}',
   tsconfig: './tsconfig.json',
 });
 `,
@@ -656,18 +722,18 @@ test('initializeProject validates the tsconfig before modifying repository files
 test('generateProject does not rewrite an unchanged client package', async () => {
   await using project = await createHonoWorkspace();
   const { output, tsconfig } = project;
-  await generateProject({ tsconfig, output });
+  await generateProject({ name: 'Books', tsconfig, output });
   const manifest = join(output, 'package.json');
   const firstModifiedAt = statSync(manifest).mtimeMs;
 
   await setTimeout(25);
-  await generateProject({ tsconfig, output });
+  await generateProject({ name: 'Books', tsconfig, output });
 
   assert.equal(statSync(manifest).mtimeMs, firstModifiedAt);
 
   const runtimeEntry = join(output, 'dist', 'api', 'books.js');
   rmSync(runtimeEntry);
-  await generateProject({ tsconfig, output });
+  await generateProject({ name: 'Books', tsconfig, output });
   assert.equal(existsSync(runtimeEntry), true);
 });
 
@@ -675,6 +741,7 @@ test('generateProject synchronizes generated package metadata on regeneration', 
   await using project = await createHonoWorkspace();
   const { output, tsconfig } = project;
   await generateProject({
+    name: 'Books',
     tsconfig,
     output,
     packageName: '@example/first-client',
@@ -686,6 +753,7 @@ test('generateProject synchronizes generated package metadata on regeneration', 
   writeFileSync(manifestPath, `${JSON.stringify(staleManifest, null, 2)}\n`);
 
   await generateProject({
+    name: 'Books',
     tsconfig,
     output,
     packageName: '@example/second-client',
@@ -699,6 +767,20 @@ test('generateProject synchronizes generated package metadata on regeneration', 
   });
 });
 
+test('generateProject regenerates the client when its name changes', async () => {
+  await using project = await createHonoWorkspace();
+  const { output, tsconfig } = project;
+  await generateProject({ name: 'Books', tsconfig, output });
+
+  await generateProject({ name: 'Library', tsconfig, output });
+
+  const sdk = await import(
+    pathToFileURL(join(output, 'dist', 'index.js')).href
+  );
+  assert.equal(typeof sdk.createLibrary, 'function');
+  assert.equal(sdk.createBooks, undefined);
+});
+
 test('generateProject rejects a generated client that does not compile and does not cache it', async () => {
   await using project = await createHonoWorkspace();
   const { tsconfig } = project;
@@ -707,7 +789,7 @@ test('generateProject rejects a generated client that does not compile and does 
   );
   const output = outputDirectory.path;
   await assert.rejects(
-    generateProject({ tsconfig, output }),
+    generateProject({ name: 'Books', tsconfig, output }),
     (error: Error) => {
       assert.match(error.message, /^Failed to compile generated client:/);
       assert.match(error.message, /TS2307/);
@@ -735,6 +817,7 @@ test('sdk-it generate exits non-zero when the generated client does not compile'
 import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
+  name: 'Books',
   tsconfig: './tsconfig.json',
   output: ${JSON.stringify(output)},
 });

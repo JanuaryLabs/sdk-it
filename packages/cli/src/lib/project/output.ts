@@ -15,13 +15,13 @@ export async function writeProjectClient(
 ): Promise<void> {
   const output = resolve(config.output ?? '.sdk-it');
   const packageName = config.packageName ?? '@sdk-it/client';
-  const hash = hashProject(openapi, packageName);
+  const hash = hashProject(openapi, config.name, packageName);
   if (await isCurrentGeneratedPackage(output, hash)) return;
 
   await generate(openapi, {
     output,
     mode: 'full',
-    name: 'Client',
+    name: config.name,
     packageName,
     readme: false,
   });

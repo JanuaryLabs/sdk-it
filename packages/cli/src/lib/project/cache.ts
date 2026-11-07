@@ -17,11 +17,12 @@ type ProjectOpenApi = Parameters<typeof generate>[0];
 
 export function hashProject(
   openapi: ProjectOpenApi,
+  name: string,
   packageName: string,
 ): string {
   return hash(
     'sha256',
-    JSON.stringify({ openapi, packageName, projectGeneratorVersions }),
+    JSON.stringify({ openapi, name, packageName, projectGeneratorVersions }),
   );
 }
 

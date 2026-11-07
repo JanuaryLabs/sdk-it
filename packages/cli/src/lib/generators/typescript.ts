@@ -40,7 +40,7 @@ export default new Command('typescript')
     '-m, --mode <mode>',
     'full: generate a full project including package.json and tsconfig.json. useful for monorepo/workspaces minimal: generate only the client sdk',
   )
-  .option('-n, --name <name>', 'Name of the generated client', 'Client')
+  .requiredOption('-n, --name <name>', 'Name of the generated client')
   .option(
     '-f, --framework <framework>',
     'Framework that is integrating with the SDK',
