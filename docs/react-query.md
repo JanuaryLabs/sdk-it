@@ -17,12 +17,15 @@ import {
   createDataHub,
 } from '@datahub/client';
 import {
+  type InfiniteData,
   type MutationFunctionContext,
   QueryClient,
+  type UseInfiniteQueryResult,
   type UseMutationOptions,
   type UseMutationResult,
   type UseQueryOptions,
   type UseQueryResult,
+  useInfiniteQuery,
   useMutation,
   useMutationState,
   useQuery,
@@ -46,6 +49,19 @@ type MutationEndpoints = {
   ]: K extends `${'POST' | 'PUT' | 'PATCH' | 'DELETE'} ${string}` ? K : never;
 }[keyof Endpoints];
 
+type Paged<P> = {
+  hasNextPage(): boolean;
+  getNextPage(options?: { signal?: AbortSignal }): Promise<P>;
+};
+
+type PageEndpoints = {
+  [K in DataEndpoints]: Endpoints[K]['result'] extends Paged<
+    Endpoints[K]['result']
+  >
+    ? K
+    : never;
+}[DataEndpoints];
+
 /**
  * A hook to fetch data from the API
  * @param endpoint - The API endpoint to fetch from (e.g. 'GET /payments')
@@ -65,19 +81,21 @@ export function useData<E extends DataEndpoints>(
   input?: Endpoints[E]['input'],
   options?: Omit<
     UseQueryOptions<
-      Endpoints[E]['output'],
+      Endpoints[E]['result'],
       Endpoints[E]['error'],
-      Endpoints[E]['output']
+      Endpoints[E]['result']
     >,
     'queryFn' | 'meta' | 'queryKey'
   >,
-): UseQueryResult<Endpoints[E]['output'], Endpoints[E]['error']> {
+): UseQueryResult<Endpoints[E]['result'], Endpoints[E]['error']> {
   return useQuery({
     queryKey: [endpoint, JSON.stringify(input)],
     ...options,
     meta: { endpoint, input },
     queryFn: ({ signal }) =>
-      client.request(endpoint, input ?? ({} as never), { signal }),
+      Promise.resolve(
+        client.request(endpoint, input ?? ({} as never), { signal }),
+      ),
   });
 }
 
@@ -101,9 +119,9 @@ export function usePolling<E extends DataEndpoints>(
   options: {
     interval: number;
     enabled?: boolean;
-    shouldStop: (data: Endpoints[E]['output'] | undefined) => boolean;
+    shouldStop: (data: Endpoints[E]['result'] | undefined) => boolean;
   },
-): UseQueryResult<Endpoints[E]['output'], Endpoints[E]['error']> {
+): UseQueryResult<Endpoints[E]['result'], Endpoints[E]['error']> {
   const enabled = options.enabled ?? true;
 
   return useData(endpoint, input, {
@@ -116,19 +134,66 @@ export function usePolling<E extends DataEndpoints>(
   });
 }
 
+/**
+ * A hook to fetch the pages of a paginated GET endpoint, one page at a time.
+ *
+ * @param endpoint - The paginated API endpoint to fetch from (e.g. 'GET /events').
+ * @param input - Input for the first page request.
+ * @returns The infinite query result: `data.pages` holds each page fetched so far.
+ *
+ * @example
+ * const { data, hasNextPage, fetchNextPage } = useInfiniteData('GET /events', {
+ *   limit: 20,
+ * });
+ */
+export function useInfiniteData<E extends PageEndpoints>(
+  endpoint: E,
+  input: Endpoints[E]['input'],
+): UseInfiniteQueryResult<
+  InfiniteData<
+    Endpoints[E]['result'],
+    Paged<Endpoints[E]['result']> | undefined
+  >,
+  Endpoints[E]['error']
+> {
+  return useInfiniteQuery<
+    Endpoints[E]['result'],
+    Endpoints[E]['error'],
+    InfiniteData<
+      Endpoints[E]['result'],
+      Paged<Endpoints[E]['result']> | undefined
+    >,
+    unknown[],
+    Paged<Endpoints[E]['result']> | undefined
+  >({
+    queryKey: [endpoint, JSON.stringify(input), 'pages'],
+    meta: { endpoint, input },
+    initialPageParam: undefined,
+    queryFn: ({ pageParam, signal }) =>
+      pageParam
+        ? pageParam.getNextPage({ signal })
+        : Promise.resolve(client.request(endpoint, input, { signal })),
+    getNextPageParam: (lastPage) => {
+      // PageEndpoints admits only endpoints whose result pages.
+      const page = lastPage as Paged<Endpoints[E]['result']>;
+      return page.hasNextPage() ? page : undefined;
+    },
+  });
+}
+
 type WithMutationFn<E extends keyof Endpoints> = Omit<
-  UseMutationOptions<Endpoints[E]['output'], Endpoints[E]['error'], unknown>,
+  UseMutationOptions<Endpoints[E]['result'], Endpoints[E]['error'], unknown>,
   'mutationFn' | 'mutationKey'
 > & {
   invalidate?: DataEndpoints[];
   mutationFn: (
-    dispatch: (input: Endpoints[E]['input']) => Promise<Endpoints[E]['output']>,
+    dispatch: (input: Endpoints[E]['input']) => Promise<Endpoints[E]['result']>,
     context: MutationFunctionContext,
-  ) => Promise<Endpoints[E]['output'] | undefined>;
+  ) => Promise<Endpoints[E]['result'] | undefined>;
 };
 type WithoutMutationFn<E extends keyof Endpoints> = Omit<
   UseMutationOptions<
-    Endpoints[E]['output'],
+    Endpoints[E]['result'],
     Endpoints[E]['error'],
     Endpoints[E]['input']
   >,
@@ -138,7 +203,7 @@ type WithoutMutationFn<E extends keyof Endpoints> = Omit<
 };
 
 export type UseAction<E extends MutationEndpoints> = UseMutationResult<
-  Endpoints[E]['output'],
+  Endpoints[E]['result'],
   Endpoints[E]['error'],
   Endpoints[E]['input']
 >;
@@ -176,7 +241,7 @@ export type UseAction<E extends MutationEndpoints> = UseMutationResult<
 export function useAction<E extends MutationEndpoints>(
   endpoint: E,
   options: WithMutationFn<E>,
-): UseMutationResult<Endpoints[E]['output'], Endpoints[E]['error'], void>;
+): UseMutationResult<Endpoints[E]['result'], Endpoints[E]['error'], void>;
 
 /**
  * @overload
@@ -200,7 +265,7 @@ export function useAction<E extends MutationEndpoints>(
   endpoint: E,
   options?: WithoutMutationFn<E>,
 ): UseMutationResult<
-  Endpoints[E]['output'],
+  Endpoints[E]['result'],
   Endpoints[E]['error'],
   Endpoints[E]['input']
 >;
@@ -208,12 +273,12 @@ export function useAction<E extends MutationEndpoints>(
   endpoint: E,
   options?: WithMutationFn<E> | WithoutMutationFn<E>,
 ): UseMutationResult<
-  Endpoints[E]['output'],
+  Endpoints[E]['result'],
   Endpoints[E]['error'],
   Endpoints[E]['input']
 > {
   return useMutation<
-    Endpoints[E]['output'],
+    Endpoints[E]['result'],
     Endpoints[E]['error'],
     Endpoints[E]['input'],
     unknown
@@ -221,14 +286,14 @@ export function useAction<E extends MutationEndpoints>(
     ...options,
     mutationKey: [endpoint],
     meta: { ...options?.meta, endpoint },
-    mutationFn: async (input, context) => {
+    mutationFn: (input, context) => {
       if (options && 'mutationFn' in options && options.mutationFn) {
         return options.mutationFn(
-          (input) => client.request(endpoint, input),
+          (input) => Promise.resolve(client.request(endpoint, input)),
           context,
-        ) as Promise<Endpoints[E]['output']>;
+        ) as Promise<Endpoints[E]['result']>;
       }
-      return (await client.request(endpoint, input)) as Endpoints[E]['output'];
+      return Promise.resolve(client.request(endpoint, input));
     },
     onSuccess: async (data, variables, onMutateResult, context) => {
       for (const endpoint of options?.invalidate ?? []) {
@@ -268,19 +333,21 @@ export function fetchData<E extends DataEndpoints>(
   input?: Endpoints[E]['input'],
   options?: Omit<
     UseQueryOptions<
-      Endpoints[E]['output'],
+      Endpoints[E]['result'],
       Endpoints[E]['error'],
-      Endpoints[E]['output']
+      Endpoints[E]['result']
     >,
     'queryFn' | 'meta' | 'queryKey'
   >,
-): Promise<Endpoints[E]['output']> {
+): Promise<Endpoints[E]['result']> {
   return queryClient.fetchQuery({
     queryKey: [endpoint, JSON.stringify(input)],
     ...options,
     meta: { endpoint, input },
     queryFn: ({ signal }) =>
-      client.request(endpoint, input ?? ({} as never), { signal }),
+      Promise.resolve(
+        client.request(endpoint, input ?? ({} as never), { signal }),
+      ),
   });
 }
 
@@ -323,10 +390,45 @@ function Payments() {
 
   return (
     <ul>
-      {payments.map((payment) => (
+      {payments?.map((payment) => (
         <li key={payment.id}>{payment.amount}</li>
       ))}
     </ul>
+  );
+}
+```
+
+- Fetch a paginated endpoint page by page using the `useInfiniteData` hook. Each page is the response body with the paging methods, so the next page comes from the last page's `getNextPage()`.
+
+```tsx
+import { useInfiniteData } from './use-client.ts';
+
+function Events() {
+  const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } =
+    useInfiniteData('GET /events', { limit: 20 });
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <>
+      <ul>
+        {data?.pages
+          .flatMap((page) => page.data)
+          .map((event) => (
+            <li key={event}>{event}</li>
+          ))}
+      </ul>
+      {hasNextPage && (
+        <button
+          disabled={isFetchingNextPage}
+          onClick={() => void fetchNextPage()}
+        >
+          {isFetchingNextPage ? 'Loading...' : 'Load more'}
+        </button>
+      )}
+    </>
   );
 }
 ```

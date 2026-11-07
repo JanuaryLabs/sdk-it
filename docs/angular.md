@@ -18,6 +18,8 @@ Copy the following code into your project.
 import {
   type PromiseResourceOptions,
   type Signal,
+  computed,
+  linkedSignal,
   resource,
 } from '@angular/core';
 
@@ -37,6 +39,19 @@ type MutationEndpoints = {
   ]: K extends `${'POST' | 'PUT' | 'PATCH' | 'DELETE'} ${string}` ? K : never;
 }[keyof Endpoints];
 
+type Paged<P> = {
+  hasNextPage(): boolean;
+  getNextPage(options?: { signal?: AbortSignal }): Promise<P>;
+};
+
+type PageEndpoints = {
+  [K in DataEndpoints]: Endpoints[K]['result'] extends Paged<
+    Endpoints[K]['result']
+  >
+    ? K
+    : never;
+}[DataEndpoints];
+
 type RequestOptions = NonNullable<Parameters<typeof client.request>[2]>;
 
 export function useData<E extends DataEndpoints>(
@@ -44,7 +59,7 @@ export function useData<E extends DataEndpoints>(
   input?: Endpoints[E]['input'] | Signal<Endpoints[E]['input'] | undefined>,
   options?: Omit<
     PromiseResourceOptions<
-      Endpoints[E]['output'],
+      Endpoints[E]['result'],
       Endpoints[E]['input'] | undefined
     >,
     'loader' | 'params' | 'stream'
@@ -57,15 +72,51 @@ export function useData<E extends DataEndpoints>(
       ? input
       : () => input ?? ({} as Endpoints[E]['input']);
 
-  return resource<Endpoints[E]['output'], Endpoints[E]['input'] | undefined>({
+  return resource<Endpoints[E]['result'], Endpoints[E]['input'] | undefined>({
     ...resourceOptions,
     params,
     loader: ({ abortSignal, params }) =>
-      client.request(endpoint, params, {
-        signal: abortSignal,
-        headers,
-      }),
+      Promise.resolve(
+        client.request(endpoint, params, {
+          signal: abortSignal,
+          headers,
+        }),
+      ),
   });
+}
+
+export function useInfiniteData<E extends PageEndpoints>(
+  endpoint: E,
+  input?: Endpoints[E]['input'] | Signal<Endpoints[E]['input'] | undefined>,
+) {
+  const first = useData(endpoint, input);
+  const firstPage = computed(() =>
+    first.hasValue() ? first.value() : undefined,
+  );
+  // A new first page starts the list again.
+  const nextPages = linkedSignal({
+    source: firstPage,
+    computation: (): Endpoints[E]['result'][] => [],
+  });
+  const pages = computed(() => {
+    const page = firstPage();
+    return page ? [page, ...nextPages()] : [];
+  });
+  // PageEndpoints admits only endpoints whose result pages.
+  const lastPage = computed(
+    () => pages().at(-1) as Paged<Endpoints[E]['result']> | undefined,
+  );
+  const hasMore = computed(() => lastPage()?.hasNextPage() ?? false);
+
+  async function loadMore() {
+    const page = lastPage();
+    if (!page?.hasNextPage()) return;
+    const next = await page.getNextPage();
+    // Drop the page if the list changed while it loaded.
+    if (lastPage() === page) nextPages.update((pages) => [...pages, next]);
+  }
+
+  return { resource: first, pages, hasMore, loadMore };
 }
 
 export function useAction<E extends MutationEndpoints>(endpoint: E) {
@@ -160,6 +211,35 @@ export class FilteredPaymentsComponent {
   selectChat(chat: { id: string }) {
     this.id.set(chat.id);
   }
+}
+```
+
+### `useInfiniteData`
+
+- Load a paginated endpoint page by page. Each page is the response body with the paging methods, so `loadMore()` fetches the next page with the last page's `getNextPage()`.
+
+```ts
+import { Component } from '@angular/core';
+
+import { useInfiniteData } from './api';
+
+@Component({
+  selector: 'events-list',
+  template: `
+    <ul>
+      @for (page of events.pages(); track $index) {
+        @for (event of page.data; track event) {
+          <li>{{ event }}</li>
+        }
+      }
+    </ul>
+    @if (events.hasMore()) {
+      <button (click)="events.loadMore()">Load more</button>
+    }
+  `,
+})
+export class EventsListComponent {
+  events = useInfiniteData('GET /events', { limit: 20 });
 }
 ```
 
