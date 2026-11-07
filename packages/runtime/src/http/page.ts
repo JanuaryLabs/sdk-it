@@ -47,15 +47,25 @@ export interface PageRequestOptions {
   signal?: AbortSignal;
 }
 
-export interface PageControls<Data, Item> extends AsyncIterable<Item> {
+/**
+ * The way from a page to the next. A next page has the type of the page it
+ * comes from, so generic code over one endpoint keeps that endpoint's type.
+ */
+export interface PageControls<Item> extends AsyncIterable<Item> {
   hasNextPage(): boolean;
-  getNextPage(options?: PageRequestOptions): Promise<Page<Data, Item>>;
+  getNextPage<P extends PageControls<unknown>>(
+    this: P,
+    options?: PageRequestOptions,
+  ): Promise<P>;
   /** This page, then each following page. */
-  iterPages(options?: PageRequestOptions): AsyncGenerator<Page<Data, Item>>;
+  iterPages<P extends PageControls<unknown>>(
+    this: P,
+    options?: PageRequestOptions,
+  ): AsyncGenerator<P>;
 }
 
 /** A page: the response body's fields, and the way to the next page. */
-export type Page<Data, Item> = Data & PageControls<Data, Item>;
+export type Page<Data, Item> = Data & PageControls<Item>;
 
 type FetchPage = (
   input: Record<string, unknown>,

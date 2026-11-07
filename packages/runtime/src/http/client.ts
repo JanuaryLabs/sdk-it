@@ -92,23 +92,35 @@ type DispatchReturn<A extends Api, E extends keyof A['routes']> = Awaited<
 export type InferData<A extends Api, E extends keyof A['routes']> =
   DispatchReturn<A, E> extends APIResponse<infer D> ? D : DispatchReturn<A, E>;
 
-/** What `client.request(endpoint)` returns: a PagePromise for an operation that pages. */
-export type RequestResult<
-  A extends Api,
-  E extends keyof A['routes'],
-> = A['routes'][E] extends { pagination: { items: infer P extends string } }
-  ? PagePromise<
-      Page<InferData<A, E>, ItemOf<InferData<A, E>, P>>,
-      ItemOf<InferData<A, E>, P>
-    >
-  : Promise<InferData<A, E>>;
+/**
+ * What `request()` resolves to: the first Page for an operation that pages,
+ * its output otherwise. Distributive over `E`, so for a generic `E` TypeScript
+ * reads it through `E`'s constraint.
+ */
+type RouteResult<A extends Api, E extends keyof A['routes']> = E extends unknown
+  ? A['routes'][E] extends { pagination: { items: infer P extends string } }
+    ? Page<InferData<A, E>, ItemOf<InferData<A, E>, P>>
+    : InferData<A, E>
+  : never;
+
+/**
+ * What `client.request(endpoint)` returns: a promise of the result that, for
+ * an operation that pages, is also an async iterable of every item. An
+ * interface, not an intersection, so TypeScript awaits it for a generic
+ * endpoint too.
+ */
+export interface RequestPromise<Result> extends Promise<Result> {
+  [Symbol.asyncIterator]: Result extends AsyncIterable<infer Item>
+    ? () => AsyncIterator<Item>
+    : undefined;
+}
 
 export type EndpointsOf<A extends Api> = {
   [E in keyof A['routes']]: {
     input: z.input<A['routes'][E]['schema']>;
     output: InferData<A, E>;
     /** What `request()` resolves to: the first Page for an operation that pages, its output otherwise. */
-    result: Awaited<RequestResult<A, E>>;
+    result: RouteResult<A, E>;
     error:
       | Extract<Unionize<A['routes'][E]['output']>, ProblematicResponse>
       | ParseError<A['routes'][E]['schema']>;
@@ -183,7 +195,7 @@ export class Client<A extends Api> {
     endpoint: E,
     input: z.input<A['routes'][E]['schema']>,
     options?: RequestOptions,
-  ): RequestResult<A, E>;
+  ): RequestPromise<EndpointsOf<A>[E]['result']>;
   request(
     endpoint: string,
     input: unknown,
