@@ -204,7 +204,7 @@ export async function generate(
   settings: TypeScriptGeneratorOptions,
 ): Promise<{ packageName: string }> {
   const options: RenderOptions = {
-    name: settings.name || 'client',
+    name: settings.name,
     style: { name: 'github', ...settings.style },
     useTsExtension: settings.useTsExtension ?? true,
     pagination: settings.pagination,
@@ -260,9 +260,7 @@ export async function generate(
 
   const packageName =
     settings.packageName ??
-    (settings.name
-      ? `@${spinalcase(settings.name.trim().toLowerCase())}/sdk`
-      : 'sdk');
+    `@${spinalcase(settings.name.trim().toLowerCase())}/sdk`;
   if (settings.mode === 'full') {
     const configFiles: WriteContent = {
       'package.json': {

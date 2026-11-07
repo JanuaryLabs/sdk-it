@@ -78,6 +78,7 @@ const spec: OpenAPIObject = {
 test('generated SDK imports zod by name so bundlers can drop the parts it does not use', async () => {
   await using workspace = await new TemporaryFiles().directory('zod-import-');
   await generate(spec, {
+    name: 'Shop',
     output: workspace.path,
     mode: 'minimal',
     readme: false,

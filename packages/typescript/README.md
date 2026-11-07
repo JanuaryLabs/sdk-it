@@ -28,7 +28,7 @@ await generate(spec, {
 });
 ```
 
-`loadSpec` accepts a URL or a local path and reads JSON or YAML. `name`
+`loadSpec` accepts a URL or a local path and reads JSON or YAML. The required `name`
 sets the names of the generated exports, such as `createOpenStatus` and
 `OpenStatusEndpoints`. `minimal` mode writes client source
 files directly to `output`.

@@ -44,6 +44,7 @@ test('a build generates the SDK from a spec served over http', async () => {
     },
     plugins: [
       sdkIt(`${server.origin}/openapi.json`, {
+        name: 'Example',
         output: join(app, 'sdk'),
         writer: async (dir, contents) => {
           written.push(...Object.values(contents).map(String));

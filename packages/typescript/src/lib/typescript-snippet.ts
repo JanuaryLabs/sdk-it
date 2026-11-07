@@ -30,13 +30,8 @@ export class TypeScriptSnippet implements Generator {
   constructor(spec: IR, settings: TypeScriptGeneratorOptions) {
     this.#spec = spec;
     this.#snippetEmitter = new SnippetEmitter(spec);
-    this.#clientName = settings.name?.trim()
-      ? pascalcase(settings.name)
-      : 'Client';
-
-    this.#packageName = settings.name
-      ? `@${spinalcase(this.#clientName.toLowerCase())}/sdk`
-      : 'sdk';
+    this.#clientName = pascalcase(settings.name.trim());
+    this.#packageName = `@${spinalcase(this.#clientName.toLowerCase())}/sdk`;
   }
   succinct(
     entry: OperationEntry,

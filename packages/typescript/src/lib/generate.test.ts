@@ -2320,6 +2320,7 @@ describe('generate — model names', () => {
       'generate-reserved-lowercase-',
     );
     await generate(specWithModels(['ok', 'not_found', 'client_client']), {
+      name: 'Client',
       output: directory.path,
       readme: false,
       mode: 'full',
@@ -2347,6 +2348,7 @@ void [createClient({ baseUrl: 'https://shop.test' }), NotFound];
     );
     await assert.rejects(
       generate(specWithModels(['pet', 'Pet']), {
+        name: 'Shop',
         output: directory.path,
         readme: false,
       }),

@@ -83,6 +83,7 @@ void test.each(['object', 'file', 'function'] as const, (source) =>
               ? 'openapi.json'
               : async () => 'openapi.json',
           {
+            name: 'Example',
             output,
             readme: false,
             formatCode: () => {
@@ -128,6 +129,7 @@ test('concurrent different specs serialize writes and formatting for one output'
     ['getAlpha', 'getBeta', 'getGamma'].map((operation) =>
       buildWith(
         sdkIt(spec(operation), {
+          name: 'Example',
           output: operation === 'getBeta' ? `${output}/.` : output,
           readme: false,
           async writer(directory, contents) {
@@ -182,6 +184,7 @@ void test.each([false, true], (failFirst) =>
     const formatted: string[] = [];
     const firstFailure = new Error('first formatter failed');
     const alpha = sdkIt(spec('getAlpha'), {
+      name: 'Example',
       output,
       readme: false,
       async formatCode() {
@@ -194,6 +197,7 @@ void test.each([false, true], (failFirst) =>
       },
     });
     const beta = sdkIt(spec('getBeta'), {
+      name: 'Example',
       output,
       readme: false,
       formatCode() {

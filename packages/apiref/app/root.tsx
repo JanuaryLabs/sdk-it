@@ -120,6 +120,7 @@ export async function loader({
     }
   > = {};
   const generator = new TypeScriptSnippet(spec, {
+    name: 'Client',
     output: '',
   });
 

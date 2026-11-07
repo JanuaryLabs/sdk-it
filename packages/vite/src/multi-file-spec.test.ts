@@ -104,6 +104,7 @@ function generatedModels() {
 
 function plugin(output: string, writer: ReturnType<typeof generatedModels>) {
   return sdkIt('../api/openapi.yaml', {
+    name: 'Example',
     output,
     writer: writer.writer,
     cleanup: false,

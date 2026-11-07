@@ -169,6 +169,7 @@ test('generate writes metadata.json through a writer that keeps files in memory'
   const written: string[] = [];
 
   await generate(petStore(['Pet']), {
+    name: 'Petstore',
     output,
     readme: false,
     writer: async (folder, contents) => {
@@ -188,6 +189,7 @@ test('generate leaves the caller settings unchanged across runs', async () => {
   );
   let writes = 0;
   const settings = {
+    name: 'Petstore',
     output: directory.path,
     readme: false,
     writer: async (
@@ -212,7 +214,12 @@ test('a regenerated SDK keeps exporting a model the user added', async () => {
   await using directory = await new TemporaryFiles().directory(
     'render-user-file-',
   );
-  const settings = { output: directory.path, readme: false, cleanup: false };
+  const settings = {
+    name: 'Petstore',
+    output: directory.path,
+    readme: false,
+    cleanup: false,
+  };
   await generate(petStore(['Pet']), settings);
   writeFileSync(
     join(directory.path, 'models', 'custom.ts'),
@@ -240,7 +247,12 @@ test('without cleanup, a model removed from the spec stays exported', async () =
   await using directory = await new TemporaryFiles().directory(
     'render-stale-file-',
   );
-  const settings = { output: directory.path, readme: false, cleanup: false };
+  const settings = {
+    name: 'Petstore',
+    output: directory.path,
+    readme: false,
+    cleanup: false,
+  };
   const tagExport = /^export \* from '\.\/tag\.ts';$/m;
   await generate(petStore(['Pet', 'Tag']), settings);
   assert.match(
