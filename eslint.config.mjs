@@ -9,9 +9,13 @@ const typescriptSubpaths = {
   group: ['typescript/*'],
   message: typescriptMessage,
 };
-export const typescriptImportBans = {
+const zodSubpathMessage =
+  "Import zod from 'zod'. sdk-it supports zod 4 only, and the 'zod/v3' and 'zod/v4' subpaths are for zod 3 interop.";
+const zodSubpaths = { regex: '^zod/v[34](/|$)', message: zodSubpathMessage };
+const zodSubpathLiteral = 'Literal[value=/^zod\\/v[34](\\/|$)/]';
+export const importBans = {
   paths: [typescriptPath],
-  patterns: [typescriptSubpaths],
+  patterns: [typescriptSubpaths, zodSubpaths],
 };
 
 export default [
@@ -75,23 +79,44 @@ export default [
       '**/*.mjs',
     ],
     rules: {
-      'no-restricted-imports': ['error', typescriptImportBans],
+      'no-restricted-imports': ['error', importBans],
+      // no-restricted-imports reads only import and export declarations.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: `ImportExpression > ${zodSubpathLiteral}.source`,
+          message: zodSubpathMessage,
+        },
+        {
+          selector: `CallExpression[callee.name='require'] > ${zodSubpathLiteral}.arguments`,
+          message: zodSubpathMessage,
+        },
+        {
+          // z.instanceof(Blob) reads the Blob global when the schema is built:
+          // it throws where Blob is missing, and a Blob from another realm or
+          // a polyfill fails instanceof (e62c4e1, docs/recipes/file-upload.md).
+          selector:
+            "CallExpression[callee.object.name='z'][callee.property.name='instanceof'] > Identifier.arguments[name='Blob']",
+          message:
+            'Use z.custom<Blob>() for a binary field. z.instanceof(Blob) needs the Blob global at run time and rejects a Blob from another realm.',
+        },
+      ],
     },
   },
   {
     // A test imports what the package exports, by its package specifier: a
     // class with #private fields from source and the same class from dist are
     // two incompatible types (AGENTS.md 'Test Import Rules'). This entry
-    // restates the TypeScript bans, because a later config replaces the
-    // rule's options.
+    // restates the import bans, because a later config replaces the rule's
+    // options.
     files: ['**/*.test.ts', '**/*.test.tsx'],
     rules: {
       'no-restricted-imports': [
         'error',
         {
-          paths: [typescriptPath],
+          paths: importBans.paths,
           patterns: [
-            typescriptSubpaths,
+            ...importBans.patterns,
             {
               regex: '^\\.\\.?/',
               message:
