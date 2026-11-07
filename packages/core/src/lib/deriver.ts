@@ -15,6 +15,7 @@ import {
   isCallExpression,
   isClassDeclaration,
   isConditionalExpression,
+  isExpression,
   isIdentifier,
   isNewExpression,
   isNoSubstitutionTemplateLiteral,
@@ -729,6 +730,9 @@ export class TypeDeriver {
     }
     if (isNonNullExpression(node)) {
       return this.serializeType(this.checker.getTypeAtLocation(node));
+    }
+    if (isExpression(node)) {
+      return this.serializeType(this.typeOfExpression(node));
     }
 
     this.warn(

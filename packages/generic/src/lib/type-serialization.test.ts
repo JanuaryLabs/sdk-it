@@ -591,7 +591,7 @@ export {};
     );
   });
 
-  test('unhandled expression becomes any without affecting sibling routes', async () => {
+  test('an expression the deriver has no branch for, such as !flag, documents the type the checker gives it', async () => {
     const { paths } = await analyzeWorkspace({
       'index.ts': `
 const app = { get: (..._args: unknown[]) => undefined };
@@ -608,7 +608,10 @@ export {};
 `,
     });
 
-    assert.deepStrictEqual(paths['/x'].get.responses, jsonResponse({}));
+    assert.deepStrictEqual(
+      paths['/x'].get.responses,
+      jsonResponse({ type: 'boolean' }),
+    );
     assert.deepStrictEqual(
       paths['/y'].get.responses,
       jsonResponse({
