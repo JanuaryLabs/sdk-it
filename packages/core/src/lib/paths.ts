@@ -1,5 +1,5 @@
 import type {
-  HeadersObject,
+  HeaderObject,
   OperationObject,
   ParameterObject,
   PathsObject,
@@ -201,30 +201,30 @@ export class Paths {
 
       const existingResponse = responsesObject[item.statusCode];
       if (!existingResponse) {
+        const headers = item.headers
+          .flatMap<[string, string[]]>((header) =>
+            typeof header === 'string'
+              ? [[header, []]]
+              : Object.entries(sortObjectKeys(header)),
+          )
+          // OpenAPI 3.2 Response Object: a response header named Content-Type SHALL be ignored.
+          .filter(([name]) => name.toLowerCase() !== 'content-type');
         responsesObject[item.statusCode] = {
           description: `Response for ${item.statusCode}`,
           content:
             ct !== 'empty' ? { [ct]: { schema: contentSchema } } : undefined,
-          headers: item.headers.length
-            ? item.headers.reduce<HeadersObject>((acc, current) => {
-                const headers =
-                  typeof current === 'string' ? { [current]: [] } : current;
-                const sortedHeaders = Object.entries(sortObjectKeys(headers));
-                return sortedHeaders.reduce<HeadersObject>(
-                  (subAcc, [key, value]) => {
-                    const header: HeadersObject = {
-                      [key]: {
-                        schema: {
-                          type: 'string',
-                          enum: value.length ? value : undefined,
-                        },
-                      },
-                    };
-                    return { ...subAcc, ...header };
+          headers: headers.length
+            ? Object.fromEntries(
+                headers.map(([name, values]): [string, HeaderObject] => [
+                  name,
+                  {
+                    schema: {
+                      type: 'string',
+                      enum: values.length ? values : undefined,
+                    },
                   },
-                  acc,
-                );
-              }, {})
+                ]),
+              )
             : undefined,
         } satisfies ResponseObject;
         continue;

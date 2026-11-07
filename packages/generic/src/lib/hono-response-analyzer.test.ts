@@ -267,7 +267,6 @@ app.get('/report', validate(() => ({})), (c) => {
           content: { 'application/pdf': { schema: { type: 'any' } } },
           headers: {
             "'Content-Type'": { schema: { type: 'string' } },
-            'Content-Type': { schema: { type: 'string' } },
           },
         });
       });
@@ -288,7 +287,6 @@ app.get('/report', validate(() => ({})), (c) => {
           content: { 'application/pdf': { schema: { type: 'any' } } },
           headers: {
             "'Content-Type'": { schema: { type: 'string' } },
-            'Content-Type': { schema: { type: 'string' } },
           },
         });
       });
@@ -311,7 +309,6 @@ app.get('/report', validate(() => ({})), (c) => {
           content: { 'application/pdf': { schema: { type: 'any' } } },
           headers: {
             "'Content-Type'": { schema: { type: 'string' } },
-            'Content-Type': { schema: { type: 'string' } },
           },
         });
       });
@@ -334,7 +331,6 @@ app.get('/report', validate(() => ({})), (c) => {
           content: { 'application/pdf': { schema: { type: 'any' } } },
           headers: {
             "'Content-Type'": { schema: { type: 'string' } },
-            'Content-Type': { schema: { type: 'string' } },
           },
         });
       });
@@ -359,7 +355,6 @@ app.get('/report', validate(() => ({})), (c) => {
           content: { 'application/pdf': { schema: { type: 'any' } } },
           headers: {
             "'Content-Type'": { schema: { type: 'string' } },
-            'Content-Type': { schema: { type: 'string' } },
           },
         });
       });
@@ -379,7 +374,6 @@ app.get('/report', validate(() => ({})), (c) => {
           content: { 'application/pdf': { schema: { type: 'any' } } },
           headers: {
             "['Content-Type']": { schema: { type: 'string' } },
-            'Content-Type': { schema: { type: 'string' } },
           },
         });
       });
@@ -400,7 +394,6 @@ app.get('/report', validate(() => ({})), (c) => {
           content: { 'application/pdf': { schema: { type: 'any' } } },
           headers: {
             '[headerName]': { schema: { type: 'string' } },
-            'Content-Type': { schema: { type: 'string' } },
           },
         });
       });
@@ -430,7 +423,6 @@ app.get('/report', validate(() => ({})), (c) => {
           },
           headers: {
             "'Content-Type'": { schema: { type: 'string' } },
-            'Content-Type': { schema: { type: 'string' } },
           },
         });
       });
@@ -464,7 +456,6 @@ app.get('/report', validate(() => ({})), (c) => {
           },
           headers: {
             "'Content-Type'": { schema: { type: 'string' } },
-            'Content-Type': { schema: { type: 'string' } },
           },
         });
       });
@@ -485,7 +476,6 @@ app.get('/report', validate(() => ({})), (c) => {
           content: { 'application/pdf': { schema: { type: 'any' } } },
           headers: {
             "'Content-Type'": { schema: { type: 'string' } },
-            'Content-Type': { schema: { type: 'string' } },
           },
         });
       });
@@ -619,7 +609,6 @@ app.get('/report', validate(() => ({})), (c) => {
           "'Content-Disposition'": { schema: { type: 'string' } },
           "'Content-Type'": { schema: { type: 'string' } },
           'Content-Disposition': { schema: { type: 'string' } },
-          'Content-Type': { schema: { type: 'string' } },
         },
       });
     });
@@ -673,7 +662,6 @@ app.get('/report', validate(() => ({})), (c) => {
         content: { 'application/pdf': { schema: {} } },
         headers: {
           "'Content-Type'": { schema: { type: 'string' } },
-          'Content-Type': { schema: { type: 'string' } },
         },
       });
     });
@@ -698,7 +686,6 @@ app.get('/report', validate(() => ({})), (c) => {
         content: { 'application/pdf': { schema: {} } },
         headers: {
           "'Content-Type'": { schema: { type: 'string' } },
-          'Content-Type': { schema: { type: 'string' } },
         },
       });
     });
@@ -723,7 +710,6 @@ app.get('/report', validate(() => ({})), (c) => {
         content: { 'application/pdf': { schema: {} } },
         headers: {
           "'Content-Type'": { schema: { type: 'string' } },
-          'Content-Type': { schema: { type: 'string' } },
         },
       });
     });
@@ -748,7 +734,6 @@ app.get('/report', validate(() => ({})), (c) => {
         content: { 'application/pdf': { schema: {} } },
         headers: {
           '[headerName]': { schema: { type: 'string' } },
-          'Content-Type': { schema: { type: 'string' } },
         },
       });
     });
@@ -772,7 +757,6 @@ app.get('/report', validate(() => ({})), (c) => {
         content: { 'application/pdf': { schema: {} } },
         headers: {
           "'Content-Type'": { schema: { type: 'string' } },
-          'Content-Type': { schema: { type: 'string' } },
         },
       });
     });
