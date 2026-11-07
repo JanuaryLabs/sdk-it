@@ -1,5 +1,6 @@
 import runtime, { type RuntimeBinding } from 'runtime-module';
 
+import type { EmittedZod } from './emitters/zod.ts';
 import type { References } from './references.ts';
 import { runtimeRootExports } from './root-exports.ts';
 
@@ -33,7 +34,7 @@ export interface ModuleSpan {
 
 export interface ModuleParts {
   /** Shared zod schemas by name, each after the ones it uses. */
-  commonZod: Map<string, string>;
+  commonZod: Map<string, EmittedZod>;
   inputs: { name: string; zod: string }[];
   /** `location` is where the document declares the model, when it does. */
   models: {
@@ -99,9 +100,7 @@ export function assembleModule(parts: ModuleParts): {
   const pieces = [
     externalImports(names),
     runtimeText(names, specNames),
-    ...[...parts.commonZod].map(
-      ([name, schema]) => `const ${name} = ${schema};`,
-    ),
+    ...[...parts.commonZod].map(([name, { zod }]) => `const ${name} = ${zod};`),
     ...parts.inputs.map(({ name, zod }) => `export const ${name} = ${zod};`),
     ...parts.models.map(
       ({ typeName, doc, type, location }) =>

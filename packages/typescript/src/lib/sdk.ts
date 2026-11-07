@@ -28,6 +28,8 @@ export interface OperationRoute {
   schemaName: string;
   /** The input schema as zod source. */
   zod: string;
+  /** The names of the shared schemas `zod` references. */
+  references: ReadonlySet<string>;
   input: OperationInput;
 }
 

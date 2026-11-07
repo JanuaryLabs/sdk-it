@@ -12,7 +12,14 @@ import { isInlinable, isRecursiveRef } from '@sdk-it/spec';
 import type { ModelNamer } from '../model-name.ts';
 import type { References } from '../references.ts';
 
-type OnRefCallback = (ref: string, content: string) => void;
+/** Zod source and the shared schemas it names. */
+export interface EmittedZod {
+  zod: string;
+  /** The names of the shared schemas `zod` references. */
+  references: ReadonlySet<string>;
+}
+
+type OnRefCallback = (ref: string, schema: EmittedZod) => void;
 
 /**
  * Convert an OpenAPI (JSON Schema style) object into a Zod schema string,
@@ -23,6 +30,8 @@ export class ZodEmitter {
   #modelName: ModelNamer;
   #refs: References;
   #onRef?: OnRefCallback;
+  /** The shared schemas each schema being emitted references, innermost last. */
+  #references: Set<string>[] = [];
 
   constructor(
     spec: OpenAPIDocument,
@@ -138,27 +147,42 @@ export class ZodEmitter {
     const schema = followRef(this.#spec, $ref);
 
     if (isInlinable(this.#spec, $ref)) {
-      const result = this.handle(schema, required);
-      this.#onRef?.(schemaName, result);
-      return result;
+      const inlined = this.emit(schema, required);
+      for (const name of inlined.references) {
+        this.#references.at(-1)?.add(name);
+      }
+      this.#onRef?.(schemaName, inlined);
+      return inlined.zod;
     }
 
+    this.#references.at(-1)?.add(schemaName);
     if (this.#generatedRefs.has(schemaName)) {
       return schemaName;
     }
     this.#generatedRefs.add(schemaName);
-    const body = this.handle(schema, required);
+    const body = this.emit(schema, required);
     const modelType = this.#refs.model(schemaName);
     // A schema that reaches itself is read only when it validates, and its
     // model type names what TypeScript cannot infer from its own initializer.
-    this.#onRef?.(
-      schemaName,
-      isRecursiveRef(this.#spec, $ref)
-        ? `z.lazy((): z.ZodType<${modelType}, ${modelType}> => ${body})`
-        : body,
-    );
+    this.#onRef?.(schemaName, {
+      zod: isRecursiveRef(this.#spec, $ref)
+        ? `z.lazy((): z.ZodType<${modelType}, ${modelType}> => ${body.zod})`
+        : body.zod,
+      references: body.references,
+    });
 
     return schemaName;
+  }
+
+  /** `schema` as zod source, with the shared schemas that source references. */
+  emit(schema: SchemaObject | ReferenceObject, required: boolean): EmittedZod {
+    const references = new Set<string>();
+    this.#references.push(references);
+    try {
+      return { zod: this.handle(schema, required), references };
+    } finally {
+      this.#references.pop();
+    }
   }
   #toIntersection(schemas: string[]): string {
     const [left, ...right] = schemas;
