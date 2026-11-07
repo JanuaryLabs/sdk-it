@@ -37,6 +37,7 @@ import {
   inputName,
   loadSpec,
   operationInputs,
+  statusRange,
   toIR,
 } from '@sdk-it/spec';
 
@@ -56,10 +57,18 @@ const statusClasses = Object.values(http).filter(
 );
 
 function toOutputs(operation: TunedOperationObject): OutputType[] {
-  return Object.entries(operation.responses).flatMap(([status, response]) => {
-    const type = statusClasses.find((it) => it.status === Number(status));
-    return type ? [{ type, parser: bodyParser[response['x-body']] }] : [];
-  });
+  return Object.entries(operation.responses).flatMap<OutputType>(
+    ([status, response]) => {
+      const parser = bodyParser[response['x-body']];
+      const range = statusRange(status);
+      if (range) {
+        const type = range === '2XX' ? http.APIResponse : http.APIError;
+        return [{ type, parser, range }];
+      }
+      const type = statusClasses.find((it) => it.status === Number(status));
+      return type ? [{ type, parser }] : [];
+    },
+  );
 }
 
 const callable = z.custom<() => string | Promise<string>>(
