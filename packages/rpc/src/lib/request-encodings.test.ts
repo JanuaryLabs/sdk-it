@@ -59,6 +59,7 @@ const singleBodies = [
     [
       ['text/plain', { type: 'string' }],
       ['text/csv', { type: 'string' }],
+      ['text/json', note],
       ['application/xml', note],
       ['text/xml', note],
       ['application/atom+xml', note],
@@ -69,7 +70,7 @@ const singleBodies = [
     input: () => ({ $body: '<note>hi</note>' }),
     body: '<note>hi</note>',
   })),
-  ...(['application/vnd.api+json', 'text/json'] as const).map((media) => ({
+  ...(['application/vnd.api+json'] as const).map((media) => ({
     media,
     schema: note,
     input: () => ({ title: 'Groceries' }),

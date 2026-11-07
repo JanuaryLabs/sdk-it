@@ -1,4 +1,8 @@
-import type { OperationObject, ResponseObject } from 'openapi3-ts/oas31';
+import type {
+  MediaTypeObject,
+  OperationObject,
+  ResponseObject,
+} from 'openapi3-ts/oas31';
 
 import { isRef, parseRef, resolveRef } from '@sdk-it/core/ref.js';
 import { isEmpty, pascalcase } from '@sdk-it/core/utils.js';
@@ -62,6 +66,12 @@ function normalizeOperationResponses(
 
     let responseName: string | undefined;
     for (const [contentType, mediaType] of Object.entries(response.content)) {
+      const body = mediaBody(contentType, response.headers);
+      if (body === 'text' && !describesString(spec, mediaType.schema)) {
+        // Clients read a text body as a string, so its output is a string
+        // unless its schema already describes one.
+        mediaType.schema = { type: 'string' };
+      }
       if (isRef(mediaType.schema)) {
         const { model } = parseRef(mediaType.schema.$ref);
         Object.assign(spec.components.schemas[model], {
@@ -83,7 +93,6 @@ function normalizeOperationResponses(
               'result',
             ]);
       responseName ??= outputName;
-      const body = mediaBody(contentType, response.headers);
 
       if (body === 'json') {
         if (isEmpty(mediaType.schema)) {
@@ -92,14 +101,8 @@ function normalizeOperationResponses(
             additionalProperties: true,
           };
         }
-      } else if (
-        isEmpty(mediaType.schema) &&
-        (body === 'text' || body === 'binary')
-      ) {
-        mediaType.schema = {
-          type: 'string',
-          ...(body === 'binary' ? { format: 'binary' } : {}),
-        };
+      } else if (body === 'binary' && isEmpty(mediaType.schema)) {
+        mediaType.schema = { type: 'string', format: 'binary' };
       }
 
       spec.components.schemas[outputName] = {
@@ -203,4 +206,11 @@ export function normalizeResponses(): DocumentPlugin {
       }
     },
   };
+}
+
+function describesString(
+  spec: ProcessingDocument,
+  schema: MediaTypeObject['schema'],
+) {
+  return schema !== undefined && resolveRef(spec, schema).type === 'string';
 }

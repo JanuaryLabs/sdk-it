@@ -14,6 +14,11 @@ import { generate } from '@sdk-it/typescript';
 const spec: OpenAPIObject = {
   openapi: '3.1.0',
   info: { title: 'Store', version: '1.0.0' },
+  components: {
+    schemas: {
+      Status: { type: 'object', properties: { ok: { type: 'boolean' } } },
+    },
+  },
   paths: {
     '/orders/latest': {
       get: {
@@ -75,6 +80,55 @@ const spec: OpenAPIObject = {
                   type: 'object',
                   properties: { name: { type: 'string' } },
                   required: ['name'],
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/health': {
+      get: {
+        operationId: 'health',
+        tags: ['orders'],
+        responses: {
+          '200': {
+            description: 'The service health as one word',
+            content: {
+              'text/plain': {
+                schema: { type: 'string', enum: ['ok', 'degraded'] },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/legacy-ref': {
+      get: {
+        operationId: 'legacyRefStatus',
+        tags: ['orders'],
+        responses: {
+          '200': {
+            description: 'A text/json status whose schema is a shared object',
+            content: {
+              'text/json': { schema: { $ref: '#/components/schemas/Status' } },
+            },
+          },
+        },
+      },
+    },
+    '/legacy': {
+      get: {
+        operationId: 'legacyStatus',
+        tags: ['orders'],
+        responses: {
+          '200': {
+            description: 'A status under the unregistered text/json media type',
+            content: {
+              'text/json': {
+                schema: {
+                  type: 'object',
+                  properties: { ok: { type: 'boolean' } },
                 },
               },
             },
@@ -233,4 +287,54 @@ void test('an octet-stream download is read as a Blob by its Content-Type', asyn
 
   assert.ok(archive instanceof Blob);
   assert.deepEqual([...(await archive.bytes())], [1, 2, 3]);
+});
+
+void test('a text/json response is text, as its text/* type says, because only application/json and +json types are JSON (RFC 6839)', async () => {
+  await using workspace = await workspaceDirectory('text-json-');
+  const { client } = await generateClient(
+    workspace.path,
+    new Response('{"ok":true}', { headers: { 'Content-Type': 'text/json' } }),
+  );
+  await writeFile(
+    join(workspace.path, 'src/consumer.ts'),
+    `import { createStore } from './index.ts';
+const client = createStore({ baseUrl: 'https://api.test' });
+export async function status(): Promise<string> {
+  return client.request('GET /legacy', {});
+}
+`,
+  );
+
+  const status = await client.request('GET /legacy', {});
+  const { files, diagnostics } = typecheck(
+    join(workspace.path, 'tsconfig.json'),
+  );
+
+  assert.equal(status, '{"ok":true}');
+  assert.ok(files.some((file) => file.endsWith('src/consumer.ts')));
+  assert.deepEqual(diagnostics, []);
+});
+
+void test('a text body keeps a schema that describes a string, and reads any other schema as a string', async () => {
+  await using workspace = await workspaceDirectory('text-schema-');
+  await generateClient(workspace.path, new Response(null));
+  await writeFile(
+    join(workspace.path, 'src/consumer.ts'),
+    `import { createStore } from './index.ts';
+const client = createStore({ baseUrl: 'https://api.test' });
+export async function health(): Promise<'ok' | 'degraded'> {
+  return client.request('GET /health', {});
+}
+export async function sharedStatus(): Promise<string> {
+  return client.request('GET /legacy-ref', {});
+}
+`,
+  );
+
+  const { files, diagnostics } = typecheck(
+    join(workspace.path, 'tsconfig.json'),
+  );
+
+  assert.ok(files.some((file) => file.endsWith('src/consumer.ts')));
+  assert.deepEqual(diagnostics, []);
 });

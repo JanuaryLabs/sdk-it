@@ -138,7 +138,7 @@ describe('response normalization text output', () => {
     );
   });
 
-  test('does not override explicit object schema for text content', async () => {
+  test('a text body whose schema is not a string schema has a string output, as clients read it', async () => {
     const spec = await toIR(
       {
         spec: buildSpec({
@@ -155,19 +155,9 @@ describe('response normalization text output', () => {
     );
     const { response, schema } = getResponseArtifacts(spec, 'text/plain');
 
-    const value = schema.properties?.value;
-    assert.ok(!isRef(value));
     assert.deepStrictEqual(
-      {
-        type: schema.type,
-        valueType: value?.type,
-        'x-body': response['x-body'],
-      },
-      {
-        type: 'object',
-        valueType: 'string',
-        'x-body': 'text',
-      },
+      { type: schema.type, 'x-body': response['x-body'] },
+      { type: 'string', 'x-body': 'text' },
     );
   });
 });

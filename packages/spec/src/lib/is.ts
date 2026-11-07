@@ -134,10 +134,10 @@ export function parseJsonContentType(contentType: string | null | undefined) {
   // 3. Convert to lowercase for case-insensitive comparison
   mainType = mainType.toLowerCase();
 
-  if (mainType.endsWith('/json')) {
-    return mainType.split('/')[1];
-  } else if (mainType.endsWith('+json')) {
-    return mainType.split('+')[1];
+  // application/json and every media type with the +json suffix (RFC 6839 §3.1)
+  // are JSON; text/json and other */json types are not registered as JSON.
+  if (mainType === 'application/json' || mainType.endsWith('+json')) {
+    return 'json';
   }
   return null;
 }
