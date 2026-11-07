@@ -32,6 +32,7 @@ npx @sdk-it/cli@latest generate typescript \
   --spec ./openapi.json \
   --output ./src/generated/api \
   --name MyApi \
+  --package-name @acme/my-api \
   --mode minimal
 ```
 
@@ -57,19 +58,20 @@ HTTP responses throw typed errors exported by the generated SDK.
 npx @sdk-it/cli@latest generate typescript [options]
 ```
 
-| Option                     | Description                                                  | Default   |
-| -------------------------- | ------------------------------------------------------------ | --------- |
-| `--spec`, `-s`             | Local path or remote URL to an OpenAPI JSON or YAML document | Required  |
-| `--output`, `-o`           | Output directory                                             | Required  |
-| `--name`, `-n`             | Name in the generated exports, such as `create<Name>`        | Required  |
-| `--mode`, `-m`             | `minimal` source files or a `full` standalone project        | `minimal` |
-| `--useTsExtension [value]` | Include `.ts` in generated imports                           | `true`    |
-| `--formatter <command>`    | Command used to format the generated source directory        |           |
-| `--no-default-formatter`   | Skip the default Prettier formatter                          |           |
-| `--readme false`           | Skip the generated API README                                |           |
-| `--pagination <config>`    | Configure pagination, such as `false` or `guess=false`       | `true`    |
-| `--no-install`             | Skip dependency installation in `full` mode                  |           |
-| `--verbose`, `-v`          | Show generator and installation output                       | `false`   |
+| Option                     | Description                                                         | Default   |
+| -------------------------- | ------------------------------------------------------------------- | --------- |
+| `--spec`, `-s`             | Local path or remote URL to an OpenAPI JSON or YAML document        | Required  |
+| `--output`, `-o`           | Output directory                                                    | Required  |
+| `--name`, `-n`             | Name in the generated exports, such as `create<Name>`               | Required  |
+| `--package-name`           | npm name of the generated package, in `package.json` and the README | Required  |
+| `--mode`, `-m`             | `minimal` source files or a `full` standalone project               | `minimal` |
+| `--useTsExtension [value]` | Include `.ts` in generated imports                                  | `true`    |
+| `--formatter <command>`    | Command used to format the generated source directory               |           |
+| `--no-default-formatter`   | Skip the default Prettier formatter                                 |           |
+| `--readme false`           | Skip the generated API README                                       |           |
+| `--pagination <config>`    | Configure pagination, such as `false` or `guess=false`              | `true`    |
+| `--no-install`             | Skip dependency installation in `full` mode                         |           |
+| `--verbose`, `-v`          | Show generator and installation output                              | `false`   |
 
 `minimal` mode writes client source files directly to `--output`. `full` mode
 writes source files under `<output>/src`, adds `package.json` and `tsconfig.json`,
@@ -82,6 +84,7 @@ npx @sdk-it/cli@latest generate typescript \
   --spec ./openapi.json \
   --output ./src/generated/api \
   --name MyApi \
+  --package-name @acme/my-api \
   --formatter "prettier ./src/generated/api --write"
 ```
 
@@ -92,6 +95,7 @@ npx @sdk-it/cli@latest generate typescript \
   --spec https://raw.githubusercontent.com/MaximilianKoestler/hcloud-openapi/refs/heads/main/openapi/hcloud.json \
   --output ./src/generated/hetzner \
   --name Hetzner \
+  --package-name @acme/hetzner \
   --mode minimal
 ```
 

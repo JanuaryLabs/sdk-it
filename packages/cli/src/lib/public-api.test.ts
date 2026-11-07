@@ -80,12 +80,49 @@ test('sdk-it generate typescript without --name fails and writes nothing', async
     spec,
     '--output',
     output,
+    '--package-name',
+    '@acme/unnamed',
   );
 
   assert.notEqual(result.status, 0);
   assert.match(
     result.stderr,
     /required option '-n, --name <name>' not specified/,
+  );
+  assert.equal(existsSync(output), false);
+});
+
+test('sdk-it generate typescript without --package-name fails and writes nothing', async () => {
+  await using workspace = await new TemporaryFiles().directory(
+    'sdk-it-unnamed-package-',
+  );
+  const spec = join(workspace.path, 'openapi.json');
+  const output = join(workspace.path, 'client');
+  writeFileSync(
+    spec,
+    JSON.stringify({
+      openapi: '3.1.0',
+      info: { title: 'Demo', version: '1.0.0' },
+      paths: {},
+    }),
+  );
+
+  const result = runCli(
+    workspace.path,
+    'generate',
+    'typescript',
+    '--spec',
+    spec,
+    '--output',
+    output,
+    '--name',
+    'Demo',
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /required option '--package-name <name>' not specified/,
   );
   assert.equal(existsSync(output), false);
 });
@@ -115,6 +152,8 @@ test('sdk-it generate typescript refuses a --name that does not become a TypeScr
     output,
     '--name',
     '2024 api',
+    '--package-name',
+    '@acme/invalid',
   );
 
   assert.notEqual(result.status, 0);

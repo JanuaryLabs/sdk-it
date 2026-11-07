@@ -41,6 +41,7 @@ export default new Command('typescript')
     'full: generate a full project including package.json and tsconfig.json. useful for monorepo/workspaces minimal: generate only the client sdk',
   )
   .requiredOption('-n, --name <name>', 'Name of the generated client')
+  .requiredOption('--package-name <name>', 'npm name of the generated package')
   .option(
     '-f, --framework <framework>',
     'Framework that is integrating with the SDK',
@@ -107,6 +108,7 @@ async function emitLocal(spec: OpenAPIObject, options: Options) {
     output: options.output,
     mode: options.mode || 'minimal',
     name: options.name,
+    packageName: options.packageName,
     pagination:
       typeof options.pagination === 'string'
         ? parsePagination(parseDotConfig(options.pagination))

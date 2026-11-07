@@ -14,6 +14,8 @@ void test.each(
       name: 'TypeScript minimal',
       language: 'typescript',
       options: [
+        '--package-name',
+        '@acme/formatter',
         '--mode',
         'minimal',
         '--no-default-formatter',
@@ -27,6 +29,8 @@ void test.each(
       name: 'TypeScript full',
       language: 'typescript',
       options: [
+        '--package-name',
+        '@acme/formatter',
         '--mode',
         'full',
         '--no-default-formatter',
