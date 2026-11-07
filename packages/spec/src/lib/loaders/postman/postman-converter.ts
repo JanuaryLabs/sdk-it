@@ -27,7 +27,7 @@ import type {
   RequestBody,
   Url,
   Variable,
-} from './spec-types';
+} from './spec-types.js';
 
 function descriptionToText(description?: Description) {
   if (!description) {
