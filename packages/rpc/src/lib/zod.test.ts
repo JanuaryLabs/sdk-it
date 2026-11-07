@@ -232,3 +232,60 @@ describe('RuntimeZodConverter 64-bit integers', () => {
     assert.equal(schema.safeParse(5).success, false);
   });
 });
+
+describe('RuntimeZodConverter string limits', () => {
+  const converter = new RuntimeZodConverter(document);
+
+  test('minLength and maxLength bound the string length', () => {
+    const schema = converter.handle(
+      { type: 'string', minLength: 2, maxLength: 4 },
+      true,
+    );
+
+    assert.equal(schema.safeParse('a').success, false);
+    assert.equal(schema.safeParse('abcde').success, false);
+    assert.equal(schema.parse('abcd'), 'abcd');
+  });
+
+  test('a pattern matches anywhere in the string, as JSON Schema patterns are not anchored', () => {
+    const schema = converter.handle({ type: 'string', pattern: 'b/c' }, true);
+
+    assert.equal(schema.parse('ab/cd'), 'ab/cd');
+    assert.equal(schema.safeParse('abcd').success, false);
+  });
+
+  test('limits apply to a string format', () => {
+    const schema = converter.handle(
+      { type: 'string', format: 'email', maxLength: 8 },
+      true,
+    );
+
+    assert.equal(schema.parse('a@b.co'), 'a@b.co');
+    assert.equal(schema.safeParse('ada@example.com').success, false);
+  });
+
+  test('limits apply to a coerced string after coercion', () => {
+    const schema = converter.handle(
+      {
+        type: 'string',
+        format: 'email',
+        minLength: 7,
+        'x-zod-type': 'coerce-string',
+      },
+      true,
+    );
+
+    assert.equal(schema.parse({ toString: () => 'a@b.com' }), 'a@b.com');
+    assert.equal(schema.safeParse({ toString: () => 'a@b.co' }).success, false);
+  });
+
+  test('oneOf tells two string branches apart by their limits', () => {
+    const schema = converter.handle(
+      { oneOf: [{ type: 'string' }, { type: 'string', minLength: 2 }] },
+      true,
+    );
+
+    assert.equal(schema.parse('a'), 'a');
+    assert.equal(schema.safeParse('ab').success, false);
+  });
+});

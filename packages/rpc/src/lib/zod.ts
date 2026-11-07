@@ -160,8 +160,9 @@ export class RuntimeZodConverter {
 
     const coerced = schema['x-zod-type'] === 'coerce-string';
     const base = coerced ? z.coerce.string() : z.string();
+    const limits = stringLimits(schema);
     const withFormat = (format: ZodType<string, string>): ZodType =>
-      coerced ? base.pipe(format) : format;
+      coerced ? base.pipe(format.check(...limits)) : format.check(...limits);
 
     switch (schema.format) {
       case 'date-time':
@@ -201,8 +202,7 @@ export class RuntimeZodConverter {
         // Bare z.custom on purpose — see the contentEncoding branch above.
         return z.custom<Blob>();
       default:
-        // No special format
-        return base;
+        return base.check(...limits);
     }
   }
 
@@ -433,4 +433,20 @@ export function schemaToZod(
 ): ZodType {
   const converter = new RuntimeZodConverter(spec);
   return converter.handle(schema, options?.required ?? false);
+}
+
+/** JSON Schema's string length and pattern keywords, as the checks that zod's own `z.fromJSONSchema` adds. */
+function stringLimits(schema: SchemaObject): z.core.$ZodCheck<string>[] {
+  const limits: z.core.$ZodCheck<string>[] = [];
+  if (typeof schema.minLength === 'number') {
+    limits.push(z.minLength(schema.minLength));
+  }
+  if (typeof schema.maxLength === 'number') {
+    limits.push(z.maxLength(schema.maxLength));
+  }
+  if (typeof schema.pattern === 'string') {
+    // A JSON Schema pattern is an ECMA-262 regular expression that is not anchored.
+    limits.push(z.regex(new RegExp(schema.pattern)));
+  }
+  return limits;
 }
