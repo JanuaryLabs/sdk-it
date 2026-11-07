@@ -1,7 +1,6 @@
 import { Command, program } from 'commander';
 
 import init from './commands/init.ts';
-import apiref from './generators/apiref.ts';
 import dart from './generators/dart.ts';
 import python from './generators/python.ts';
 import readme from './generators/readme.ts';
@@ -23,7 +22,6 @@ const generate = new Command('generate')
   .addCommand(typescript)
   .addCommand(python)
   .addCommand(dart)
-  .addCommand(apiref)
   .addCommand(readme);
 
 const cli = program
