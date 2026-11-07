@@ -179,27 +179,6 @@ function getHeaderValue(
   return undefined;
 }
 
-function hasHeaderKey(
-  headersNode: Node | undefined,
-  headerName: string,
-  checker: Checker,
-) {
-  const headersObject = resolveHeadersObject(headersNode, checker);
-  if (!headersObject) {
-    return false;
-  }
-  for (const prop of headersObject.properties) {
-    if (!isPropertyAssignment(prop)) {
-      continue;
-    }
-    const key = getPropertyNameText(prop.name, checker);
-    if (key && key.toLowerCase() === headerName.toLowerCase()) {
-      return true;
-    }
-  }
-  return false;
-}
-
 function isJsonContentType(contentType: string) {
   return contentType.endsWith('/json') || contentType.endsWith('+json');
 }
@@ -223,28 +202,17 @@ function inferContentType(
   if (headerContentType) {
     return headerContentType;
   }
-  if (hasHeaderKey(headers, 'Content-Disposition', checker)) {
-    return 'application/octet-stream';
-  }
   return defaultContentType;
 }
 
-function getHeaderKeys(headersNode: Node | undefined, deriver: TypeDeriver) {
+function getHeaderKeys(headersNode: Node | undefined, checker: Checker) {
   if (!headersNode) {
     return [];
   }
-  const resolved = resolveHeadersObject(headersNode, deriver.checker);
-  if (resolved) {
-    return Object.keys(deriver.serializeNode(resolved));
-  }
-  const type = deriver.checker.getTypeAtLocation(headersNode);
-  const names = deriver.checker
-    .getPropertiesOfType(type)
-    .map((prop) => prop.name);
-  const sorted = names.sort((a, b) => a.localeCompare(b));
-  return sorted.flatMap((name) =>
-    name.includes('-') ? [`'${name}'`, name] : [name],
+  const type = checker.getTypeAtLocation(
+    resolveHeadersObject(headersNode, checker) ?? headersNode,
   );
+  return checker.getPropertiesOfType(type).map((prop) => prop.name);
 }
 
 export const newResponse: NaunceResponseAnalyzerFn = (
@@ -301,7 +269,7 @@ export const newResponse: NaunceResponseAnalyzerFn = (
 
   return [
     {
-      headers: getHeaderKeys(headersNode, deriver),
+      headers: getHeaderKeys(headersNode, deriver.checker),
       contentType,
       statusCode: statusNode ? resolveStatusCode(statusNode) : '200',
       response: shouldSerialize ? deriver.serializeNode(body) : undefined,
@@ -344,7 +312,7 @@ export function defaultResponseAnalyzer(
   }
   return [
     {
-      headers: getHeaderKeys(headers, deriver),
+      headers: getHeaderKeys(headers, deriver.checker),
       contentType: inferContentType(body, headers, sentAs, deriver.checker),
       statusCode: statusCode ? resolveStatusCode(statusCode) : '200',
       response: body ? deriver.serializeNode(body) : undefined,

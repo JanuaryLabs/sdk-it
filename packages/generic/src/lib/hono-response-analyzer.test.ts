@@ -180,8 +180,36 @@ app.get('/items', validate(() => ({})), (c) => {
             },
           },
           headers: {
-            "'X-Custom'": { schema: { type: 'string' } },
             'X-Custom': { schema: { type: 'string' } },
+          },
+        });
+      });
+
+      test('documents c.json with a Content-Disposition header as application/json, as Hono sends it', async () => {
+        const paths = await documentedPaths(`import { Hono } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+app.get('/export', validate(() => ({})), (c) => {
+  return c.json({ id: 1 }, 200, {
+    'Content-Disposition': 'attachment; filename="export.json"',
+  });
+});
+`);
+
+        assert.deepStrictEqual(paths['/export'].get.responses['200'], {
+          description: 'Response for 200',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: { id: { type: 'number', enum: [1] } },
+                required: ['id'],
+                additionalProperties: false,
+              },
+            },
+          },
+          headers: {
+            'Content-Disposition': { schema: { type: 'string' } },
           },
         });
       });
@@ -265,9 +293,6 @@ app.get('/report', validate(() => ({})), (c) => {
         assert.deepStrictEqual(responses['200'], {
           description: 'Response for 200',
           content: { 'application/pdf': { schema: { type: 'any' } } },
-          headers: {
-            "'Content-Type'": { schema: { type: 'string' } },
-          },
         });
       });
 
@@ -285,9 +310,6 @@ app.get('/report', validate(() => ({})), (c) => {
         assert.deepStrictEqual(paths['/report'].get.responses['200'], {
           description: 'Response for 200',
           content: { 'application/pdf': { schema: { type: 'any' } } },
-          headers: {
-            "'Content-Type'": { schema: { type: 'string' } },
-          },
         });
       });
 
@@ -307,9 +329,6 @@ app.get('/report', validate(() => ({})), (c) => {
         assert.deepStrictEqual(paths['/report'].get.responses['200'], {
           description: 'Response for 200',
           content: { 'application/pdf': { schema: { type: 'any' } } },
-          headers: {
-            "'Content-Type'": { schema: { type: 'string' } },
-          },
         });
       });
 
@@ -329,9 +348,6 @@ app.get('/report', validate(() => ({})), (c) => {
         assert.deepStrictEqual(paths['/report'].get.responses['200'], {
           description: 'Response for 200',
           content: { 'application/pdf': { schema: { type: 'any' } } },
-          headers: {
-            "'Content-Type'": { schema: { type: 'string' } },
-          },
         });
       });
 
@@ -353,9 +369,6 @@ app.get('/report', validate(() => ({})), (c) => {
         assert.deepStrictEqual(paths['/report'].get.responses['200'], {
           description: 'Response for 200',
           content: { 'application/pdf': { schema: { type: 'any' } } },
-          headers: {
-            "'Content-Type'": { schema: { type: 'string' } },
-          },
         });
       });
 
@@ -372,9 +385,6 @@ app.get('/report', validate(() => ({})), (c) => {
         assert.deepStrictEqual(paths['/report'].get.responses['200'], {
           description: 'Response for 200',
           content: { 'application/pdf': { schema: { type: 'any' } } },
-          headers: {
-            "['Content-Type']": { schema: { type: 'string' } },
-          },
         });
       });
 
@@ -392,9 +402,6 @@ app.get('/report', validate(() => ({})), (c) => {
         assert.deepStrictEqual(paths['/report'].get.responses['200'], {
           description: 'Response for 200',
           content: { 'application/pdf': { schema: { type: 'any' } } },
-          headers: {
-            '[headerName]': { schema: { type: 'string' } },
-          },
         });
       });
 
@@ -420,9 +427,6 @@ app.get('/report', validate(() => ({})), (c) => {
             'application/octet-stream': {
               schema: { type: 'string', format: 'binary' },
             },
-          },
-          headers: {
-            "'Content-Type'": { schema: { type: 'string' } },
           },
         });
       });
@@ -454,9 +458,6 @@ app.get('/report', validate(() => ({})), (c) => {
             'application/pdf': { schema: { type: 'any' } },
             'application/json': { schema: { type: 'any' } },
           },
-          headers: {
-            "'Content-Type'": { schema: { type: 'string' } },
-          },
         });
       });
 
@@ -474,9 +475,6 @@ app.get('/report', validate(() => ({})), (c) => {
         assert.deepStrictEqual(paths['/report'].get.responses['200'], {
           description: 'Response for 200',
           content: { 'application/pdf': { schema: { type: 'any' } } },
-          headers: {
-            "'Content-Type'": { schema: { type: 'string' } },
-          },
         });
       });
 
@@ -501,7 +499,6 @@ app.get('/report', validate(() => ({})), (c) => {
             },
           },
           headers: {
-            "'Content-Disposition'": { schema: { type: 'string' } },
             'Content-Disposition': { schema: { type: 'string' } },
           },
         });
@@ -606,8 +603,6 @@ app.get('/report', validate(() => ({})), (c) => {
         description: 'Response for 200',
         content: { 'application/pdf': { schema: {} } },
         headers: {
-          "'Content-Disposition'": { schema: { type: 'string' } },
-          "'Content-Type'": { schema: { type: 'string' } },
           'Content-Disposition': { schema: { type: 'string' } },
         },
       });
@@ -637,7 +632,6 @@ app.get('/report', validate(() => ({})), (c) => {
           },
         },
         headers: {
-          "'Content-Disposition'": { schema: { type: 'string' } },
           'Content-Disposition': { schema: { type: 'string' } },
         },
       });
@@ -660,9 +654,6 @@ app.get('/report', validate(() => ({})), (c) => {
       assert.deepStrictEqual(paths['/report'].get.responses['200'], {
         description: 'Response for 200',
         content: { 'application/pdf': { schema: {} } },
-        headers: {
-          "'Content-Type'": { schema: { type: 'string' } },
-        },
       });
     });
 
@@ -684,9 +675,6 @@ app.get('/report', validate(() => ({})), (c) => {
       assert.deepStrictEqual(paths['/report'].get.responses['200'], {
         description: 'Response for 200',
         content: { 'application/pdf': { schema: {} } },
-        headers: {
-          "'Content-Type'": { schema: { type: 'string' } },
-        },
       });
     });
 
@@ -708,9 +696,6 @@ app.get('/report', validate(() => ({})), (c) => {
       assert.deepStrictEqual(paths['/report'].get.responses['200'], {
         description: 'Response for 200',
         content: { 'application/pdf': { schema: {} } },
-        headers: {
-          "'Content-Type'": { schema: { type: 'string' } },
-        },
       });
     });
 
@@ -732,9 +717,6 @@ app.get('/report', validate(() => ({})), (c) => {
       assert.deepStrictEqual(paths['/report'].get.responses['200'], {
         description: 'Response for 200',
         content: { 'application/pdf': { schema: {} } },
-        headers: {
-          '[headerName]': { schema: { type: 'string' } },
-        },
       });
     });
 
@@ -755,9 +737,6 @@ app.get('/report', validate(() => ({})), (c) => {
       assert.deepStrictEqual(paths['/report'].get.responses['200'], {
         description: 'Response for 200',
         content: { 'application/pdf': { schema: {} } },
-        headers: {
-          "'Content-Type'": { schema: { type: 'string' } },
-        },
       });
     });
 
