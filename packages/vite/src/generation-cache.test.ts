@@ -84,6 +84,7 @@ void test.each(['object', 'file', 'function'] as const, (source) =>
               : async () => 'openapi.json',
           {
             name: 'Example',
+            packageName: '@acme/example-client',
             output,
             readme: false,
             formatCode: () => {
@@ -130,6 +131,7 @@ test('concurrent different specs serialize writes and formatting for one output'
       buildWith(
         sdkIt(spec(operation), {
           name: 'Example',
+          packageName: '@acme/example-client',
           output: operation === 'getBeta' ? `${output}/.` : output,
           readme: false,
           async writer(directory, contents) {
@@ -185,6 +187,7 @@ void test.each([false, true], (failFirst) =>
     const firstFailure = new Error('first formatter failed');
     const alpha = sdkIt(spec('getAlpha'), {
       name: 'Example',
+      packageName: '@acme/example-client',
       output,
       readme: false,
       async formatCode() {
@@ -198,6 +201,7 @@ void test.each([false, true], (failFirst) =>
     });
     const beta = sdkIt(spec('getBeta'), {
       name: 'Example',
+      packageName: '@acme/example-client',
       output,
       readme: false,
       formatCode() {

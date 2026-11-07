@@ -126,6 +126,7 @@ app.get(
     const root = workspace.path;
     const plugin = sdkIt(minimalSpec, {
       name: 'Example',
+      packageName: '@acme/example-client',
       output: join(root, 'sdk'),
       writer: tracker.writer,
       cleanup: false,
@@ -157,6 +158,7 @@ app.get(
     const tracker = trackingWriter();
     const plugin = sdkIt(async () => 'openapi.json', {
       name: 'Example',
+      packageName: '@acme/example-client',
       output: join(tempDir, 'sdk'),
       writer: tracker.writer,
       cleanup: false,
@@ -181,6 +183,7 @@ app.get(
 
     const pluginA = sdkIt(minimalSpec, {
       name: 'Example',
+      packageName: '@acme/example-client',
       output,
       writer: tracker.writer,
       cleanup: false,
@@ -195,6 +198,7 @@ app.get(
       { ...minimalSpec, info: { title: 'Different', version: '2.0.0' } },
       {
         name: 'Example',
+        packageName: '@acme/example-client',
         output,
         writer: tracker.writer,
         cleanup: false,
@@ -219,6 +223,7 @@ app.get(
     const tracker = trackingWriter();
     const plugin = sdkIt(minimalSpec, {
       name: 'Example',
+      packageName: '@acme/example-client',
       output: join(root, 'sdk'),
       writer: tracker.writer,
       cleanup: false,
@@ -237,6 +242,7 @@ app.get(
       { ...minimalSpec, info: { title: 'Concurrent', version: '2.0.0' } },
       {
         name: 'Example',
+        packageName: '@acme/example-client',
         output: join(root2, 'sdk'),
         writer: tracker.writer,
         cleanup: false,
@@ -265,6 +271,7 @@ app.get(
     const tracker = trackingWriter();
     const plugin = sdkIt(minimalSpec, {
       name: 'Example',
+      packageName: '@acme/example-client',
       output: join(root, 'sdk'),
       writer: tracker.writer,
       cleanup: false,
@@ -300,6 +307,7 @@ app.get(
     const tracker = trackingWriter();
     const plugin = sdkIt('openapi.json', {
       name: 'Example',
+      packageName: '@acme/example-client',
       output: join(tempDir, 'sdk'),
       writer: tracker.writer,
       cleanup: false,
@@ -331,6 +339,7 @@ app.get(
     const tracker = trackingWriter();
     const plugin = sdkIt('openapi.json', {
       name: 'Example',
+      packageName: '@acme/example-client',
       output: join(tempDir, 'sdk'),
       writer: tracker.writer,
       cleanup: false,
@@ -369,6 +378,7 @@ app.get(
     let generateAttempts = 0;
     const plugin = sdkIt('openapi.json', {
       name: 'Example',
+      packageName: '@acme/example-client',
       output: join(tempDir, 'sdk'),
       writer: async (dir, contents) => {
         generateAttempts++;
