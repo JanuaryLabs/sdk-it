@@ -52,14 +52,12 @@ import { toReadme } from './readme/readme.ts';
 import { type References, fileReferences, inputGlobals } from './references.ts';
 import type { Operation } from './sdk.ts';
 import { expandServerUrls } from './server-urls.ts';
-import type { Style } from './style.ts';
 import { TypeScriptSnippet } from './typescript-snippet.ts';
 
 export type { ModuleSpan } from './one-module.ts';
 
 export interface RenderOptions {
   name: string;
-  style: Style;
   useTsExtension: boolean;
   pagination?: PaginationConfig | false;
   agentTools?: 'ai-sdk' | 'openai-agents';
@@ -210,7 +208,6 @@ export async function generate(
   }
   const options: RenderOptions = {
     name: settings.name,
-    style: { name: 'github', ...settings.style },
     useTsExtension: settings.useTsExtension ?? true,
     pagination: settings.pagination,
     agentTools: settings.agentTools,
@@ -379,7 +376,7 @@ function withSdkImports(source: string, makeImport: MakeImportFn) {
 }
 
 function renderFiles(spec: IR, options: RenderOptions) {
-  const { style, useTsExtension } = options;
+  const { useTsExtension } = options;
   const makeImport = (moduleSpecifier: string) => {
     return useTsExtension ? `${moduleSpecifier}.ts` : moduleSpecifier;
   };
@@ -387,7 +384,6 @@ function renderFiles(spec: IR, options: RenderOptions) {
   const modelName = createModelNamer(name);
   const { endpoints, groups, commonZod } = generateCode({
     spec,
-    style,
     makeImport,
     modelName,
   });

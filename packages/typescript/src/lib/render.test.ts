@@ -107,7 +107,6 @@ test('render reads and writes nothing outside the code it loads', async () => {
     const { render } = await import(${JSON.stringify(import.meta.resolve('@sdk-it/typescript'))});
     const files = await render(${JSON.stringify(petStore(['Pet']))}, {
       name: 'Pets',
-      style: { name: 'github' },
       useTsExtension: true,
     });
     process.stdout.write(String(Object.keys(files).length));
@@ -135,7 +134,6 @@ for (const agentTools of ['ai-sdk', 'openai-agents'] as const) {
     await using directory = await workspaceDirectory('render-no-ts-extension-');
     const files = await render(petStore(['Pet', 'Tag']), {
       name: 'Pets',
-      style: { name: 'github' },
       useTsExtension: false,
       agentTools,
     });
@@ -292,7 +290,6 @@ for (const [agentTools, useTsExtension] of [
 
     const files = await render(petStore(['Pet', 'Tag']), {
       name: 'Pets',
-      style: { name: 'github' },
       useTsExtension,
       agentTools,
     });

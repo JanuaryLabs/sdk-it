@@ -3,12 +3,9 @@ import { npmRunPathEnv } from 'npm-run-path';
 import { type Writer } from '@sdk-it/core/file-system.js';
 import type { PaginationConfig } from '@sdk-it/spec';
 
-import type { Style } from './style.ts';
-
 export interface TypeScriptGeneratorOptions {
   agentTools?: 'ai-sdk' | 'openai-agents';
   readme?: boolean | string;
-  style?: Style;
   output: string;
   useTsExtension?: boolean;
   name: string;

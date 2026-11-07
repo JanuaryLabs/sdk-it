@@ -45,7 +45,6 @@ void test('render and renderModule refuse a client name that does not give a Typ
   await assert.rejects(
     render(spec, {
       name: '2024 api',
-      style: { name: 'github' },
       useTsExtension: true,
     }),
     { name: 'TypeError', message: /"2024 api"/ },
@@ -109,7 +108,6 @@ void test('generate, render and renderModule refuse a client name whose default 
     await assert.rejects(
       render(spec, {
         name,
-        style: { name: 'github' },
         useTsExtension: true,
       }),
       refusal,

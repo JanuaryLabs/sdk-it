@@ -18,7 +18,6 @@ import {
   inputFileReferences,
 } from './references.ts';
 import { type Operation, type Spec, toEndpoint } from './sdk.ts';
-import type { Style } from './style.ts';
 
 /**
  * A spec's operations as code: per group, its routes (with their input
@@ -81,7 +80,6 @@ export function generateCode(config: {
    * @issue https://github.com/microsoft/TypeScript/issues/38106
    */
   spec: IR;
-  style: Style;
   makeImport: (module: string) => string;
   modelName: ModelNamer;
 }) {

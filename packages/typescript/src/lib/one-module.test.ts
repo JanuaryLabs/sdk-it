@@ -469,7 +469,6 @@ void test('the one module exports exactly what the SDK root exports, for a secur
   for (const [variant, { spec, present, absent }] of Object.entries(variants)) {
     const files = await render(spec, {
       name: 'Pets',
-      style: { name: 'github' },
       useTsExtension: true,
     });
     const { text } = await renderModule(spec, { name: 'Pets' });

@@ -54,7 +54,6 @@ import { render } from '@sdk-it/typescript';
 
 const files = await render(spec, {
   name: 'OpenStatus',
-  style: { name: 'github' },
   useTsExtension: true,
 });
 // files['client.ts'], files['index.ts'], files['models/index.ts'], …

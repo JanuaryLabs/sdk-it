@@ -1259,7 +1259,6 @@ app.get('/users/:userId', validate((payload) => ({
 
     const files = await render(spec, {
       name: 'Client',
-      style: { name: 'github' },
       useTsExtension: true,
       pagination: false,
     });
@@ -1443,7 +1442,6 @@ app.get('/users/:userId', validate((payload) => ({
 
     const files = await render(spec, {
       name: 'Client',
-      style: { name: 'github' },
       useTsExtension: true,
       pagination: false,
     });
