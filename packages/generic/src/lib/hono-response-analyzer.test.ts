@@ -246,6 +246,45 @@ app.get('/items', validate(() => ({})), (c) => {
           },
         });
       });
+
+      test("documents an array item's 'as const' discriminator as its literal through map, spread and rest", async () => {
+        const paths = await documentedPaths(`import { Hono } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+const prebuilt = [{ id: 'support', agents: ['a'] }];
+declare const published: () => { id: string; agents: string[] }[];
+app.get('/templates', validate(() => ({})), (c) => {
+  const templates = [
+    ...prebuilt.map((template) => ({ ...template, source: 'prebuilt' as const })),
+    ...published().map(({ id, agents }) => ({ id, agents, source: 'marketplace' as const })),
+  ];
+  return c.json({
+    templates: templates.map(({ agents, ...template }) => ({ ...template, agentCount: agents.length })),
+  });
+});
+`);
+
+        const template = (source: string) => ({
+          type: 'object',
+          properties: {
+            agentCount: { type: 'number' },
+            id: { type: 'string' },
+            source: { type: 'string', enum: [source] },
+          },
+          required: ['agentCount', 'id', 'source'],
+          additionalProperties: false,
+        });
+        assert.deepStrictEqual(
+          paths['/templates'].get.responses['200'].content['application/json']
+            .schema.properties.templates,
+          {
+            type: 'array',
+            items: {
+              anyOf: [template('prebuilt'), template('marketplace')],
+            },
+          },
+        );
+      });
     });
 
     describe('c.text(), c.html() and c.redirect() returns', () => {
