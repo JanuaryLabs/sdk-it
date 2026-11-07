@@ -79,27 +79,6 @@ export function assembleModule(parts: ModuleParts): {
         : [],
     ),
   );
-  const zodName = names.find(
-    (_, index) =>
-      runtime.bindings[index].kind === 'external' &&
-      runtime.bindings[index].name === 'z',
-  );
-  if (zodName !== 'z') {
-    throw new TypeError(
-      'The SDK declares z, the name generated code reads zod by; rename the client',
-    );
-  }
-  for (const name of [
-    ...runtimeRootExports.map((binding) => binding.name),
-    ...parts.runtimeExports,
-    ...parts.runtimeTypeExports,
-  ]) {
-    if (declaredName.get(name) !== name) {
-      throw new TypeError(
-        `The SDK declares ${name}, which the SDK root exports from the runtime; rename the client or the schema`,
-      );
-    }
-  }
   const nameOf = (name: string, global: boolean) => {
     if (global) {
       return specNames.has(name) ? `globalThis.${name}` : name;

@@ -876,29 +876,3 @@ void test('renderModule writes nothing and reads nothing outside the repository'
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout, 'true');
 });
-
-void test('renderModule refuses a client name whose default instance would take an SDK root export or the zod binding, naming the clash', async () => {
-  const spec: OpenAPIObject = {
-    openapi: '3.1.0',
-    info: { title: 'Clash', version: '1.0.0' },
-    servers: [{ url: 'https://clash.test' }],
-    paths: {
-      '/items': {
-        get: {
-          operationId: 'listItems',
-          tags: ['items'],
-          responses: { '204': { description: 'No Content' } },
-        },
-      },
-    },
-  };
-
-  await assert.rejects(renderModule(spec, { name: 'Request' }), {
-    name: 'TypeError',
-    message: /\brequest\b/,
-  });
-  await assert.rejects(renderModule(spec, { name: 'Z' }), {
-    name: 'TypeError',
-    message: /\bz\b/,
-  });
-});

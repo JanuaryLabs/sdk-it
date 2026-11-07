@@ -2,6 +2,14 @@ import { camelcase } from 'stringcase';
 
 import { pascalcase } from '@sdk-it/core';
 
+import {
+  clientDeclarationBindings,
+  clientFileBindings,
+  clientNamedExports,
+} from './client.ts';
+import { runtimeRootExports } from './root-exports.ts';
+import { securityTypeExports } from './security.ts';
+
 /** ECMAScript reserved words, and the names strict-mode code cannot bind. */
 const reservedWords = new Set([
   'arguments',
@@ -54,11 +62,21 @@ const reservedWords = new Set([
   'yield',
 ]);
 
+/** The names an SDK declares or exports beside the ones it builds from the client name. */
+const sdkNames = new Set<string>([
+  ...runtimeRootExports.map((binding) => binding.name),
+  ...securityTypeExports,
+  ...clientFileBindings,
+  ...clientDeclarationBindings,
+]);
+
 /**
  * The name a generated SDK builds its exports from (`create<Name>`,
  * `<Name>Client`, the default instance `<name>`): `name` in PascalCase.
- * Throws a TypeError, naming `name`, when that is not a TypeScript identifier
- * or the default instance would be a reserved word.
+ * Throws a TypeError, naming `name`, when that is not a TypeScript identifier,
+ * the default instance would be a reserved word, or a name built from it is
+ * one the SDK already declares or exports (`Request` makes the default
+ * instance `request`, which the SDK root exports).
  */
 export function clientName(name: string): string {
   const pascal = pascalcase(name.trim());
@@ -71,6 +89,12 @@ export function clientName(name: string): string {
   if (reservedWords.has(instance)) {
     throw new TypeError(
       `The client name "${name}" makes the default instance ${instance}, which is a reserved word. Rename the client.`,
+    );
+  }
+  const clash = clientNamedExports(pascal).find((built) => sdkNames.has(built));
+  if (clash !== undefined) {
+    throw new TypeError(
+      `The client name "${name}" makes ${clash}, a name the SDK already declares or exports. Rename the client.`,
     );
   }
   return pascal;

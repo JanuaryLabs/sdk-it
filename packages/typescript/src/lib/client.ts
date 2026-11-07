@@ -11,7 +11,16 @@ import { securityTypeExports } from './security.ts';
 type SecurityScheme = Spec['securitySchemes'][string];
 type ClientSpec = Omit<Spec, 'operations' | 'makeImport'>;
 
-function credentialSchemaName(scheme: SecurityScheme): RuntimeName {
+/** The runtime schemas a client file imports to validate credentials. */
+const credentialSchemaNames = [
+  'stringCredentialSchema',
+  'basicCredentialSchema',
+  'mutualTlsCredentialSchema',
+] as const satisfies RuntimeName[];
+
+function credentialSchemaName(
+  scheme: SecurityScheme,
+): (typeof credentialSchemaNames)[number] {
   if (scheme.type === 'mutualTLS') {
     return 'mutualTlsCredentialSchema';
   }
@@ -39,17 +48,22 @@ export function clientExports(name: string) {
   ];
 }
 
+/** The names a client named `name` declares and exports from the SDK root. */
+export function clientNamedExports(name: string) {
+  return [...clientExports(name), `create${name}`, camelcase(name)];
+}
+
+/** The module bindings `clientDeclarations` declares besides `clientNamedExports`. */
+export const clientDeclarationBindings = [
+  'servers',
+  '__securitySchemes',
+  '__credentialsSchema',
+  '__api',
+];
+
 /** Every name `clientDeclarations` can declare for a client named `name`. */
 export function clientDeclaredNames(name: string) {
-  return [
-    ...clientExports(name),
-    `create${name}`,
-    camelcase(name),
-    'servers',
-    '__securitySchemes',
-    '__credentialsSchema',
-    '__api',
-  ];
+  return [...clientNamedExports(name), ...clientDeclarationBindings];
 }
 
 /** The runtime functions the SDK root exports from the client module. */
@@ -102,6 +116,14 @@ const aliased = new Set<RuntimeName>([
   'EndpointsOf',
   'createClient',
 ]);
+/** The module bindings client.ts makes besides `clientDeclarations`: zod, its imports and re-exports. */
+export const clientFileBindings = [
+  'z',
+  '__schemas',
+  ...[...aliased].map((name) => `__${name}`),
+  ...credentialSchemaNames,
+  ...clientRuntimeExports,
+];
 const clientFileReferences: References = {
   ...fileReferences('outputs'),
   runtime: (name) => (aliased.has(name) ? `__${name}` : name),
