@@ -91,7 +91,7 @@ const specs = [
   },
   {
     name: 'openstatus',
-    spec: 'https://api.openstatus.dev/v1/openapi',
+    spec: 'https://api.openstatus.dev/openapi.yaml',
     flags: [],
   },
   {
