@@ -76,12 +76,10 @@ export function useData<E extends DataEndpoints>(
     ...resourceOptions,
     params,
     loader: ({ abortSignal, params }) =>
-      Promise.resolve(
-        client.request(endpoint, params, {
-          signal: abortSignal,
-          headers,
-        }),
-      ),
+      client.request(endpoint, params, {
+        signal: abortSignal,
+        headers,
+      }),
   });
 }
 
@@ -102,9 +100,8 @@ export function useInfiniteData<E extends PageEndpoints>(
     const page = firstPage();
     return page ? [page, ...nextPages()] : [];
   });
-  // PageEndpoints admits only endpoints whose result pages.
-  const lastPage = computed(
-    () => pages().at(-1) as Paged<Endpoints[E]['result']> | undefined,
+  const lastPage = computed((): Paged<Endpoints[E]['result']> | undefined =>
+    pages().at(-1),
   );
   const hasMore = computed(() => lastPage()?.hasNextPage() ?? false);
 

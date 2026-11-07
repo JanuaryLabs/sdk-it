@@ -93,9 +93,7 @@ export function useData<E extends DataEndpoints>(
     ...options,
     meta: { endpoint, input },
     queryFn: ({ signal }) =>
-      Promise.resolve(
-        client.request(endpoint, input ?? ({} as never), { signal }),
-      ),
+      client.request(endpoint, input ?? ({} as never), { signal }),
   });
 }
 
@@ -172,12 +170,9 @@ export function useInfiniteData<E extends PageEndpoints>(
     queryFn: ({ pageParam, signal }) =>
       pageParam
         ? pageParam.getNextPage({ signal })
-        : Promise.resolve(client.request(endpoint, input, { signal })),
-    getNextPageParam: (lastPage) => {
-      // PageEndpoints admits only endpoints whose result pages.
-      const page = lastPage as Paged<Endpoints[E]['result']>;
-      return page.hasNextPage() ? page : undefined;
-    },
+        : client.request(endpoint, input, { signal }),
+    getNextPageParam: (lastPage) =>
+      lastPage.hasNextPage() ? lastPage : undefined,
   });
 }
 
@@ -289,11 +284,11 @@ export function useAction<E extends MutationEndpoints>(
     mutationFn: (input, context) => {
       if (options && 'mutationFn' in options && options.mutationFn) {
         return options.mutationFn(
-          (input) => Promise.resolve(client.request(endpoint, input)),
+          (input) => client.request(endpoint, input),
           context,
         ) as Promise<Endpoints[E]['result']>;
       }
-      return Promise.resolve(client.request(endpoint, input));
+      return client.request(endpoint, input);
     },
     onSuccess: async (data, variables, onMutateResult, context) => {
       for (const endpoint of options?.invalidate ?? []) {
@@ -345,9 +340,7 @@ export function fetchData<E extends DataEndpoints>(
     ...options,
     meta: { endpoint, input },
     queryFn: ({ signal }) =>
-      Promise.resolve(
-        client.request(endpoint, input ?? ({} as never), { signal }),
-      ),
+      client.request(endpoint, input ?? ({} as never), { signal }),
   });
 }
 
