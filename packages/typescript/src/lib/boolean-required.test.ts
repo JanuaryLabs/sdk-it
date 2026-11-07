@@ -69,6 +69,7 @@ test('a schema whose required is a boolean generates a client: a required proper
   await generate((await loadSpec(specPath)).spec, {
     output: workspace.path,
     name: 'Profiles',
+    packageName: '@acme/sdk',
     readme: false,
     mode: 'full',
   });

@@ -170,6 +170,7 @@ describe('generate — dictionary inputs', () => {
     await generate(dictionaryRequestSpec(), {
       output: directory.path,
       name: 'Dictionaries',
+      packageName: '@acme/sdk',
       readme: false,
     });
 
@@ -254,7 +255,12 @@ test('generated input validators keep required type unions required', async () =
         },
       },
     },
-    { output: directory.path, name: 'Values', readme: false },
+    {
+      output: directory.path,
+      name: 'Values',
+      packageName: '@acme/sdk',
+      readme: false,
+    },
   );
   const {
     createValueSchema,
@@ -337,7 +343,13 @@ test('generated nullable anyOf contracts preserve null separately from omission'
         },
       },
     },
-    { output: directory.path, name: 'Values', readme: false, mode: 'full' },
+    {
+      output: directory.path,
+      name: 'Values',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   const configPath = join(directory.path, 'tsconfig.json');
   const config = JSON.parse(readFileSync(configPath, 'utf8'));
@@ -444,6 +456,7 @@ Owner:
   await generate((await loadSpec(join(specDir.path, 'openapi.yaml'))).spec, {
     output: directory.path,
     name: 'Pets',
+    packageName: '@acme/sdk',
     readme: false,
     mode: 'full',
   });
@@ -514,7 +527,13 @@ test('allOf parts keep their required properties in generated types and input va
         },
       },
     },
-    { output: directory.path, name: 'Spaces', readme: false, mode: 'full' },
+    {
+      output: directory.path,
+      name: 'Spaces',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   const {
     createSpaceSchema,
@@ -613,7 +632,12 @@ describe('generate — discriminated input unions', () => {
           ),
         },
       },
-      { output: directory.path, name: 'Messages', readme: false },
+      {
+        output: directory.path,
+        name: 'Messages',
+        packageName: '@acme/sdk',
+        readme: false,
+      },
     );
 
     const {
@@ -664,6 +688,7 @@ describe('generate — http runtime', () => {
       {
         output: directory.path,
         name: 'Events',
+        packageName: '@acme/sdk',
         readme: false,
       },
     );
@@ -721,7 +746,13 @@ describe('generate — http runtime', () => {
           },
         },
       },
-      { output: directory.path, name: 'Items', readme: false, mode: 'minimal' },
+      {
+        output: directory.path,
+        name: 'Items',
+        packageName: '@acme/sdk',
+        readme: false,
+        mode: 'minimal',
+      },
     );
     type HttpError = Error & {
       status: number;
@@ -791,7 +822,13 @@ describe('generate — http runtime', () => {
           },
         },
       },
-      { output: directory.path, name: 'Items', readme: false, mode: 'minimal' },
+      {
+        output: directory.path,
+        name: 'Items',
+        packageName: '@acme/sdk',
+        readme: false,
+        mode: 'minimal',
+      },
     );
     const generated: {
       createItems: (settings: unknown) => {
@@ -854,7 +891,13 @@ describe('generate — http runtime', () => {
           },
         },
       },
-      { output: directory.path, name: 'Items', readme: false, mode: 'minimal' },
+      {
+        output: directory.path,
+        name: 'Items',
+        packageName: '@acme/sdk',
+        readme: false,
+        mode: 'minimal',
+      },
     );
     const generated: {
       createItems: (settings: unknown) => {
@@ -898,7 +941,13 @@ describe('generate — http runtime', () => {
           },
         },
       },
-      { output: directory.path, name: 'Items', readme: false, mode: 'minimal' },
+      {
+        output: directory.path,
+        name: 'Items',
+        packageName: '@acme/sdk',
+        readme: false,
+        mode: 'minimal',
+      },
     );
     const generated: {
       createItems: (settings: unknown) => {
@@ -950,6 +999,7 @@ describe('generate — http runtime', () => {
       {
         output: directory.path,
         name: 'Events',
+        packageName: '@acme/sdk',
         readme: false,
         mode: 'minimal',
       },
@@ -1020,7 +1070,13 @@ describe('generate — response bodies follow the spec body kind', () => {
           },
         },
       },
-      { output: directory.path, name: 'Things', readme: false, mode: 'full' },
+      {
+        output: directory.path,
+        name: 'Things',
+        packageName: '@acme/sdk',
+        readme: false,
+        mode: 'full',
+      },
     );
     const {
       createThings,
@@ -1089,7 +1145,13 @@ void [nothing, something];
           },
         },
       },
-      { output: directory.path, name: 'Events', readme: false, mode: 'full' },
+      {
+        output: directory.path,
+        name: 'Events',
+        packageName: '@acme/sdk',
+        readme: false,
+        mode: 'full',
+      },
     );
     const {
       createEvents,
@@ -1168,7 +1230,13 @@ void [listener, model];
           },
         },
       },
-      { output: directory.path, name: 'Chunks', readme: false, mode: 'full' },
+      {
+        output: directory.path,
+        name: 'Chunks',
+        packageName: '@acme/sdk',
+        readme: false,
+        mode: 'full',
+      },
     );
     const {
       createChunks,
@@ -1245,6 +1313,7 @@ describe('generate — impossible schemas', () => {
       {
         output: directory.path,
         name: 'Impossible',
+        packageName: '@acme/sdk',
         readme: false,
       },
     );
@@ -1293,6 +1362,7 @@ describe('generate — impossible schemas', () => {
       {
         output: directory.path,
         name: 'Impossible',
+        packageName: '@acme/sdk',
         readme: false,
       },
     );
@@ -1314,6 +1384,7 @@ describe('generate — AI SDK 7 agent tools', () => {
       await generate(agentToolSpec(), {
         output: directory.path,
         name: 'AgentTools',
+        packageName: '@acme/sdk',
         readme: false,
         agentTools,
         mode: 'full',
@@ -1342,6 +1413,7 @@ describe('generate — AI SDK 7 agent tools', () => {
     await generate(agentToolSpec(), {
       output: directory.path,
       name: 'AgentTools',
+      packageName: '@acme/sdk',
       readme: false,
       agentTools: 'ai-sdk',
       mode: 'full',
@@ -1363,6 +1435,7 @@ describe('generate — AI SDK 7 agent tools', () => {
     await generate(agentToolSpec(), {
       output: directory.path,
       name: 'OpenAIAgentTools',
+      packageName: '@acme/sdk',
       readme: false,
       agentTools: 'openai-agents',
       mode: 'full',
@@ -1406,6 +1479,7 @@ describe('generate — client initialization', () => {
         {
           output: directories[index].path,
           name: 'Demo',
+          packageName: '@acme/sdk',
           readme: true,
         },
       );
@@ -1453,7 +1527,12 @@ describe('generate — security options assembly', () => {
             },
           },
         },
-        { output: directory.path, name: 'ExternalSecurity', readme: false },
+        {
+          output: directory.path,
+          name: 'ExternalSecurity',
+          packageName: '@acme/sdk',
+          readme: false,
+        },
       ),
       /Security scheme https:\/\/auth\.example\.com\/security-scheme must be resolved/,
     );
@@ -1492,7 +1571,12 @@ describe('generate — security options assembly', () => {
           },
         },
       },
-      { output, name: 'ResolvedSecurity', readme: false },
+      {
+        output,
+        name: 'ResolvedSecurity',
+        packageName: '@acme/sdk',
+        readme: false,
+      },
     );
 
     const {
@@ -1570,6 +1654,7 @@ describe('generate — security options assembly', () => {
       {
         output: directory.path,
         name: 'SecurityTypes',
+        packageName: '@acme/sdk',
         readme: false,
         mode: 'full',
       },
@@ -1588,6 +1673,7 @@ describe('generate — security options assembly', () => {
     await generate(figmaShapedSpec(), {
       output: directory.path,
       name: 'Figma',
+      packageName: '@acme/sdk',
       readme: false,
     });
 
@@ -1655,7 +1741,12 @@ describe('generate — security options assembly', () => {
           },
         },
       },
-      { output: directory.path, name: 'Security', readme: false },
+      {
+        output: directory.path,
+        name: 'Security',
+        packageName: '@acme/sdk',
+        readme: false,
+      },
     );
 
     const {
@@ -1723,7 +1814,12 @@ describe('generate — security options assembly', () => {
           },
         },
       },
-      { output: directory.path, name: 'HttpScheme', readme: false },
+      {
+        output: directory.path,
+        name: 'HttpScheme',
+        packageName: '@acme/sdk',
+        readme: false,
+      },
     );
 
     const {
@@ -1784,7 +1880,12 @@ describe('generate — security options assembly', () => {
           },
         },
       },
-      { output: directory.path, name: 'OptionalSecurity', readme: false },
+      {
+        output: directory.path,
+        name: 'OptionalSecurity',
+        packageName: '@acme/sdk',
+        readme: false,
+      },
     );
 
     const {
@@ -1853,7 +1954,12 @@ describe('generate — security options assembly', () => {
           },
         },
       },
-      { output: directory.path, name: 'AndSecurity', readme: false },
+      {
+        output: directory.path,
+        name: 'AndSecurity',
+        packageName: '@acme/sdk',
+        readme: false,
+      },
     );
 
     const {
@@ -1920,6 +2026,7 @@ describe('generate — security options assembly', () => {
       {
         output: directory.path,
         name: 'MutualTls',
+        packageName: '@acme/sdk',
         readme: false,
         mode: 'full',
       },
@@ -2009,6 +2116,7 @@ describe('generate — emitted code is cross-runtime portable', () => {
     await generate(uploadSpec(), {
       output: directory.path,
       name: 'Uploads',
+      packageName: '@acme/sdk',
       readme: false,
     });
 
@@ -2036,6 +2144,7 @@ describe('generate — emitted code is cross-runtime portable', () => {
     await generate(uploadSpec(), {
       output: directory.path,
       name: 'Uploads',
+      packageName: '@acme/sdk',
       readme: false,
     });
 
@@ -2151,7 +2260,12 @@ describe('generate — transport-owned credentials', () => {
           },
         },
       },
-      { output, name: 'TransportOwned', readme: false },
+      {
+        output,
+        name: 'TransportOwned',
+        packageName: '@acme/sdk',
+        readme: false,
+      },
     );
 
     const {
@@ -2270,6 +2384,7 @@ describe('generate — model names', () => {
     await generate(specWithModels(['Widget']), {
       output: plain.path,
       name: 'Shop',
+      packageName: '@acme/sdk',
       readme: false,
       mode: 'full',
     });
@@ -2289,6 +2404,7 @@ describe('generate — model names', () => {
     await generate(specWithModels(runtimeNames), {
       output: directory.path,
       name: 'Shop',
+      packageName: '@acme/sdk',
       readme: false,
       mode: 'full',
     });
@@ -2321,6 +2437,7 @@ describe('generate — model names', () => {
     );
     await generate(specWithModels(['ok', 'not_found', 'client_client']), {
       name: 'Client',
+      packageName: '@acme/sdk',
       output: directory.path,
       readme: false,
       mode: 'full',
@@ -2349,6 +2466,7 @@ void [createClient({ baseUrl: 'https://shop.test' }), NotFound];
     await assert.rejects(
       generate(specWithModels(['pet', 'Pet']), {
         name: 'Shop',
+        packageName: '@acme/sdk',
         output: directory.path,
         readme: false,
       }),
@@ -2430,6 +2548,7 @@ describe('generate — pagination with an optional items array', () => {
           {
             output: directory.path,
             name: 'Paged',
+            packageName: '@acme/sdk',
             readme: false,
             mode: 'full',
           },
@@ -2546,6 +2665,7 @@ describe('generate — pagination with coerced numeric parameters', () => {
           {
             output: directory.path,
             name: 'Paged',
+            packageName: '@acme/sdk',
             readme: false,
             mode: 'full',
           },
@@ -2630,6 +2750,7 @@ test('operation groups whose tag starts with a digit generate valid identifiers'
     {
       output: directory.path,
       name: 'Nums',
+      packageName: '@acme/sdk',
       readme: false,
       mode: 'full',
       agentTools: 'ai-sdk',
@@ -2712,7 +2833,13 @@ test('a schema or operation group named index keeps its module beside the folder
         },
       },
     },
-    { output: directory.path, name: 'Idx', readme: false, mode: 'full' },
+    {
+      output: directory.path,
+      name: 'Idx',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   writeFileSync(
     join(directory.path, 'src', 'consumer.ts'),

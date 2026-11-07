@@ -50,6 +50,7 @@ async function generateClient(
   await generate(spec, {
     output: directory,
     name: 'Notes',
+    packageName: '@acme/sdk',
     readme: false,
     mode: 'full',
     agentTools,
@@ -413,7 +414,12 @@ test('the README snippet shows the body the client sends, not the first media ty
       },
       'application/json': { schema: note },
     }),
-    { output: workspace.path, name: 'Notes', readme: true },
+    {
+      output: workspace.path,
+      name: 'Notes',
+      packageName: '@acme/sdk',
+      readme: true,
+    },
   );
 
   const readme = await readFile(join(workspace.path, 'README.md'), 'utf8');

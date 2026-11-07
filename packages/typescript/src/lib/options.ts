@@ -1,5 +1,4 @@
 import { npmRunPathEnv } from 'npm-run-path';
-import { spinalcase } from 'stringcase';
 
 import { type Writer } from '@sdk-it/core/file-system.js';
 import type { PaginationConfig } from '@sdk-it/spec';
@@ -13,7 +12,8 @@ export interface TypeScriptGeneratorOptions {
   output: string;
   useTsExtension?: boolean;
   name: string;
-  packageName?: string;
+  /** The npm name of the generated package: package.json's name, and the name the README installs and imports. */
+  packageName: string;
   pagination?: PaginationConfig | false;
   writer?: Writer;
   /**
@@ -30,14 +30,4 @@ export interface TypeScriptGeneratorOptions {
    * @default true
    */
   cleanup?: boolean;
-}
-
-/** The npm package name of the generated SDK: `packageName`, else `@<name>/sdk`. */
-export function packageNameOf(
-  settings: Pick<TypeScriptGeneratorOptions, 'name' | 'packageName'>,
-) {
-  return (
-    settings.packageName ??
-    `@${spinalcase(settings.name.trim().toLowerCase())}/sdk`
-  );
 }

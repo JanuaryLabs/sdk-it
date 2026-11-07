@@ -76,6 +76,7 @@ void test.each(
         {
           output: workspace.path,
           name: 'Records',
+          packageName: '@acme/sdk',
           mode: 'full',
           readme: false,
         },

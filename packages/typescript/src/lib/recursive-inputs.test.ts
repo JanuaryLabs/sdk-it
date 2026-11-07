@@ -73,6 +73,7 @@ test('a generated client validates and sends recursive inputs, a self-referencin
   await generate(spec, {
     output: workspace.path,
     name: 'Shortcuts',
+    packageName: '@acme/sdk',
     readme: false,
     mode: 'full',
   });

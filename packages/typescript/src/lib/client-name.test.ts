@@ -28,7 +28,11 @@ void test('generate refuses a client name that does not give a TypeScript identi
   );
 
   await assert.rejects(
-    generate(spec, { output: output.path, name: '2024 api' }),
+    generate(spec, {
+      output: output.path,
+      name: '2024 api',
+      packageName: '@acme/sdk',
+    }),
     { name: 'TypeError', message: /"2024 api"/ },
   );
 
@@ -56,7 +60,11 @@ void test('generate refuses a client name whose default instance is a reserved w
   );
 
   await assert.rejects(
-    generate(spec, { output: join(output.path, 'sdk'), name: 'Default' }),
+    generate(spec, {
+      output: join(output.path, 'sdk'),
+      name: 'Default',
+      packageName: '@acme/sdk',
+    }),
     { name: 'TypeError', message: /"Default".*\bdefault\b/ },
   );
 });

@@ -27,6 +27,7 @@ void test('a 204 response is typed null, not never, in the Endpoints map and the
   await generate(spec, {
     output: workspace.path,
     name: 'Account',
+    packageName: '@acme/sdk',
     readme: false,
     mode: 'full',
   });
@@ -76,6 +77,7 @@ void test('a 204 response resolves to null at runtime', async () => {
   await generate(spec, {
     output: workspace.path,
     name: 'Account',
+    packageName: '@acme/sdk',
     readme: false,
     mode: 'full',
   });

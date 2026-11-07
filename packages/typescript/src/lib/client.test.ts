@@ -226,7 +226,12 @@ test('a generated client puts the signal passed to prepare in the prepared reque
         },
       },
     },
-    { output: directory.path, name: 'Signals', readme: false },
+    {
+      output: directory.path,
+      name: 'Signals',
+      packageName: '@acme/sdk',
+      readme: false,
+    },
   );
   const { createSignals } = await import(
     pathToFileURL(join(directory.path, 'client.ts')).href

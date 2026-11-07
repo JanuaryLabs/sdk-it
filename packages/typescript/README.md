@@ -25,13 +25,16 @@ await generate(spec, {
   output: './src/generated/openstatus',
   mode: 'minimal',
   name: 'OpenStatus',
+  packageName: '@acme/openstatus',
 });
 ```
 
 `loadSpec` accepts a URL or a local path and reads JSON or YAML. The required `name`
 sets the names of the generated exports, such as `createOpenStatus` and
-`OpenStatusEndpoints`. `minimal` mode writes client source
-files directly to `output`.
+`OpenStatusEndpoints`. The required `packageName` is the npm name of the
+generated package: the README installs and imports it, and `full` mode writes
+it to `package.json`. `generate` refuses an empty `packageName`. `minimal` mode
+writes client source files directly to `output`.
 
 The exports use `name` in PascalCase. `generate`, `render` and `renderModule`
 refuse a name that does not become a TypeScript identifier (`'2024 api'`
@@ -211,6 +214,7 @@ const spec = await fetch('https://petstore.swagger.io/v2/swagger.json').then(
 await generate(spec, {
   output: './src/generated/petstore',
   name: 'PetStore',
+  packageName: '@acme/petstore',
   formatCode: async ({ output, env }) => {
     await execFileAsync('prettier', [output, '--write'], { env });
   },

@@ -29,7 +29,12 @@ test('a request body whose example is null gets a README snippet that sends null
         },
       },
     },
-    { output: output.path, name: 'Demo', readme: true },
+    {
+      output: output.path,
+      name: 'Demo',
+      packageName: '@acme/sdk',
+      readme: true,
+    },
   );
 
   const readme = await readFile(join(output.path, 'README.md'), 'utf8');

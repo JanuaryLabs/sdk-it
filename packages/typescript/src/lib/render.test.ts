@@ -170,6 +170,7 @@ test('generate writes metadata.json through a writer that keeps files in memory'
 
   await generate(petStore(['Pet']), {
     name: 'Petstore',
+    packageName: '@acme/sdk',
     output,
     readme: false,
     writer: async (folder, contents) => {
@@ -190,6 +191,7 @@ test('generate leaves the caller settings unchanged across runs', async () => {
   let writes = 0;
   const settings = {
     name: 'Petstore',
+    packageName: '@acme/sdk',
     output: directory.path,
     readme: false,
     writer: async (
@@ -216,6 +218,7 @@ test('a regenerated SDK keeps exporting a model the user added', async () => {
   );
   const settings = {
     name: 'Petstore',
+    packageName: '@acme/sdk',
     output: directory.path,
     readme: false,
     cleanup: false,
@@ -249,6 +252,7 @@ test('without cleanup, a model removed from the spec stays exported', async () =
   );
   const settings = {
     name: 'Petstore',
+    packageName: '@acme/sdk',
     output: directory.path,
     readme: false,
     cleanup: false,
@@ -279,6 +283,7 @@ for (const [agentTools, useTsExtension] of [
     await generate(petStore(['Pet', 'Tag']), {
       output: directory.path,
       name: 'Pets',
+      packageName: '@acme/sdk',
       readme: false,
       agentTools,
       useTsExtension,

@@ -63,7 +63,12 @@ void test.each(
             },
           },
         },
-        { output: directory.path, name: 'Files', readme: false },
+        {
+          output: directory.path,
+          name: 'Files',
+          packageName: '@acme/sdk',
+          readme: false,
+        },
       );
       const { createFiles } = await import(
         pathToFileURL(join(directory.path, 'client.ts')).href

@@ -71,7 +71,12 @@ const pets: OpenAPIObject = {
 
 async function readmeOf(spec: OpenAPIObject) {
   await using output = await new TemporaryFiles().directory('readme-snippet-');
-  await generate(spec, { output: output.path, name: 'Demo', readme: true });
+  await generate(spec, {
+    output: output.path,
+    name: 'Demo',
+    packageName: '@acme/pets',
+    readme: true,
+  });
   return readFile(join(output.path, 'README.md'), 'utf8');
 }
 
@@ -223,17 +228,22 @@ test('every README code block that uses the client type-checks against the gener
   assert.ok(blocks.some((code) => code.includes('"apiKey":')));
 });
 
-test('the README imports the client from the package name generate writes', async () => {
+test('the package.json and the README name the package that generate is given', async () => {
   await using output = await new TemporaryFiles().directory('readme-package-');
   const { packageName } = await generate(pets, {
     output: output.path,
     name: 'Demo',
     packageName: '@acme/pets',
     readme: true,
+    mode: 'full',
   });
+  const manifest = JSON.parse(
+    await readFile(join(output.path, 'package.json'), 'utf8'),
+  );
   const readme = await readFile(join(output.path, 'README.md'), 'utf8');
 
   assert.equal(packageName, '@acme/pets');
+  assert.equal(manifest.name, '@acme/pets');
   assert.match(readme, /^npm install @acme\/pets$/m);
   assert.match(readme, /from '@acme\/pets';/);
   assert.doesNotMatch(readme, /@demo\/sdk/);
@@ -309,7 +319,7 @@ test('a README authentication block imports the client it creates', async () => 
   const blocks = typescriptBlocks(authentication);
   assert.equal(blocks.length, 2);
   for (const code of blocks) {
-    assert.match(code, /^import \{ createDemo \} from '@demo\/sdk';$/m);
+    assert.match(code, /^import \{ createDemo \} from '@acme\/pets';$/m);
   }
 });
 
@@ -334,6 +344,7 @@ test('the README ParseError example sends an input the client refuses', async ()
   await generate(pets, {
     output: workspace.path,
     name: 'Demo',
+    packageName: '@acme/pets',
     readme: true,
     mode: 'full',
   });
@@ -344,7 +355,7 @@ test('the README ParseError example sends an input the client refuses', async ()
   const script = join(workspace.path, 'src', 'parse-error.ts');
   await writeFile(
     script,
-    example.replaceAll(/(['"])@demo\/sdk\1/g, "'./index.ts'"),
+    example.replaceAll(/(['"])@acme\/pets\1/g, "'./index.ts'"),
   );
 
   const { exitCode, stdout } = await runNode([script]);

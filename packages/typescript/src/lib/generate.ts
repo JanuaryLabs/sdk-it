@@ -47,7 +47,7 @@ import {
   assembleModule,
   moduleReferences,
 } from './one-module.ts';
-import { type TypeScriptGeneratorOptions, packageNameOf } from './options.ts';
+import type { TypeScriptGeneratorOptions } from './options.ts';
 import { toReadme } from './readme/readme.ts';
 import { type References, fileReferences } from './references.ts';
 import type { Operation } from './sdk.ts';
@@ -202,6 +202,12 @@ export async function generate(
   openapi: OpenAPIDocument,
   settings: TypeScriptGeneratorOptions,
 ): Promise<{ packageName: string }> {
+  const { packageName } = settings;
+  if (!packageName.trim()) {
+    throw new TypeError(
+      `packageName must name the generated npm package (packageName: '@acme/pets'); got ${JSON.stringify(packageName)}.`,
+    );
+  }
   const options: RenderOptions = {
     name: settings.name,
     style: { name: 'github', ...settings.style },
@@ -257,7 +263,6 @@ export async function generate(
     await writer(output, changedIndexes);
   }
 
-  const packageName = packageNameOf(settings);
   if (settings.mode === 'full') {
     const configFiles: WriteContent = {
       'package.json': {

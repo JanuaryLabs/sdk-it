@@ -87,6 +87,7 @@ void test.each(
       await generate(spec, {
         output: workspace.path,
         name: 'Paged',
+        packageName: '@acme/sdk',
         mode: 'minimal',
         readme: false,
       });

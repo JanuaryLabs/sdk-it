@@ -39,6 +39,7 @@ void test('an SDK whose spec names one server exports a default instance that bu
   await generate(notesSpec(['https://api.test/v1']), {
     output: workspace.path,
     name: 'Notes',
+    packageName: '@acme/sdk',
     readme: false,
     mode: 'full',
   });
@@ -56,6 +57,7 @@ void test('an SDK whose spec names no server exports a default instance that sen
   await generate(notesSpec([]), {
     output: workspace.path,
     name: 'Notes',
+    packageName: '@acme/sdk',
     readme: false,
     mode: 'full',
   });
@@ -74,6 +76,7 @@ void test('an SDK whose spec names two servers exports no default instance', asy
   await generate(notesSpec(['https://eu.api.test', 'https://us.api.test']), {
     output: workspace.path,
     name: 'Notes',
+    packageName: '@acme/sdk',
     readme: false,
     mode: 'full',
   });
@@ -96,6 +99,7 @@ void test('an SDK named after its tag exports the default instance at the root a
   await generate(notesSpec(['https://api.test']), {
     output: workspace.path,
     name: 'Notes',
+    packageName: '@acme/sdk',
     readme: false,
     mode: 'full',
     agentTools: 'ai-sdk',

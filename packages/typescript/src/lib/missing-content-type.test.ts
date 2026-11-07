@@ -65,6 +65,7 @@ async function generateClient(directory: string, response: Response) {
   await generate(spec, {
     output: directory,
     name: 'Store',
+    packageName: '@acme/sdk',
     readme: false,
     mode: 'full',
   });

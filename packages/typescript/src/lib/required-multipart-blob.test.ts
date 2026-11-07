@@ -75,6 +75,7 @@ void test.each(variants, ({ variant, path, endpoint, params, parameters }) =>
     await generate(transcriptionSpec(path, [...parameters]), {
       output: workspace.path,
       name: 'Transcribe',
+      packageName: '@acme/sdk',
       readme: false,
       mode: 'full',
     });
@@ -112,6 +113,7 @@ void test.each(variants, ({ variant, path, endpoint, params, parameters }) =>
     await generate(transcriptionSpec(path, [...parameters]), {
       output: workspace.path,
       name: 'Transcribe',
+      packageName: '@acme/sdk',
       readme: false,
       mode: 'full',
     });

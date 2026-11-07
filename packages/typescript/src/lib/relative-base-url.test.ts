@@ -39,6 +39,7 @@ const loadClient = async (globals: Record<string, unknown>) => {
     await generate(spec, {
       output: workspace.path,
       name: 'Items',
+      packageName: '@acme/sdk',
       readme: false,
       mode: 'full',
     });

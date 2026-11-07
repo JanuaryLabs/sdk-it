@@ -61,7 +61,13 @@ void test("an endpoint's result is what request() resolves to: the Page for a pa
         },
       },
     },
-    { output: workspace.path, name: 'Paged', readme: false, mode: 'full' },
+    {
+      output: workspace.path,
+      name: 'Paged',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   await writeFile(
     join(workspace.path, 'src/consumer.ts'),
@@ -152,7 +158,13 @@ void test('generic code over the endpoint table gets request() as a promise of t
         },
       },
     },
-    { output: workspace.path, name: 'Paged', readme: false, mode: 'full' },
+    {
+      output: workspace.path,
+      name: 'Paged',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   await writeFile(
     join(workspace.path, 'src/consumer.ts'),

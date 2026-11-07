@@ -91,6 +91,7 @@ void test('required body properties stay required in the input type beside a pat
   await generate(spec, {
     output: workspace.path,
     name: 'Chat',
+    packageName: '@acme/sdk',
     readme: false,
     mode: 'full',
   });
@@ -131,6 +132,7 @@ void test('the generated client rejects a body missing a required property befor
   await generate(spec, {
     output: workspace.path,
     name: 'Chat',
+    packageName: '@acme/sdk',
     readme: false,
     mode: 'full',
   });

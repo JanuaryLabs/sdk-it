@@ -89,6 +89,7 @@ const typecheckConsumer = async (prefix: string, consumer: string) => {
   await generate(spec, {
     output: workspace.path,
     name: 'Sources',
+    packageName: '@acme/sdk',
     readme: false,
     mode: 'full',
   });

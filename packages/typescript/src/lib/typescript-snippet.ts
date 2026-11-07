@@ -18,7 +18,7 @@ import {
 } from '@sdk-it/spec';
 
 import { SnippetEmitter } from './emitters/snippet.ts';
-import { type TypeScriptGeneratorOptions, packageNameOf } from './options.ts';
+import type { TypeScriptGeneratorOptions } from './options.ts';
 import { expandServerUrls } from './server-urls.ts';
 
 export class TypeScriptSnippet implements Generator {
@@ -30,7 +30,7 @@ export class TypeScriptSnippet implements Generator {
     this.#spec = spec;
     this.#snippetEmitter = new SnippetEmitter(spec);
     this.#clientName = pascalcase(settings.name.trim());
-    this.#packageName = packageNameOf(settings);
+    this.#packageName = settings.packageName;
   }
   succinct(entry: OperationEntry, operation: TunedOperationObject) {
     const payload = this.#render(this.#example(operation));

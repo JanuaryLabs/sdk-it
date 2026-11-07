@@ -74,6 +74,7 @@ async function generateClient(directory: string, response: Response) {
   await generate(spec, {
     output: directory,
     name: 'Store',
+    packageName: '@acme/sdk',
     readme: false,
     mode: 'full',
   });
@@ -180,6 +181,7 @@ void test('a range types its body: a 2XX result is the declared body, a 4XX erro
   await generate(spec, {
     output: workspace.path,
     name: 'Store',
+    packageName: '@acme/sdk',
     readme: false,
     mode: 'full',
   });

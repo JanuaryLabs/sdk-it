@@ -79,6 +79,7 @@ test('generated SDK imports zod by name so bundlers can drop the parts it does n
   await using workspace = await new TemporaryFiles().directory('zod-import-');
   await generate(spec, {
     name: 'Shop',
+    packageName: '@acme/sdk',
     output: workspace.path,
     mode: 'minimal',
     readme: false,

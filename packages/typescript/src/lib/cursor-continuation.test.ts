@@ -285,6 +285,7 @@ void test.each(['full', 'minimal'] as const, (mode) =>
           await generate(spec, {
             output: workspace.path,
             name: 'Cursor',
+            packageName: '@acme/sdk',
             mode,
             readme: false,
           });

@@ -10,6 +10,7 @@ import {
   ScrollRestoration,
   type ShouldRevalidateFunctionArgs,
 } from 'react-router';
+import { spinalcase } from 'stringcase';
 
 import { resolveRef } from '@sdk-it/core/ref.js';
 import {
@@ -120,8 +121,10 @@ export async function loader({
       operation: TunedOperationObject;
     }
   > = {};
+  const name = clientName(titleClientName(spec.info.title));
   const generator = new TypeScriptSnippet(spec, {
-    name: clientName(titleClientName(spec.info.title)),
+    name,
+    packageName: `@${spinalcase(name.toLowerCase())}/sdk`,
     output: '',
   });
 
