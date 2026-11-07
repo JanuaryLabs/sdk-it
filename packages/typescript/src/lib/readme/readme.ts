@@ -6,6 +6,7 @@ import { PropEmitter } from './prop.emitter.ts';
 
 export function toReadme(spec: IR, generator: Generator) {
   const propEmitter = new PropEmitter(spec);
+  const bodylessInputs = new Set<string>();
   const markdown: string[] = [];
 
   // Add TypeScript SDK heading and description
@@ -56,13 +57,17 @@ export function toReadme(spec: IR, generator: Generator) {
     markdown.push(`#### Example usage`);
     markdown.push(snippet);
 
-    const requestBodyContent = propEmitter.requestBody(
-      operation.requestBody,
-      operationInputs(spec, operation),
-    );
-    if (requestBodyContent.length > 1) {
-      // Check if more than just the header was added
-      markdown.push(requestBodyContent.join('\n\n'));
+    const [preferred] = operationInputs(spec, operation);
+    const input = propEmitter.parameters(operation.parameters);
+    if (preferred.encoding === 'empty') {
+      bodylessInputs.add(
+        operation.requestBody.content[preferred.contentType].schema.$ref,
+      );
+    } else {
+      input.push(...propEmitter.requestBody(operation.requestBody));
+    }
+    if (input.length > 0) {
+      markdown.push(['#### Input', ...input].join('\n\n'));
     }
 
     markdown.push(`#### Output`);
@@ -111,8 +116,14 @@ export function toReadme(spec: IR, generator: Generator) {
     for (const [schemaName, schema] of Object.entries(
       spec.components.schemas,
     )) {
-      // Include all schemas except ValidationError which is internal
-      if (schemaName === 'ValidationError') {
+      // ValidationError is internal, and a bodyless input's schema only
+      // holds the parameters its operation documents.
+      if (
+        schemaName === 'ValidationError' ||
+        bodylessInputs.has(
+          `#/components/schemas/${schemaName.replaceAll('~', '~0').replaceAll('/', '~1')}`,
+        )
+      ) {
         continue;
       }
 

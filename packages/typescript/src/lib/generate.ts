@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { npmRunPathEnv } from 'npm-run-path';
 import runtimeSources from 'runtime-sources';
-import { spinalcase } from 'stringcase';
 
 import {
   type OpenAPIDocument,
@@ -48,7 +47,7 @@ import {
   assembleModule,
   moduleReferences,
 } from './one-module.ts';
-import type { TypeScriptGeneratorOptions } from './options.ts';
+import { type TypeScriptGeneratorOptions, packageNameOf } from './options.ts';
 import { toReadme } from './readme/readme.ts';
 import { type References, fileReferences } from './references.ts';
 import type { Operation } from './sdk.ts';
@@ -258,9 +257,7 @@ export async function generate(
     await writer(output, changedIndexes);
   }
 
-  const packageName =
-    settings.packageName ??
-    `@${spinalcase(settings.name.trim().toLowerCase())}/sdk`;
+  const packageName = packageNameOf(settings);
   if (settings.mode === 'full') {
     const configFiles: WriteContent = {
       'package.json': {

@@ -1,11 +1,12 @@
 import type {
+  ParameterObject,
   ReferenceObject,
   RequestBodyObject,
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
 import { type OpenAPIDocument, followRef, isRef } from '@sdk-it/core';
-import { type OperationInput, coerceTypes } from '@sdk-it/spec';
+import { coerceTypes } from '@sdk-it/spec';
 
 /**
  * PropEmitter handles converting OpenAPI schemas to Markdown documentation
@@ -317,49 +318,62 @@ export class PropEmitter {
     return lines;
   }
 
-  /**
-   * Process a request body and return markdown documentation; an input sent
-   * with no body names no content type.
-   */
-  requestBody(
-    requestBody: RequestBodyObject,
-    inputs: readonly OperationInput[],
-  ): string[] {
+  /** The documentation of a request body, one block per content type. */
+  requestBody(requestBody: RequestBodyObject): string[] {
     const lines: string[] = [];
-    lines.push(`#### Input`);
-    lines.push(requestBody.description || '');
+    if (requestBody.description) {
+      lines.push(requestBody.description);
+    }
 
     const contentEntries = Object.entries(requestBody.content);
-    const multipleContentTypes = contentEntries.length > 1;
-    if (multipleContentTypes) {
-      // Use collapsible toggles
+    if (contentEntries.length > 1) {
       for (const [contentType, mediaType] of contentEntries) {
         lines.push(`<details>`);
         lines.push(`<summary>Content Type: \`${contentType}\`</summary>`);
         lines.push('');
-
         if (mediaType.schema) {
-          const schemaDocs = this.handle(mediaType.schema);
-          lines.push(...schemaDocs.map((l) => l));
+          lines.push(...this.handle(mediaType.schema));
         }
-
         lines.push('');
         lines.push(`</details>`);
       }
-    } else {
-      // Single content type - show inline
-      const [contentType, mediaType] = contentEntries[0];
-      const input = inputs.find((it) => it.contentType === contentType);
-      if (input?.encoding !== 'empty') {
-        lines.push(`Content Type: \`${contentType}\``);
-      }
-
-      if (mediaType.schema) {
-        const schemaDocs = this.handle(mediaType.schema);
-        lines.push(...schemaDocs);
-      }
+      return lines;
     }
 
+    const [[contentType, mediaType]] = contentEntries;
+    lines.push(`Content Type: \`${contentType}\``);
+    if (mediaType.schema) {
+      lines.push(...this.handle(mediaType.schema));
+    }
     return lines;
+  }
+
+  /** A table of the operation's path, query, header and cookie parameters. */
+  parameters(parameters: readonly ParameterObject[]): string[] {
+    if (parameters.length === 0) {
+      return [];
+    }
+    return [
+      [
+        '| Name | In | Type | Required | Description |',
+        '|------|----|------|----------|-------------|',
+        ...parameters.map((parameter) =>
+          [
+            '',
+            `\`${parameter.name}\``,
+            parameter.in,
+            parameter.schema
+              ? this.handle(parameter.schema)[0].replace('**Type:** ', '')
+              : '',
+            parameter.required ? 'Yes' : 'No',
+            (parameter.description ?? '').replaceAll('\n', ' '),
+            '',
+          ]
+            .map((cell) => cell.replaceAll('|', '\\|'))
+            .join(' | ')
+            .trim(),
+        ),
+      ].join('\n'),
+    ];
   }
 }

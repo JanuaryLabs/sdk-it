@@ -1,5 +1,5 @@
-import type { ResponseObject, SchemaObject } from 'openapi3-ts/oas31';
-import { camelcase, spinalcase } from 'stringcase';
+import type { SchemaObject } from 'openapi3-ts/oas31';
+import { camelcase } from 'stringcase';
 
 import {
   type OpenAPISecuritySchemeObject,
@@ -11,13 +11,14 @@ import { type Generator } from '@sdk-it/readme';
 import {
   type IR,
   type OperationEntry,
+  type OperationPagination,
   type TunedOperationObject,
   forEachOperation,
   operationInputs,
 } from '@sdk-it/spec';
 
 import { SnippetEmitter } from './emitters/snippet.ts';
-import type { TypeScriptGeneratorOptions } from './options.ts';
+import { type TypeScriptGeneratorOptions, packageNameOf } from './options.ts';
 import { expandServerUrls } from './server-urls.ts';
 
 export class TypeScriptSnippet implements Generator {
@@ -29,31 +30,17 @@ export class TypeScriptSnippet implements Generator {
     this.#spec = spec;
     this.#snippetEmitter = new SnippetEmitter(spec);
     this.#clientName = pascalcase(settings.name.trim());
-    this.#packageName = `@${spinalcase(this.#clientName.toLowerCase())}/sdk`;
+    this.#packageName = packageNameOf(settings);
   }
   succinct(entry: OperationEntry, operation: TunedOperationObject) {
     const payload = this.#render(this.#example(operation));
 
-    let successResponse: ResponseObject | undefined;
-    for (const status in operation.responses) {
-      if (status.startsWith('2')) {
-        successResponse = operation.responses[status];
-        break;
-      }
+    const success = Object.entries(operation.responses).find(([status]) =>
+      status.startsWith('2'),
+    )?.[1];
+    if (success?.['x-body'] === 'stream') {
+      return this.#stream(entry, payload);
     }
-
-    if (successResponse) {
-      if (successResponse.headers?.['Transfer-Encoding']) {
-        return this.#httpStreaming(entry, payload);
-      }
-      if (
-        successResponse.content &&
-        successResponse.content['application/octet-stream']
-      ) {
-        return this.#streamDownload(entry, payload);
-      }
-    }
-
     if (operation['x-pagination']) {
       return this.#pagination(entry, payload);
     }
@@ -115,7 +102,7 @@ export class TypeScriptSnippet implements Generator {
 
   #pagination(entry: OperationEntry, payload: string) {
     return {
-      content: `const controller = new AbortController();\nconst result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload}, { signal: controller.signal });`,
+      content: `const controller = new AbortController();\nconst result = await ${camelcase(this.#clientName)}.request('${endpointOf(entry)}', ${payload}, { signal: controller.signal });`,
       footer: `for await (const page of result.iterPages({ signal: controller.signal })) {\n\t\tconsole.log(page);\n}`,
     };
   }
@@ -127,14 +114,7 @@ export class TypeScriptSnippet implements Generator {
     };
   }
 
-  #streamDownload(entry: OperationEntry, payload: string) {
-    return {
-      content: `const stream = ${this.#toRequest(entry, payload)}`,
-      footer: `await writeFile('./report.pdf', stream);`,
-    };
-  }
-
-  #httpStreaming(entry: OperationEntry, payload: string) {
+  #stream(entry: OperationEntry, payload: string) {
     return {
       content: `const stream = ${this.#toRequest(entry, payload)}`,
       footer: `for await (const chunk of stream) {\n\t\tconsole.log(chunk);\n}`,
@@ -142,7 +122,7 @@ export class TypeScriptSnippet implements Generator {
   }
 
   #toRequest(entry: OperationEntry, payload: string) {
-    return `await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload});`;
+    return `await ${camelcase(this.#clientName)}.request('${endpointOf(entry)}', ${payload});`;
   }
 
   snippet(
@@ -333,53 +313,23 @@ export class TypeScriptSnippet implements Generator {
   }
 
   paginationDocs(): string {
-    const paginationTypes = availablePaginationTypes(this.#spec);
-
-    if (
-      !paginationTypes.offset &&
-      !paginationTypes.page &&
-      !paginationTypes.cursor
-    ) {
+    const paginated = this.#paginatedOperations();
+    const [first] = paginated;
+    if (!first) {
       return '';
     }
-
-    const sections: string[] = [];
-
-    sections.push('## Pagination');
-    sections.push('');
-    sections.push(
-      'This SDK automatically handles pagination for endpoints that return multiple items.',
-    );
-    sections.push('');
-    sections.push('### How it Works');
-    sections.push('');
-    sections.push(
+    const { entry, operation } = first;
+    const payload = this.#render(this.#example(operation));
+    const request = this.#pagination(entry, payload);
+    const sections = [
+      '## Pagination',
+      '',
       'A paginated endpoint resolves to a page: the response body, plus `hasNextPage()`, `getNextPage()` and `iterPages()`. `for await` over the request or the page yields every item across pages:',
-    );
-    sections.push('');
-
-    // Generate examples for each available pagination type
-    const availableTypes: Array<'offset' | 'page' | 'cursor'> = [];
-    if (paginationTypes.offset) availableTypes.push('offset');
-    if (paginationTypes.page) availableTypes.push('page');
-    if (paginationTypes.cursor) availableTypes.push('cursor');
-
-    // Use the first available type for the main example
-    const primaryPaginationType = availableTypes[0];
-    const mockOperationEntry: OperationEntry = {
-      method: 'get',
-      path: '/products',
-      tag: 'Products',
-    };
-    const initialRequestPayload = createObjectLiteral({ limit: 20 });
-    const paginationExample = this.#pagination(
-      mockOperationEntry,
-      initialRequestPayload,
-    );
-
-    sections.push(
+      '',
       createCodeBlock('typescript', [
-        paginationExample.content,
+        this.client(),
+        '',
+        request.content,
         'console.log(result); // the response body of the first page',
         '',
         'if (result.hasNextPage()) {',
@@ -388,129 +338,46 @@ export class TypeScriptSnippet implements Generator {
         '}',
         '',
         '// Or iterate through every page, each fetch cancellable',
-        paginationExample.footer,
+        request.footer,
       ]),
-    );
-    sections.push('');
-
-    sections.push('### Iterating Through All Pages');
-    sections.push('');
-
-    const iterationExample = this.#pagination(
-      mockOperationEntry,
-      createObjectLiteral({ limit: 100 }),
-    );
-    sections.push(
+      '',
+      '### Iterating Through All Items',
+      '',
       createCodeBlock('typescript', [
-        iterationExample.content,
+        this.client(),
         '',
-        iterationExample.footer,
-        '',
-        '// Or every item across pages',
-        `for await (const product of ${camelcase(this.#clientName)}.request('GET /products', { limit: 100 })) {`,
-        '  console.log(product);',
+        `for await (const item of ${camelcase(this.#clientName)}.request('${endpointOf(entry)}', ${payload})) {`,
+        '  console.log(item);',
         '}',
       ]),
-    );
-    sections.push('');
-
-    // Show pagination types section with examples for each available type
-    if (availableTypes.length > 1) {
-      sections.push('### Pagination Types');
-      sections.push('');
-      sections.push(
-        'Your API uses the following pagination strategies, automatically detected by the SDK:',
-      );
-      sections.push('');
-    } else {
-      sections.push('### Pagination Strategy');
-      sections.push('');
-      sections.push(
-        'Your API uses the following pagination strategy, automatically detected by the SDK:',
-      );
-      sections.push('');
-    }
-
-    // Generate specific examples for each available pagination type
-    for (const paginationType of availableTypes) {
-      const typeSpecificEntry: OperationEntry = {
-        method: 'get',
-        path: '/products',
-        tag: 'Products',
-      };
-
-      if (paginationType === 'cursor') {
-        sections.push('#### Cursor Pagination');
-        sections.push('');
-        sections.push('Uses a cursor token to fetch the next page:');
-        sections.push('');
-
-        const cursorPaginationExample = this.#pagination(
-          typeSpecificEntry,
-          createObjectLiteral({ limit: 20 }),
-        );
-
-        sections.push(
-          createCodeBlock('typescript', [
-            cursorPaginationExample.content,
-            '',
-            '// Iterate through all pages using cursor',
-            cursorPaginationExample.footer,
-          ]),
-        );
-        sections.push('');
-      }
-      if (paginationType === 'offset') {
-        sections.push('#### Offset Pagination');
-        sections.push('');
-        sections.push('Uses offset and limit parameters:');
-        sections.push('');
-
-        const offsetPaginationExample = this.#pagination(
-          typeSpecificEntry,
-          createObjectLiteral({ limit: 20, offset: 0 }),
-        );
-
-        sections.push(
-          createCodeBlock('typescript', [
-            offsetPaginationExample.content,
-            '',
-            '// Iterate through all pages using offset',
-            offsetPaginationExample.footer,
-          ]),
-        );
-        sections.push('');
-      }
-      if (paginationType === 'page') {
-        sections.push('#### Page Pagination');
-        sections.push('');
-        sections.push('Uses page number and page size:');
-        sections.push('');
-
-        const pagePaginationExample = this.#pagination(
-          typeSpecificEntry,
-          createObjectLiteral({ page: 1, pageSize: 20 }),
-        );
-
-        sections.push(
-          createCodeBlock('typescript', [
-            pagePaginationExample.content,
-            '',
-            '// Iterate through all pages using page numbers',
-            pagePaginationExample.footer,
-          ]),
-        );
-        sections.push('');
-      }
-    }
-
-    if (availableTypes.length > 1) {
-      sections.push(
-        'The SDK handles the differences transparently, providing a consistent interface regardless of the underlying pagination type.',
-      );
-    }
-
+      '',
+      '### Pagination Strategies',
+      '',
+      ...paginated.map(
+        ({ entry, pagination }) =>
+          `- \`${endpointOf(entry)}\`: ${paginationStrategy(pagination)}`,
+      ),
+    ];
     return sections.join('\n');
+  }
+
+  /** The first paginated operation of each pagination type, in README order. */
+  #paginatedOperations() {
+    const paginated = new Map<
+      OperationPagination['type'],
+      {
+        entry: OperationEntry;
+        operation: TunedOperationObject;
+        pagination: OperationPagination;
+      }
+    >();
+    forEachOperation(this.#spec, (entry, operation) => {
+      const pagination = operation['x-pagination'];
+      if (pagination && !paginated.has(pagination.type)) {
+        paginated.set(pagination.type, { entry, operation, pagination });
+      }
+    });
+    return [...paginated.values()];
   }
 
   /** The operation the README lists first. */
@@ -706,7 +573,9 @@ export class TypeScriptSnippet implements Generator {
       const client = this.#constructClient({
         credentials: { [name]: this.#credentialExample(scheme) },
       });
-      sections.push(createCodeBlock('typescript', [client.use]));
+      sections.push(
+        createCodeBlock('typescript', [client.import, '', client.use]),
+      );
       sections.push('');
     }
 
@@ -802,40 +671,19 @@ function createCodeBlock(language: string, content: string[]) {
   return ['```' + language, ...content, '```'].join('\n');
 }
 
-function createObjectLiteral(obj: Record<string, unknown>): string {
-  return (
-    '{\n' +
-    Object.entries(obj)
-      .map(([key, value]) => `\t${key}: ${JSON.stringify(value)}`)
-      .join(',\n') +
-    '\n}'
-  );
+function endpointOf(entry: OperationEntry) {
+  return `${entry.method.toUpperCase()} ${entry.path}`;
 }
 
-function availablePaginationTypes(spec: IR) {
-  let offset = false;
-  let page = false;
-  let cursor = false;
-  forEachOperation(spec, (entry, operation) => {
-    if (operation['x-pagination']) {
-      switch (operation['x-pagination'].type) {
-        case 'offset':
-          offset = true;
-          break;
-        case 'page':
-          page = true;
-          break;
-        case 'cursor':
-          cursor = true;
-          break;
-      }
-    }
-  });
-  return {
-    offset,
-    page,
-    cursor,
-  };
+function paginationStrategy(pagination: OperationPagination) {
+  switch (pagination.type) {
+    case 'offset':
+      return `offset pagination, with the \`${pagination.offsetParamName}\` and \`${pagination.limitParamName}\` parameters.`;
+    case 'page':
+      return `page pagination, with the \`${pagination.pageNumberParamName}\` and \`${pagination.pageSizeParamName}\` parameters.`;
+    case 'cursor':
+      return `cursor pagination, with the \`${pagination.cursorParamName}\` and \`${pagination.limitParamName}\` parameters.`;
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
