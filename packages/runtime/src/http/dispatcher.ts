@@ -7,6 +7,7 @@ import {
   APIError,
   APIResponse,
   type RebindSuccessPayload,
+  type StatusRange,
   type SuccessfulResponse,
 } from './response.ts';
 import { type SSEListener } from './sse.ts';
@@ -41,8 +42,10 @@ export interface Type<T> {
 export type Parser = (
   response: Response,
 ) => Promise<unknown> | ReadableStream<any> | SSEListener;
+/** An output that `range` declares reads every status of the range that no exact output declares. */
 export type OutputType =
-  Type<APIResponse> | { parser: Parser; type: Type<APIResponse> };
+  | Type<APIResponse>
+  | { parser: Parser; type: Type<APIResponse>; range?: StatusRange };
 
 // Bare z.custom (no predicate) on purpose: Request/Response from another
 // realm (undici vs global fetch) fail instanceof checks. The output is
@@ -73,32 +76,17 @@ export async function parse(
   response: Response,
   mapper?: (data: unknown) => unknown,
 ): Promise<APIResponse> {
-  let output: typeof APIResponse | typeof APIError | null = null;
-  let parser = undeclared;
-  for (const outputType of outputs) {
-    const type = 'parser' in outputType ? outputType.type : outputType;
-    if (
-      (isTypeOf(type, APIResponse) || isTypeOf(type, APIError)) &&
-      response.status === type.status
-    ) {
-      output = type;
-      if ('parser' in outputType) {
-        parser = outputType.parser;
-      }
-      break;
-    }
-  }
+  const declared = match(outputs, response.status);
+  const output = declared ? typeOf(declared) : null;
+  const parser =
+    declared && 'parser' in declared ? declared.parser : undeclared;
 
   if (response.ok) {
     const data = await parser(response);
     const mapped = mapper ? mapper(data) : data;
-    const apiresponse = (output || APIResponse).create(
-      response.status,
-      response.headers,
-      mapped,
-    );
-
-    return apiresponse;
+    const success =
+      output && isTypeOf(output, APIResponse) ? output : APIResponse;
+    return success.create(response.status, response.headers, mapped);
   }
 
   const failure = output && isTypeOf(output, APIError) ? output : APIError;
@@ -107,6 +95,28 @@ export async function parse(
     response.headers,
     await parser(response),
   );
+}
+
+// OpenAPI 3.2 Responses Object: an explicit code takes precedence over the
+// range that covers it.
+function match(outputs: OutputType[], status: number) {
+  const range = `${Math.trunc(status / 100)}XX`;
+  return (
+    outputs.find(
+      (output) => !('range' in output) && statusOf(output) === status,
+    ) ?? outputs.find((output) => 'range' in output && output.range === range)
+  );
+}
+
+function typeOf(output: OutputType) {
+  return 'parser' in output ? output.type : output;
+}
+
+function statusOf(output: OutputType) {
+  const type = typeOf(output);
+  return isTypeOf(type, APIResponse) || isTypeOf(type, APIError)
+    ? type.status
+    : undefined;
 }
 
 export function isTypeOf<T extends Type<APIResponse>>(

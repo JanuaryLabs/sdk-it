@@ -1,3 +1,11 @@
+/** The status ranges an OpenAPI 3.2 Responses Object may declare. */
+export type StatusRange = '1XX' | '2XX' | '3XX' | '4XX' | '5XX';
+type Digit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
+type ToNumber<S> = S extends `${infer N extends number}` ? N : never;
+/** Every status code a range covers: `RangeStatus<'4XX'>` is 400 | 401 | … | 499. */
+export type RangeStatus<R extends StatusRange> = R extends `${infer C}XX`
+  ? ToNumber<`${C}${Digit}${Digit}`>
+  : never;
 export class APIResponse<Body = unknown, Status extends number = number> {
   static readonly status: number;
   readonly status: Status;
@@ -301,19 +309,25 @@ export type ClientError =
   | PayloadTooLarge<unknown>
   | UnsupportedMediaType<unknown>
   | UnprocessableEntity<unknown>
-  | TooManyRequests<unknown>;
+  | TooManyRequests<unknown>
+  | APIError<unknown, RangeStatus<'4XX'>>;
 
 export type ServerError =
   | InternalServerError<unknown>
   | NotImplemented<unknown>
   | BadGateway<unknown>
   | ServiceUnavailable<unknown>
-  | GatewayTimeout<unknown>;
+  | GatewayTimeout<unknown>
+  | APIError<unknown, RangeStatus<'5XX'>>;
 
 export type ProblematicResponse = ClientError | ServerError;
 
 export type SuccessfulResponse<T = unknown> =
-  Ok<T> | Created<T> | Accepted<T> | NoContent;
+  | Ok<T>
+  | Created<T>
+  | Accepted<T>
+  | NoContent
+  | APIResponse<T, RangeStatus<'2XX'>>;
 
 export type RebindSuccessPayload<Resp, New> =
   Resp extends Ok<infer _>
