@@ -5,7 +5,7 @@ import type {
 } from 'openapi3-ts/oas31';
 
 import { type OpenAPIDocument, followRef, isRef } from '@sdk-it/core';
-import { coerceTypes } from '@sdk-it/spec';
+import { type OperationInput, coerceTypes } from '@sdk-it/spec';
 
 /**
  * PropEmitter handles converting OpenAPI schemas to Markdown documentation
@@ -318,9 +318,13 @@ export class PropEmitter {
   }
 
   /**
-   * Process a request body and return markdown documentation
+   * Process a request body and return markdown documentation; an input sent
+   * with no body names no content type.
    */
-  requestBody(requestBody: RequestBodyObject): string[] {
+  requestBody(
+    requestBody: RequestBodyObject,
+    inputs: readonly OperationInput[],
+  ): string[] {
     const lines: string[] = [];
     lines.push(`#### Input`);
     lines.push(requestBody.description || '');
@@ -345,7 +349,10 @@ export class PropEmitter {
     } else {
       // Single content type - show inline
       const [contentType, mediaType] = contentEntries[0];
-      lines.push(`Content Type: \`${contentType}\``);
+      const input = inputs.find((it) => it.contentType === contentType);
+      if (input?.encoding !== 'empty') {
+        lines.push(`Content Type: \`${contentType}\``);
+      }
 
       if (mediaType.schema) {
         const schemaDocs = this.handle(mediaType.schema);

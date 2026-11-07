@@ -1,6 +1,6 @@
 import { isEmpty } from '@sdk-it/core';
 import type { Generator } from '@sdk-it/readme';
-import { type IR, forEachOperation } from '@sdk-it/spec';
+import { type IR, forEachOperation, operationInputs } from '@sdk-it/spec';
 
 import { PropEmitter } from './prop.emitter.ts';
 
@@ -56,7 +56,10 @@ export function toReadme(spec: IR, generator: Generator) {
     markdown.push(`#### Example usage`);
     markdown.push(snippet);
 
-    const requestBodyContent = propEmitter.requestBody(operation.requestBody);
+    const requestBodyContent = propEmitter.requestBody(
+      operation.requestBody,
+      operationInputs(spec, operation),
+    );
     if (requestBodyContent.length > 1) {
       // Check if more than just the header was added
       markdown.push(requestBodyContent.join('\n\n'));

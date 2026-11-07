@@ -6,7 +6,7 @@ import { test } from 'node:test';
 
 import { generate } from '@sdk-it/typescript';
 
-test('a request body whose example is null gets a README snippet that sends null', async () => {
+test('a request body whose example is null gets a README snippet that sends null as $body', async () => {
   await using output = await new TemporaryFiles().directory(
     'null-request-body-snippet-',
   );
@@ -33,5 +33,8 @@ test('a request body whose example is null gets a README snippet that sends null
   );
 
   const readme = await readFile(join(output.path, 'README.md'), 'utf8');
-  assert.match(readme, /await demo\.request\('POST \/ping', null\)/);
+  assert.match(
+    readme,
+    /await demo\.request\('POST \/ping', \{\n {2}"\$body": null\n\}\)/,
+  );
 });

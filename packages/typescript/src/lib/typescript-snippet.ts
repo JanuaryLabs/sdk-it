@@ -3,7 +3,6 @@ import { camelcase, spinalcase } from 'stringcase';
 
 import {
   type OpenAPISecuritySchemeObject,
-  followRef,
   isEmpty,
   pascalcase,
   resolveRef,
@@ -15,7 +14,6 @@ import {
   type TunedOperationObject,
   forEachOperation,
   operationInputs,
-  patchParameters,
 } from '@sdk-it/spec';
 
 import { SnippetEmitter } from './emitters/snippet.ts';
@@ -33,62 +31,8 @@ export class TypeScriptSnippet implements Generator {
     this.#clientName = pascalcase(settings.name.trim());
     this.#packageName = `@${spinalcase(this.#clientName.toLowerCase())}/sdk`;
   }
-  succinct(
-    entry: OperationEntry,
-    operation: TunedOperationObject,
-    values: {
-      requestBody?: Record<string, unknown>;
-      pathParameters?: Record<string, unknown>;
-      queryParameters?: Record<string, unknown>;
-      headers?: Record<string, unknown>;
-      cookies?: Record<string, unknown>;
-    },
-  ) {
-    let examplePayload: unknown;
-    if (!isEmpty(operation.requestBody)) {
-      const [preferred] = operationInputs(this.#spec, operation);
-      const schema = followRef(
-        this.#spec,
-        operation.requestBody.content[preferred.contentType].schema.$ref,
-      );
-
-      examplePayload = this.#snippetEmitter.handle({
-        ...schema,
-        properties: Object.assign({}, schema.properties, schema.properties),
-      });
-      // merge explicit values into the example payload
-      if (typeof examplePayload === 'object' && examplePayload !== null) {
-        Object.assign(
-          examplePayload,
-          values.requestBody ?? {},
-          values.pathParameters ?? {},
-          values.queryParameters ?? {},
-          values.headers ?? {},
-          values.cookies ?? {},
-        );
-      }
-    } else {
-      const requestBody: SchemaObject = { type: 'object', properties: {} };
-      patchParameters(this.#spec, requestBody, operation.parameters);
-      // merge explicit values into the example payload
-      examplePayload = Object.assign(
-        this.#snippetEmitter.object(requestBody),
-        values.pathParameters ?? {},
-        values.queryParameters ?? {},
-        values.headers ?? {},
-        values.cookies ?? {},
-      );
-    }
-    const payload = JSON.stringify(
-      examplePayload,
-      (key, value) => {
-        if (value?.startsWith && value.startsWith('new')) {
-          return `__REPLACE_${Math.random().toString(36).substring(2, 11)}__${value}__REPLACE_END__`;
-        }
-        return value;
-      },
-      2,
-    ).replace(/"__REPLACE_[^"]*__([^"]*?)__REPLACE_END__"/g, '$1');
+  succinct(entry: OperationEntry, operation: TunedOperationObject) {
+    const payload = this.#render(this.#example(operation));
 
     let successResponse: ResponseObject | undefined;
     for (const status in operation.responses) {
@@ -116,6 +60,59 @@ export class TypeScriptSnippet implements Generator {
     return this.#normal(entry, payload);
   }
 
+  /** An input the operation's preferred input schema accepts: its required fields, and the fields that declare an example or a default. */
+  #example(operation: TunedOperationObject) {
+    const [preferred] = operationInputs(this.#spec, operation);
+    return this.#snippetEmitter.handle(preferred.schema);
+  }
+
+  /**
+   * The operation's example input with its first required field set to a value
+   * of a type the field does not accept, so the client refuses it with a
+   * `ParseError`; undefined when no such value exists.
+   */
+  #invalidInput(operation: TunedOperationObject) {
+    const [preferred] = operationInputs(this.#spec, operation);
+    const [field] = preferred.schema.required ?? [];
+    const property =
+      field === undefined ? undefined : preferred.schema.properties?.[field];
+    const example = this.#example(operation);
+    if (property === undefined || !isRecord(example)) {
+      return undefined;
+    }
+    const value = wrongTypeValue(
+      resolveRef<SchemaObject>(this.#spec, property),
+    );
+    if (value === undefined) {
+      return undefined;
+    }
+    const key = JSON.stringify(field);
+    return this.#render({ ...example, [field]: value })
+      .split('\n')
+      .flatMap((line) =>
+        line.startsWith(`  ${key}:`)
+          ? [
+              `  // @ts-expect-error ${key} does not accept ${JSON.stringify(value)}`,
+              line,
+            ]
+          : [line],
+      )
+      .join('\n');
+  }
+
+  #render(example: unknown) {
+    return JSON.stringify(
+      example,
+      (key, value) => {
+        if (value?.startsWith && value.startsWith('new')) {
+          return `__REPLACE_${Math.random().toString(36).substring(2, 11)}__${value}__REPLACE_END__`;
+        }
+        return value;
+      },
+      2,
+    ).replace(/"__REPLACE_[^"]*__([^"]*?)__REPLACE_END__"/g, '$1');
+  }
+
   #pagination(entry: OperationEntry, payload: string) {
     return {
       content: `const controller = new AbortController();\nconst result = await ${camelcase(this.#clientName)}.request('${entry.method.toUpperCase()} ${entry.path}', ${payload}, { signal: controller.signal });`,
@@ -126,7 +123,7 @@ export class TypeScriptSnippet implements Generator {
   #normal(entry: OperationEntry, payload: string) {
     return {
       content: `const result = ${this.#toRequest(entry, payload)}`,
-      footer: 'console.log(result.data)',
+      footer: 'console.log(result);',
     };
   }
 
@@ -151,9 +148,9 @@ export class TypeScriptSnippet implements Generator {
   snippet(
     entry: OperationEntry,
     operation: TunedOperationObject,
-    config: Record<string, unknown> = {},
+    config: { frame?: boolean } = {},
   ) {
-    const payload = this.succinct(entry, operation, config);
+    const payload = this.succinct(entry, operation);
     const content: string[] = [
       this.client(),
       '',
@@ -206,6 +203,20 @@ export class TypeScriptSnippet implements Generator {
   }
 
   client() {
+    const client = this.#clientSetup();
+    return client.use ? `${client.import}\n\n${client.use}` : client.import;
+  }
+
+  /** The client setup with `names` imported beside the client. */
+  #clientWith(names: string[]) {
+    const client = this.#clientSetup();
+    return [
+      `import { ${[client.name, ...names].join(', ')} } from '${this.#packageName}';`,
+      ...(client.use ? ['', client.use] : []),
+    ];
+  }
+
+  #clientSetup() {
     const servers = expandServerUrls(this.#spec.servers ?? []);
     const options: Record<string, unknown> = {};
     if (servers.length !== 1) {
@@ -220,8 +231,7 @@ export class TypeScriptSnippet implements Generator {
       };
     }
 
-    const client = this.#constructClient(options);
-    return client.use ? `${client.import}\n\n${client.use}` : client.import;
+    return this.#constructClient(options);
   }
 
   /** The default instance when the README needs no settings, else a client created with them. */
@@ -229,11 +239,13 @@ export class TypeScriptSnippet implements Generator {
     const instance = camelcase(this.#clientName);
     if (isEmpty(options)) {
       return {
+        name: instance,
         import: `import { ${instance} } from '${this.#packageName}';`,
         use: '',
       };
     }
     return {
+      name: `create${this.#clientName}`,
       import: `import { create${this.#clientName} } from '${this.#packageName}';`,
       use: `const ${instance} = create${this.#clientName}({\n\t\t${Object.entries(
         options,
@@ -501,8 +513,19 @@ export class TypeScriptSnippet implements Generator {
     return sections.join('\n');
   }
 
+  /** The operation the README lists first. */
+  #firstOperation() {
+    let first:
+      { entry: OperationEntry; operation: TunedOperationObject } | undefined;
+    forEachOperation(this.#spec, (entry, operation) => {
+      first ??= { entry, operation };
+    });
+    return first;
+  }
+
   errorHandlingDocs(): string {
     const sections: string[] = [];
+    const first = this.#firstOperation();
 
     sections.push('## Error Handling');
     sections.push('');
@@ -511,52 +534,53 @@ export class TypeScriptSnippet implements Generator {
     );
     sections.push('');
 
-    sections.push('### Error Response Types');
-    sections.push('');
-    sections.push(
-      'All API errors extend from `APIError` and include the HTTP status code and response data:',
-    );
-    sections.push('');
-    sections.push(
-      createCodeBlock('typescript', [
-        `import { BadRequest, Unauthorized, NotFound, TooManyRequests, InternalServerError, ParseError } from "${this.#packageName}";`,
-        'try {',
-        'const usersList = ',
-        this.#toRequest(
-          {
-            method: 'get',
-            path: '/users',
-            tag: 'Users',
-          },
-          createObjectLiteral({}),
-        ),
-        '  // Handle successful response',
-        '} catch (error) {',
-        '  // Handle different error types',
-        '  if (error instanceof BadRequest) {',
-        '    console.error("Bad request:", error.data);',
-        '    console.log("Status:", error.status); // 400',
-        '  } else if (error instanceof Unauthorized) {',
-        '    console.error("Authentication failed:", error.data);',
-        '    console.log("Status:", error.status); // 401',
-        '  } else if (error instanceof NotFound) {',
-        '    console.error("Resource not found:", error.data);',
-        '    console.log("Status:", error.status); // 404',
-        '  } else if (error instanceof TooManyRequests) {',
-        '    console.error("Rate limited:", error.data);',
-        '    if (error.data.retryAfter) {',
-        '      console.log("Retry after:", error.data.retryAfter);',
-        '    }',
-        '  } else if (error instanceof InternalServerError) {',
-        '    console.error("Server error:", error.data);',
-        '    console.log("Status:", error.status); // 500',
-        '  } else if (error instanceof ParseError) {',
-        '    console.error("Input validation failed:", error.data);',
-        '  }',
-        '}',
-      ]),
-    );
-    sections.push('');
+    if (first) {
+      const { entry, operation } = first;
+      const payload = this.#render(this.#example(operation));
+      sections.push('### Error Response Types');
+      sections.push('');
+      sections.push(
+        'All API errors extend from `APIError` and include the HTTP status code, the response headers and the response body:',
+      );
+      sections.push('');
+      sections.push(
+        createCodeBlock('typescript', [
+          ...this.#clientWith([
+            'BadRequest',
+            'Unauthorized',
+            'NotFound',
+            'TooManyRequests',
+            'InternalServerError',
+            'ParseError',
+          ]),
+          '',
+          'try {',
+          `  const result = ${this.#toRequest(entry, payload)}`,
+          '  console.log(result);',
+          '} catch (error) {',
+          '  if (error instanceof BadRequest) {',
+          '    console.error("Bad request:", error.data);',
+          '    console.log("Status:", error.status); // 400',
+          '  } else if (error instanceof Unauthorized) {',
+          '    console.error("Authentication failed:", error.data);',
+          '    console.log("Status:", error.status); // 401',
+          '  } else if (error instanceof NotFound) {',
+          '    console.error("Resource not found:", error.data);',
+          '    console.log("Status:", error.status); // 404',
+          '  } else if (error instanceof TooManyRequests) {',
+          '    console.error("Rate limited:", error.data);',
+          '    console.log("Retry after:", error.headers.get(\'Retry-After\'));',
+          '  } else if (error instanceof InternalServerError) {',
+          '    console.error("Server error:", error.data);',
+          '    console.log("Status:", error.status); // 500',
+          '  } else if (error instanceof ParseError) {',
+          '    console.error("Input validation failed:", error.data);',
+          '  }',
+          '}',
+        ]),
+      );
+      sections.push('');
+    }
 
     sections.push('### Available Error Classes');
     sections.push('');
@@ -588,94 +612,63 @@ export class TypeScriptSnippet implements Generator {
     sections.push('- `BadGateway` (502) - Bad gateway');
     sections.push('- `ServiceUnavailable` (503) - Service unavailable');
     sections.push('- `GatewayTimeout` (504) - Gateway timeout');
-    sections.push('');
 
-    sections.push('### Validation Errors');
-    sections.push('');
-    sections.push(
-      'Validation errors (422) include detailed field-level error information:',
-    );
+    if (!first) {
+      return sections.join('\n');
+    }
+    const { entry, operation } = first;
 
-    sections.push('### Input Validation Errors');
-    sections.push('');
-    sections.push(
-      'When request input fails validation against the API schema, a `ParseError` is thrown:',
-    );
-    sections.push('');
-    sections.push(
-      createCodeBlock('typescript', [
-        `import { ParseError } from "${this.#packageName}";`,
-        '',
-        'try {',
-        "  // Invalid input that doesn't match the expected schema",
-        '  const newUser = ',
-        this.#toRequest(
-          {
-            method: 'post',
-            path: '/users',
-            tag: 'Users',
-          },
-          createObjectLiteral({
-            email: 123, // should be string
-            firstName: '', // empty required field
-            age: -5, // invalid age value
-          }),
-        ),
-        '} catch (error) {',
-        '  if (error instanceof ParseError) {',
-        '    console.log("Input validation failed:");',
-        '    ',
-        '    // Field-level errors',
-        '    if (error.data.fieldErrors) {',
-        '      Object.entries(error.data.fieldErrors).forEach(([fieldName, validationIssues]) => {',
-        '        console.log(`  ${fieldName}: ${validationIssues.map(issue => issue.message).join(", ")}`);',
-        '      });',
-        '    }',
-        '    ',
-        '    // Form-level errors',
-        '    if (error.data.formErrors.length > 0) {',
-        '      console.log(`  Form errors: ${error.data.formErrors.map(issue => issue.message).join(", ")}`);',
-        '    }',
-        '  }',
-        '}',
-      ]),
-    );
-    sections.push('');
-    sections.push(
-      "`ParseError` contains detailed validation information using Zod's flattened error format, providing specific field-level and form-level validation messages.",
-    );
-    sections.push('');
+    const invalidInput = this.#invalidInput(operation);
+    if (invalidInput !== undefined) {
+      sections.push('');
+      sections.push('### Input Validation Errors');
+      sections.push('');
+      sections.push(
+        'When request input fails validation against the API schema, a `ParseError` is thrown before the request is sent:',
+      );
+      sections.push('');
+      sections.push(
+        createCodeBlock('typescript', [
+          ...this.#clientWith(['ParseError']),
+          '',
+          'try {',
+          `  const result = ${this.#toRequest(entry, invalidInput)}`,
+          '  console.log(result);',
+          '} catch (error) {',
+          '  if (error instanceof ParseError) {',
+          '    for (const [fieldName, issues] of Object.entries(error.data.fieldErrors)) {',
+          "      console.log(`${fieldName}: ${(issues ?? []).map((issue) => issue.message).join(', ')}`);",
+          '    }',
+          '    if (error.data.formErrors.length > 0) {',
+          "      console.log(`Form errors: ${error.data.formErrors.map((issue) => issue.message).join(', ')}`);",
+          '    }',
+          '  }',
+          '}',
+        ]),
+      );
+      sections.push('');
+      sections.push(
+        "`ParseError` contains detailed validation information using Zod's flattened error format, providing specific field-level and form-level validation messages.",
+      );
+    }
 
+    sections.push('');
     sections.push('### Rate Limiting');
     sections.push('');
     sections.push(
-      'Rate limit responses may include a `retryAfter` field indicating when to retry:',
+      'A `TooManyRequests` error carries the response headers, so a `Retry-After` header tells when to retry:',
     );
     sections.push('');
     sections.push(
       createCodeBlock('typescript', [
-        `import { TooManyRequests } from "${this.#packageName}";`,
+        ...this.#clientWith(['TooManyRequests']),
         '',
         'try {',
-        '  const apiResponse = ',
-        this.#toRequest(
-          {
-            method: 'get',
-            path: '/api/data',
-            tag: 'Data',
-          },
-          createObjectLiteral({}),
-        ),
+        `  const result = ${this.#toRequest(entry, this.#render(this.#example(operation)))}`,
+        '  console.log(result);',
         '} catch (error) {',
         '  if (error instanceof TooManyRequests) {',
-        '    const retryAfterSeconds = error.data.retryAfter;',
-        '    if (retryAfterSeconds) {',
-        '      console.log(`Rate limited. Retry after: ${retryAfterSeconds} seconds`);',
-        '      // Implement your own retry logic',
-        '      setTimeout(() => {',
-        '        // Retry the request',
-        '      }, retryAfterSeconds * 1000);',
-        '    }',
+        "    console.log(`Rate limited. Retry after: ${error.headers.get('Retry-After')}`);",
         '  }',
         '}',
       ]),
@@ -751,6 +744,8 @@ export class TypeScriptSnippet implements Generator {
     const initialClientSetup = this.#constructClient(initialClientOptions);
 
     const configurationUpdateCode = [
+      initialClientSetup.import,
+      '',
       '// Initial client setup',
       initialClientSetup.use,
       '',
@@ -841,4 +836,33 @@ function availablePaginationTypes(spec: IR) {
     page,
     cursor,
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** A value whose type `schema` does not accept; undefined when it accepts every candidate or names no type. */
+function wrongTypeValue(schema: SchemaObject) {
+  const types: string[] = Array.isArray(schema.type)
+    ? schema.type
+    : schema.type
+      ? [schema.type]
+      : [];
+  if (
+    types.length === 0 ||
+    schema.format === 'binary' ||
+    schema.format === 'byte' ||
+    schema.contentEncoding === 'binary'
+  ) {
+    return undefined;
+  }
+  const candidates = [
+    { value: 123, types: ['number', 'integer'] },
+    { value: 'text', types: ['string'] },
+    { value: true, types: ['boolean'] },
+  ];
+  return candidates.find((candidate) =>
+    candidate.types.every((type) => !types.includes(type)),
+  )?.value;
 }
