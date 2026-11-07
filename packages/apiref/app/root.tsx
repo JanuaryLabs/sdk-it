@@ -21,6 +21,7 @@ import {
 } from '@sdk-it/spec';
 
 import type { AugmentedOperation } from './api-doc/types';
+import { titleClientName } from './client-name';
 import './styles.css';
 import { useRootData } from './use-root-data';
 
@@ -96,7 +97,7 @@ export async function loader({
   request: Request;
   params: { '*'?: string };
 }) {
-  const { TypeScriptSnippet } = await import('@sdk-it/typescript');
+  const { TypeScriptSnippet, clientName } = await import('@sdk-it/typescript');
   // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
   // 'https://api.openstatus.dev/v1/openapi',
 
@@ -120,7 +121,7 @@ export async function loader({
     }
   > = {};
   const generator = new TypeScriptSnippet(spec, {
-    name: 'Client',
+    name: clientName(titleClientName(spec.info.title)),
     output: '',
   });
 
