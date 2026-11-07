@@ -113,9 +113,6 @@ async function emitLocal(spec: OpenAPIObject, options: Options) {
       typeof options.pagination === 'string'
         ? parsePagination(parseDotConfig(options.pagination))
         : options.pagination,
-    style: {
-      name: 'github',
-    },
     readme: options.readme,
     useTsExtension: options.useTsExtension,
     formatCode: ({ env, output }) => {
