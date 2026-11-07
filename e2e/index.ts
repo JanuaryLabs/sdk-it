@@ -153,6 +153,7 @@ for (const { spec, name, flags } of filtered) {
     `-s ${spec}`,
     `-o ${sdkOutput}`,
     `--name ${name}`,
+    `--package-name @e2e/${name.toLowerCase()}`,
     '--mode full',
     '--no-install',
     '--no-default-formatter',
