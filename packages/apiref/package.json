@@ -5,9 +5,6 @@
   "type": "module",
   "scripts": {},
   "sideEffects": false,
-  "nx": {
-    "name": "apiref"
-  },
   "dependencies": {
     "@ai-sdk/react": "^4.0.166",
     "@hono/node-server": "^1.14.4",
