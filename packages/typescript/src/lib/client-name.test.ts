@@ -129,3 +129,62 @@ void test('a client name close to an SDK name gives a module that loads and buil
 
   assert.equal(url.href, 'https://names.test/items');
 });
+
+const inputClashes = [
+  { name: 'ListItemsSchema', identifier: 'listItemsSchema' },
+  { name: 'ItemSchema', identifier: 'createItemSchema' },
+];
+
+void test('generate, render and renderModule refuse a client name that makes the name of an operation input schema, naming that name, and generate writes nothing', async () => {
+  const withCreate: OpenAPIObject = {
+    ...spec,
+    paths: {
+      '/items': {
+        get: {
+          operationId: 'listItems',
+          tags: ['items'],
+          responses: { '204': { description: 'No Content' } },
+        },
+        post: {
+          operationId: 'createItem',
+          tags: ['items'],
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { title: { type: 'string' } },
+                },
+              },
+            },
+          },
+          responses: { '204': { description: 'No Content' } },
+        },
+      },
+    },
+  };
+  for (const { name, identifier } of inputClashes) {
+    await using output = await new TemporaryFiles().directory(
+      'sdk-it-client-name-',
+    );
+    const refusal = {
+      name: 'TypeError',
+      message: `The client name "${name}" makes ${identifier}, a name the SDK already declares or exports. Rename the client.`,
+    };
+
+    await assert.rejects(
+      generate(withCreate, {
+        output: output.path,
+        name,
+        packageName: '@acme/sdk',
+      }),
+      refusal,
+    );
+    await assert.rejects(
+      render(withCreate, { name, useTsExtension: true }),
+      refusal,
+    );
+    await assert.rejects(renderModule(withCreate, { name }), refusal);
+    assert.deepEqual(await readdir(output.path), []);
+  }
+});

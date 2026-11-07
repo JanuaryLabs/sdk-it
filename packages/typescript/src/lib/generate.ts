@@ -29,7 +29,7 @@ import {
 import { generateAISDKTools } from './agent/ai-sdk.ts';
 import { generateOpenAIAgentTools } from './agent/openai-agents.ts';
 import utilsTxt from './agent/utils.txt';
-import { clientName } from './client-name.ts';
+import { clientName, refuseTakenNames } from './client-name.ts';
 import backend, {
   clientDeclarations,
   clientDeclaredNames,
@@ -99,6 +99,7 @@ export async function renderModule(
     zodRefs: moduleReferences,
     endpointRefs: moduleReferences,
   });
+  refuseTakenNames(options.name, name, inputSchemaNames(groups));
   const client = {
     name,
     servers: expandServerUrls(spec.servers),
@@ -388,6 +389,7 @@ function renderFiles(spec: IR, options: RenderOptions) {
     makeImport,
     modelName,
   });
+  refuseTakenNames(options.name, name, inputSchemaNames(groups));
 
   const files: Record<string, string> = {
     ...Object.fromEntries(
@@ -415,6 +417,17 @@ function renderFiles(spec: IR, options: RenderOptions) {
     ...files,
     ...indexFiles(Object.keys(files), (path) => files[path], useTsExtension),
   };
+}
+
+/** The names the SDK root exports the operations' input schemas under. */
+function inputSchemaNames(groups: Record<string, Operation[]>) {
+  return new Set(
+    Object.values(groups)
+      .flat()
+      .flatMap((operation) =>
+        operation.inputs.map(({ schemaName }) => schemaName),
+      ),
+  );
 }
 
 /** A model type an SDK declares. */

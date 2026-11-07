@@ -91,11 +91,24 @@ export function clientName(name: string): string {
       `The client name "${name}" makes the default instance ${instance}, which is a reserved word. Rename the client.`,
     );
   }
-  const clash = clientNamedExports(pascal).find((built) => sdkNames.has(built));
+  refuseTakenNames(name, pascal, sdkNames);
+  return pascal;
+}
+
+/**
+ * Throws the TypeError of `clientName` when a name built from `pascal`, the
+ * client name `name` gives, is one of `taken`: names that come from the spec,
+ * such as the input schemas the SDK root exports (`listItemsSchema`).
+ */
+export function refuseTakenNames(
+  name: string,
+  pascal: string,
+  taken: ReadonlySet<string>,
+) {
+  const clash = clientNamedExports(pascal).find((built) => taken.has(built));
   if (clash !== undefined) {
     throw new TypeError(
       `The client name "${name}" makes ${clash}, a name the SDK already declares or exports. Rename the client.`,
     );
   }
-  return pascal;
 }
