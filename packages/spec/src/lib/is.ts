@@ -93,6 +93,25 @@ export function isXmlContentType(
   return !!mainType && (mainType.endsWith('/xml') || mainType.endsWith('+xml'));
 }
 
+/** The status ranges an OpenAPI 3.2 Responses Object may declare. */
+export type StatusRange = '1XX' | '2XX' | '3XX' | '4XX' | '5XX';
+
+const statusRanges: readonly StatusRange[] = [
+  '1XX',
+  '2XX',
+  '3XX',
+  '4XX',
+  '5XX',
+];
+
+/**
+ * The range that a Responses Object key declares, or undefined for an explicit
+ * code or `default`. OpenAPI 3.2 allows only the uppercase `X` wildcard.
+ */
+export function statusRange(status: string): StatusRange | undefined {
+  return statusRanges.find((range) => range === status);
+}
+
 export function isSuccessStatusCode(statusCode: number | string): boolean {
   if (typeof statusCode === 'string') {
     return /^2(?:\d{2}|xx)$/i.test(statusCode.trim());
