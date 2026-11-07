@@ -106,6 +106,8 @@ The analyzer infers this route because it uses the validate middleware and has a
 ## Guides
 
 - [Cookie authentication in browsers and server-side frameworks](./docs/recipes/cookies.md)
+- [Handle errors from a generated client](./docs/recipes/errors.md)
+- [Use Prisma types in a backend](./docs/recipes/prisma-types.md)
 - [React Query integration](./docs/react-query.md)
 - [Angular integration](./docs/angular.md)
 - [Monorepo development](./CONTRIBUTING.md#project-structure)
