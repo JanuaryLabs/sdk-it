@@ -83,7 +83,13 @@ app.get('/annotated', validate(() => ({})), (c) => {
         },
       },
     },
-    { output, name: 'Chats', readme: false, mode: 'full' },
+    {
+      output,
+      name: 'Chats',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   const configPath = join(output, 'tsconfig.json');
   const config = JSON.parse(await readFile(configPath, 'utf8'));

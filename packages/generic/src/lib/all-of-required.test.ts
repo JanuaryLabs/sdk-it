@@ -91,7 +91,13 @@ app.post('/sources/:sourceId/links', validate('application/json', (payload) => (
       paths,
       components,
     },
-    { output, name: 'Sources', readme: false, mode: 'full' },
+    {
+      output,
+      name: 'Sources',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   const configPath = join(output, 'tsconfig.json');
   const config = JSON.parse(await readFile(configPath, 'utf8'));

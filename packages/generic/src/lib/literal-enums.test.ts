@@ -76,7 +76,13 @@ describe('a Prisma-style const-object enum field', () => {
         paths: spec.paths,
         components: spec.components,
       },
-      { output, name: 'Shares', readme: false, mode: 'full' },
+      {
+        output,
+        name: 'Shares',
+        packageName: '@acme/sdk',
+        readme: false,
+        mode: 'full',
+      },
     );
     const configPath = join(output, 'tsconfig.json');
     const config = JSON.parse(await readFile(configPath, 'utf8'));

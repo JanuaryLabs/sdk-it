@@ -78,7 +78,13 @@ app.get('/compare', validate((payload) => ({
       paths: spec.paths,
       components: spec.components,
     },
-    { output, name: 'Comparison', readme: false, mode: 'full' },
+    {
+      output,
+      name: 'Comparison',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   const configPath = join(output, 'tsconfig.json');
   const config = JSON.parse(await readFile(configPath, 'utf8'));

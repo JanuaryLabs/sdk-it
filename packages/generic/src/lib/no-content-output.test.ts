@@ -42,7 +42,13 @@ test('a 204 route is typed null in the Endpoints output', async () => {
       paths,
       components,
     },
-    { output, name: 'Account', readme: false, mode: 'full' },
+    {
+      output,
+      name: 'Account',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   const configPath = join(output, 'tsconfig.json');
   const config = JSON.parse(await readFile(configPath, 'utf8'));
@@ -81,7 +87,13 @@ test('a 204 response resolves without throwing', async () => {
       paths,
       components,
     },
-    { output, name: 'Account', readme: false, mode: 'full' },
+    {
+      output,
+      name: 'Account',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   const { createAccount } = await import(
     pathToFileURL(join(output, 'src/index.ts')).href

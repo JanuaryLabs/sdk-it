@@ -41,7 +41,13 @@ test('a relative baseUrl resolves against location in a browser-like realm', asy
         paths,
         components,
       },
-      { output, name: 'Items', readme: false, mode: 'full' },
+      {
+        output,
+        name: 'Items',
+        packageName: '@acme/sdk',
+        readme: false,
+        mode: 'full',
+      },
     );
     const bundle = join(dir.path, 'client.js');
     await build({
@@ -111,7 +117,13 @@ test('a relative baseUrl without location rejects the request with a TypeError n
       paths,
       components,
     },
-    { output, name: 'Items', readme: false, mode: 'full' },
+    {
+      output,
+      name: 'Items',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   const { createItems } = await import(
     pathToFileURL(join(output, 'src/index.ts')).href

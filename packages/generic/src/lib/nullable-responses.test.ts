@@ -137,7 +137,13 @@ describe('nullable response types keep null', () => {
         paths: spec.paths,
         components: spec.components,
       },
-      { output, name: 'Chat', readme: false, mode: 'full' },
+      {
+        output,
+        name: 'Chat',
+        packageName: '@acme/sdk',
+        readme: false,
+        mode: 'full',
+      },
     );
     const configPath = join(output, 'tsconfig.json');
     const config = JSON.parse(await readFile(configPath, 'utf8'));

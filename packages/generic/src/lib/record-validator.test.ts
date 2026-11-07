@@ -45,7 +45,13 @@ describe('z.record inside a validator body', () => {
         paths: spec.paths,
         components: spec.components,
       },
-      { output, name: 'Agents', readme: false, mode: 'full' },
+      {
+        output,
+        name: 'Agents',
+        packageName: '@acme/sdk',
+        readme: false,
+        mode: 'full',
+      },
     );
     const configPath = join(output, 'tsconfig.json');
     const config = JSON.parse(await readFile(configPath, 'utf8'));

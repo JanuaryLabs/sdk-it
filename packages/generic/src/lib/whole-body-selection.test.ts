@@ -77,7 +77,13 @@ async function generateClient(dir: AnalysisWorkspace) {
       paths,
       components,
     },
-    { output, name: 'Schedules', readme: false, mode: 'full' },
+    {
+      output,
+      name: 'Schedules',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   return output;
 }

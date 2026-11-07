@@ -56,7 +56,13 @@ test('required body fields beside path params stay required in the generated cli
       paths,
       components,
     },
-    { output, name: 'Chats', readme: false, mode: 'full' },
+    {
+      output,
+      name: 'Chats',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   const configPath = join(output, 'tsconfig.json');
   const config = JSON.parse(await readFile(configPath, 'utf8'));
@@ -102,7 +108,13 @@ test('generated client rejects a request missing a required body field before fe
       paths,
       components,
     },
-    { output, name: 'Chats', readme: false, mode: 'full' },
+    {
+      output,
+      name: 'Chats',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   const { createChats } = await import(
     pathToFileURL(join(output, 'src/index.ts')).href

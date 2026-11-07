@@ -81,7 +81,13 @@ describe('an inherited response type returned as JSON', () => {
             paths: spec.paths,
             components: spec.components,
           },
-          { output, name: 'Apps', readme: false, mode: 'full' },
+          {
+            output,
+            name: 'Apps',
+            packageName: '@acme/sdk',
+            readme: false,
+            mode: 'full',
+          },
         );
         const configPath = join(output, 'tsconfig.json');
         const config = JSON.parse(await readFile(configPath, 'utf8'));

@@ -75,7 +75,13 @@ test('a named z.json() inside a record becomes a JSON component, and the generat
       paths: spec.paths,
       components: spec.components,
     },
-    { output, name: 'Shortcuts', readme: false, mode: 'full' },
+    {
+      output,
+      name: 'Shortcuts',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   const consumerPath = join(output, 'src', 'consumer.ts');
   await writeFile(
@@ -252,6 +258,7 @@ test('a $ref that points at no component fails generation with a message naming 
     generate(spec, {
       output: join(dir.path, 'client'),
       name: 'Dangling',
+      packageName: '@acme/sdk',
       readme: false,
       mode: 'full',
     }),

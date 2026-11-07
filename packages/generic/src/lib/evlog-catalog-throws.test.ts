@@ -168,7 +168,13 @@ void test("evlogErrors documents each catalog throw at its status with evlog's w
       paths: spec.paths,
       components: spec.components,
     },
-    { output, name: 'Billing', readme: false, mode: 'full' },
+    {
+      output,
+      name: 'Billing',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   const configPath = join(output, 'tsconfig.json');
   const config = JSON.parse(await readFile(configPath, 'utf8'));

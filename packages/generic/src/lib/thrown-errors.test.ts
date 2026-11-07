@@ -208,6 +208,7 @@ app.get('/items', validate((payload) => ({
           {
             output,
             name: 'Items',
+            packageName: '@acme/sdk',
             mode,
             readme: false,
           },

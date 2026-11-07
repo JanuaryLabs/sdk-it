@@ -249,7 +249,13 @@ app.get('/widget', validate(() => ({})), (c) => c.json({ id: Number('1'), name: 
       paths: spec.paths,
       components: spec.components,
     },
-    { output, name: 'Widgets', readme: false, mode: 'full' },
+    {
+      output,
+      name: 'Widgets',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   const configPath = join(output, 'tsconfig.json');
   const config = JSON.parse(await readFile(configPath, 'utf8'));

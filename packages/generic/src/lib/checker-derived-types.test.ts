@@ -114,7 +114,13 @@ test('a validation error derives its field errors as a record of issues, so the 
       paths: spec.paths,
       components: spec.components,
     },
-    { output, name: 'Names', readme: false, mode: 'full' },
+    {
+      output,
+      name: 'Names',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   const consumer = join(output, 'src', 'consumer.ts');
   await writeFile(
@@ -172,7 +178,13 @@ app.post('/items', validate('application/json', (payload) => ({
       paths: spec.paths,
       components: spec.components,
     },
-    { output, name: 'Items', readme: false, mode: 'full' },
+    {
+      output,
+      name: 'Items',
+      packageName: '@acme/sdk',
+      readme: false,
+      mode: 'full',
+    },
   );
   const consumer = join(output, 'src', 'consumer.ts');
   await writeFile(

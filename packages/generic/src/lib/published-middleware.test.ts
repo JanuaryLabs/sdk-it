@@ -158,6 +158,7 @@ app.post('/items', validate('application/json', (payload) => ({
     {
       output,
       name: 'Items',
+      packageName: '@acme/sdk',
       readme: false,
       mode: 'full',
     },

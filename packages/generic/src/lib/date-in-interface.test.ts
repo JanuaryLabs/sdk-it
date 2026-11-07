@@ -80,7 +80,13 @@ describe('a Date field inside a named response type', () => {
           paths: spec.paths,
           components: spec.components,
         },
-        { output, name: 'Tickets', readme: false, mode: 'full' },
+        {
+          output,
+          name: 'Tickets',
+          packageName: '@acme/sdk',
+          readme: false,
+          mode: 'full',
+        },
       );
       const configPath = join(output, 'tsconfig.json');
       const config = JSON.parse(await readFile(configPath, 'utf8'));
