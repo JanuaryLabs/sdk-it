@@ -33,6 +33,12 @@ sets the names of the generated exports, such as `createOpenStatus` and
 `OpenStatusEndpoints`. `minimal` mode writes client source
 files directly to `output`.
 
+The exports use `name` in PascalCase. `generate`, `render` and `renderModule`
+refuse a name that does not become a TypeScript identifier (`'2024 api'`
+becomes `2024Api`), or whose default instance is a reserved word (`'Default'`).
+`clientName(name)` gives the name that the exports use, and throws the same
+error.
+
 ## Render the SDK in memory
 
 `render` returns the SDK source files and does not read or write the disk. Use

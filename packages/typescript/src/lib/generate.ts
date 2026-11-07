@@ -8,7 +8,6 @@ import {
   type OpenAPIDocument,
   isRef,
   parseRef,
-  pascalcase,
   pointerTokens,
   valueAtPointer,
 } from '@sdk-it/core';
@@ -31,6 +30,7 @@ import {
 import { generateAISDKTools } from './agent/ai-sdk.ts';
 import { generateOpenAIAgentTools } from './agent/openai-agents.ts';
 import utilsTxt from './agent/utils.txt';
+import { clientName } from './client-name.ts';
 import backend, {
   clientDeclarations,
   clientDeclaredNames,
@@ -93,7 +93,7 @@ export async function renderModule(
   options: ModuleOptions,
 ): Promise<{ text: string; spans: ModuleSpan[] }> {
   const spec = await toSdkIR(openapi, {});
-  const name = pascalcase(options.name.trim());
+  const name = clientName(options.name);
   const modelName = createModelNamer(name);
   const { groups, commonZod, endpoints } = operationFragments({
     spec,
@@ -381,8 +381,8 @@ function renderFiles(spec: IR, options: RenderOptions) {
   const makeImport = (moduleSpecifier: string) => {
     return useTsExtension ? `${moduleSpecifier}.ts` : moduleSpecifier;
   };
-  const clientName = pascalcase(options.name.trim());
-  const modelName = createModelNamer(clientName);
+  const name = clientName(options.name);
+  const modelName = createModelNamer(name);
   const { endpoints, groups, commonZod } = generateCode({
     spec,
     style,
@@ -398,7 +398,7 @@ function renderFiles(spec: IR, options: RenderOptions) {
       ]),
     ),
     'client.ts': backend({
-      name: clientName,
+      name,
       servers: expandServerUrls(spec.servers ?? []),
       securitySchemes: spec.components.securitySchemes,
       makeImport,
