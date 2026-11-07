@@ -34,10 +34,11 @@ function that resolves to an OpenAPI object or local path instead.
 
 ## Use a TypeScript backend project
 
-First initialize the SDK-IT project workflow:
+First initialize the SDK-IT project workflow. Name the client and point the
+initializer at the backend's tsconfig:
 
 ```bash
-npx @sdk-it/cli@latest init
+npx @sdk-it/cli@latest init --name Backend --project ./apps/backend/tsconfig.json
 ```
 
 Then add the plugin without an OpenAPI argument:

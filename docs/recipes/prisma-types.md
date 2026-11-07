@@ -34,6 +34,7 @@ import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
   name: 'Backend',
+  packageName: '@acme/backend-client',
   tsconfig: './apps/backend/tsconfig.json',
   preset: 'auto',
 });
@@ -44,6 +45,7 @@ Use `prisma` when Prisma support is required:
 ```typescript
 export default defineConfig({
   name: 'Backend',
+  packageName: '@acme/backend-client',
   tsconfig: './apps/backend/tsconfig.json',
   preset: 'prisma',
 });
@@ -55,6 +57,7 @@ Use `none` only when the project intentionally owns all Prisma mappings:
 ```typescript
 export default defineConfig({
   name: 'Backend',
+  packageName: '@acme/backend-client',
   tsconfig: './apps/backend/tsconfig.json',
   preset: 'none',
 });
@@ -67,6 +70,7 @@ import { generateProject } from '@sdk-it/cli';
 
 await generateProject({
   name: 'Backend',
+  packageName: '@acme/backend-client',
   tsconfig: './apps/backend/tsconfig.json',
   preset: 'prisma',
 });

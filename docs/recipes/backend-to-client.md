@@ -16,10 +16,11 @@ npm install --save-dev @sdk-it/vite
 
 ## Initialize
 
-Point the initializer at the backend project's TypeScript configuration:
+Point the initializer at the backend project's TypeScript configuration, and
+name the client:
 
 ```bash
-npx @sdk-it/cli init --project ./apps/backend/tsconfig.json
+npx @sdk-it/cli init --name Backend --project ./apps/backend/tsconfig.json
 ```
 
 The initializer:
@@ -42,8 +43,17 @@ export default defineConfig({
 });
 ```
 
-`name` is required. It names the generated exports: `name: 'Backend'` exports
-`createBackend`. The initializer derives it from the backend folder name.
+`name` and `packageName` are required. `name` names the generated exports:
+`name: 'Backend'` exports `createBackend`. The initializer writes the `--name`
+value. It refuses a name that does not become a TypeScript identifier, such as
+`2024Api`.
+
+`packageName` is the npm name of the generated package. For a backend in a
+subfolder, the initializer uses the workspace scope and the backend folder
+name (`@acme/backend-client`, or `backend-client` when the workspace package
+has no scope). For a backend at the workspace root, it uses the workspace
+package name (`@acme/platform` gives `@acme/platform-client`). The workspace
+`package.json` must then set `name`.
 
 Run the package manager once after initialization, then commit the updated root
 manifest, lockfile, backend config, ignore file, and generated package stub:
@@ -99,21 +109,18 @@ import { generateProject } from '@sdk-it/cli';
 
 await generateProject({
   name: 'Backend',
+  packageName: '@acme/backend-client',
   tsconfig: './apps/backend/tsconfig.json',
 });
 ```
 
-The programmatic defaults are:
+`name`, `packageName` and `tsconfig` are required. The defaults are:
 
-| Option        | Default          |
-| ------------- | ---------------- |
-| `output`      | `./.sdk-it`      |
-| `packageName` | `@sdk-it/client` |
-| `framework`   | auto-detected    |
-| `preset`      | `auto`           |
-
-`init --project` instead derives a unique package name from the workspace scope
-and backend directory.
+| Option      | Default       |
+| ----------- | ------------- |
+| `output`    | `./.sdk-it`   |
+| `framework` | auto-detected |
+| `preset`    | `auto`        |
 
 ## Vite
 
@@ -149,6 +156,7 @@ Force Prisma support when the project must use it:
 export default defineConfig({
   name: 'Backend',
   tsconfig: './tsconfig.json',
+  packageName: '@acme/backend-client',
   preset: 'prisma',
 });
 ```
@@ -159,6 +167,7 @@ Forced mode fails when SDK-IT cannot find a Prisma client import. Disable detect
 export default defineConfig({
   name: 'Backend',
   tsconfig: './tsconfig.json',
+  packageName: '@acme/backend-client',
   preset: 'none',
 });
 ```
