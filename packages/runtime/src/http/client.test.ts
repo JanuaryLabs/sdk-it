@@ -5,6 +5,7 @@ import { describe, test } from 'node:test';
 import { z } from 'zod';
 
 import {
+  type Api,
   Dispatcher,
   Ok,
   type Route,
@@ -88,6 +89,20 @@ describe('Client baseUrl', () => {
 
     assert.equal(url.href, 'https://us.api.test/pets');
   });
+});
+
+test('a client refuses an endpoint its api does not name', async () => {
+  const wide: Api = api(['https://api.test']);
+  const client = createClient(wide, {});
+
+  for (const call of [
+    () => client.request('GET /owners', {}),
+    () => client.prepare('GET /owners', {}),
+  ]) {
+    await assert.rejects(call, {
+      message: "The api has no endpoint 'GET /owners'",
+    });
+  }
 });
 
 test('the credentials setting exists only for a spec with security schemes', async () => {

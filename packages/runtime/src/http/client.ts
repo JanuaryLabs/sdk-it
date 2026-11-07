@@ -201,7 +201,7 @@ export class Client<A extends Api> {
     input: unknown,
     options?: RequestOptions,
   ): Promise<unknown> {
-    const { pagination } = this.api.routes[endpoint];
+    const pagination = this.api.routes[endpoint]?.pagination;
     if (pagination) {
       return new PagePromise(
         firstPage(this, endpoint, input, pagination, options),
@@ -312,13 +312,21 @@ export async function request(
   return send(client, endpoint, input, options);
 }
 
+function routeOf(api: Api, endpoint: string) {
+  const route = api.routes[endpoint];
+  if (route === undefined) {
+    throw new Error(`The api has no endpoint '${endpoint}'`);
+  }
+  return route;
+}
+
 async function send(
   client: Client<Api>,
   endpoint: string,
   input: unknown,
   options: RequestOptions | undefined,
 ) {
-  const route = client.api.routes[endpoint];
+  const route = routeOf(client.api, endpoint);
   const settings = await client.settings();
   const parsedInput = settings.skipValidation
     ? input
@@ -356,7 +364,7 @@ export async function prepare(
 ): Promise<
   RequestConfig & { parse: (response: Response) => Promise<unknown> }
 > {
-  const route = client.api.routes[endpoint];
+  const route = routeOf(client.api, endpoint);
   const settings = await client.settings();
   const parsedInput = settings.skipValidation
     ? input

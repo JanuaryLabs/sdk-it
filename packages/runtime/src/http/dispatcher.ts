@@ -167,8 +167,7 @@ export class Dispatcher {
 
     let response = await (this.#fetch ?? fetch)(new Request(config.url, init));
 
-    for (let i = this.#interceptors.length - 1; i >= 0; i--) {
-      const interceptor = this.#interceptors[i];
+    for (const interceptor of this.#interceptors.toReversed()) {
       if (interceptor.after) {
         response = await interceptor.after(response.clone());
       }
