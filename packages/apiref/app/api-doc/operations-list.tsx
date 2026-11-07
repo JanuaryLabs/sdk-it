@@ -2,9 +2,9 @@ import { Separator } from '@zukhruf/shadcn';
 import { motion } from 'motion/react';
 import { useSyncExternalStore } from 'react';
 
-import { Description } from '../components/description';
-import { useRootData } from '../use-root-data';
-import { OperationCard } from './operation-card';
+import { Description } from '../components/description.tsx';
+import { useRootData } from '../use-root-data.tsx';
+import { OperationCard } from './operation-card.tsx';
 
 function subscribeToNothing() {
   return () => undefined;

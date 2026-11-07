@@ -7,7 +7,7 @@ import {
 } from 'react-router';
 import { describe, expect, test } from 'vitest';
 
-import { NavMain } from './nav';
+import { NavMain } from './nav.tsx';
 
 async function renderSidebarLinks(url: string) {
   const { query, dataRoutes } = createStaticHandler([

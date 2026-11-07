@@ -4,11 +4,11 @@ import { useMemo } from 'react';
 
 import type { TunedOperationObject } from '@sdk-it/spec';
 
-import { JSXEmitter } from '../components/jsx-emitter';
-import { EditorTabs } from '../components/sdks-tabs';
-import { useRootData } from '../use-root-data';
-import { MD } from './markdown';
-import type { AugmentedOperation } from './types';
+import { JSXEmitter } from '../components/jsx-emitter.tsx';
+import { EditorTabs } from '../components/sdks-tabs.tsx';
+import { useRootData } from '../use-root-data.tsx';
+import { MD } from './markdown.tsx';
+import type { AugmentedOperation } from './types.ts';
 
 interface OperationCardProps {
   entry: AugmentedOperation;

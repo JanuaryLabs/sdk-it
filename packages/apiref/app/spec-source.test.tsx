@@ -2,8 +2,8 @@ import { describe, expect, test } from 'vitest';
 
 import { loadSpec, toIR, toSidebar } from '@sdk-it/spec';
 
-import { loader } from './root';
-import { configuredSpec, requestSpec } from './spec-source';
+import { loader } from './root.tsx';
+import { configuredSpec, requestSpec } from './spec-source.ts';
 
 const root = new URL('http://localhost/');
 const withSpec = new URL('http://localhost/?spec=override.json');

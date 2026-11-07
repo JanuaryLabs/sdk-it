@@ -4,8 +4,8 @@ import React, { Fragment } from 'react';
 import { resolveRef } from '@sdk-it/core/ref.js';
 import type { IR, OurRequestBodyObject } from '@sdk-it/spec';
 
-import { Description } from './description';
-import { SchemaComponent } from './schema-component';
+import { Description } from './description.tsx';
+import { SchemaComponent } from './schema-component.tsx';
 
 interface RequestBodyComponentProps {
   requestBody: OurRequestBodyObject;

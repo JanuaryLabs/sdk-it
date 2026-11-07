@@ -8,10 +8,10 @@ import {
 import { Loader } from 'lucide-react';
 
 import { OperationsList } from './api-doc/operations-list.tsx';
-import { SearchCmdk } from './components/search';
-import { useScrollOperations } from './hooks/use-scroll-operations';
-import { NavMain } from './sidebar/nav';
-import { useRootData } from './use-root-data';
+import { SearchCmdk } from './components/search.tsx';
+import { useScrollOperations } from './hooks/use-scroll-operations.ts';
+import { NavMain } from './sidebar/nav.tsx';
+import { useRootData } from './use-root-data.tsx';
 
 export function HydrateFallback() {
   return <Loader className="animate-spin" />;

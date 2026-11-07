@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 
-import { loader } from './root';
+import { loader } from './root.tsx';
 
 /** The TypeScript code sample the loader gives for a spec titled `title`. */
 async function typescriptSample(title: string | undefined) {

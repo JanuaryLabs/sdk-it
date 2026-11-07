@@ -2,10 +2,10 @@ import React from 'react';
 
 import type { IR, TunedOperationObject } from '@sdk-it/spec';
 
-import { Description } from './description';
-import { ParametersComponent } from './parameters-component';
-import { RequestBodyComponent } from './request-body-component';
-import { ResponsesComponent } from './responses-component';
+import { Description } from './description.tsx';
+import { ParametersComponent } from './parameters-component.tsx';
+import { RequestBodyComponent } from './request-body-component.tsx';
+import { ResponsesComponent } from './responses-component.tsx';
 
 /**
  * JSXEmitter generates React components to display API operation details

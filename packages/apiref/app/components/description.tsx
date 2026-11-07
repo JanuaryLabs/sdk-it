@@ -1,6 +1,6 @@
 import { cn } from 'cn';
 
-import { MD } from '../api-doc/markdown';
+import { MD } from '../api-doc/markdown.tsx';
 
 export function Description(props: {
   description: string | undefined;

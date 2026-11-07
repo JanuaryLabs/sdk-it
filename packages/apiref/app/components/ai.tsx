@@ -17,10 +17,10 @@ import React, {
 import { AiOutlineArrowDown } from 'react-icons/ai';
 import { type ScrollToBottom, useStickToBottom } from 'use-stick-to-bottom';
 
-import { StillMarkdown } from '../api-doc/markdown';
-import { MessageInput } from './message-input';
-import { TextShimmer } from './text-shimmer';
-import useElementHeight from './use-element-height';
+import { StillMarkdown } from '../api-doc/markdown.tsx';
+import { MessageInput } from './message-input.tsx';
+import { TextShimmer } from './text-shimmer.tsx';
+import useElementHeight from './use-element-height.tsx';
 
 type ChatHelpers = UseChatHelpers<UIMessage>;
 

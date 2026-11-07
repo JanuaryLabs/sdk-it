@@ -21,11 +21,11 @@ import {
   toSidebar,
 } from '@sdk-it/spec';
 
-import type { AugmentedOperation } from './api-doc/types';
-import { titleClientName } from './client-name';
-import { requestSpec } from './spec-source';
+import type { AugmentedOperation } from './api-doc/types.ts';
+import { titleClientName } from './client-name.ts';
+import { requestSpec } from './spec-source.ts';
 import './styles.css';
-import { useRootData } from './use-root-data';
+import { useRootData } from './use-root-data.tsx';
 
 export const meta: MetaFunction = () => {
   return [

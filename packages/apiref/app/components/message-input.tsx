@@ -4,7 +4,7 @@ import { ArrowUp, Square, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import React, { useRef, useState } from 'react';
 
-import { useAutosizeTextArea } from '../hooks/use-autosize-textarea';
+import { useAutosizeTextArea } from '../hooks/use-autosize-textarea.ts';
 
 interface MessageInputBaseProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   value: string;

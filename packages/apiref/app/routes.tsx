@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { writeFiles } from '@sdk-it/core/file-system.js';
 import { type NavItem, loadSpec, toIR } from '@sdk-it/spec';
 
-import { configuredSpec } from './spec-source';
+import { configuredSpec } from './spec-source.ts';
 
 const spec = await toIR({
   spec: (await loadSpec(configuredSpec(import.meta.env))).spec,

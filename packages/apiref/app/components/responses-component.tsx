@@ -17,9 +17,9 @@ import React, { useState } from 'react';
 import { resolveRef } from '@sdk-it/core/ref.js';
 import { isEmpty } from '@sdk-it/core/utils.js';
 
-import { useRootData } from '../use-root-data';
-import { Description } from './description';
-import { SchemaComponent } from './schema-component';
+import { useRootData } from '../use-root-data.tsx';
+import { Description } from './description.tsx';
+import { SchemaComponent } from './schema-component.tsx';
 
 interface ResponseTypesProps {
   contentTypes: string[];

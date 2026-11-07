@@ -14,9 +14,9 @@ import React, { Fragment, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { VscCopilot } from 'react-icons/vsc';
 
-import { OperationCard } from '../api-doc/operation-card';
-import { useRootData } from '../use-root-data';
-import { AskAi } from './ai';
+import { OperationCard } from '../api-doc/operation-card.tsx';
+import { useRootData } from '../use-root-data.tsx';
+import { AskAi } from './ai.tsx';
 
 const aiValue = crypto.randomUUID();
 

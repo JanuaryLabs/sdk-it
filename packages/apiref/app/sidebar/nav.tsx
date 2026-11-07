@@ -21,7 +21,7 @@ import { titlecase } from 'stringcase';
 import { isEmpty } from '@sdk-it/core/utils.js';
 import type { CategoryItem, NavItem, SidebarData } from '@sdk-it/spec';
 
-import { useRootData } from '../use-root-data';
+import { useRootData } from '../use-root-data.tsx';
 
 // The server renders without the page origin, so a url resolves against a host
 // that no real url names (RFC 6761 .invalid), the same on server and client.

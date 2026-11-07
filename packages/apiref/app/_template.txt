@@ -1,8 +1,8 @@
 import { MD } from '../api-doc/markdown.tsx';
 import { Loader, Wand2 } from 'lucide-react';
 
-import { SearchCmdk } from '../components/search';
-import { useScrollOperations } from '../hooks/use-scroll-operations';
+import { SearchCmdk } from '../components/search.tsx';
+import { useScrollOperations } from '../hooks/use-scroll-operations.ts';
 import {
   Separator,
   Sidebar,
@@ -12,8 +12,8 @@ import {
   SidebarMenuSubButton,
   SidebarProvider,
 } from '@zukhruf/shadcn';
-import { NavMain } from '../sidebar/nav';
-import { useRootData } from '../use-root-data';
+import { NavMain } from '../sidebar/nav.tsx';
+import { useRootData } from '../use-root-data.tsx';
 
 export function HydrateFallback() {
   return <Loader className="animate-spin" />;

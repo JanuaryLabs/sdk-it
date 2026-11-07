@@ -7,7 +7,7 @@ import { isEmpty } from '@sdk-it/core/utils.js';
 import { isPrimitiveSchema } from '@sdk-it/spec/is-primitive-schema.js';
 import { coerceTypes } from '@sdk-it/spec/is.js';
 
-import { Description } from './description';
+import { Description } from './description.tsx';
 
 interface SchemaProps {
   schema: SchemaObject | ReferenceObject;

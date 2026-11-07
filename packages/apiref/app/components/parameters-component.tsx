@@ -2,8 +2,8 @@ import { Separator } from '@zukhruf/shadcn';
 import type { ParameterObject } from 'openapi3-ts/oas31';
 import React from 'react';
 
-import { Description } from './description';
-import { SchemaComponent } from './schema-component';
+import { Description } from './description.tsx';
+import { SchemaComponent } from './schema-component.tsx';
 
 interface ParametersComponentProps {
   parameters: ParameterObject[];
