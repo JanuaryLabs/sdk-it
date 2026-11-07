@@ -608,10 +608,7 @@ export {};
 `,
     });
 
-    assert.deepStrictEqual(
-      paths['/x'].get.responses,
-      jsonResponse({ type: 'any' }),
-    );
+    assert.deepStrictEqual(paths['/x'].get.responses, jsonResponse({}));
     assert.deepStrictEqual(
       paths['/y'].get.responses,
       jsonResponse({

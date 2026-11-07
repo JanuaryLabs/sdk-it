@@ -429,8 +429,10 @@ function isDateType(data: DateType | DerivedProps): data is DateType {
 export function toSchema(
   data: DateType | DerivedProps | string | null | undefined,
 ): any {
-  if (data === null || data === undefined) {
-    return { type: 'any' };
+  // JSON Schema has no type 'any'; the empty schema accepts any value, and it is
+  // the schema OpenAPI 3.2 gives a raw binary body.
+  if (data === null || data === undefined || data === 'any') {
+    return {};
   } else if (typeof data === 'string') {
     const isRef = data.startsWith('#');
     if (isRef) {
