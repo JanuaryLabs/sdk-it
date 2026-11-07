@@ -277,6 +277,16 @@ export const newResponse: NaunceResponseAnalyzerFn = (
   ];
 };
 
+/** The context methods that send their first argument as the raw body. */
+const rawBodyMethods = new Set(['body', 'newResponse']);
+
+/** The media type each Hono context method sends when no Content-Type header is passed (hono/dist/context.js). */
+const defaultMediaTypes = new Map([
+  ['json', 'application/json'],
+  ['text', 'text/plain'],
+  ['html', 'text/html'],
+]);
+
 /** The response `returned`, a value the handler returns, sends when it is a call on the handler's context, such as `c.json(body, 201)`. */
 export function defaultResponseAnalyzer(
   handler: FunctionWithBody,
@@ -299,12 +309,23 @@ export function defaultResponseAnalyzer(
     return [];
   }
   const [argument, statusCode, headers] = returned.arguments;
-  const rawBody = method.name.text === 'body';
+  if (method.name.text === 'redirect') {
+    // Hono's c.redirect(location, status = 302) sets Location and sends no body.
+    return [
+      {
+        headers: ['Location'],
+        contentType: 'empty',
+        statusCode: statusCode ? resolveStatusCode(statusCode) : '302',
+        response: undefined,
+      },
+    ];
+  }
+  const rawBody = rawBodyMethods.has(method.name.text);
   // A raw body of null sends nothing; c.json(null) still sends the JSON text null.
   // newResponse repeats this rule for new Response(null).
   const body =
     rawBody && argument && isNullLiteral(argument) ? undefined : argument;
-  let sentAs = 'application/json';
+  let sentAs = defaultMediaTypes.get(method.name.text) ?? 'application/json';
   if (!body) {
     sentAs = 'empty';
   } else if (rawBody) {

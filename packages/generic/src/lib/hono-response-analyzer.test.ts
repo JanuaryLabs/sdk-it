@@ -248,6 +248,114 @@ app.get('/items', validate(() => ({})), (c) => {
       });
     });
 
+    describe('c.text(), c.html() and c.redirect() returns', () => {
+      test('documents c.text with the text/plain media type Hono sends', async () => {
+        const handler = (c: Context) => c.text('pong', 200);
+        const response = await new Hono().get('/', handler).request('/');
+        assert.equal(
+          response.headers.get('Content-Type'),
+          'text/plain; charset=UTF-8',
+        );
+
+        const paths =
+          await documentedPaths(`import { Hono, type Context } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+app.get('/ping', validate(() => ({})), ${handler.toString()});
+`);
+
+        assert.deepStrictEqual(paths['/ping'].get.responses['200'], {
+          description: 'Response for 200',
+          content: {
+            'text/plain': { schema: { type: 'string', enum: ['pong'] } },
+          },
+        });
+      });
+
+      test('documents c.html with the text/html media type Hono sends', async () => {
+        const handler = (c: Context) => c.html('<p>hi</p>');
+        const response = await new Hono().get('/', handler).request('/');
+        assert.equal(
+          response.headers.get('Content-Type'),
+          'text/html; charset=UTF-8',
+        );
+
+        const paths =
+          await documentedPaths(`import { Hono, type Context } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+app.get('/page', validate(() => ({})), ${handler.toString()});
+`);
+
+        assert.deepStrictEqual(paths['/page'].get.responses['200'], {
+          description: 'Response for 200',
+          content: {
+            'text/html': { schema: { type: 'string', enum: ['<p>hi</p>'] } },
+          },
+        });
+      });
+
+      test('documents c.newResponse(null, 204) as a response with no body, as Hono sends it', async () => {
+        const handler = (c: Context) => c.newResponse(null, 204);
+        const response = await new Hono().get('/', handler).request('/');
+        assert.equal(response.status, 204);
+        assert.equal(response.headers.get('Content-Type'), null);
+
+        const paths =
+          await documentedPaths(`import { Hono, type Context } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+app.delete('/runs', validate(() => ({})), ${handler.toString()});
+`);
+
+        assert.deepStrictEqual(paths['/runs'].delete.responses['204'], {
+          description: 'Response for 204',
+        });
+      });
+
+      test('documents c.redirect as a 302 with a Location header and no body, as Hono sends it', async () => {
+        const handler = (c: Context) => c.redirect('/runs');
+        const response = await new Hono().get('/', handler).request('/');
+        assert.equal(response.status, 302);
+        assert.equal(response.headers.get('Location'), '/runs');
+        assert.equal(await response.text(), '');
+
+        const paths =
+          await documentedPaths(`import { Hono, type Context } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+app.get('/old-runs', validate(() => ({})), ${handler.toString()});
+`);
+
+        const { responses } = paths['/old-runs'].get;
+        assert.deepStrictEqual(Object.keys(responses).sort(), [
+          '302',
+          '400',
+          '415',
+        ]);
+        assert.deepStrictEqual(responses['302'], {
+          description: 'Response for 302',
+          headers: { Location: { schema: { type: 'string' } } },
+        });
+      });
+
+      test('documents c.redirect with the status it passes', async () => {
+        const handler = (c: Context) => c.redirect('/runs', 301);
+
+        const paths =
+          await documentedPaths(`import { Hono, type Context } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+app.get('/old-runs', validate(() => ({})), ${handler.toString()});
+`);
+
+        assert.deepStrictEqual(paths['/old-runs'].get.responses['301'], {
+          description: 'Response for 301',
+          headers: { Location: { schema: { type: 'string' } } },
+        });
+      });
+    });
+
     describe('c.body() returns', () => {
       test('extracts application/octet-stream for c.body()', async () => {
         const paths = await documentedPaths(`import { Hono } from 'hono';
