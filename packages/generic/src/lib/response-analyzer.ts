@@ -50,7 +50,11 @@ export function defaultResponseAnalyzer(
   try {
     return [
       {
-        headers: headers ? Object.keys(deriver.serializeNode(headers)) : [],
+        headers: headers
+          ? deriver.checker
+              .getPropertiesOfType(deriver.checker.getTypeAtLocation(headers))
+              .map((prop) => prop.name)
+          : [],
         contentType,
         statusCode: statusCode ? resolveStatusCode(statusCode) : '200',
         response: body ? deriver.serializeNode(body) : undefined,

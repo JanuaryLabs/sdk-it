@@ -2122,3 +2122,40 @@ app.post('/x', validate((p) => ({
     );
   });
 });
+
+describe('output response headers', () => {
+  it('documents each header once under its name, and leaves out Content-Type', async () => {
+    await using workspace = await analysisWorkspace('generic-', {
+      'index.ts': `
+import { validate } from '@sdk-it/hono/runtime';
+import { Hono } from 'hono';
+
+const app = new Hono();
+const output = {
+  json: (value: unknown, status = 200, headers: Record<string, string> = {}) =>
+    Response.json(value, { status, headers }),
+};
+const requestIdHeader = 'X-Request-Id' as const;
+
+/** @openapi exportReport */
+app.get('/report', validate(() => ({})), () => {
+  return output.json({ ok: true }, 200, {
+    'Content-Type': 'application/json',
+    [requestIdHeader]: 'id',
+    Etag: 'v1',
+  });
+});
+`,
+    });
+    using project = openAnalysisProject(workspace.tsconfig);
+
+    const { paths } = await analyze(project, { responseAnalyzer });
+
+    // Assert the document as consumers write it to openapi.json.
+    const { responses } = JSON.parse(JSON.stringify(paths['/report']?.get));
+    assert.deepStrictEqual(responses['200'].headers, {
+      'X-Request-Id': { schema: { type: 'string' } },
+      Etag: { schema: { type: 'string' } },
+    });
+  });
+});
