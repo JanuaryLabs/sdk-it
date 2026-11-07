@@ -58,5 +58,4 @@ combined.txt
 # sst
 .sst
 .tasks.json
-registry/verdaccio/storage/
 packages/apiref/app/_generated/
