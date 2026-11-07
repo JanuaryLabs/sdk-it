@@ -705,3 +705,81 @@ describe('ZodEmitter date handling', () => {
     });
   });
 });
+
+describe('ZodEmitter string limits', () => {
+  test('minLength and maxLength bound the string length', async () => {
+    const row = await rowInput({
+      value: { type: 'string', minLength: 2, maxLength: 4 },
+      required: true,
+    });
+
+    assert.equal(row.safeParse({ value: 'a' }).success, false);
+    assert.equal(row.safeParse({ value: 'abcde' }).success, false);
+    assert.deepStrictEqual(row.parse({ value: 'abcd' }), { value: 'abcd' });
+  });
+
+  test('a pattern matches anywhere in the string, as JSON Schema patterns are not anchored', async () => {
+    const row = await rowInput({
+      value: { type: 'string', pattern: 'b/c' },
+      required: true,
+    });
+
+    assert.deepStrictEqual(row.parse({ value: 'ab/cd' }), { value: 'ab/cd' });
+    assert.equal(row.safeParse({ value: 'abcd' }).success, false);
+  });
+
+  test('limits apply to a string format', async () => {
+    const row = await rowInput({
+      value: { type: 'string', format: 'email', maxLength: 8 },
+      required: true,
+    });
+
+    assert.deepStrictEqual(row.parse({ value: 'a@b.co' }), { value: 'a@b.co' });
+    assert.equal(row.safeParse({ value: 'ada@example.com' }).success, false);
+  });
+
+  test('limits apply to a coerced string after coercion', async () => {
+    const row = await rowInput({
+      value: {
+        type: 'string',
+        format: 'email',
+        minLength: 7,
+        'x-zod-type': 'coerce-string',
+      },
+      required: true,
+    });
+
+    assert.deepStrictEqual(
+      row.parse({ value: { toString: () => 'a@b.com' } }),
+      { value: 'a@b.com' },
+    );
+    assert.equal(
+      row.safeParse({ value: { toString: () => 'a@b.co' } }).success,
+      false,
+    );
+  });
+
+  test('oneOf tells two string branches apart by their limits', async () => {
+    const row = await rowInput({
+      value: { oneOf: [{ type: 'string' }, { type: 'string', minLength: 2 }] },
+      required: true,
+    });
+
+    assert.deepStrictEqual(row.parse({ value: 'a' }), { value: 'a' });
+    assert.equal(row.safeParse({ value: 'ab' }).success, false);
+  });
+
+  test('a pattern that is not an ECMA-262 regular expression fails generation', async () => {
+    await assert.rejects(
+      rowInput({
+        value: { type: 'string', pattern: '(?i)^[a-z]+$' },
+        required: true,
+      }),
+      {
+        name: 'SyntaxError',
+        message:
+          /^The pattern "\(\?i\)\^\[a-z\]\+\$" is not an ECMA-262 regular expression/,
+      },
+    );
+  });
+});

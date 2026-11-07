@@ -233,8 +233,9 @@ export class ZodEmitter {
     }
 
     const coerced = schema['x-zod-type'] === 'coerce-string';
+    const limits = stringLimits(schema);
     const withFormat = (format: string) =>
-      coerced ? `${base}.pipe(${format})` : format;
+      coerced ? `${base}.pipe(${format}${limits})` : `${format}${limits}`;
 
     switch (schema.format) {
       case 'date-time':
@@ -284,7 +285,7 @@ export class ZodEmitter {
         base = withFormat('z.cidrv6()');
         break;
       case 'phone':
-        base += ' /* or add .regex(...) for phone formats */';
+        base += `${limits} /* or add .regex(...) for phone formats */`;
         break;
       case 'byte':
       case 'binary':
@@ -292,7 +293,7 @@ export class ZodEmitter {
         base = `z.custom<${this.#refs.global('Blob')}>()`;
         break;
       default:
-        // No special format
+        base += limits;
         break;
     }
 
@@ -434,4 +435,39 @@ function appendDefault(defaultValue?: any) {
   return defaultValue !== undefined || typeof defaultValue !== 'undefined'
     ? `.default(${defaultValue})`
     : '';
+}
+
+/** JSON Schema's string length and pattern keywords, mapped as zod's own `z.fromJSONSchema` maps them. */
+function stringLimits(schema: SchemaObject) {
+  let limits = '';
+  if (typeof schema.minLength === 'number') {
+    limits += `.min(${schema.minLength})`;
+  }
+  if (typeof schema.maxLength === 'number') {
+    limits += `.max(${schema.maxLength})`;
+  }
+  if (typeof schema.pattern === 'string') {
+    limits += `.regex(${regexLiteral(schema.pattern)})`;
+  }
+  return limits;
+}
+
+/**
+ * A regular expression literal for a JSON Schema `pattern`, which is an
+ * ECMA-262 regular expression that is not anchored. Compiling it here fails
+ * generation on a pattern that JavaScript rejects, instead of the SDK failing
+ * when it is imported. The literal names no global that a spec name can hide.
+ */
+function regexLiteral(pattern: string) {
+  try {
+    return `/${new RegExp(pattern).source}/`;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new SyntaxError(
+        `The pattern ${JSON.stringify(pattern)} is not an ECMA-262 regular expression: ${error.message}`,
+        { cause: error },
+      );
+    }
+    throw error;
+  }
 }
