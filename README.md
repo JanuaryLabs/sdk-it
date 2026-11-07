@@ -46,7 +46,6 @@ Use the generated SDK:
 import { createOpenStatus } from './src/openstatus/index.ts';
 
 const client = createOpenStatus({
-  baseUrl: 'https://api.openstatus.dev',
   credentials: {
     ApiKeyAuth: process.env.OPENSTATUS_API_KEY!,
   },

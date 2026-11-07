@@ -58,7 +58,6 @@ index files. `generate` writes the same source files to `output`.
 import { createOpenStatus } from './src/generated/openstatus/index.ts';
 
 const client = createOpenStatus({
-  baseUrl: 'https://api.openstatus.dev',
   credentials: {
     ApiKeyAuth: process.env.OPENSTATUS_API_KEY,
   },
@@ -146,7 +145,6 @@ import {
 } from './src/generated/openstatus/index.ts';
 
 const client = createOpenStatus({
-  baseUrl: 'https://api.openstatus.dev',
   credentials: {
     ApiKeyAuth: process.env.OPENSTATUS_API_KEY,
   },
