@@ -20,6 +20,32 @@ async function documentedPaths(route: string) {
 describe('Response Analyzer', () => {
   describe('defaultResponseAnalyzer', () => {
     describe('c.json() returns', () => {
+      test('a spread reads its source the way a variable does, so its literals stay, and a later property overrides it', async () => {
+        const paths = await documentedPaths(`import { Hono } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+const shared = { state: 'read', kind: 'note' };
+app.get('/spread', validate(() => ({})), (c) => c.json(shared));
+app.get('/spread-copy', validate(() => ({})), (c) => c.json({ ...shared, kind: 'memo' as const }));
+`);
+
+        const schemaOf = (path: string) =>
+          paths[path].get.responses['200'].content['application/json'].schema;
+        assert.deepStrictEqual(schemaOf('/spread-copy'), {
+          type: 'object',
+          properties: {
+            kind: { type: 'string', enum: ['memo'] },
+            state: { type: 'string', enum: ['read'] },
+          },
+          required: ['kind', 'state'],
+          additionalProperties: false,
+        });
+        assert.deepStrictEqual(
+          schemaOf('/spread-copy').properties.state,
+          schemaOf('/spread').properties.state,
+        );
+      });
+
       test('documents Date responses as date-time strings', async () => {
         const handler = (c: Context) => {
           const createdAt = new Date('2026-09-06T00:00:00Z');

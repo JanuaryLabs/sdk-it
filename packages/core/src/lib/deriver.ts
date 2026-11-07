@@ -609,6 +609,18 @@ export class TypeDeriver {
               props[prop.name.getText()] = this.serializeType(type);
             }
           }
+        } else if (prop.kind === SyntaxKind.SpreadAssignment) {
+          // A spread reads its source as a variable does, so a const object's
+          // literals survive the copy; a later property still overrides them.
+          const source = this.serializeType(
+            this.typeOfExpression(prop.expression),
+          );
+          if (source?.kind === 'object') {
+            for (const [name, value] of Object.entries(source[$types][0])) {
+              dropped.delete(name);
+              props[name] = value;
+            }
+          }
         }
       }
 
