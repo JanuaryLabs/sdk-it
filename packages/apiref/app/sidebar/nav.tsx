@@ -23,9 +23,16 @@ import type { CategoryItem, NavItem, SidebarData } from '@sdk-it/spec';
 
 import { useRootData } from '../use-root-data';
 
+// The server renders without the page origin, so a url resolves against a host
+// that no real url names (RFC 6761 .invalid), the same on server and client.
+const pageHost = 'apiref.invalid';
+
 const isExternalUrl = (url: string): boolean => {
-  const protocol = URL.parse(url)?.protocol;
-  return protocol === 'http:' || protocol === 'https:';
+  const resolved = URL.parse(url, `https://${pageHost}/`);
+  return (
+    (resolved?.protocol === 'http:' || resolved?.protocol === 'https:') &&
+    resolved.host !== pageHost
+  );
 };
 
 export function SidebarItem({ item }: { item: NavItem }) {

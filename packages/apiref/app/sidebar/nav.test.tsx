@@ -50,6 +50,7 @@ describe('sidebar item link', () => {
     'https://example.com/docs',
     'http://example.com/docs',
     'HTTPS://EXAMPLE.COM/docs',
+    '//example.com/docs',
   ])('%s opens in a new tab without an opener', async (url) => {
     const [link, ...rest] = await renderSidebarLinks(url);
 
