@@ -2,8 +2,9 @@ import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { type OpenAPISecuritySchemeObject, pascalcase } from '@sdk-it/core';
+import type { OpenAPISecuritySchemeObject } from '@sdk-it/core';
 import type { MiddlewareSecurityRule } from '@sdk-it/generic';
+import { clientName } from '@sdk-it/typescript';
 
 import { generatedPackageManifest } from './compiler.ts';
 
@@ -13,7 +14,7 @@ export interface ProjectConfig {
   framework?: 'auto' | 'hono';
   preset?: 'auto' | 'prisma' | 'none';
   output?: string;
-  packageName?: string;
+  packageName: string;
   securitySchemes?: Record<string, OpenAPISecuritySchemeObject>;
   middlewareSecurity?: readonly MiddlewareSecurityRule[];
 }
@@ -30,6 +31,7 @@ export interface LoadProjectConfigOptions {
 export interface InitializeProjectOptions {
   cwd?: string;
   tsconfig: string;
+  name: string;
 }
 
 interface ProjectPackageManifest {
@@ -63,6 +65,12 @@ export async function loadProjectConfig(
       `Expected ${configPath} to set \`name\`, the name of the generated client (name: 'Books' exports createBooks).`,
     );
   }
+  clientName(config.name);
+  if (typeof config.packageName !== 'string') {
+    throw new Error(
+      `Expected ${configPath} to set \`packageName\`, the npm name of the generated client package (packageName: '@acme/books-client').`,
+    );
+  }
 
   const directory = dirname(configPath);
   return {
@@ -86,6 +94,7 @@ export async function loadProjectConfig(
 export async function initializeProject(
   options: InitializeProjectOptions,
 ): Promise<void> {
+  clientName(options.name);
   const cwd = resolve(options.cwd ?? process.cwd());
   const tsconfigPath = resolve(cwd, options.tsconfig);
   await validateTsconfig(tsconfigPath);
@@ -108,9 +117,10 @@ export async function initializeProject(
   const configSource = `import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
-  name: '${pascalcase(basename(projectDirectory))}',
+  name: ${quoted(options.name)},
   tsconfig: '${relativeTsconfig}',
-${projectDirectory === workspaceDirectory ? '' : `  packageName: '${packageName}',\n`}});
+  packageName: '${packageName}',
+});
 `;
 
   const existingConfig = await readOptionalFile(configPath);
@@ -225,12 +235,24 @@ function generatedPackageName(
   projectDirectory: string,
   workspaceDirectory: string,
 ): string {
-  if (projectDirectory === workspaceDirectory) return '@sdk-it/client';
+  if (projectDirectory === workspaceDirectory) {
+    if (workspaceName === undefined) {
+      throw new Error(
+        `Expected ${join(workspaceDirectory, 'package.json')} to set \`name\`: the client package is named after it (name '@acme/api' gives '@acme/api-client').`,
+      );
+    }
+    return `${workspaceName}-client`;
+  }
   const project = basename(projectDirectory)
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, '-');
   const scope = workspaceName?.match(/^@([^/]+)\//)?.[1];
   return scope ? `@${scope}/${project}-client` : `${project}-client`;
+}
+
+/** `value` as a single-quoted string literal. */
+function quoted(value: string): string {
+  return `'${JSON.stringify(value).slice(1, -1).replaceAll("'", "\\'")}'`;
 }
 
 async function validateTsconfig(path: string): Promise<void> {

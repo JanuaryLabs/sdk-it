@@ -14,7 +14,7 @@ export async function writeProjectClient(
   config: ProjectConfig,
 ): Promise<void> {
   const output = resolve(config.output ?? '.sdk-it');
-  const packageName = config.packageName ?? '@sdk-it/client';
+  const { packageName } = config;
   const hash = hashProject(openapi, config.name, packageName);
   if (await isCurrentGeneratedPackage(output, hash)) return;
 
