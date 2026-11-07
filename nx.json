@@ -87,7 +87,7 @@
       }
     },
     "version": {
-      "preVersionCommand": "NX_DAEMON=false npx nx run-many -t build --prod --exclude apiref && npm run test:e2e",
+      "preVersionCommand": "NX_DAEMON=false npx nx run-many -t build --prod --exclude @sdk-it/apiref && npm run test:e2e",
       "conventionalCommits": true
     },
     "releaseTag": {
