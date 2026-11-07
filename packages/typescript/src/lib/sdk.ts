@@ -5,6 +5,7 @@ import {
   type ResponseBody,
   type TunedOperationObject,
   type TunedResponseObject,
+  statusRange,
 } from '@sdk-it/spec';
 
 import { type MakeImportFn } from './import-utilities.ts';
@@ -154,14 +155,18 @@ export function toHttpOutput(
   modelName: ModelNamer,
   refs: References,
 ) {
-  const type = refs.status(
-    status.endsWith('XX') ? 'APIError' : statusMap[status] || 'APIResponse',
-  );
   if (status === '204') {
-    return type;
+    return refs.status('NoContent');
   }
   const data = dataType(status, response, modelName, refs);
-  return `{type: ${type}<${data}>, parser: ${bodyParser(response['x-body'], refs)}}`;
+  const parser = bodyParser(response['x-body'], refs);
+  const range = statusRange(status);
+  if (range) {
+    const type = refs.status(range === '2XX' ? 'APIResponse' : 'APIError');
+    return `{type: ${type}<${data}, ${refs.status('RangeStatus')}<'${range}'>>, parser: ${parser}, range: '${range}' as const}`;
+  }
+  const type = refs.status(statusMap[status] || 'APIResponse');
+  return `{type: ${type}<${data}>, parser: ${parser}}`;
 }
 
 function dataType(

@@ -37,7 +37,7 @@ export interface References {
   model(typeName: string): string;
   /** The schema const of an operation input in `group`. */
   input(group: string, schemaName: string): string;
-  /** A runtime response class: `Ok`, `NotFound`, `APIError`, … */
+  /** A declaration of the runtime's response module: a class (`Ok`, `NotFound`, `APIError`, …) or `RangeStatus`. */
   status(className: string): string;
   runtime(name: RuntimeName): string;
   global(name: EmittedGlobal): string;
