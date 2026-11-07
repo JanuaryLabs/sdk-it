@@ -36,10 +36,14 @@ If the workspace package is named `@acme/platform`, the generated config is:
 import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
+  name: 'Backend',
   tsconfig: './tsconfig.json',
   packageName: '@acme/backend-client',
 });
 ```
+
+`name` is required. It names the generated exports: `name: 'Backend'` exports
+`createBackend`. The initializer derives it from the backend folder name.
 
 Run the package manager once after initialization, then commit the updated root
 manifest, lockfile, backend config, ignore file, and generated package stub:
@@ -73,9 +77,9 @@ apps/backend/.sdk-it/
 Application code imports the generated package normally:
 
 ```ts
-import { createClient } from '@acme/backend-client';
+import { createBackend } from '@acme/backend-client';
 
-const api = createClient({
+const api = createBackend({
   baseUrl: '/api',
 });
 
@@ -94,6 +98,7 @@ The CLI package also exposes the generation API without starting the command-lin
 import { generateProject } from '@sdk-it/cli';
 
 await generateProject({
+  name: 'Backend',
   tsconfig: './apps/backend/tsconfig.json',
 });
 ```
@@ -142,6 +147,7 @@ Force Prisma support when the project must use it:
 
 ```ts
 export default defineConfig({
+  name: 'Backend',
   tsconfig: './tsconfig.json',
   preset: 'prisma',
 });
@@ -151,6 +157,7 @@ Forced mode fails when SDK-IT cannot find a Prisma client import. Disable detect
 
 ```ts
 export default defineConfig({
+  name: 'Backend',
   tsconfig: './tsconfig.json',
   preset: 'none',
 });

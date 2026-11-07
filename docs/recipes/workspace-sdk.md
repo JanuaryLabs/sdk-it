@@ -130,6 +130,7 @@ npm install --save-dev @sdk-it/cli
 import { generateProject } from '@sdk-it/cli';
 
 await generateProject({
+  name: 'MyApi',
   tsconfig: './apps/backend/tsconfig.json',
   output: './.sdk-it',
   packageName: '@my-api/sdk',
@@ -149,6 +150,7 @@ Generate a compiled client with a registry package name:
 import { generateProject } from '@sdk-it/cli';
 
 await generateProject({
+  name: 'Acme',
   tsconfig: './apps/backend/tsconfig.json',
   output: './generated-sdk',
   packageName: '@acme/api-client',
@@ -169,7 +171,7 @@ npm install @acme/api-client
 ```
 
 ```typescript
-import { createClient } from '@acme/api-client';
+import { createAcme } from '@acme/api-client';
 ```
 
 SDK-IT generates the client package; your release process still owns versioning

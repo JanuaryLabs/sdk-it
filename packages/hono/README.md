@@ -259,7 +259,7 @@ const spec = {
 await writeFile('openapi.json', JSON.stringify(spec, null, 2));
 await generate(spec, {
   output: resolve('client'),
-  name: 'Client',
+  name: 'MyApi',
 });
 ```
 
@@ -272,9 +272,9 @@ node openapi.ts
 The generated client returns response data and throws typed errors:
 
 ```typescript
-import { Unauthorized, createClient } from './client/index.ts';
+import { Unauthorized, createMyApi } from './client/index.ts';
 
-const client = createClient({
+const client = createMyApi({
   baseUrl: 'http://localhost:3000',
 });
 

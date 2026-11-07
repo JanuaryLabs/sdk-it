@@ -4,7 +4,7 @@ Wrap your type-safe API client with React Query's `useQuery` and `useMutation` h
 
 ---
 
-Copy the following code into your project.
+Copy the following code into your project. It uses an SDK generated with `--name DataHub`.
 
 - **`use-client.ts` file**:
 
@@ -13,8 +13,8 @@ Copy the following code into your project.
 
 ```ts
 import {
-  type ClientEndpoints as Endpoints,
-  createClient,
+  type DataHubEndpoints as Endpoints,
+  createDataHub,
 } from '@datahub/client';
 import {
   type MutationFunctionContext,
@@ -32,7 +32,7 @@ const BASE_URL = 'https://api.example.com';
 
 export const queryClient = new QueryClient();
 
-export const client = createClient({
+export const client = createDataHub({
   baseUrl: BASE_URL,
 });
 
@@ -463,7 +463,7 @@ await invalidateData('GET /payments');
 If your API relies on cookie-based authentication (e.g. session cookies), update the `client` instance in the code above to send credentials with every request:
 
 ```ts
-export const client = createClient({
+export const client = createDataHub({
   baseUrl: BASE_URL,
   fetch: (request) => fetch(request, { credentials: 'include' }),
 });

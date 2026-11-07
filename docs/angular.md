@@ -3,7 +3,7 @@
 Use Angular 22's [`resource`](https://angular.dev/guide/signals/resource) function to fetch data and a thin wrapper to submit mutations.
 
 > [!IMPORTANT]
-> When generating the TypeScript client SDK within your Angular project or workspace, ensure you include the `--useTsExtension=false` flag.
+> When generating the TypeScript client SDK within your Angular project or workspace, ensure you include the `--useTsExtension=false` flag. The code below uses an SDK generated with `--name MyApi`.
 
 ---
 
@@ -21,9 +21,9 @@ import {
   resource,
 } from '@angular/core';
 
-import { type ClientEndpoints as Endpoints, createClient } from '../client/src';
+import { type MyApiEndpoints as Endpoints, createMyApi } from '../client/src';
 
-export const client = createClient({
+export const client = createMyApi({
   baseUrl: 'http://localhost:3000',
 });
 

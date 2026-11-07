@@ -33,6 +33,7 @@ import { $Enums, Prisma } from '@prisma/client';
 import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
+  name: 'Backend',
   tsconfig: './apps/backend/tsconfig.json',
   preset: 'auto',
 });
@@ -42,6 +43,7 @@ Use `prisma` when Prisma support is required:
 
 ```typescript
 export default defineConfig({
+  name: 'Backend',
   tsconfig: './apps/backend/tsconfig.json',
   preset: 'prisma',
 });
@@ -52,6 +54,7 @@ Use `none` only when the project intentionally owns all Prisma mappings:
 
 ```typescript
 export default defineConfig({
+  name: 'Backend',
   tsconfig: './apps/backend/tsconfig.json',
   preset: 'none',
 });
@@ -63,6 +66,7 @@ The same option is available through the programmatic API:
 import { generateProject } from '@sdk-it/cli';
 
 await generateProject({
+  name: 'Backend',
   tsconfig: './apps/backend/tsconfig.json',
   preset: 'prisma',
 });
@@ -150,7 +154,7 @@ const spec: Parameters<typeof generate>[0] = {
 
 await generate(spec, {
   output: './generated-sdk',
-  name: 'Client',
+  name: 'Backend',
 });
 ```
 
