@@ -403,6 +403,7 @@ import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
   name: 'Example',
+  packageName: '@acme/example-client',
   tsconfig: './backend/tsconfig.json',
 });
 `,
@@ -434,6 +435,7 @@ import { defineConfig } from '@sdk-it/cli';
 
 export default defineConfig({
   name: 'Example',
+  packageName: '@acme/example-client',
   tsconfig: '../backend/tsconfig.json',
   output: '../explicit-sdk',
 });
