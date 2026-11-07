@@ -49,7 +49,7 @@ import {
 } from './one-module.ts';
 import type { TypeScriptGeneratorOptions } from './options.ts';
 import { toReadme } from './readme/readme.ts';
-import { type References, fileReferences } from './references.ts';
+import { type References, fileReferences, inputGlobals } from './references.ts';
 import type { Operation } from './sdk.ts';
 import { expandServerUrls } from './server-urls.ts';
 import type { Style } from './style.ts';
@@ -530,13 +530,17 @@ function toInputs(
   makeImport: MakeImportFn,
 ) {
   const commonImports = commonZod.keys().toArray();
+  const schemaNames = new Set(commonImports);
   const inputs: Record<string, string> = {};
   for (const [name, operations] of Object.entries(operationsSet)) {
     const output: string[] = [];
     const imports = new Set(['import { z } from "zod";']);
 
     for (const route of operations.flatMap((operation) => operation.inputs)) {
-      const schema = `export const ${route.schemaName} = ${route.zod};`;
+      const schema = inputGlobals(
+        `export const ${route.schemaName} = ${route.zod};`,
+        schemaNames,
+      );
 
       for (const it of commonImports) {
         if (schema.includes(it)) {
@@ -555,7 +559,10 @@ function toInputs(
     .entries()
     .reduce<string[][]>((acc, [name, schema]) => {
       const output = [`import { z } from 'zod';`];
-      const content = `export const ${name} = ${schema};`;
+      const content = inputGlobals(
+        `export const ${name} = ${schema};`,
+        schemaNames,
+      );
       if (content.includes('z.ZodType<models.')) {
         output.push(
           `import type * as models from '${makeImport('../../models/index')}';`,

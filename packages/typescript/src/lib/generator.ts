@@ -12,7 +12,11 @@ import { groupIdentifier } from './group-identifier.ts';
 import { inputSchemaName } from './input-schema-name.ts';
 import type { ModelNamer } from './model-name.ts';
 import { moduleFileName } from './module-file.ts';
-import { type References, fileReferences } from './references.ts';
+import {
+  type References,
+  fileReferences,
+  inputFileReferences,
+} from './references.ts';
 import { type Operation, type Spec, toEndpoint } from './sdk.ts';
 import type { Style } from './style.ts';
 
@@ -84,7 +88,7 @@ export function generateCode(config: {
   const { groups, commonZod, endpoints } = operationFragments({
     spec: config.spec,
     modelName: config.modelName,
-    zodRefs: fileReferences('models'),
+    zodRefs: inputFileReferences,
     endpointRefs: fileReferences('outputs'),
   });
   const allSchemas = Object.keys(endpoints).map((it) => ({

@@ -65,3 +65,22 @@ export function fileReferences(
     located: (text) => text,
   };
 }
+
+/**
+ * The names an inputs file of the multi-file SDK uses. It imports the shared
+ * schemas it uses by name, and a shared schema may take a global's name
+ * (`Date`), so a global is a mark that `inputGlobals` resolves once the shared
+ * schemas are known. Generated code never contains a NUL character
+ * (JSON.stringify escapes it), so a mark cannot collide.
+ */
+export const inputFileReferences: References = {
+  ...fileReferences('models'),
+  global: (name) => `\0${name}\0`,
+};
+
+/** `text` with each global mark of `inputFileReferences` read as `globalThis.<name>` when a shared schema takes the name. */
+export function inputGlobals(text: string, schemaNames: ReadonlySet<string>) {
+  return text.replaceAll(/\0(\w+)\0/g, (_, name: string) =>
+    schemaNames.has(name) ? `globalThis.${name}` : name,
+  );
+}
