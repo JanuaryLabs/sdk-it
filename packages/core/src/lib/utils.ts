@@ -11,8 +11,8 @@ import {
   spinalcase as _spinalcase,
 } from 'stringcase';
 
-import type { TypeDeriver } from './deriver';
-import type { ResponseItem } from './paths';
+import type { TypeDeriver } from './deriver.js';
+import type { ResponseItem } from './paths.js';
 
 export function removeDuplicates<T>(
   data: T[],
