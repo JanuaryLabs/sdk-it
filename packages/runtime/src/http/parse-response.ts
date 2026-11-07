@@ -41,22 +41,45 @@ export async function bodyless(response: Response) {
   return null;
 }
 
-export async function buffered(response: Response) {
-  // Statuses that, per the HTTP spec, carry no message body. These responses
-  // usually omit Content-Type entirely, so this must run before the guard below.
-  if (
-    response.status === 204 ||
-    response.status === 205 ||
-    response.status === 304
-  ) {
-    return null;
-  }
+/** The body kinds the buffered parser reads: what the spec declares for a status. */
+export type BufferedBody = 'json' | 'text' | 'binary';
 
-  const contentType = response.headers.get('Content-Type');
-  if (!contentType) {
-    throw new Error('Content-Type header is missing');
-  }
+/**
+ * Reads a body by its Content-Type. A response without one reads as the body
+ * the spec declares for its status, or, with none declared, as the
+ * application/octet-stream that RFC 9110 §8.3 lets a recipient assume.
+ */
+export function buffered(declared?: BufferedBody) {
+  return async (response: Response): Promise<unknown> => {
+    // Statuses that, per the HTTP spec, carry no message body. These
+    // responses usually omit Content-Type entirely.
+    if (
+      response.status === 204 ||
+      response.status === 205 ||
+      response.status === 304
+    ) {
+      return null;
+    }
+    const contentType = response.headers.get('Content-Type');
+    if (contentType) {
+      return byContentType(response, contentType);
+    }
+    const bytes = await response.bytes();
+    if (bytes.byteLength === 0) {
+      return null;
+    }
+    switch (declared) {
+      case 'json':
+        return JSON.parse(new TextDecoder().decode(bytes));
+      case 'text':
+        return new TextDecoder().decode(bytes);
+      default:
+        return new Blob([bytes], { type: 'application/octet-stream' });
+    }
+  };
+}
 
+async function byContentType(response: Response, contentType: string) {
   const { type } = parse(contentType);
   if (isBinaryContentType(type)) {
     return response.blob();

@@ -43,9 +43,9 @@ import {
 import { schemaToZod } from './zod.ts';
 
 const bodyParser: Record<ResponseBody, Parser> = {
-  json: buffered,
-  text: buffered,
-  binary: buffered,
+  json: buffered('json'),
+  text: buffered('text'),
+  binary: buffered('binary'),
   empty: bodyless,
   stream: chunked,
   sse,

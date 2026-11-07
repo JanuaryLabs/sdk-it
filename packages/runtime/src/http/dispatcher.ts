@@ -54,6 +54,9 @@ export const fetchType = z
   })
   .optional();
 
+/** Reads the body of a status the operation declares no output for. */
+const undeclared: Parser = buffered();
+
 export async function parse<T extends OutputType[]>(
   outputs: T,
   response: Response,
@@ -71,7 +74,7 @@ export async function parse(
   mapper?: (data: unknown) => unknown,
 ): Promise<APIResponse> {
   let output: typeof APIResponse | typeof APIError | null = null;
-  let parser: Parser = buffered;
+  let parser = undeclared;
   for (const outputType of outputs) {
     const type = 'parser' in outputType ? outputType.type : outputType;
     if (

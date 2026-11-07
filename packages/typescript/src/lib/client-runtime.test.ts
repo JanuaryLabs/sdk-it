@@ -330,19 +330,6 @@ describe('emitted client runtime: 204 No Content responses', () => {
     assert.strictEqual(data, null);
   });
 
-  test('a body-bearing status (200) with no Content-Type still throws — the guard only relaxes for no-body statuses', async () => {
-    const sdk = await loadSdk(usersSpec({ servers: [] }), 'NoContentClient');
-    const client = sdk.createNoContentClient({
-      baseUrl: 'https://api.example.com',
-      fetch: () => new Response(null, { status: 200 }),
-    });
-
-    await assert.rejects(
-      () => client.request('GET /users', {}),
-      /Content-Type header is missing/,
-    );
-  });
-
   test('304 Not Modified (no Content-Type) surfaces as an APIError with status 304 and null data, not a parser throw', async () => {
     const sdk = await loadSdk(usersSpec({ servers: [] }), 'NoContentClient');
     const client = sdk.createNoContentClient({

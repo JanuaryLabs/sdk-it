@@ -12,8 +12,6 @@ import type { ModelNamer } from './model-name.ts';
 import type { References } from './references.ts';
 import statusMap from './status-map.ts';
 
-export type Parser = 'chunked' | 'buffered' | 'sse' | 'bodyless';
-
 export interface Spec {
   name: string;
   securitySchemes: Record<string, OpenAPISecuritySchemeObject>;
@@ -134,14 +132,21 @@ function runtimePagination(pagination: OperationPagination) {
   }
 }
 
-const bodyParser: Record<ResponseBody, Parser> = {
-  json: 'buffered',
-  text: 'buffered',
-  binary: 'buffered',
-  empty: 'bodyless',
-  stream: 'chunked',
-  sse: 'sse',
-};
+/** The runtime parser call that reads each body kind. */
+function bodyParser(body: ResponseBody, refs: References) {
+  switch (body) {
+    case 'json':
+    case 'text':
+    case 'binary':
+      return `${refs.runtime('buffered')}(${JSON.stringify(body)})`;
+    case 'empty':
+      return refs.runtime('bodyless');
+    case 'stream':
+      return refs.runtime('chunked');
+    case 'sse':
+      return refs.runtime('sse');
+  }
+}
 
 export function toHttpOutput(
   status: string,
@@ -149,7 +154,6 @@ export function toHttpOutput(
   modelName: ModelNamer,
   refs: References,
 ) {
-  const body = response['x-body'];
   const type = refs.status(
     status.endsWith('XX') ? 'APIError' : statusMap[status] || 'APIResponse',
   );
@@ -157,10 +161,7 @@ export function toHttpOutput(
     return type;
   }
   const data = dataType(status, response, modelName, refs);
-  const parser = bodyParser[body];
-  return parser === 'buffered'
-    ? `${type}<${data}>`
-    : `{type: ${type}<${data}>, parser: ${refs.runtime(parser)}}`;
+  return `{type: ${type}<${data}>, parser: ${bodyParser(response['x-body'], refs)}}`;
 }
 
 function dataType(

@@ -10,6 +10,7 @@ export type RuntimeName =
   | 'fetchType'
   | 'Interceptor'
   | 'chunked'
+  | 'buffered'
   | 'sse'
   | 'bodyless'
   | 'SSEListener'
