@@ -5,13 +5,10 @@ import { join } from 'node:path';
 import { writeFiles } from '@sdk-it/core/file-system.js';
 import { type NavItem, loadSpec, toIR } from '@sdk-it/spec';
 
+import { configuredSpec } from './spec-source';
+
 const spec = await toIR({
-  spec: (
-    await loadSpec(
-      import.meta.env.VITE_SPEC ||
-        join(import.meta.dirname, '..', 'openapi.ci.json'),
-    )
-  ).spec,
+  spec: (await loadSpec(configuredSpec(import.meta.env))).spec,
 });
 
 const template = await readFile(

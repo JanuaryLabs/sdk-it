@@ -23,6 +23,7 @@ import {
 
 import type { AugmentedOperation } from './api-doc/types';
 import { titleClientName } from './client-name';
+import { requestSpec } from './spec-source';
 import './styles.css';
 import { useRootData } from './use-root-data';
 
@@ -99,20 +100,12 @@ export async function loader({
   params: { '*'?: string };
 }) {
   const { TypeScriptSnippet, clientName } = await import('@sdk-it/typescript');
-  // 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/master/openapi.yaml',
-  // 'https://api.openstatus.dev/v1/openapi',
 
   const isIframe = request.headers.get('Sec-Fetch-Dest') === 'iframe';
   const urlObj = new URL(request.url);
-  const specUrl =
-    urlObj.searchParams.get('spec') ??
-    import.meta.env.VITE_SPEC ??
-    (import.meta.env.DEV
-      ? // ? '/Users/ezzabuzaid/Desktop/mo/virtual-care/openapi.json'
-        'https://api.openstatus.dev/v1/openapi'
-      : // ?'https://raw.githubusercontent.com/readmeio/oas-examples/main/3.1/json/petstore.json'
-        '');
-  const spec = await toIR({ spec: (await loadSpec(specUrl)).spec });
+  const spec = await toIR({
+    spec: (await loadSpec(requestSpec(urlObj, import.meta.env))).spec,
+  });
 
   const operationsMap: Record<
     string,
