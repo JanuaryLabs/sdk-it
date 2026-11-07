@@ -85,7 +85,7 @@ const specs = [
   },
   {
     name: 'openai',
-    spec: 'https://app.stainless.com/api/spec/documented/openai/openapi.documented.yml',
+    spec: 'https://raw.githubusercontent.com/openai/openai-openapi/refs/heads/main/openapi.yaml',
     flags: [],
   },
   {
