@@ -107,6 +107,8 @@ export type EndpointsOf<A extends Api> = {
   [E in keyof A['routes']]: {
     input: z.input<A['routes'][E]['schema']>;
     output: InferData<A, E>;
+    /** What `request()` resolves to: the first Page for an operation that pages, its output otherwise. */
+    result: Awaited<RequestResult<A, E>>;
     error:
       | Extract<Unionize<A['routes'][E]['output']>, ProblematicResponse>
       | ParseError<A['routes'][E]['schema']>;
