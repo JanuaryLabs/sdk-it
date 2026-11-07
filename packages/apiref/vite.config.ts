@@ -3,12 +3,8 @@ import { reactRouter } from '@react-router/dev/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
-export default defineConfig((config) => ({
+export default defineConfig({
   root: import.meta.dirname,
-  base:
-    config.command === 'build' && process.env.VITE_BASE
-      ? `/apiref/${process.env.VITE_BASE}/`
-      : '/',
   cacheDir: 'node_modules/.vite/packages/apiref',
   worker: {
     format: 'es',
@@ -44,4 +40,4 @@ export default defineConfig((config) => ({
   define: {
     'import.meta.vitest': undefined,
   },
-}));
+});
