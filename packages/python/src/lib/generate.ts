@@ -41,7 +41,7 @@ export async function generate(
   settings: {
     output: string;
     cleanup?: boolean;
-    name?: string;
+    name: string;
     writer?: Writer;
     readFolder?: ReadFolderFn;
     /**
@@ -54,7 +54,7 @@ export async function generate(
 ) {
   const spec = await toIR({ spec: openapi }, true);
 
-  const clientName = settings.name || 'Client';
+  const clientName = settings.name;
   const output = settings.output;
   const { writer, files: writtenFiles } = createWriterProxy(
     settings.writer ?? writeFiles,
