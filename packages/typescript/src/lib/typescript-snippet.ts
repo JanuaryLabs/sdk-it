@@ -130,7 +130,7 @@ export class TypeScriptSnippet implements Generator {
 
   #normal(entry: OperationEntry, payload: string) {
     return {
-      content: `const result = ${this.#toRequest(entry, payload)};`,
+      content: `const result = ${this.#toRequest(entry, payload)}`,
       footer: 'console.log(result.data)',
     };
   }
