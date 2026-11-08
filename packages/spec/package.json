@@ -28,8 +28,8 @@
   ],
   "dependencies": {
     "@sdk-it/core": "0.46.11",
-    "@zukhruf/async": "^0.6.16",
-    "@zukhruf/fs": "^0.6.15",
+    "@zukhruf/async": "^0.8.10",
+    "@zukhruf/fs": "^0.8.10",
     "lodash-es": "^4.17.21",
     "micromatch": "4.0.8",
     "openapi3-ts": "4.6.2",
