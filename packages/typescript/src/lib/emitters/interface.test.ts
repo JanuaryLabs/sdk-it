@@ -156,7 +156,8 @@ describe('TypeScriptEmitter union of string and string literals', () => {
     });
     assert.deepStrictEqual(errors, []);
     const row = text.split('\n').find((line) => line.includes('type Row ='));
-    assert.equal(row?.split('(string & {})').length, 2, row);
+    assert.ok(row);
+    assert.equal(row.split('(string & {})').length, 2, row);
   });
 
   test('wraps bare string when sibling uses const (not enum)', async () => {
