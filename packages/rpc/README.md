@@ -3,7 +3,7 @@
 Create a runtime HTTP client or AI SDK tools directly from an OpenAPI
 document, without generating source files.
 
-Requires Node.js 22 or newer.
+Requires Node.js 24 or newer.
 
 ## Install
 
