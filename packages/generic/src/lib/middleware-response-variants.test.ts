@@ -63,10 +63,7 @@ app.post('/items', validate('application/json', (payload) => ({
   const bodies = components.schemas.validate400_application_json.oneOf;
   const causes = bodies.map((body: any) => body.properties.cause.properties);
   assert.deepStrictEqual(
-    causes
-      .map((cause: any) => cause.code.enum)
-      .flat()
-      .sort(),
+    causes.flatMap((cause: any) => cause.code.enum).sort(),
     ['api/invalid-body', 'api/invalid-json', 'api/validation-failed'],
   );
   const failed = causes.find(
@@ -174,10 +171,7 @@ app.get('/account', authenticate(), validate(() => ({})), (c) => c.json({ id: 'a
   const shared =
     components.schemas[`authenticate401_${ct.replace(/\//g, '_')}`];
   assert.deepStrictEqual(
-    shared.oneOf
-      .map((body: any) => body.properties.message.enum)
-      .flat()
-      .sort(),
+    shared.oneOf.flatMap((body: any) => body.properties.message.enum).sort(),
     ['Expired token', 'Missing token'],
   );
 });

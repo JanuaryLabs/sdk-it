@@ -323,7 +323,7 @@ export class RuntimeZodConverter {
       return result;
     }
 
-    let result: ZodType = z.unknown();
+    let result: ZodType;
 
     if (schema.not && isEmpty(schema.not)) {
       result = required ? z.never() : z.never().optional();

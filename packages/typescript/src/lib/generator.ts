@@ -105,31 +105,29 @@ export default {\n${allSchemas.map((it) => it.use).join(',\n')}\n};
 
 `.trim(),
       ...Object.fromEntries(
-        Object.entries(endpoints)
-          .map(([name, entries]) => {
-            const operations = entries.join(',\n');
-            return [
-              [
-                join('api', `${moduleFileName(name)}.ts`),
-                `${[
-                  `import { z } from 'zod';`,
-                  `import * as http from '${config.makeImport('../http/response')}';`,
-                  ...(operations.includes('outputs.')
-                    ? [
-                        `import * as outputs from '${config.makeImport('../outputs/index')}';`,
-                      ]
-                    : []),
-                  `import { toRequest, json, urlencoded, formdata, text, binary, empty, type HeadersInit } from '${config.makeImport('../http/request')}';`,
-                  `import { chunked, buffered, bodyless } from "${config.makeImport('../http/parse-response')}";`,
-                  `import { sse, type SSEListener } from "${config.makeImport('../http/sse')}";`,
-                  `import * as ${groupIdentifier(name)} from '../inputs/${config.makeImport(moduleFileName(name))}';`,
-                  `import { createHeadersInterceptor, type Interceptor } from '${config.makeImport('../http/interceptors')}';`,
-                  `import { Dispatcher, fetchType, type InstanceType } from '${config.makeImport('../http/dispatcher')}';`,
-                ].join('\n')}\nexport default {\n${operations}\n}`,
-              ],
-            ];
-          })
-          .flat(),
+        Object.entries(endpoints).flatMap(([name, entries]) => {
+          const operations = entries.join(',\n');
+          return [
+            [
+              join('api', `${moduleFileName(name)}.ts`),
+              `${[
+                `import { z } from 'zod';`,
+                `import * as http from '${config.makeImport('../http/response')}';`,
+                ...(operations.includes('outputs.')
+                  ? [
+                      `import * as outputs from '${config.makeImport('../outputs/index')}';`,
+                    ]
+                  : []),
+                `import { toRequest, json, urlencoded, formdata, text, binary, empty, type HeadersInit } from '${config.makeImport('../http/request')}';`,
+                `import { chunked, buffered, bodyless } from "${config.makeImport('../http/parse-response')}";`,
+                `import { sse, type SSEListener } from "${config.makeImport('../http/sse')}";`,
+                `import * as ${groupIdentifier(name)} from '../inputs/${config.makeImport(moduleFileName(name))}';`,
+                `import { createHeadersInterceptor, type Interceptor } from '${config.makeImport('../http/interceptors')}';`,
+                `import { Dispatcher, fetchType, type InstanceType } from '${config.makeImport('../http/dispatcher')}';`,
+              ].join('\n')}\nexport default {\n${operations}\n}`,
+            ],
+          ];
+        }),
       ),
     },
   };

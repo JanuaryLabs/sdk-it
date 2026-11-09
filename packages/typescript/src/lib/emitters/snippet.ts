@@ -145,7 +145,7 @@ export class SnippetEmitter {
 
   public ref($ref: string): unknown {
     const parts = $ref.split('/');
-    const refKey = parts[parts.length - 1] || '';
+    const refKey = parts.at(-1) || '';
 
     if (this.cache.has($ref)) {
       return this.cache.get($ref);

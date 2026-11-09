@@ -11,6 +11,7 @@ async function readStdinIfPiped(): Promise<unknown> {
   } catch (err) {
     throw new Error(
       `Failed to parse JSON from stdin: ${Error.isError(err) ? err.message : String(err)}`,
+      { cause: err },
     );
   }
 }
@@ -22,6 +23,7 @@ async function readJsonFile(path: string): Promise<unknown> {
   } catch (err) {
     throw new Error(
       `Failed to read JSON from ${path}: ${Error.isError(err) ? err.message : String(err)}`,
+      { cause: err },
     );
   }
 }

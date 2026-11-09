@@ -314,7 +314,7 @@ ${docstring}${fields.length > 0 ? fields.join('\n') : '    pass'}${requestConfig
     const { type, format } = schema;
     const nullable = 'nullable' in schema && schema.nullable === true;
 
-    let pythonType = 'Any';
+    let pythonType: string;
 
     switch (type) {
       case 'string':

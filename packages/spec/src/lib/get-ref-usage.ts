@@ -34,10 +34,9 @@ export function getRefUsage(
     if (schema.type === 'object') {
       const properties = schema.properties;
       if (!isEmpty(properties)) {
-        let found = false;
         let propertyName = '';
         for (const [key, it] of Object.entries(properties)) {
-          found = checkSchema(it, false);
+          const found = checkSchema(it, false);
           if (found) {
             propertyName = key;
           }
