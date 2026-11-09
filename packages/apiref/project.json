@@ -15,6 +15,14 @@
         "cwd": "{projectRoot}"
       }
     },
+    "check-bundle-lint": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
+      "cache": false,
+      "options": {
+        "command": "node tools/check-browser-bundle-lint.mjs"
+      }
+    },
     "test": {
       "executor": "nx:run-commands",
       "dependsOn": ["^build"],

@@ -170,7 +170,8 @@ export default [
     // So browser code stays out:
     // - @sdk-it/runtime: every generated TypeScript SDK embeds its source
     //   (esbuild.config.mjs of @sdk-it/typescript), and an SDK can run in a browser.
-    // - The core and spec files that the browser bundle of @sdk-it/apiref imports.
+    // - The core and spec files in the browser bundle of @sdk-it/apiref.
+    //   tools/check-browser-bundle-lint.mjs fails when this list misses one.
     // @sdk-it/apiref itself is a browser app. Its config takes sharedConfig.
     ignores: [
       'packages/runtime/**',
@@ -179,7 +180,6 @@ export default [
       'packages/core/src/lib/utils.ts',
       'packages/spec/src/lib/is-primitive-schema.ts',
       'packages/spec/src/lib/is.ts',
-      'packages/spec/src/lib/walk-schemas.ts',
     ],
     plugins: { 'modern-node': modernNode },
     extends: ['modern-node/recommended'],

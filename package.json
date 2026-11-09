@@ -14,7 +14,8 @@
     "test:e2e:dart": "bun ./e2e/dart.ts",
     "build": "nx run-many -t build",
     "check:data": "node tools/check-data-files.mjs",
-    "check:links": "node tools/check-markdown-links.mjs"
+    "check:links": "node tools/check-markdown-links.mjs",
+    "check:bundle-lint": "nx run @sdk-it/apiref:check-bundle-lint"
   },
   "repository": "https://github.com/JanuaryLabs/sdk-it",
   "private": true,
