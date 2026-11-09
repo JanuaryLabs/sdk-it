@@ -2,6 +2,7 @@ import { TemporaryFiles } from '@zukhruf/testing/fs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
+import { userInfo } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
@@ -10,6 +11,14 @@ import { generate } from '@sdk-it/dart';
 
 const localDart = spawnSync('dart', ['--version']).status === 0;
 const docker = spawnSync('docker', ['info']).status === 0;
+
+// As root, the container leaves root-owned files in the bind mount on Linux,
+// and the test cannot remove them. An unknown uid has no writable home for pub
+// and the analyzer, so HOME is set too. uid is -1 on Windows, where a bind mount
+// has no owner to keep.
+const { uid, gid } = userInfo();
+const containerUser =
+  uid === -1 ? [] : ['--user', `${uid}:${gid}`, '-e', 'HOME=/tmp'];
 
 /** Runs `script` with the Dart SDK in `directory`: the local SDK, or the dart:stable image. */
 function dart(directory: string, script: string) {
@@ -20,6 +29,7 @@ function dart(directory: string, script: string) {
         [
           'run',
           '--rm',
+          ...containerUser,
           '-v',
           `${directory}:/app`,
           '-w',

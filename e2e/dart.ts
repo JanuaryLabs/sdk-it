@@ -1,6 +1,7 @@
 import { execSync } from 'child_process';
 import { rmSync } from 'fs';
 import { writeFile } from 'fs/promises';
+import { userInfo } from 'node:os';
 import { styleText } from 'node:util';
 import { join, resolve } from 'path';
 
@@ -13,11 +14,18 @@ const localDart = (() => {
   }
 })();
 
+// As root, the container leaves root-owned files in the bind mount on Linux,
+// and the next run's rmSync cannot remove them. An unknown uid has no writable
+// home for pub and the analyzer, so HOME is set too. uid is -1 on Windows, where
+// a bind mount has no owner to keep.
+const { uid, gid } = userInfo();
+const containerUser = uid === -1 ? '' : `--user ${uid}:${gid} -e HOME=/tmp`;
+
 /** `command` (a Dart SDK command) run in `directory`: with the local SDK, or in the dart:stable image when none is installed. */
 function dart(directory: string, command: string) {
   return localDart
     ? `sh -c "cd ${directory} && ${command}"`
-    : `docker run --rm -v ${directory}:/app -w /app dart:stable sh -c "${command}"`;
+    : `docker run --rm ${containerUser} -v ${directory}:/app -w /app dart:stable sh -c "${command}"`;
 }
 
 function runCommand(
@@ -150,7 +158,7 @@ for (const { spec, name, flags } of specs) {
     `-o ${sdkOutput}`,
     `--name ${name}`,
     // The CLI splits the formatter on spaces, so it gets a plain command.
-    `--formatter "${localDart ? `dart format ${sdkOutput}/lib` : `docker run --rm -v ${sdkOutput}:/app -w /app dart:stable dart format lib`}"`,
+    `--formatter "${localDart ? `dart format ${sdkOutput}/lib` : `docker run --rm ${containerUser} -v ${sdkOutput}:/app -w /app dart:stable dart format lib`}"`,
     ...(flags ?? []),
   ];
 
