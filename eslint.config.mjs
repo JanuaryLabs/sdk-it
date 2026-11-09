@@ -1,6 +1,8 @@
 import nx from '@nx/eslint-plugin';
 import zukhruf from '@zukhruf/eslint';
+import modernNode from '@zukhruf/eslint/modern-node';
 import { manifest, moduleBoundaries } from '@zukhruf/eslint/nx';
+import { defineConfig } from 'eslint/config';
 
 const typescriptMessage =
   "Import TypeScript 7 from '@typescript/native/*'. The root 'typescript' package is the TypeScript 6 API that Nx and typescript-eslint load.";
@@ -18,7 +20,7 @@ export const importBans = {
   patterns: [typescriptSubpaths, zodSubpaths],
 };
 
-export default [
+export const sharedConfig = [
   ...nx.configs['flat/base'],
   ...nx.configs['flat/typescript'],
   ...nx.configs['flat/javascript'],
@@ -159,4 +161,32 @@ export default [
       ],
     },
   },
+];
+
+export default [
+  ...sharedConfig,
+  ...defineConfig({
+    // These fixes give APIs that some browsers do not have, such as Error.isError.
+    // So browser code stays out:
+    // - @sdk-it/runtime: every generated TypeScript SDK embeds its source
+    //   (esbuild.config.mjs of @sdk-it/typescript), and an SDK can run in a browser.
+    // - The core and spec files that the browser bundle of @sdk-it/apiref imports.
+    // @sdk-it/apiref itself is a browser app. Its config takes sharedConfig.
+    ignores: [
+      'packages/runtime/**',
+      'packages/core/src/lib/json-pointer.ts',
+      'packages/core/src/lib/ref.ts',
+      'packages/core/src/lib/utils.ts',
+      'packages/spec/src/lib/is-primitive-schema.ts',
+      'packages/spec/src/lib/is.ts',
+      'packages/spec/src/lib/walk-schemas.ts',
+    ],
+    plugins: { 'modern-node': modernNode },
+    extends: ['modern-node/recommended'],
+    rules: {
+      // Uint8Array.prototype.toHex needs Node 26. The READMEs of @sdk-it/hono and
+      // @sdk-it/generic tell users to run on Node 24 or newer.
+      'unicorn/prefer-uint8array-hex': 'off',
+    },
+  }),
 ];
