@@ -14,7 +14,7 @@
   "dependencies": {
     "@sdk-it/core": "*",
     "@typescript/native": "npm:typescript@7.1.0-beta",
-    "@zukhruf/fs": "^0.8.21",
-    "@zukhruf/testing": "^0.8.21"
+    "@zukhruf/fs": "^0.8.22",
+    "@zukhruf/testing": "^0.8.22"
   }
 }

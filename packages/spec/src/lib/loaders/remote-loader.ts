@@ -15,14 +15,15 @@ export async function loadRemote<T>(location: string): Promise<T> {
       const text = await response.text();
       return parse(text);
     }
-    default:
+    default: {
+      const text = await response.text();
       try {
         // try to parse it as json first
-        return response.json();
+        return JSON.parse(text);
       } catch {
         // parse as yaml
-        const text = await response.text();
         return parse(text);
       }
+    }
   }
 }

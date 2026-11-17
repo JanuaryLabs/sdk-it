@@ -77,7 +77,7 @@ async function readmeOf(spec: OpenAPIObject) {
     packageName: '@acme/pets',
     readme: true,
   });
-  return readFile(join(output.path, 'README.md'), 'utf8');
+  return await readFile(join(output.path, 'README.md'), 'utf8');
 }
 
 function typescriptBlocks(readme: string) {

@@ -31,6 +31,6 @@
   },
   "devDependencies": {
     "@sdk-it/testing": "*",
-    "@zukhruf/fs": "^0.8.21"
+    "@zukhruf/fs": "^0.8.22"
   }
 }
