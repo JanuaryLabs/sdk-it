@@ -2,7 +2,7 @@ import {
   API,
   formatDiagnosticsWithColorAndContext,
 } from '@typescript/native/sync';
-import { type TemporaryDirectory, TemporaryFiles } from '@zukhruf/testing/fs';
+import { type TemporaryDirectory, TemporaryFiles } from '@zukhruf/fs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';

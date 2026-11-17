@@ -28,7 +28,8 @@
   ],
   "devDependencies": {
     "@sdk-it/core": "0.46.11",
-    "@sdk-it/testing": "*"
+    "@sdk-it/testing": "*",
+    "@zukhruf/fs": "^0.8.21"
   },
   "peerDependencies": {
     "@sdk-it/cli": "0.46.11",

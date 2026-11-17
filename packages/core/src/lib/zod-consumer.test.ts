@@ -1,4 +1,4 @@
-import { TemporaryFiles } from '@zukhruf/testing/fs';
+import { TemporaryFiles } from '@zukhruf/fs';
 import assert from 'node:assert/strict';
 import { cp, mkdir, readFile } from 'node:fs/promises';
 import { createRequire, findPackageJSON } from 'node:module';

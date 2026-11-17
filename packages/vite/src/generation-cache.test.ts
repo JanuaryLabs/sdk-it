@@ -1,5 +1,5 @@
+import { TemporaryFiles } from '@zukhruf/fs';
 import { settleWithin } from '@zukhruf/testing/async';
-import { TemporaryFiles } from '@zukhruf/testing/fs';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';

@@ -1,4 +1,4 @@
-import { TemporaryFiles } from '@zukhruf/testing/fs';
+import { TemporaryFiles } from '@zukhruf/fs';
 import assert from 'node:assert/strict';
 import { EventEmitter, on } from 'node:events';
 import { mkdirSync, writeFileSync } from 'node:fs';

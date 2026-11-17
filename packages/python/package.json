@@ -31,5 +31,8 @@
     "@sdk-it/core": "0.46.11",
     "stringcase": "^4.3.1",
     "@sdk-it/spec": "0.46.11"
+  },
+  "devDependencies": {
+    "@zukhruf/fs": "^0.8.21"
   }
 }

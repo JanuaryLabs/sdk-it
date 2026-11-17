@@ -1,4 +1,4 @@
-import { type TemporaryDirectory, TemporaryFiles } from '@zukhruf/testing/fs';
+import { type TemporaryDirectory, TemporaryFiles } from '@zukhruf/fs';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
