@@ -1,8 +1,8 @@
+import { TemporaryFiles } from '@zukhruf/fs';
 import { Command, Option } from 'commander';
 import { publish } from 'libnpmpublish';
 import { execFileSync, execSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import getAuthToken from 'registry-auth-token';
@@ -150,7 +150,8 @@ async function emitRemote(
   }
 
   console.log('Publishing to registry:', registry);
-  const path = join(tmpdir(), crypto.randomUUID());
+  await using folder = await new TemporaryFiles().directory('sdk-it-publish-');
+  const { path } = folder;
   await emitLocal(spec, {
     ...options,
     output: path,

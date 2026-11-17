@@ -35,11 +35,11 @@
     "registry-auth-token": "^5.1.0",
     "@sdk-it/python": "0.46.11",
     "@sdk-it/readme": "0.46.11",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "@zukhruf/fs": "^0.8.21"
   },
   "devDependencies": {
-    "@sdk-it/testing": "*",
-    "@zukhruf/fs": "^0.8.21"
+    "@sdk-it/testing": "*"
   },
   "publishConfig": {
     "access": "public"
