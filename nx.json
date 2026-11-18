@@ -69,6 +69,7 @@
     }
   },
   "release": {
+    "projects": ["tag:npm:public"],
     "conventionalCommits": {
       "types": {
         "refactor": {
@@ -82,8 +83,14 @@
       }
     },
     "version": {
-      "preVersionCommand": "NX_DAEMON=false npx nx run-many -t build --prod --exclude @sdk-it/apiref && npm run test:e2e",
-      "conventionalCommits": true
+      "preVersionCommand": "nx run-many -t build --projects=tag:npm:public",
+      "conventionalCommits": true,
+      "preserveMatchingDependencyRanges": false,
+      "git": {
+        "commit": true,
+        "tag": true,
+        "push": true
+      }
     },
     "releaseTag": {
       "pattern": "release/{version}"

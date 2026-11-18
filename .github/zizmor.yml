@@ -1,0 +1,18 @@
+# zizmor (https://docs.zizmor.sh) audits the workflows in CI. Each entry here is
+# a choice, with its reason.
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # Tags and @main, as zukhruf's actions are called, not commit hashes.
+        '*': ref-pin
+  dangerous-triggers:
+    ignore:
+      # Runs only after a successful push run of CI on main, and checks out
+      # main, never the code of the run that triggered it.
+      - release.yml
+  artipacked:
+    ignore:
+      # The release job pushes the release commit and tag with the checkout's
+      # credentials.
+      - release.yml

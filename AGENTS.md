@@ -46,9 +46,10 @@ Planned follow-ups: add cross-package dependency graph, highlight shared IR flow
 
 ### Releasing
 
-- Run `npx nx release --skip-publish` (build, e2e gate, version bump, commit, `release/<version>` tag), then `npx nx release publish`. Nx loads `NPM_ACCESS_TOKEN` from the gitignored `.env`, and `.npmrc` reads it. Never set or override that variable: a session token in its place makes npm refuse the publish with 403.
-- All packages form one fixed release group. `--projects` is refused, so to repair a partial publish, re-run `npx nx release publish`, which skips versions already on npm.
-- Before pushing or announcing a release, check that every package's tarball (`https://registry.npmjs.org/@sdk-it/<name>/-/<name>-<version>.tgz`) returns 200. The packages pin each other's exact version, so one missing tarball breaks every install.
+- A push to `main` is a release. When CI (`.github/workflows/ci.yml`) is green for a push to `main`, `.github/workflows/release.yml` releases that commit: `npx nx release version` versions what the conventional commits ask for, then commits, tags `release/<version>` and pushes, and the `nx-release-publish` action of zukhruf publishes to npm with provenance. A push with nothing to release changes nothing. Do not run `nx release` on a workstation, and do not make `release/*` tags by hand.
+- CI runs the network e2e suite (`nx run @sdk-it/source:test-network`) when a package that the CLI uses changes, so the release gates on tested code. The release builds only the packages that `release.projects` selects (`tag:npm:public`).
+- All packages form one fixed release group. The publish step publishes again only the packages that its first run did not publish, so one failed publish does not leave a version half-published. Every release run publishes and skips the versions already on npm, so the next green push to `main` publishes what a failed run left out.
+- After a release, check that every package's tarball (`https://registry.npmjs.org/@sdk-it/<name>/-/<name>-<version>.tgz`) returns 200. The packages pin each other's exact version, so one missing tarball breaks every install.
 
 ### Building a package
 

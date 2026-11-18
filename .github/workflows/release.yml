@@ -1,0 +1,67 @@
+name: Release
+
+# Releases what the conventional commits on main ask for, once CI is green for
+# that commit: nx release version versions, commits, tags and pushes, then
+# nx-release-publish publishes, so nothing reaches npm unless main has the
+# release commit and tag. A version already on npm is skipped. A push with
+# nothing to release changes nothing. The release commit and tag are pushed with
+# GITHUB_TOKEN, which starts no further workflow run.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+# A release is never cancelled: one stopped between the tag and the publish
+# would leave a version that no later run releases. Every run waits its turn;
+# a run whose commit main moved past then stops at the tested-commit step.
+concurrency:
+  group: release
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    # The release restores the npm cache but never writes one.
+    cache-mode: read
+    steps:
+      # The release job pushes the release commit and tag with these credentials.
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Release only the commit that CI tested
+        id: tested
+        uses: JanuaryLabs/zukhruf/.github/actions/tested-commit@main
+
+      - name: Set up the workspace
+        if: steps.tested.outputs.current == 'true'
+        uses: JanuaryLabs/zukhruf/.github/actions/setup-workspace@main
+        with:
+          registry-url: https://registry.npmjs.org/
+
+      - name: Verify npm authentication
+        if: steps.tested.outputs.current == 'true'
+        run: npm whoami
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
+
+      - name: Version
+        if: steps.tested.outputs.current == 'true'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          npx nx release version
+
+      - name: Publish
+        if: steps.tested.outputs.current == 'true'
+        uses: JanuaryLabs/zukhruf/.github/actions/nx-release-publish@main
+        with:
+          token: ${{ secrets.NPM_ACCESS_TOKEN }}

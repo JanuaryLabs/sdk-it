@@ -2,34 +2,74 @@ name: CI
 
 on:
   pull_request:
+    branches: [main]
   push:
     branches: [main]
 
+# A new push to a pull request replaces its run. On main every commit keeps its
+# own run, even when it is run again: release.yml releases a commit only after
+# CI passes for it.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ case(github.event_name == 'pull_request', github.ref, github.sha) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  # affected-range reads this workflow's runs to find the last green commit.
+  actions: read
+  contents: read
 
 jobs:
-  verify:
+  ci:
     runs-on: ubuntu-latest
     env:
       CI: true
-      NX_DAEMON: false
+      # The apiref build reads its spec from this file.
       VITE_SPEC: ${{ github.workspace }}/packages/apiref/openapi.ci.json
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v7
+          persist-credentials: false
+
+      # The network e2e suite (@sdk-it/source:test-network) runs with Bun.
+      - name: Set up Bun
+        id: bun
+        background: true
+        uses: oven-sh/setup-bun@v2
+
+      - name: Set up the workspace
+        uses: JanuaryLabs/zukhruf/.github/actions/setup-workspace@main
+
+      - name: Find what changed
+        uses: JanuaryLabs/zukhruf/.github/actions/affected-range@main
+
+      # The checks of the whole tree run beside the affected targets. None of
+      # them runs an Nx build task.
+      - name: Check Nx workspace sync
+        background: true
+        run: npx nx sync:check
+
+      - name: Check formatting
+        background: true
+        run: npx prettier --check .
+
+      - name: Check the tracked JSON and YAML files and the Markdown links
+        background: true
+        run: npx nx run-many -t check-data-files check-markdown-links --projects=@sdk-it/source
+
+      - name: Audit the workflows
+        background: true
+        uses: zizmorcore/zizmor-action@v0.8.1
         with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npm run format:check
-      - run: npm run check:data
-      - run: npm run check:links
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run test:packages
-      - run: npm run build
-      - run: npm run check:bundle-lint
+          advanced-security: false
+          annotations: true
+
+      - name: Wait for Bun
+        wait: bun
+
+      - name: Lint, type check, test and build what changed
+        run: npx nx affected -t lint typecheck test build check-bundle-lint test-network
+
+      - name: Wait for the checks of the whole tree
+        wait-all:

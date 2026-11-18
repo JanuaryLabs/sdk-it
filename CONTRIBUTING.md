@@ -171,7 +171,7 @@ SDK-IT integrates with modern build systems through its Nx-based architecture:
 4. **Typecheck**: Run `npm run typecheck`, or `nx run <project>:typecheck` for one package.
 5. **Package tests**: Run `npm run test:packages`, or `nx run <project>:test` for one package. Package test targets build their dependencies first.
 6. **Build**: Run `npm run build` to build every buildable project.
-7. **Network E2E**: Run `npm run test:e2e` only when the external services and remote specs used by the root E2E suite are available. It is intentionally separate from the fast package-test path.
+7. **Network E2E**: Run `nx run @sdk-it/source:test-network`. It needs Bun and the network: it generates an SDK from 11 public OpenAPI specs, then type checks and runs each one. CI runs it when a package that the CLI uses changes. It is separate from the fast package-test path.
 8. **Submit**: Create a pull request with your changes.
 
 ## Pull Request Process

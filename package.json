@@ -10,11 +10,8 @@
     "typecheck": "nx run-many -t typecheck",
     "test": "npm run test:packages",
     "test:packages": "nx run-many -t test",
-    "test:e2e": "bun ./e2e/index.ts",
     "test:e2e:dart": "bun ./e2e/dart.ts",
     "build": "nx run-many -t build",
-    "check:data": "node tools/check-data-files.mjs",
-    "check:links": "node tools/check-markdown-links.mjs",
     "check:bundle-lint": "nx run @sdk-it/apiref:check-bundle-lint"
   },
   "repository": "https://github.com/JanuaryLabs/sdk-it",
@@ -61,7 +58,26 @@
   ],
   "nx": {
     "includedScripts": [],
+    "implicitDependencies": [
+      "@sdk-it/cli"
+    ],
     "targets": {
+      "check-data-files": {
+        "command": "node tools/check-data-files.mjs",
+        "cache": false
+      },
+      "check-markdown-links": {
+        "command": "node tools/check-markdown-links.mjs",
+        "cache": false
+      },
+      "test-network": {
+        "command": "bun ./e2e/index.ts",
+        "cache": false,
+        "parallelism": false,
+        "dependsOn": [
+          "^build"
+        ]
+      },
       "local-registry": {
         "executor": "@nx/js:verdaccio",
         "options": {
