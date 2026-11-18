@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/generic",
-  "version": "0.46.11",
+  "version": "0.47.0",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -23,15 +23,15 @@
   ],
   "dependencies": {
     "@typescript/native": "npm:typescript@7.1.0-beta",
-    "@sdk-it/core": "0.46.11",
+    "@sdk-it/core": "0.47.0",
     "stringcase": "^4.3.1",
     "openapi3-ts": "^4.6.2"
   },
   "devDependencies": {
-    "@sdk-it/hono": "0.46.11",
-    "@sdk-it/spec": "0.46.11",
+    "@sdk-it/hono": "0.47.0",
+    "@sdk-it/spec": "0.47.0",
     "@sdk-it/testing": "*",
-    "@sdk-it/typescript": "0.46.11",
+    "@sdk-it/typescript": "0.47.0",
     "@zukhruf/fs": "^0.8.22"
   }
 }

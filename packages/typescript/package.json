@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/typescript",
-  "version": "0.46.11",
+  "version": "0.47.0",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -22,15 +22,15 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.46.11",
+    "@sdk-it/core": "0.47.0",
     "openapi3-ts": "^4.6.2",
     "stringcase": "^4.3.1",
     "npm-run-path": "6.0.0",
-    "@sdk-it/spec": "0.46.11",
-    "@sdk-it/readme": "0.46.11"
+    "@sdk-it/spec": "0.47.0",
+    "@sdk-it/readme": "0.47.0"
   },
   "devDependencies": {
-    "@sdk-it/runtime": "0.46.11",
+    "@sdk-it/runtime": "0.47.0",
     "@sdk-it/testing": "*",
     "@zukhruf/fs": "^0.8.22"
   }

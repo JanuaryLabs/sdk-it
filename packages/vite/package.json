@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/vite",
-  "version": "0.46.11",
+  "version": "0.47.0",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -27,16 +27,16 @@
     "!**/*.test.*"
   ],
   "devDependencies": {
-    "@sdk-it/core": "0.46.11",
+    "@sdk-it/core": "0.47.0",
     "@sdk-it/testing": "*",
     "@zukhruf/fs": "^0.8.22"
   },
   "peerDependencies": {
-    "@sdk-it/cli": "0.46.11",
+    "@sdk-it/cli": "0.47.0",
     "openapi3-ts": "4.6.2",
     "vite": "^7.0.0 || ^8.0.0",
-    "@sdk-it/spec": "0.46.11",
-    "@sdk-it/typescript": "0.46.11"
+    "@sdk-it/spec": "0.47.0",
+    "@sdk-it/typescript": "0.47.0"
   },
   "peerDependenciesMeta": {
     "@sdk-it/cli": {

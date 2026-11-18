@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/spec",
-  "version": "0.46.11",
+  "version": "0.47.0",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -27,7 +27,7 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.46.11",
+    "@sdk-it/core": "0.47.0",
     "@zukhruf/async": "^0.8.22",
     "@zukhruf/fs": "^0.8.22",
     "lodash-es": "^4.17.21",
