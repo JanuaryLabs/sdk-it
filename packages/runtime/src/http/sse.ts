@@ -1,27 +1,36 @@
 export type SSEListener = (eventType: string) => AsyncIterable<string>;
 
 export function sse(response: Response): SSEListener {
+  // Every iterator of an event type reads one queue. Each waiting next() keeps
+  // its own wake-up in `waiters`, and a push or the end of the stream wakes all
+  // of them: a woken next() that finds the queue empty waits again. One shared
+  // wake-up slot would let a second iterator overwrite the first one's, which
+  // then never wakes.
   const subscribers = new Map<
     string,
-    { queue: string[]; resolve: (() => void) | null }
+    { queue: string[]; waiters: Set<() => void> }
   >();
   let started = false;
   let streamDone = false;
   let streamFailure: { error: unknown } | null = null;
 
+  function wake(waiters: Set<() => void>) {
+    for (const resolve of waiters) resolve();
+    waiters.clear();
+  }
+
   function dispatch(eventType: string, data: string) {
     const sub = subscribers.get(eventType);
     if (sub) {
       sub.queue.push(data);
-      sub.resolve?.();
-      sub.resolve = null;
+      wake(sub.waiters);
     }
   }
 
   function endAll() {
     streamDone = true;
     for (const sub of subscribers.values()) {
-      sub.resolve?.();
+      wake(sub.waiters);
     }
   }
 
@@ -64,7 +73,7 @@ export function sse(response: Response): SSEListener {
 
   return function listen(eventType: string): AsyncIterable<string> {
     if (!subscribers.has(eventType)) {
-      subscribers.set(eventType, { queue: [], resolve: null });
+      subscribers.set(eventType, { queue: [], waiters: new Set() });
     }
     const sub = subscribers.get(eventType)!;
     startReading();
@@ -77,7 +86,7 @@ export function sse(response: Response): SSEListener {
               if (streamFailure) throw streamFailure.error;
               if (streamDone) return { value: undefined, done: true };
               const { promise, resolve } = Promise.withResolvers<void>();
-              sub.resolve = resolve;
+              sub.waiters.add(resolve);
               await promise;
             }
             return { value: sub.queue.shift()!, done: false };
