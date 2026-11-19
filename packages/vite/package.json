@@ -1,6 +1,15 @@
 {
   "name": "@sdk-it/vite",
   "version": "0.47.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JanuaryLabs/sdk-it",
+    "directory": "packages/vite"
+  },
+  "bugs": {
+    "url": "https://github.com/JanuaryLabs/sdk-it/issues"
+  },
+  "homepage": "https://github.com/JanuaryLabs/sdk-it/tree/main/packages/vite#readme",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
