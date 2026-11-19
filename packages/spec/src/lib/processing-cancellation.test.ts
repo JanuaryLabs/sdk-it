@@ -1,4 +1,4 @@
-import { settleWithin } from '@zukhruf/testing/async';
+import { untilAborted } from '@zukhruf/async';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
 import { setImmediate } from 'node:timers/promises';
@@ -15,7 +15,7 @@ import {
 void test.each(
   [new Error('cancel processing'), 'cancel processing'],
   (reason) =>
-    test(`processing aborts a pending plugin with ${typeof reason} reason`, async () => {
+    test(`processing aborts a pending plugin with ${typeof reason} reason`, async (t) => {
       const controller = new AbortController();
       const pending = Promise.withResolvers<void>();
       let nextPluginRan = false;
@@ -40,7 +40,7 @@ void test.each(
 
       try {
         controller.abort(reason);
-        await settleWithin(rejected, 'processing cancellation');
+        await untilAborted(rejected, t.signal);
         assert.equal(nextPluginRan, false);
       } finally {
         pending.resolve();
@@ -51,7 +51,7 @@ void test.each(
 
 void test.each(['generate', 'validate'] as const, (phase) =>
   test.each(['valid', 'invalid', 'rejected'] as const, (result) =>
-    test(`aborting example ${phase} ignores a late ${result} result`, async () => {
+    test(`aborting example ${phase} ignores a late ${result} result`, async (t) => {
       const controller = new AbortController();
       const reason = new Error('stop examples');
       const entered = Promise.withResolvers<void>();
@@ -121,10 +121,10 @@ void test.each(['generate', 'validate'] as const, (phase) =>
       const rejected = assert.rejects(processing, (error) => error === reason);
 
       try {
-        await settleWithin(entered.promise, 'example callback');
+        await untilAborted(entered.promise, t.signal);
         controller.abort(reason);
-        await settleWithin(rejected, 'pipeline cancellation');
-        await settleWithin(finished.promise, 'example plugin cancellation');
+        await untilAborted(rejected, t.signal);
+        await untilAborted(finished.promise, t.signal);
       } finally {
         controller.abort(reason);
         if (result === 'rejected') pending.reject(new Error('late failure'));

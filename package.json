@@ -4,15 +4,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "prepare": "git config core.hooksPath .husky || exit 0",
-    "format:check": "prettier --check .",
-    "lint": "nx run-many -t lint",
-    "typecheck": "nx run-many -t typecheck",
-    "test": "npm run test:packages",
-    "test:packages": "nx run-many -t test",
-    "test:e2e:dart": "bun ./e2e/dart.ts",
-    "build": "nx run-many -t build",
-    "check:bundle-lint": "nx run @sdk-it/apiref:check-bundle-lint"
+    "prepare": "git config core.hooksPath .husky || exit 0"
   },
   "repository": "https://github.com/JanuaryLabs/sdk-it",
   "private": true,
@@ -31,9 +23,9 @@
     "@types/micromatch": "^4.0.9",
     "@types/node": "^26.6.6",
     "@typescript/native": "npm:typescript@7.1.0-beta",
-    "@zukhruf/eslint": "^0.8.22",
-    "@zukhruf/git-hooks": "^0.8.22",
-    "@zukhruf/testing": "^0.8.22",
+    "@zukhruf/eslint": "^0.8.33",
+    "@zukhruf/git-hooks": "^0.8.33",
+    "@zukhruf/testing": "^0.8.33",
     "esbuild": "^0.28.2",
     "eslint": "^10.14.0",
     "eslint-config-prettier": "10.1.5",
@@ -51,7 +43,8 @@
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.63.0",
     "verdaccio": "6.1.4",
-    "vite": "^8.3.5"
+    "vite": "^8.3.5",
+    "yaml-eslint-parser": "^2.1.0"
   },
   "workspaces": [
     "packages/*"
@@ -102,6 +95,8 @@
     "nx": false,
     "unrs-resolver": false,
     "@swc/core": false,
-    "@tailwindcss/oxide": false
+    "@tailwindcss/oxide": false,
+    "ssh2": false,
+    "cpu-features": false
   }
 }

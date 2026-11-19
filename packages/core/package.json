@@ -36,7 +36,7 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "@zukhruf/fs": "^0.8.22",
+    "@zukhruf/fs": "^0.8.33",
     "stringcase": "^4.3.1"
   },
   "peerDependencies": {

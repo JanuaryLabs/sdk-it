@@ -38,14 +38,15 @@
   "devDependencies": {
     "@sdk-it/core": "0.47.0",
     "@sdk-it/testing": "*",
-    "@zukhruf/fs": "^0.8.22"
+    "@zukhruf/async": "^0.8.33",
+    "@zukhruf/fs": "^0.8.33"
   },
   "peerDependencies": {
     "@sdk-it/cli": "0.47.0",
-    "openapi3-ts": "4.6.2",
-    "vite": "^7.0.0 || ^8.0.0",
     "@sdk-it/spec": "0.47.0",
-    "@sdk-it/typescript": "0.47.0"
+    "@sdk-it/typescript": "0.47.0",
+    "openapi3-ts": "4.6.2",
+    "vite": "^7.0.0 || ^8.0.0"
   },
   "peerDependenciesMeta": {
     "@sdk-it/cli": {

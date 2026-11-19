@@ -45,7 +45,7 @@
     "@sdk-it/python": "0.47.0",
     "@sdk-it/readme": "0.47.0",
     "zod": "^4.6.7",
-    "@zukhruf/fs": "^0.8.22"
+    "@zukhruf/fs": "^0.8.33"
   },
   "devDependencies": {
     "@sdk-it/testing": "*"

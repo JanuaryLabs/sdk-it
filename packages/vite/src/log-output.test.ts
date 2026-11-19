@@ -1,5 +1,5 @@
+import { untilAborted } from '@zukhruf/async';
 import { TemporaryFiles } from '@zukhruf/fs';
-import { settleWithin } from '@zukhruf/testing/async';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -111,10 +111,10 @@ test('the dev server logs a failed regeneration with its error to stderr', async
     ],
   });
   await using _server = { [Symbol.asyncDispose]: () => server.close() };
-  await settleWithin(generated.promise, 'initial generation');
+  await untilAborted(generated.promise, t.signal);
 
   await writeFile(specPath, '{"openapi": ');
-  const error = await settleWithin(failed.promise, 'failed regeneration');
+  const error = await untilAborted(failed.promise, t.signal);
 
   assert.ok(Error.isError(error));
   assert.equal(error.name, 'SyntaxError');

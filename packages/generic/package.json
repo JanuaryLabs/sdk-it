@@ -41,6 +41,6 @@
     "@sdk-it/spec": "0.47.0",
     "@sdk-it/testing": "*",
     "@sdk-it/typescript": "0.47.0",
-    "@zukhruf/fs": "^0.8.22"
+    "@zukhruf/fs": "^0.8.33"
   }
 }

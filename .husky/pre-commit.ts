@@ -7,6 +7,7 @@ import {
   NoNumericPins,
   NpmrcPolicy,
   Sync,
+  WorkflowChecks,
   preCommit,
 } from '@zukhruf/git-hooks';
 
@@ -18,4 +19,5 @@ await preCommit([
   new LockfileSync(),
   new DockerfileInstallsFromLockfile(),
   new DependencyChecks(),
+  new WorkflowChecks(),
 ]);

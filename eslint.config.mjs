@@ -30,6 +30,7 @@ export const sharedConfig = [
   ...zukhruf.configs['env'],
   ...zukhruf.configs['react'],
   ...zukhruf.configs['nx-project-json'],
+  ...zukhruf.configs['github-actions'],
   ...manifest.configs.recommended,
   {
     ignores: [

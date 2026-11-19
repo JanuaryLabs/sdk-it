@@ -1,5 +1,5 @@
+import { untilAborted } from '@zukhruf/async';
 import { TemporaryFiles } from '@zukhruf/fs';
-import { settleWithin } from '@zukhruf/testing/async';
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -175,7 +175,7 @@ test('concurrent different specs serialize writes and formatting for one output'
 });
 
 void test.each([false, true], (failFirst) =>
-  test(`queued A to B to A restores A after the first generation ${failFirst ? 'fails' : 'succeeds'}`, async () => {
+  test(`queued A to B to A restores A after the first generation ${failFirst ? 'fails' : 'succeeds'}`, async (t) => {
     await using workspace = await new TemporaryFiles().directory(
       'sdk-it-vite-queue-',
     );
@@ -213,7 +213,7 @@ void test.each([false, true], (failFirst) =>
     const builds = [first];
     let settled = Promise.allSettled(builds);
     try {
-      await settleWithin(entered.promise, 'first generation formatter');
+      await untilAborted(entered.promise, t.signal);
       for (const plugin of [beta, beta, alpha]) {
         const queued = Promise.withResolvers<void>();
         builds.push(
@@ -223,7 +223,7 @@ void test.each([false, true], (failFirst) =>
           ),
         );
         settled = Promise.allSettled(builds);
-        await settleWithin(queued.promise, 'subsequent sdkIt build start');
+        await untilAborted(queued.promise, t.signal);
       }
     } finally {
       release.resolve();

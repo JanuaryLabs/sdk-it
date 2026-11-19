@@ -38,6 +38,6 @@
     "yaml": "^2.7.0"
   },
   "devDependencies": {
-    "@zukhruf/fs": "^0.8.22"
+    "@zukhruf/fs": "^0.8.33"
   }
 }

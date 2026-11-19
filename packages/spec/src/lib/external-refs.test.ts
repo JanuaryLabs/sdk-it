@@ -172,7 +172,7 @@ properties:
   );
 });
 
-test('a cycle across external files terminates with local references', async () => {
+test('a cycle across external files terminates with local references', async (t) => {
   await using workspace = await new TemporaryFiles().directory(
     'sdk-it-external-refs-',
   );
@@ -219,7 +219,7 @@ properties:
     const [schemas]: Record<string, SchemaObject>[] = await once(
       worker,
       'message',
-      { signal: AbortSignal.timeout(10_000) },
+      { signal: t.signal },
     );
 
     assert.deepEqual(schemas['node'].properties?.['parent'], {

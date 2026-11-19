@@ -90,10 +90,8 @@ function generatedModels() {
       }
     },
     /** Resolves when a generated `model` next contains `text`. */
-    async next(model: string, text: string) {
-      for await (const [name, content] of on(written, 'model', {
-        signal: AbortSignal.timeout(10_000),
-      })) {
+    async next(model: string, text: string, signal: AbortSignal) {
+      for await (const [name, content] of on(written, 'model', { signal })) {
         if (name === model && content.includes(text)) {
           return;
         }
@@ -185,14 +183,14 @@ test('a build with unchanged referenced files does not regenerate the SDK', asyn
   assert.equal(models.writes, firstWrites);
 });
 
-test('the dev server regenerates the SDK when a referenced file changes', async () => {
+test('the dev server regenerates the SDK when a referenced file changes', async (t) => {
   await using project = await workspace({
     'openapi.yaml': rootSpec(petsPath),
     'schemas/pet.yaml': objectWith('name'),
   });
   const { path: dir, app, api } = project;
   const models = generatedModels();
-  const generated = models.next('pet', 'name');
+  const generated = models.next('pet', 'name', t.signal);
   const sdk = plugin(join(dir, 'sdk'), models);
   const server = await serveWith(sdk, app);
   await using _server = { [Symbol.asyncDispose]: () => server.close() };
@@ -201,12 +199,12 @@ test('the dev server regenerates the SDK when a referenced file changes', async 
   await editUntil(
     api('schemas/pet.yaml'),
     objectWith('name', 'nickname'),
-    models.next('pet', 'nickname'),
+    models.next('pet', 'nickname', t.signal),
   );
   await settle(sdk, app);
 });
 
-test('the dev server watches a file the spec starts to reference after an edit', async () => {
+test('the dev server watches a file the spec starts to reference after an edit', async (t) => {
   await using project = await workspace({
     'openapi.yaml': rootSpec(petsPath),
     'schemas/pet.yaml': objectWith('name'),
@@ -214,7 +212,7 @@ test('the dev server watches a file the spec starts to reference after an edit',
   });
   const { path: dir, app, api } = project;
   const models = generatedModels();
-  const generated = models.next('pet', 'name');
+  const generated = models.next('pet', 'name', t.signal);
   const sdk = plugin(join(dir, 'sdk'), models);
   const server = await serveWith(sdk, app);
   await using _server = { [Symbol.asyncDispose]: () => server.close() };
@@ -222,13 +220,13 @@ test('the dev server watches a file the spec starts to reference after an edit',
   await editUntil(
     api('openapi.yaml'),
     rootSpec(petsPath + tagsPath),
-    models.next('tag', 'label'),
+    models.next('tag', 'label', t.signal),
   );
 
   await editUntil(
     api('schemas/tag.yaml'),
     objectWith('label', 'color'),
-    models.next('tag', 'color'),
+    models.next('tag', 'color', t.signal),
   );
   await settle(sdk, app);
 });
