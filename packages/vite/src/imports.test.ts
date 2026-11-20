@@ -179,10 +179,12 @@ test(
     const { getPet } = await server.ssrLoadModule('/main.ts');
     await assert.rejects(getPet('x1'));
 
-    await writeFile(parameters, petId('^x'));
-
     await waitFor(
       async () => {
+        // Vite starts watching a file added through addWatchFile after load
+        // returns, and a write before the watcher is running is lost, so each
+        // attempt writes again.
+        await writeFile(parameters, petId('^x'));
         const { getPet } = await server.ssrLoadModule('/main.ts');
         assert.deepEqual(await getPet('x1'), { name: 'Rex', path: '/pets/x1' });
       },
