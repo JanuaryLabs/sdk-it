@@ -8,7 +8,21 @@ import { type StoreEndpoints, createStore, store } from './store.openapi.yaml';
 const pet = await store.request('GET /pets/{petId}', { petId: 'p1' });
 ```
 
-It gives types only. To run that import, a bundler or a loader has to load the document too: the Vite plugin (#3106 phase 4) and the Node loader (phase 5). Until then the package is private.
+It gives types only: TypeScript never emits JavaScript for a mapped file. To run the import, the host that runs the code loads the document too: the Vite plugin `sdkIt.imports()` from `@sdk-it/vite`, and the Node loader (#3106 phase 5). Each host renders the document with this package's `renderDocument`, so the types and the running code come from one render.
+
+## Render a document in another host
+
+```ts
+import { renderDocument } from '@sdk-it/content-mapper';
+
+const rendered = await renderDocument(fileName, content);
+if (rendered.kind === 'failed') {
+  // rendered.diagnostics: at least one; each has a code (DiagnosticCode), a message and a range of `content`
+} else {
+  // rendered.text: the SDK as one TypeScript module; rendered.mappings: each name and where the document declares it
+}
+// rendered.documents: the URI of each document read, `fileName` first, also when rendering failed
+```
 
 ## Set up a project
 
