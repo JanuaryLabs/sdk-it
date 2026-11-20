@@ -2,7 +2,7 @@ import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 import { type ZodType, z } from 'zod';
 
 import { type OpenAPIDocument, followRef, isEmpty, isRef } from '@sdk-it/core';
-import { isRecursiveRef } from '@sdk-it/spec';
+import { discriminatorOf, isRecursiveRef } from '@sdk-it/spec';
 
 // z.iso.time() rejects RFC 3339 zone suffixes ('10:30:00Z', '10:30:00+02:00'),
 // which JSON Schema's format: time allows. Accept both local and
@@ -12,6 +12,27 @@ const isoTime = z
   .regex(
     /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d+)?)?(Z|[+-]([01]\d|2[0-3]):[0-5]\d)?$/,
   );
+
+type Discriminable = ZodType & z.core.$ZodTypeDiscriminable;
+
+/**
+ * Asserts that each branch exposes the `_zod.propValues` zod selects a
+ * discriminated union branch by. `discriminatorOf` names a property only for
+ * object branches, so a failure here is a bug in that rule.
+ */
+function assertDiscriminable(
+  property: string,
+  branches: ZodType[],
+): asserts branches is [Discriminable, ...Discriminable[]] {
+  if (
+    branches.length === 0 ||
+    !branches.every((branch) => 'propValues' in branch._zod)
+  ) {
+    throw new TypeError(
+      `discriminatorOf named "${property}", but a branch of the union cannot be discriminated`,
+    );
+  }
+}
 
 /**
  * Convert an OpenAPI (JSON Schema style) object into a runtime Zod schema,
@@ -97,22 +118,50 @@ export class RuntimeZodConverter {
     return this.#toIntersection(allOfSchemas);
   }
 
-  anyOf(schemas: (SchemaObject | ReferenceObject)[]): ZodType {
-    const anyOfSchemas = schemas.map((sub) => this.handle(sub, true));
+  anyOf(schema: SchemaObject): ZodType {
+    const anyOfSchemas = (schema.anyOf ?? []).map((sub) =>
+      this.handle(sub, true),
+    );
     if (anyOfSchemas.length === 1) {
       return anyOfSchemas[0];
+    }
+    const discriminated = this.#discriminatedUnion(schema, anyOfSchemas);
+    if (discriminated) {
+      return discriminated;
     }
     return z.union(anyOfSchemas);
   }
 
-  oneOf(schemas: (SchemaObject | ReferenceObject)[]): ZodType {
-    const oneOfSchemas = schemas.map((sub) => this.handle(sub, true));
+  oneOf(schema: SchemaObject): ZodType {
+    const oneOfSchemas = (schema.oneOf ?? []).map((sub) =>
+      this.handle(sub, true),
+    );
     if (oneOfSchemas.length === 1) {
       return oneOfSchemas[0];
+    }
+    const discriminated = this.#discriminatedUnion(schema, oneOfSchemas);
+    if (discriminated) {
+      return discriminated;
     }
     // oneOf is exclusive-or per JSON Schema; z.xor rejects values matching
     // more than one branch, unlike z.union's anyOf semantics.
     return z.xor(oneOfSchemas);
+  }
+
+  /**
+   * `branches` as a zod discriminated union, which reports an issue at the
+   * discriminator, when the spec says that validates the same values.
+   */
+  #discriminatedUnion(
+    schema: SchemaObject,
+    branches: ZodType[],
+  ): ZodType | undefined {
+    const property = discriminatorOf(this.#spec, schema);
+    if (property === undefined) {
+      return undefined;
+    }
+    assertDiscriminable(property, branches);
+    return z.discriminatedUnion(property, branches);
   }
 
   enum(type: SchemaObject['type'], values: z.core.util.Literal[]): ZodType {
@@ -321,7 +370,7 @@ export class RuntimeZodConverter {
 
     // anyOf → union
     else if (schema.anyOf && Array.isArray(schema.anyOf)) {
-      result = this.anyOf(schema.anyOf);
+      result = this.anyOf(schema);
       if (!required) {
         result = result.optional();
       }
@@ -333,7 +382,7 @@ export class RuntimeZodConverter {
       Array.isArray(schema.oneOf) &&
       schema.oneOf.length
     ) {
-      result = this.oneOf(schema.oneOf);
+      result = this.oneOf(schema);
       if (!required) {
         result = result.optional();
       }
