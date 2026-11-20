@@ -152,7 +152,15 @@ export class TypeScriptEmitter {
   enum(values: unknown[], required: boolean): string {
     // For TypeScript enums as union of literals
     const enumValues = values
-      .map((val) => (typeof val === 'string' ? `'${val}'` : `${val}`))
+      .map((val) => {
+        if (typeof val === 'string') {
+          return `'${val}'`;
+        }
+        if (val !== null && typeof val === 'object') {
+          return constType(val);
+        }
+        return `${val}`;
+      })
       .join(' | ');
     return appendOptional(enumValues, required);
   }
