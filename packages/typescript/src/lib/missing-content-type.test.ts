@@ -116,6 +116,7 @@ void test('a declared binary body without Content-Type resolves to a Blob of its
 
   assert.equal(response.headers.get('Content-Type'), null);
   assert.ok(report instanceof Blob);
+  assert.equal(report.type, 'application/octet-stream');
   assert.deepEqual([...(await report.bytes())], [37, 80, 68, 70]);
 });
 
@@ -144,6 +145,7 @@ void test('an undeclared error status without Content-Type rejects with an APIEr
   assert.ok(error instanceof sdk.APIError);
   assert.equal(error.status, 500);
   assert.ok(error.data instanceof Blob);
+  assert.equal(error.data.type, 'application/octet-stream');
   assert.equal(await error.data.text(), 'boom');
   assert.equal(response.headers.get('Content-Type'), null);
 });

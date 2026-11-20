@@ -64,17 +64,17 @@ export function buffered(declared?: BufferedBody) {
     if (contentType) {
       return byContentType(response, contentType);
     }
-    const bytes = await response.bytes();
-    if (bytes.byteLength === 0) {
+    const blob = await response.blob();
+    if (blob.size === 0) {
       return null;
     }
     switch (declared) {
       case 'json':
-        return JSON.parse(new TextDecoder().decode(bytes));
+        return JSON.parse(await blob.text());
       case 'text':
-        return new TextDecoder().decode(bytes);
+        return blob.text();
       default:
-        return new Blob([bytes], { type: 'application/octet-stream' });
+        return blob.slice(0, blob.size, 'application/octet-stream');
     }
   };
 }
