@@ -37,10 +37,15 @@ if (rendered.kind === 'failed') {
 {
   "compilerOptions": { "module": "nodenext" },
   "contentMappers": [
-    { "package": "@sdk-it/content-mapper", "extensions": [".openapi.yaml"] },
+    {
+      "package": "@sdk-it/content-mapper",
+      "extensions": [".openapi", ".openapi.yaml"],
+    },
   ],
 }
 ```
+
+[Import an OpenAPI document as a module](../../docs/recipes/import-openapi-document.md) sets up all three hosts: types, Vite and Node.
 
 ```bash
 npx tsc --runExternalCode
@@ -93,5 +98,5 @@ No published content mapper reads OpenAPI (npm search, 2026-11-20). The protocol
 
 - A change to a file that the document references through `$ref` does not re-type the import until the document itself changes: the protocol has no per-transform dependencies, and `watchedFiles` is read only when a project opens.
 - The module holds every operation of the document, so a bundle ships the whole endpoint table.
-- On a 1,300-operation document an edit takes about 2.5 to 3.5 s to reach the importers (YAML parse about 0.8 s, from the spike).
+- A large document is slow to re-type. On App Store Connect (1,300 operations, a 7.6 MB JSON document that renders a 3.5 MB module), an importer opened in the editor gets its diagnostics after about 3 to 5 s, an edit to the document reaches them in about 2.5 to 5.5 s, and `tsc` checks the project in about 9 s. On Box (1.8 MB) an edit takes about 0.6 to 2.7 s (measured 2026-11-20).
 - A string argument of `request('GET /pets/{petId}', …)` has no definition (TypeScript gives none for a string literal argument); the same key in a type position, `StoreEndpoints['GET /pets/{petId}']`, lands on the method key.

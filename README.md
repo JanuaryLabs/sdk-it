@@ -14,12 +14,13 @@ SDK-IT generates type-safe client SDKs from OpenAPI specifications and creates O
 
 Choose the workflow that matches your API source:
 
-| Starting point                                    | Guide                                                                                        |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| OpenAPI JSON, YAML, or a remote specification URL | [Generate your first client](#generate-your-first-client)                                    |
-| A Hono TypeScript backend                         | [Generate from a backend](./docs/recipes/backend-to-client.md)                               |
-| A build script or custom generation workflow      | [Use SDK-IT programmatically](./docs/recipes/workspace-sdk.md)                               |
-| A client consumed from another repository         | [Publish a generated client](./docs/recipes/workspace-sdk.md#publish-for-another-repository) |
+| Starting point                                     | Guide                                                                                        |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| OpenAPI JSON, YAML, or a remote specification URL  | [Generate your first client](#generate-your-first-client)                                    |
+| A Hono TypeScript backend                          | [Generate from a backend](./docs/recipes/backend-to-client.md)                               |
+| A build script or custom generation workflow       | [Use SDK-IT programmatically](./docs/recipes/workspace-sdk.md)                               |
+| A client consumed from another repository          | [Publish a generated client](./docs/recipes/workspace-sdk.md#publish-for-another-repository) |
+| An OpenAPI document that only one application uses | [Import the document as a module](./docs/recipes/import-openapi-document.md)                 |
 
 ### Generate your first client
 
@@ -102,6 +103,7 @@ The analyzer infers this route because it uses the validate middleware and has a
 - [Generate your first client from OpenAPI](#generate-your-first-client)
 - [Generate a client from a TypeScript backend](./docs/recipes/backend-to-client.md)
 - [Generate a workspace SDK programmatically](./docs/recipes/workspace-sdk.md)
+- [Import an OpenAPI document as a module](./docs/recipes/import-openapi-document.md)
 - [Upload files with Hono and React Query](./docs/recipes/file-upload.md)
 
 ## Guides
