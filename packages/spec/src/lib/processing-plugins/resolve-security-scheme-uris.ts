@@ -7,16 +7,15 @@ import {
   isRef,
 } from '@sdk-it/core';
 
+import { UnresolvedSecuritySchemeError } from '../documents/errors.js';
+import { Reference } from '../documents/reference.js';
 import {
   type Documents,
   availableName,
-  documentUrl,
-  isJsonObject,
   loadDocument,
-  readPointer,
-  splitFragment,
 } from '../external-documents.js';
 import { iterateOperations } from '../for-each-operation.js';
+import { isJsonObject } from '../json.js';
 import type { DocumentPlugin } from '../processing.js';
 
 /**
@@ -30,12 +29,12 @@ export function resolveSecuritySchemeUris(): DocumentPlugin {
     name: 'resolve-security-scheme-uris',
     async process({ spec, report }) {
       const failures = await registerExternalSecuritySchemes(spec, new Map());
-      for (const { uri, error } of failures) {
+      for (const failure of failures) {
         report({
           code: 'unresolvable-security-scheme-uri',
           severity: 'error',
-          path: uri,
-          message: `Could not resolve security scheme URI ${uri}: ${Error.isError(error) ? error.message : String(error)}`,
+          path: failure.uri,
+          message: failure.message,
         });
       }
     },
@@ -59,7 +58,7 @@ export async function registerExternalSecuritySchemes(
         (key) => !spec.components?.securitySchemes?.[key] && isUriKey(key),
       ),
   );
-  const failures: { uri: string; error: unknown }[] = [];
+  const failures: UnresolvedSecuritySchemeError[] = [];
   if (!uris.size) {
     return failures;
   }
@@ -79,7 +78,7 @@ export async function registerExternalSecuritySchemes(
       schemes[name] = scheme;
       registered.set(uri, name);
     } catch (error) {
-      failures.push({ uri, error });
+      failures.push(new UnresolvedSecuritySchemeError(uri, { cause: error }));
     }
   }
 
@@ -116,11 +115,11 @@ async function resolveScheme(
   spec: OpenAPIDocument,
   documents: Documents,
 ): Promise<OpenAPISecuritySchemeObject> {
-  const [location, fragment] = splitFragment(uri);
-  const document = location
-    ? await schemeDocument(location, spec, documents)
-    : spec;
-  let scheme = fragment ? readPointer(document, fragment) : document;
+  const reference = new Reference(uri);
+  const document = reference.sameDocument
+    ? spec
+    : await schemeDocument(reference, spec, documents);
+  let scheme = reference.read(document);
   if (isRef(scheme)) {
     scheme = followRef(document, scheme.$ref);
   }
@@ -150,19 +149,22 @@ function isSecurityScheme(
 }
 
 function schemeDocument(
-  location: string,
+  reference: Reference,
   spec: OpenAPIDocument,
   documents: Documents,
 ) {
-  const url = documentUrl(location, spec.$self);
+  const url = reference.documentIn(spec.$self);
   return url.href === spec.$self ? spec : loadDocument(url, documents);
 }
 
 function schemeName(uri: string) {
-  const [location, fragment] = splitFragment(uri);
+  const reference = new Reference(uri);
   const candidate =
-    lastSegment(fragment ?? '') ??
-    lastSegment(location.split('?')[0])?.replace(/\.(json|ya?ml)$/i, '');
+    lastSegment(reference.fragment) ??
+    lastSegment(reference.location.split('?')[0])?.replace(
+      /\.(json|ya?ml)$/i,
+      '',
+    );
   const sanitized = (candidate ?? '').replace(/[^a-zA-Z0-9._-]/g, '');
   return sanitized || 'externalSecurityScheme';
 }

@@ -1,14 +1,13 @@
 import { type OpenAPIDocument, isRef } from '@sdk-it/core';
 
+import { UnresolvedReferenceError } from '../documents/errors.js';
+import { Reference } from '../documents/reference.js';
 import {
   type Documents,
   availableName,
-  documentUrl,
-  isJsonObject,
   loadDocument,
-  readPointer,
-  splitFragment,
 } from '../external-documents.js';
+import { isJsonObject } from '../json.js';
 import type { DocumentPlugin } from '../processing.js';
 
 type NodeType =
@@ -147,22 +146,22 @@ async function visitRef(
   base: string | undefined,
   bundle: Bundle,
 ): Promise<unknown> {
-  const [location, fragment = ''] = splitFragment(node.$ref);
-  if (!location && base === bundle.root) {
+  const reference = new Reference(node.$ref);
+  if (reference.sameDocument && base === bundle.root) {
     return node;
   }
   let url: URL;
   try {
-    url = documentUrl(location, base);
+    url = reference.documentIn(base);
   } catch (error) {
-    throw unresolved(node.$ref, base, error);
+    throw new UnresolvedReferenceError(node.$ref, base, { cause: error });
   }
   if (url.href === bundle.root) {
-    node.$ref = `#${fragment}`;
+    node.$ref = `#${reference.fragment}`;
     return node;
   }
 
-  const key = `${url.href}#${fragment}`;
+  const key = `${url.href}#${reference.fragment}`;
   const section = sections[type];
   const hoisted = bundle.hoisted.get(key);
   if (section && hoisted) {
@@ -170,17 +169,17 @@ async function visitRef(
     return node;
   }
   if (!section && bundle.inlining.has(key)) {
-    throw unresolved(node.$ref, base, new Error('the reference is circular'));
+    throw new UnresolvedReferenceError(node.$ref, base, {
+      cause: new Error('the reference is circular'),
+    });
   }
 
   let target: unknown;
   try {
     const document = await loadDocument(url, bundle.documents);
-    target = structuredClone(
-      fragment ? readPointer(document, fragment) : document,
-    );
+    target = structuredClone(reference.read(document));
   } catch (error) {
-    throw unresolved(node.$ref, base, error);
+    throw new UnresolvedReferenceError(node.$ref, base, { cause: error });
   }
 
   if (!section) {
@@ -193,16 +192,11 @@ async function visitRef(
   const components: Node = (bundle.spec.components ??= {});
   const registry = (components[section] ??= {});
   if (!isJsonObject(registry)) {
-    throw unresolved(
-      node.$ref,
-      base,
-      new Error(`components.${section} is not an object`),
-    );
+    throw new UnresolvedReferenceError(node.$ref, base, {
+      cause: new Error(`components.${section} is not an object`),
+    });
   }
-  const name = availableName(
-    registry,
-    componentName(location, fragment, section),
-  );
+  const name = availableName(registry, componentName(reference, section));
   registry[name] = target;
   bundle.hoisted.set(key, name);
   registry[name] = await visit(target, type, url.href, bundle);
@@ -324,23 +318,17 @@ async function visitMap(
   }
 }
 
-function componentName(location: string, fragment: string, section: string) {
+function componentName(reference: Reference, section: string) {
   const candidate =
-    lastSegment(fragment) ??
-    lastSegment(location.split('?')[0])?.replace(/\.(json|ya?ml)$/i, '');
+    lastSegment(reference.fragment) ??
+    lastSegment(reference.location.split('?')[0])?.replace(
+      /\.(json|ya?ml)$/i,
+      '',
+    );
   const sanitized = (candidate ?? '').replace(/[^a-zA-Z0-9._-]/g, '');
   return sanitized || `external-${section}`;
 }
 
 function lastSegment(value: string) {
   return value.split('/').filter(Boolean).at(-1);
-}
-
-function unresolved(ref: string, base: string | undefined, error: unknown) {
-  const reason = Error.isError(error) ? error.message : String(error);
-  return new Error(
-    base === undefined
-      ? `Could not resolve $ref ${ref}: ${reason}`
-      : `Could not resolve $ref ${ref} from ${base}: ${reason}`,
-  );
 }

@@ -9,7 +9,7 @@ import type {
 import { methods } from '@sdk-it/core/paths.js';
 import { isRef } from '@sdk-it/core/ref.js';
 
-import { isJsonObject } from './external-documents.js';
+import { isJsonObject } from './json.js';
 import {
   type IR,
   type IRPaths,
