@@ -4,7 +4,9 @@ import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import type { OpenAPIDocument } from '@sdk-it/core';
 
-import { type Documents, isRemote, loadFile } from '../external-documents.js';
+import { Documents } from '../documents/documents.js';
+import { DocumentParseError } from '../documents/errors.js';
+import { isJsonObject } from '../json.js';
 import { bundleDocument } from '../processing-plugins/bundle-external-refs.js';
 import { registerExternalSecuritySchemes } from '../processing-plugins/resolve-security-scheme-uris.js';
 import { convertPostmanToOpenAPI } from './postman/postman-converter.js';
@@ -25,6 +27,10 @@ function isPostman(content: unknown): content is PostmanCollection {
   );
 }
 
+function isDocument(content: unknown): content is OpenAPIObject {
+  return isJsonObject(content);
+}
+
 /**
  * Loads the document at `location` and every document it references, bundled
  * into one spec whose references are all local. `documents` lists the URI of
@@ -33,26 +39,28 @@ function isPostman(content: unknown): content is PostmanCollection {
 export async function loadSpec(
   location: string,
 ): Promise<{ spec: OpenAPIObject; documents: string[] }> {
-  const content = await loadFile<OpenAPIObject | PostmanCollection>(location);
-  const spec: OpenAPIObject = isPostman(content)
-    ? convertPostmanToOpenAPI(content)
-    : content;
+  const documents = Documents.standard();
+  const entry = documentUrl(location);
+  const content = await documents.load(entry);
+  if (!isPostman(content) && !isDocument(content)) {
+    throw new DocumentParseError(entry, {
+      cause: new Error('the document is not a JSON or YAML object'),
+    });
+  }
+  const spec = isPostman(content) ? convertPostmanToOpenAPI(content) : content;
   const document: OpenAPIDocument = spec;
-  const entry = documentUri(location);
   // Relative references inside the document resolve against where it came from.
-  document.$self ??= entry;
-  const documents: Documents = new Map();
+  document.$self ??= entry.href;
   await bundleDocument(document, documents);
   // A scheme URI that fails stays a URI key; toIR reports it as a diagnostic.
   await registerExternalSecuritySchemes(document, documents);
-  return {
-    spec,
-    documents: [...new Set([entry, ...documents.keys()])],
-  };
+  return { spec, documents: documents.uris() };
 }
 
-function documentUri(location: string) {
-  return isRemote(location) || location.startsWith('file:')
-    ? location
-    : pathToFileURL(resolve(location)).href;
+function documentUrl(location: string) {
+  return ['http:', 'https:', 'file:'].some((scheme) =>
+    location.startsWith(scheme),
+  )
+    ? new URL(location)
+    : pathToFileURL(resolve(location));
 }

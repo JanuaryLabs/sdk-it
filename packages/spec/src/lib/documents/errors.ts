@@ -2,6 +2,26 @@ function reason(cause: unknown) {
   return Error.isError(cause) ? cause.message : String(cause);
 }
 
+/** A source could not return the text of the document at `url`, such as an http status that is not ok. */
+export class DocumentReadError extends Error {
+  readonly url: URL;
+  constructor(url: URL, message: string) {
+    super(message);
+    this.name = 'DocumentReadError';
+    this.url = url;
+  }
+}
+
+/** No parser could read the text of the document at `url`. */
+export class DocumentParseError extends Error {
+  readonly url: URL;
+  constructor(url: URL, options: { cause: unknown }) {
+    super(`Could not parse ${url.href}: ${reason(options.cause)}`, options);
+    this.name = 'DocumentParseError';
+    this.url = url;
+  }
+}
+
 /** A `$ref` whose target could not be read. `cause` says why. */
 export class UnresolvedReferenceError extends Error {
   readonly ref: string;

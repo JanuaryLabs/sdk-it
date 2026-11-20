@@ -528,6 +528,34 @@ components:
   assert.deepEqual(spec.paths?.['/records']?.get?.security, [{ key: [] }]);
 });
 
+test('loadSpec lists the document of a security scheme URI that does not exist yet, so a watcher sees it appear', async () => {
+  await using workspace = await new TemporaryFiles().directory(
+    'sdk-it-external-refs-',
+  );
+  const dir = workspace.path;
+  await writeFiles(dir, {
+    'openapi.yaml': `
+openapi: 3.2.0
+info: { title: Records, version: 1.0.0 }
+paths:
+  /records:
+    get:
+      operationId: getRecords
+      security:
+        - './auth.yaml#/components/securitySchemes/key': []
+      responses:
+        '204': { description: OK }
+`,
+  });
+
+  const { documents } = await loadSpec(join(dir, 'openapi.yaml'));
+
+  assert.deepEqual(documents, [
+    pathToFileURL(join(dir, 'openapi.yaml')).href,
+    pathToFileURL(join(dir, 'auth.yaml')).href,
+  ]);
+});
+
 test('a document used by a $ref and a security scheme URI is fetched once across loadSpec and toIR', async () => {
   const requested: (string | undefined)[] = [];
   await using server = await new HttpServer().start((request, response) => {

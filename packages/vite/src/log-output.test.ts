@@ -117,5 +117,7 @@ test('the dev server logs a failed regeneration with its error to stderr', async
   const error = await untilAborted(failed.promise, t.signal);
 
   assert.ok(Error.isError(error));
-  assert.equal(error.name, 'SyntaxError');
+  assert.equal(error.name, 'DocumentParseError');
+  assert.ok(Error.isError(error.cause));
+  assert.equal(error.cause.name, 'SyntaxError');
 });

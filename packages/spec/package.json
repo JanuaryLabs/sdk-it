@@ -43,6 +43,7 @@
     "micromatch": "4.0.8",
     "openapi3-ts": "4.6.2",
     "p-limit": "3.1.0",
+    "p-memoize": "^9.0.0",
     "pluralize": "^8.0.0",
     "stringcase": "^4.3.1",
     "yaml": "^2.7.0"

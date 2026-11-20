@@ -7,13 +7,10 @@ import {
   isRef,
 } from '@sdk-it/core';
 
+import { availableName } from '../bundling/available-name.js';
+import { Documents } from '../documents/documents.js';
 import { UnresolvedSecuritySchemeError } from '../documents/errors.js';
 import { Reference } from '../documents/reference.js';
-import {
-  type Documents,
-  availableName,
-  loadDocument,
-} from '../external-documents.js';
 import { iterateOperations } from '../for-each-operation.js';
 import { isJsonObject } from '../json.js';
 import type { DocumentPlugin } from '../processing.js';
@@ -28,7 +25,10 @@ export function resolveSecuritySchemeUris(): DocumentPlugin {
   return {
     name: 'resolve-security-scheme-uris',
     async process({ spec, report }) {
-      const failures = await registerExternalSecuritySchemes(spec, new Map());
+      const failures = await registerExternalSecuritySchemes(
+        spec,
+        Documents.standard(),
+      );
       for (const failure of failures) {
         report({
           code: 'unresolvable-security-scheme-uri',
@@ -154,7 +154,7 @@ function schemeDocument(
   documents: Documents,
 ) {
   const url = reference.documentIn(spec.$self);
-  return url.href === spec.$self ? spec : loadDocument(url, documents);
+  return url.href === spec.$self ? spec : documents.load(url);
 }
 
 function schemeName(uri: string) {

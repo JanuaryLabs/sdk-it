@@ -1,12 +1,9 @@
 import { type OpenAPIDocument, isRef } from '@sdk-it/core';
 
+import { availableName } from '../bundling/available-name.js';
+import { Documents } from '../documents/documents.js';
 import { UnresolvedReferenceError } from '../documents/errors.js';
 import { Reference } from '../documents/reference.js';
-import {
-  type Documents,
-  availableName,
-  loadDocument,
-} from '../external-documents.js';
 import { isJsonObject } from '../json.js';
 import type { DocumentPlugin } from '../processing.js';
 
@@ -92,7 +89,7 @@ export function bundleExternalRefs(): DocumentPlugin {
   return {
     name: 'bundle-external-refs',
     process({ spec }) {
-      return bundleDocument(spec, new Map());
+      return bundleDocument(spec, Documents.standard());
     },
   };
 }
@@ -176,7 +173,7 @@ async function visitRef(
 
   let target: unknown;
   try {
-    const document = await loadDocument(url, bundle.documents);
+    const document = await bundle.documents.load(url);
     target = structuredClone(reference.read(document));
   } catch (error) {
     throw new UnresolvedReferenceError(node.$ref, base, { cause: error });
