@@ -1,7 +1,7 @@
 import type { SchemaObject } from 'openapi3-ts/oas31';
 
 import type { OpenAPIDocument } from '@sdk-it/core';
-import { followRef, isRef } from '@sdk-it/core/ref.js';
+import { followRef, isRef, resolveRef } from '@sdk-it/core/ref.js';
 
 import { coerceTypes } from './is.js';
 import { subschemas } from './walk-schemas.js';
@@ -63,4 +63,69 @@ function reaches(
     }
   }
   return false;
+}
+
+/**
+ * The property that selects the branch of `schema`'s `oneOf` or `anyOf`, when
+ * the branches are objects that require it and each gives it values no other
+ * branch gives, so at most one branch can match any value. A generator may
+ * then validate by that property, since OpenAPI 3.2 says a `discriminator`
+ * MUST NOT change the validation outcome. Branches that leave the property
+ * open, as the Pet store's `petType: { type: 'string' }`, give `undefined`.
+ */
+export function discriminatorOf(
+  spec: OpenAPIDocument,
+  schema: SchemaObject,
+): string | undefined {
+  const propertyName = schema.discriminator?.propertyName;
+  // Both together keep JSON Schema's meaning of each, which no one zod union has.
+  if (schema.oneOf && schema.anyOf) return undefined;
+  const branches = schema.oneOf ?? schema.anyOf;
+  if (typeof propertyName !== 'string' || !branches?.length) return undefined;
+  const seen = new Set<unknown>();
+  for (const branch of branches) {
+    const values = discriminatorValues(
+      spec,
+      resolveRef(spec, branch),
+      propertyName,
+    );
+    if (!values) return undefined;
+    for (const value of values) {
+      if (seen.has(value)) return undefined;
+      seen.add(value);
+    }
+  }
+  return propertyName;
+}
+
+/** The literal values `branch` gives `propertyName`, when `branch` is an object that requires it. */
+function discriminatorValues(
+  spec: OpenAPIDocument,
+  branch: SchemaObject,
+  propertyName: string,
+): unknown[] | undefined {
+  if (
+    branch.type !== 'object' ||
+    ('nullable' in branch && branch.nullable) ||
+    branch.default !== undefined ||
+    branch.allOf ||
+    branch.anyOf ||
+    branch.oneOf ||
+    !branch.required?.includes(propertyName)
+  ) {
+    return undefined;
+  }
+  const property = branch.properties?.[propertyName];
+  if (!property) return undefined;
+  const { const: value, enum: values } = resolveRef(spec, property);
+  const literals =
+    value !== undefined ? [value] : values?.length ? values : undefined;
+  return literals?.every(isLiteral) ? literals : undefined;
+}
+
+/** A value `z.literal` takes as a discriminator. */
+function isLiteral(value: unknown): boolean {
+  return (
+    value === null || ['string', 'number', 'boolean'].includes(typeof value)
+  );
 }
