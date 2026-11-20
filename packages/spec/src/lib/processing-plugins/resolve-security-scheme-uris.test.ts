@@ -173,6 +173,12 @@ test('reports the URI that failed and leaves the requirement unresolved', async 
       },
     ],
   );
+  const [failure] = diagnostics;
+  assert.ok(failure);
+  assert.match(
+    failure.message,
+    /\.\/auth\.json#\/components\/securitySchemes\/missing/,
+  );
   assert.deepStrictEqual(spec.components.securitySchemes, {});
 });
 
