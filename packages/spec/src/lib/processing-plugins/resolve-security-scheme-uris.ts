@@ -13,7 +13,7 @@ export function resolveSecuritySchemeUris(): DocumentPlugin {
     async process({ spec, report }) {
       const failures = await new ExternalSecuritySchemes(
         spec,
-        Documents.standard(),
+        Documents.standard([]),
       ).register();
       for (const failure of failures) {
         report({

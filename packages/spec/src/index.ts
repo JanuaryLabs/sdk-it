@@ -12,6 +12,7 @@ export * from './lib/documents/document-source.js';
 export * from './lib/documents/documents.js';
 export * from './lib/documents/errors.js';
 export * from './lib/loaders/load-spec.js';
+export * from './lib/loaders/spec-loader.js';
 export * from './lib/metadata.js';
 export * from './lib/operation-input.js';
 export * from './lib/options.js';

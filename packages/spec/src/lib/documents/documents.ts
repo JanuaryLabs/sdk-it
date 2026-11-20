@@ -17,27 +17,35 @@ export interface DocumentsOptions {
   sources: readonly DocumentSource[];
   /** The ones that know a URL's extension are tried in order; for an extension none knows, every parser is. */
   parsers: readonly [DocumentParser, ...DocumentParser[]];
+  /** The value of each document the host already holds, such as an editor's unsaved text; it is never read. */
+  known: Iterable<readonly [URL, unknown]>;
 }
 
 /** The documents of one spec, each read and parsed once by URL. */
 export class Documents {
   readonly #sources: readonly DocumentSource[];
   readonly #parsers: readonly [DocumentParser, ...DocumentParser[]];
+  readonly #values = new Map<string, unknown>();
   readonly #requested = new Set<string>();
   readonly #read = pMemoize((url: URL) => this.#readAndParse(url), {
     cacheKey: ([url]) => url.href,
+    cache: this.#values,
   });
 
   constructor(options: DocumentsOptions) {
     this.#sources = options.sources;
     this.#parsers = options.parsers;
+    for (const [url, value] of options.known) {
+      this.#values.set(url.href, value);
+    }
   }
 
   /** Reads `file:` and `http(s):` URLs and parses JSON and YAML. */
-  static standard() {
+  static standard(known: Iterable<readonly [URL, unknown]>) {
     return new Documents({
       sources: [new FileSource(), new HttpSource()],
       parsers: [new JsonParser(), new YamlParser()],
+      known,
     });
   }
 

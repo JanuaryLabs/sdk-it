@@ -11,7 +11,7 @@ export function bundleExternalRefs(): DocumentPlugin {
   return {
     name: 'bundle-external-refs',
     process({ spec }) {
-      return new ExternalRefBundler(spec, Documents.standard()).bundle();
+      return new ExternalRefBundler(spec, Documents.standard([])).bundle();
     },
   };
 }
