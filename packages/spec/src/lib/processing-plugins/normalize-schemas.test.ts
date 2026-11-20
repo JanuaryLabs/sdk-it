@@ -50,7 +50,7 @@ test('schema normalization preserves the established recursive IR repairs', asyn
     type: 'object',
     properties: {
       count: { type: 'number', default: 3 },
-      status: { type: 'string', const: 'ready', default: 'ready' },
+      status: { type: 'string', const: 'ready' },
     },
   });
   assert.deepStrictEqual(spec.components.schemas.Items, {
@@ -72,7 +72,7 @@ test('schema normalization preserves the established recursive IR repairs', asyn
       !('$ref' in dictionary.additionalProperties),
   );
   assert.deepStrictEqual(dictionary.additionalProperties.properties, {
-    status: { type: 'string', const: 'ready', default: 'ready' },
+    status: { type: 'string', const: 'ready' },
   });
 });
 

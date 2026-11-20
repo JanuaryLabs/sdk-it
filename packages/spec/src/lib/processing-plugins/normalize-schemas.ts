@@ -43,8 +43,12 @@ function normalizeSchemaObjects(
       delete schema.anyOf;
       normalizeSchemaObjects(spec, Object.values(schema.properties), visited);
       for (const [key, value] of Object.entries(schema.properties)) {
-        if (notRef(value) && isPrimitiveSchema(value)) {
-          value.default ??= schema.default?.[key];
+        if (
+          notRef(value) &&
+          isPrimitiveSchema(value) &&
+          schema.default?.[key] !== undefined
+        ) {
+          value.default ??= schema.default[key];
           delete schema.default?.[key];
         }
       }
@@ -96,10 +100,6 @@ function normalizeSchemaObjects(
         schema.enum = valuesList;
       }
       delete schema.allOf;
-    }
-
-    if (schema.const !== undefined) {
-      schema.default = schema.const;
     }
 
     if (!isEmpty(schema.allOf)) {
