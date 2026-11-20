@@ -51,6 +51,8 @@ if (rendered.kind === 'failed') {
 npx tsc --runExternalCode
 ```
 
+`tsc --build` takes `--runExternalCode` too, as Nx's inferred `typecheck` target runs it. A `composite` project must list the document in `include` (for example `"src/**/*.openapi"`), or TypeScript reports TS6307 for the import. The build then also emits a declaration for the document (`<name>.d.openapi.ts`).
+
 In the editor, the TypeScript 7.1 language server runs content mappers when its initialization options set `runExternalCode`.
 
 The mapper takes no options. The names come from the file name before its first `.`: `store.openapi.yaml` exports `store`, `createStore`, `StoreClient`, `StoreSettings` and `StoreEndpoints`, the names `generate` gives an SDK named `store`.

@@ -46,6 +46,8 @@ Use `.openapi.yaml` for a YAML document and `.openapi` for a JSON one. TypeScrip
 npx tsc --runExternalCode
 ```
 
+In a project that `tsc --build` checks, such as one where Nx infers the `typecheck` target, pass `--runExternalCode` to that command too, and list the document in `include` (for example `"src/**/*.openapi"`): a `composite` project refuses an import of a file it does not list (TS6307). The module type-checks under the DOM lib and under Node's types alone (`lib: ["esnext"]` with `@types/node`).
+
 In the editor, the TypeScript 7.1 language server runs content mappers when its initialization options set `runExternalCode`. Go to definition on the client, a model or an endpoint key lands where the document declares it. A document that does not render is reported in the document itself, at its line and column (see the diagnostics in [`@sdk-it/content-mapper`](../../packages/content-mapper/README.md#diagnostics)).
 
 ## Run it with Vite
