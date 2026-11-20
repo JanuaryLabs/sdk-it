@@ -387,7 +387,7 @@ export class RuntimeZodConverter {
         result = result.optional();
       }
     } else if (schema.const !== undefined) {
-      result = z.literal(schema.const);
+      result = constSchema(schema.const);
       if (schema.default === schema.const && required) {
         result = result.default(schema.const);
       }
@@ -500,4 +500,30 @@ function stringLimits(schema: SchemaObject): z.core.$ZodCheck<string>[] {
     limits.push(z.regex(new RegExp(schema.pattern)));
   }
   return limits;
+}
+
+/**
+ * A schema that accepts exactly one JSON value, as JSON Schema compares a
+ * `const`: by value, element by element and key by key, with no other keys.
+ */
+function constSchema(value: unknown): ZodType {
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return z.literal(value);
+  }
+  if (Array.isArray(value)) {
+    const [first, ...rest] = value.map(constSchema);
+    return first === undefined ? z.tuple([]) : z.tuple([first, ...rest]);
+  }
+  if (value !== null && typeof value === 'object') {
+    return z.strictObject(
+      Object.fromEntries(
+        Object.entries(value).map(([key, item]) => [key, constSchema(item)]),
+      ),
+    );
+  }
+  return z.null();
 }

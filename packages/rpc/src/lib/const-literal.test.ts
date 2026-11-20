@@ -118,3 +118,25 @@ test('a const false property refuses true and accepts false', async () => {
     client.request('POST /answers', { answer: false }),
   );
 });
+
+test('an object const accepts exactly its JSON value and refuses any other', async () => {
+  await using dir = await new TemporaryFiles().directory('rpc-const-object-');
+  const client = await clientOf(
+    dir,
+    answers({ const: { x: 1, tags: ['a'] } }, ['answer']),
+  );
+
+  await assert.doesNotReject(
+    client.request('POST /answers', { answer: { x: 1, tags: ['a'] } }),
+  );
+  for (const wrong of [
+    { x: 2, tags: ['a'] },
+    { x: 1, tags: ['a'], y: 0 },
+    { x: 1, tags: ['b'] },
+  ]) {
+    await assert.rejects(
+      client.request('POST /answers', { answer: wrong }),
+      parseErrorFor('answer'),
+    );
+  }
+});
