@@ -18,9 +18,29 @@ import { stripVTControlCharacters } from 'node:util';
 
 import { generateProject, initializeProject } from '@sdk-it/cli';
 import { workspaceDirectory } from '@sdk-it/testing';
+import { generate } from '@sdk-it/typescript';
 
 const repoRoot = join(import.meta.dirname, '..', '..', '..', '..');
 const cliBin = join(repoRoot, 'packages', 'cli', 'dist', 'bin.js');
+
+/** The dependencies that @sdk-it/typescript writes into a generated package. */
+async function generatedClientDependencies(): Promise<Record<string, string>> {
+  await using directory = await new TemporaryFiles().directory(
+    'sdk-it-generated-dependencies-',
+  );
+  await generate(
+    { openapi: '3.1.0', info: { title: 'Empty', version: '1.0.0' }, paths: {} },
+    {
+      output: directory.path,
+      name: 'Empty',
+      packageName: '@acme/empty',
+      readme: false,
+      mode: 'full',
+    },
+  );
+  return JSON.parse(readFileSync(join(directory.path, 'package.json'), 'utf8'))
+    .dependencies;
+}
 
 function runCli(cwd: string, ...args: string[]) {
   return spawnSync(process.execPath, [cliBin, ...args], {
@@ -686,10 +706,7 @@ apps/api/.sdk-it/*
         default: './dist/index.js',
       },
     },
-    dependencies: {
-      'fast-content-type-parse': '^3.0.0',
-      zod: '^4.6.7',
-    },
+    dependencies: await generatedClientDependencies(),
   });
   assert.equal(existsSync(join(workspace, 'sdk-it.config.ts')), false);
   writeFileSync(join(project, '.sdk-it', 'generated.ts'), 'generated');
@@ -1047,10 +1064,7 @@ test('generateProject synchronizes generated package metadata on regeneration', 
 
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   assert.equal(manifest.name, '@example/second-client');
-  assert.deepEqual(manifest.dependencies, {
-    'fast-content-type-parse': '^3.0.0',
-    zod: '^4.6.7',
-  });
+  assert.deepEqual(manifest.dependencies, await generatedClientDependencies());
 });
 
 test('generateProject regenerates the client when its name changes', async () => {
