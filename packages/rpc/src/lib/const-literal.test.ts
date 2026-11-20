@@ -59,3 +59,62 @@ test('a const property accepts its value', async () => {
     client.request('POST /answers', { answer: 'none' }),
   );
 });
+
+function answers(property: object, required: string[]) {
+  return {
+    ...spec,
+    paths: {
+      '/answers': {
+        post: {
+          ...spec.paths['/answers'].post,
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required,
+                  properties: { answer: property },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
+async function clientOf(dir: { path: string }, document: object) {
+  const specPath = join(dir.path, 'spec.json');
+  await writeFile(specPath, JSON.stringify(document));
+  return rpc(specPath, {
+    fetch: async () => new Response(null, { status: 204 }),
+  });
+}
+
+test('a required const with a declared default equal to it is filled when absent', async () => {
+  await using dir = await new TemporaryFiles().directory('rpc-const-default-');
+  const client = await clientOf(
+    dir,
+    answers({ type: 'string', const: 'none', default: 'none' }, ['answer']),
+  );
+
+  await assert.doesNotReject(client.request('POST /answers', {}));
+});
+
+test('a const false property refuses true and accepts false', async () => {
+  await using dir = await new TemporaryFiles().directory('rpc-const-false-');
+  const client = await clientOf(
+    dir,
+    answers({ type: 'boolean', const: false }, ['answer']),
+  );
+
+  await assert.rejects(
+    client.request('POST /answers', { answer: true }),
+    parseErrorFor('answer'),
+  );
+  await assert.doesNotReject(
+    client.request('POST /answers', { answer: false }),
+  );
+});
