@@ -233,6 +233,53 @@ describe('RuntimeZodConverter 64-bit integers', () => {
   });
 });
 
+describe('RuntimeZodConverter array limits', () => {
+  const converter = new RuntimeZodConverter(document);
+
+  test('minItems alone sets the shortest array', () => {
+    const schema = converter.handle(
+      { type: 'array', items: { type: 'string' }, minItems: 1 },
+      true,
+    );
+
+    assert.equal(schema.safeParse([]).success, false);
+    assert.deepEqual(schema.parse(['a']), ['a']);
+    assert.deepEqual(schema.parse(['a', 'b', 'c']), ['a', 'b', 'c']);
+  });
+
+  test('maxItems alone sets the longest array', () => {
+    const schema = converter.handle(
+      { type: 'array', items: { type: 'string' }, maxItems: 2 },
+      true,
+    );
+
+    assert.equal(schema.safeParse(['a', 'b', 'c']).success, false);
+    assert.deepEqual(schema.parse(['a', 'b']), ['a', 'b']);
+    assert.deepEqual(schema.parse([]), []);
+  });
+
+  test('an array without items keeps its length limits', () => {
+    const schema = converter.handle(
+      { type: 'array', minItems: 1, maxItems: 2 },
+      true,
+    );
+
+    assert.equal(schema.safeParse([]).success, false);
+    assert.equal(schema.safeParse([1, 2, 3]).success, false);
+    assert.deepEqual(schema.parse([1]), [1]);
+  });
+
+  test('an array with a default keeps its length limits', () => {
+    const schema = converter.handle(
+      { type: 'array', items: { type: 'string' }, minItems: 1, default: ['x'] },
+      true,
+    );
+
+    assert.deepEqual(schema.parse(undefined), ['x']);
+    assert.equal(schema.safeParse([]).success, false);
+  });
+});
+
 describe('RuntimeZodConverter string limits', () => {
   const converter = new RuntimeZodConverter(document);
 

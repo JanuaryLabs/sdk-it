@@ -52,33 +52,15 @@ export class RuntimeZodConverter {
 
   #array(schema: SchemaObject): ZodType {
     const { items } = schema;
-    if (!items) {
-      let result: ZodType = z.array(z.unknown());
-
-      // Apply default if present
-      if (schema.default !== undefined) {
-        result = z.array(z.unknown()).default(schema.default);
-      }
-
-      return result;
-    }
-
-    // If items is an array => tuple
     if (Array.isArray(items)) {
       const [first, ...rest] = items.map((sub) => this.handle(sub, true));
       return first ? z.tuple([first, ...rest]) : z.tuple([]);
     }
 
-    // If items is a single schema => standard z.array(...)
-    const itemsSchema = this.handle(items, true);
-    let result: ZodType = z.array(itemsSchema);
-
-    // Apply default if present
-    if (schema.default !== undefined) {
-      result = z.array(itemsSchema).default(schema.default);
-    }
-
-    return result;
+    const array = z
+      .array(items ? this.handle(items, true) : z.unknown())
+      .check(...arrayLimits(schema));
+    return schema.default === undefined ? array : array.default(schema.default);
   }
 
   /** One deferred schema per recursive component, shared by every reference to it. */
@@ -433,6 +415,18 @@ export function schemaToZod(
 ): ZodType {
   const converter = new RuntimeZodConverter(spec);
   return converter.handle(schema, options?.required ?? false);
+}
+
+/** JSON Schema's array length keywords, as the checks that zod's own `z.fromJSONSchema` adds. */
+function arrayLimits(schema: SchemaObject): z.core.$ZodCheck<unknown[]>[] {
+  const limits: z.core.$ZodCheck<unknown[]>[] = [];
+  if (typeof schema.minItems === 'number') {
+    limits.push(z.minLength(schema.minItems));
+  }
+  if (typeof schema.maxItems === 'number') {
+    limits.push(z.maxLength(schema.maxItems));
+  }
+  return limits;
 }
 
 /** JSON Schema's string length and pattern keywords, as the checks that zod's own `z.fromJSONSchema` adds. */
