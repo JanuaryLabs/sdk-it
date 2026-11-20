@@ -164,7 +164,12 @@ export class RuntimeZodConverter {
     return z.discriminatedUnion(property, branches);
   }
 
-  enum(type: SchemaObject['type'], values: z.core.util.Literal[]): ZodType {
+  enum(type: SchemaObject['type'], values: unknown[]): ZodType {
+    // An object or array member is compared by JSON value, not by identity.
+    // Members are distinct values, so at most one branch matches.
+    if (!values.every(isLiteral)) {
+      return z.union(values.map(constSchema));
+    }
     if (values.length === 1) {
       return z.literal(values[0]);
     }
@@ -403,9 +408,10 @@ export class RuntimeZodConverter {
       // Apply default if it exists and is in the enum. Only for required
       // schemas: the optional wrapper below must keep shadowing the default
       // (zod v3 semantics), while zod v4 would surface it through .optional().
+      // The enum schema itself decides membership, by JSON value.
       if (
         schema.default !== undefined &&
-        schema.enum.includes(schema.default) &&
+        result.safeParse(schema.default).success &&
         required
       ) {
         result = result.default(schema.default);
@@ -500,6 +506,10 @@ function stringLimits(schema: SchemaObject): z.core.$ZodCheck<string>[] {
     limits.push(z.regex(new RegExp(schema.pattern)));
   }
   return limits;
+}
+
+function isLiteral(value: unknown): value is z.core.util.Literal {
+  return value === null || typeof value !== 'object';
 }
 
 /**
