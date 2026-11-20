@@ -60,7 +60,8 @@
           "@sdk-it/generic",
           "@sdk-it/hono",
           "@sdk-it/rpc",
-          "@sdk-it/runtime"
+          "@sdk-it/runtime",
+          "@sdk-it/content-mapper"
         ]
       },
       "cache": true,

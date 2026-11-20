@@ -1,0 +1,40 @@
+{
+  "name": "@sdk-it/content-mapper",
+  "version": "0.47.0",
+  "private": true,
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JanuaryLabs/sdk-it",
+    "directory": "packages/content-mapper"
+  },
+  "homepage": "https://github.com/JanuaryLabs/sdk-it/tree/main/packages/content-mapper#readme",
+  "exports": {
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "!**/*.tsbuildinfo",
+    "!**/*.test.*"
+  ],
+  "typescript": {
+    "contentMapper": {
+      "exec": [
+        "node",
+        "./dist/server.js"
+      ],
+      "dynamicConfig": false,
+      "compilerOptions": []
+    }
+  },
+  "dependencies": {
+    "@sdk-it/spec": "0.47.0",
+    "@sdk-it/typescript": "0.47.0",
+    "ts-content-mapper": "^0.1.1",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@sdk-it/testing": "*",
+    "vscode-jsonrpc": "^10.0.0"
+  }
+}

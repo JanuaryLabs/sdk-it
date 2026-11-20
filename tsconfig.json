@@ -46,6 +46,9 @@
       "path": "./packages/runtime"
     },
     {
+      "path": "./packages/content-mapper"
+    },
+    {
       "path": "./packages/testing"
     }
   ]
