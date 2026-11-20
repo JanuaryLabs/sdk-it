@@ -52,7 +52,9 @@
   "nx": {
     "includedScripts": [],
     "implicitDependencies": [
-      "@sdk-it/cli"
+      "@sdk-it/cli",
+      "@sdk-it/content-mapper",
+      "@sdk-it/vite"
     ],
     "targets": {
       "check-data-files": {

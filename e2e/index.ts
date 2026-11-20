@@ -1,7 +1,9 @@
 import { execSync } from 'child_process';
-import { rmSync } from 'fs';
+import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import { styleText } from 'node:util';
 import { join } from 'path';
+
+import { clientName } from '@sdk-it/typescript';
 
 interface Failure {
   spec: string;
@@ -34,6 +36,8 @@ function runCommand(
     styleText('dim', `NODE_OPTIONS: ${flags.join(' ')}`),
   );
 
+  const started = performance.now();
+  const elapsed = () => `${((performance.now() - started) / 1000).toFixed(1)}s`;
   try {
     execSync(command, {
       encoding: 'utf-8',
@@ -45,12 +49,107 @@ function runCommand(
       },
     });
     console.log(
-      '\n' + styleText('green', `✓ ${title} completed successfully`) + '\n',
+      '\n' +
+        styleText(
+          'green',
+          `✓ ${title} completed successfully in ${elapsed()}`,
+        ) +
+        '\n',
     );
+    return true;
   } catch {
-    console.log('\n' + styleText('red', `✗ ${title} failed`) + '\n');
+    console.log(
+      '\n' + styleText('red', `✗ ${title} failed after ${elapsed()}`) + '\n',
+    );
     failures.push({ spec, step: title });
+    return false;
   }
+}
+
+// invoke TS compiler script via Node for cross‑platform compatibility
+const tscScript = join('node_modules', '@typescript', 'native', 'bin', 'tsc');
+
+function importSpecInEveryHost(name: string, spec: string) {
+  const dir = join(process.cwd(), '.test-workspaces', `e2e-import-${name}`);
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+
+  const extension = /\.ya?ml$/.test(new URL(spec).pathname)
+    ? '.openapi.yaml'
+    : '.openapi';
+  const document = `${name}${extension}`;
+  const downloaded = runCommand(
+    name,
+    `DOWNLOADING SPEC: ${name}`,
+    `curl -fsSL -o "${join(dir, document)}" "${spec}"`,
+  );
+  if (!downloaded) {
+    return;
+  }
+
+  const client = clientName(name);
+  writeFileSync(
+    join(dir, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        module: 'nodenext',
+        strict: true,
+        noEmit: true,
+        skipLibCheck: true,
+        types: [],
+      },
+      contentMappers: [
+        {
+          package: '@sdk-it/content-mapper',
+          extensions: ['.openapi', '.openapi.yaml'],
+        },
+      ],
+      include: ['main.ts'],
+    }),
+  );
+  writeFileSync(
+    join(dir, 'main.ts'),
+    `import { create${client}, type ${client}Endpoints } from './${document}';
+
+export type Keys = keyof ${client}Endpoints;
+
+if (typeof create${client} !== 'function') {
+  throw new TypeError('create${client} is not a function');
+}
+`,
+  );
+  writeFileSync(
+    join(dir, 'build.mjs'),
+    `import sdkIt from '@sdk-it/vite';
+import { build } from 'vite';
+
+await build({
+  configFile: false,
+  root: import.meta.dirname,
+  logLevel: 'warn',
+  plugins: [sdkIt.imports()],
+  build: { ssr: 'main.ts', outDir: 'dist', emptyOutDir: true },
+});
+await import(new URL('dist/main.js', import.meta.url).href);
+`,
+  );
+
+  runCommand(
+    name,
+    `IMPORT TYPES (tsc + content mapper): ${name}`,
+    `node "${tscScript}" -p "${dir}" --runExternalCode --pretty false`,
+    8096,
+  );
+  runCommand(
+    name,
+    `IMPORT NODE (--import register): ${name}`,
+    `node --import @sdk-it/content-mapper/register "${join(dir, 'main.ts')}"`,
+  );
+  runCommand(
+    name,
+    `IMPORT VITE (sdkIt.imports() build): ${name}`,
+    `node "${join(dir, 'build.mjs')}"`,
+  );
 }
 
 const specs = [
@@ -159,9 +258,7 @@ for (const { spec, name, flags } of filtered) {
     '--no-default-formatter',
     ...(flags ?? []),
   ];
-  // invoke TS compiler script via Node for cross‑platform compatibility
   const tsconfigPath = join(sdkOutput, 'tsconfig.json');
-  const tscScript = join('node_modules', '@typescript', 'native', 'bin', 'tsc');
   const tsc = `node "${tscScript}" -p "${tsconfigPath}"`;
 
   runCommand(
@@ -190,6 +287,8 @@ for (const { spec, name, flags } of filtered) {
     `${tsc} --lib ES2024,DOM --skipLibCheck`,
     8096,
   );
+
+  importSpecInEveryHost(name, spec);
 }
 
 const width = process.stdout.columns || 80;
