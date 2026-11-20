@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/spec",
-  "version": "0.47.1",
+  "version": "0.47.2",
   "repository": {
     "type": "git",
     "url": "https://github.com/JanuaryLabs/sdk-it",
@@ -36,7 +36,7 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.47.1",
+    "@sdk-it/core": "0.47.2",
     "@zukhruf/async": "^0.8.33",
     "@zukhruf/fs": "^0.8.33",
     "lodash-es": "^4.17.21",
