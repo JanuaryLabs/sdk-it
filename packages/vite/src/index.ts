@@ -2,6 +2,7 @@ import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import type { Plugin } from 'vite';
 
 import { DiskSdk, type DiskSdkSettings } from './disk-sdk.ts';
+import { DocumentImports } from './document-imports.ts';
 import { ProjectSdk, type ProjectSdkOptions } from './project.ts';
 import {
   DocumentSpecSource,
@@ -32,6 +33,10 @@ export const sdkIt = {
   /** Generates every client of an sdk-it project config. */
   project(options: ProjectSdkOptions): Plugin {
     return new ProjectSdk(options).toPlugin();
+  },
+  /** Serves `import { store } from './store.openapi.yaml'` as the document's SDK, with no SDK on disk. */
+  imports(): Plugin {
+    return new DocumentImports().toPlugin();
   },
 };
 

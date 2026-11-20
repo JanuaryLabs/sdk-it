@@ -24,6 +24,9 @@
     },
     {
       "path": "../spec/tsconfig.lib.json"
+    },
+    {
+      "path": "../content-mapper/tsconfig.lib.json"
     }
   ]
 }

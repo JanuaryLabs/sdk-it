@@ -8,6 +8,25 @@ Generate a TypeScript SDK during Vite development and builds.
 npm install --save-dev @sdk-it/vite @sdk-it/spec @sdk-it/typescript
 ```
 
+## Import an OpenAPI document
+
+`sdkIt.imports()` serves an imported OpenAPI document as its SDK, with no SDK on disk:
+
+```ts
+// vite.config.ts
+import sdkIt from '@sdk-it/vite';
+
+export default { plugins: [sdkIt.imports()] };
+```
+
+```ts
+import { createStore, store } from './store.openapi.yaml';
+
+const pet = await store.request('GET /pets/{petId}', { petId: 'p1' });
+```
+
+It handles imports that end with `.openapi.yaml`, and `.openapi` for a JSON document. `@sdk-it/content-mapper` renders the module, the same way it gives the import its types in `tsc` and the editor (see its README for the tsconfig `contentMappers` entry), so the types and the running code come from one render. The module's id is the document's path with `.ts` added, so Vite strips its types, in dev and in a build. An edit to the document, or to a file it references through `$ref`, reloads the module. A document referenced over http(s) is read each time the module loads, and is not watched. A document that does not render fails the import with its first diagnostic, at its line and column.
+
 ## Use an OpenAPI file
 
 ```typescript
