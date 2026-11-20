@@ -352,11 +352,6 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
         );
       }
 
-      if (Array.isArray(schema.oneOf) && !schema.anyOf) {
-        schema.anyOf = schema.oneOf;
-        delete schema.oneOf;
-      }
-
       if (
         Array.isArray(schema.anyOf) &&
         schema.anyOf.every(
@@ -532,6 +527,9 @@ export async function evalZod(schema: string, imports: InjectImport[] = []) {
             json.type = 'string';
             json.format = 'date-time';
             json['x-zod-type'] = def.coerce ? 'coerce-date' : 'date';
+          }
+          if (def.type === 'union' && def.discriminator) {
+            json.discriminator = { propertyName: def.discriminator };
           }
           if (def.type === 'bigint') {
             json.type = 'integer';

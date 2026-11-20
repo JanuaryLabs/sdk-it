@@ -164,12 +164,13 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
       });
     });
 
-    test('z.discriminatedUnion emits anyOf of object branches', async () => {
+    test('z.discriminatedUnion emits oneOf of object branches with its discriminator', async () => {
       const { schema } = await evalZod(
         'z.discriminatedUnion("kind", [z.object({ kind: z.literal("a"), a: z.string() }), z.object({ kind: z.literal("b"), b: z.number() })])',
       );
       assert.deepStrictEqual(schema, {
-        anyOf: [
+        discriminator: { propertyName: 'kind' },
+        oneOf: [
           {
             type: 'object',
             properties: {

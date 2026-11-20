@@ -1929,7 +1929,7 @@ describe('zod v3 → v4 migration characterization: composition', () => {
     }
   });
 
-  it('z.discriminatedUnion emits anyOf of object schemas', async () => {
+  it('z.discriminatedUnion emits oneOf of object schemas with its discriminator', async () => {
     const { field } = await requestBodyField(
       bodySource(
         `z.discriminatedUnion('kind', [
@@ -1938,14 +1938,15 @@ describe('zod v3 → v4 migration characterization: composition', () => {
         ])`,
       ),
     );
-    assert.ok(Array.isArray(field.anyOf), 'discriminatedUnion -> anyOf');
-    assert.strictEqual(field.anyOf.length, 2);
+    assert.ok(Array.isArray(field.oneOf), 'discriminatedUnion -> oneOf');
+    assert.strictEqual(field.oneOf.length, 2);
+    assert.deepStrictEqual(field.discriminator, { propertyName: 'kind' });
     assert.strictEqual(
-      inlineSchema(inlineSchema(field.anyOf[0]).properties?.kind).const,
+      inlineSchema(inlineSchema(field.oneOf[0]).properties?.kind).const,
       'a',
     );
     assert.strictEqual(
-      inlineSchema(inlineSchema(field.anyOf[1]).properties?.kind).const,
+      inlineSchema(inlineSchema(field.oneOf[1]).properties?.kind).const,
       'b',
     );
   });
