@@ -22,25 +22,30 @@ export class DocumentParseError extends Error {
   }
 }
 
+/** Where a Reference Object sits: the URI of its document, when that has one, and its JSON Pointer tokens there (RFC 6901, unescaped). */
+export interface ReferenceLocation {
+  readonly document: string | undefined;
+  readonly tokens: readonly string[];
+}
+
 /** A `$ref` whose target could not be read. `cause` says why. */
 export class UnresolvedReferenceError extends Error {
   readonly ref: string;
-  /** The URI of the document that holds the reference, when it has one. */
-  readonly base: string | undefined;
+  readonly location: ReferenceLocation;
   constructor(
     ref: string,
-    base: string | undefined,
+    location: ReferenceLocation,
     options: { cause: unknown },
   ) {
     super(
-      base === undefined
+      location.document === undefined
         ? `Could not resolve $ref ${ref}: ${reason(options.cause)}`
-        : `Could not resolve $ref ${ref} from ${base}: ${reason(options.cause)}`,
+        : `Could not resolve $ref ${ref} from ${location.document}: ${reason(options.cause)}`,
       options,
     );
     this.name = 'UnresolvedReferenceError';
     this.ref = ref;
-    this.base = base;
+    this.location = location;
   }
 }
 

@@ -4,10 +4,10 @@ import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import type { OpenAPIDocument } from '@sdk-it/core';
 
+import { ExternalRefBundler } from '../bundling/external-ref-bundler.js';
 import { Documents } from '../documents/documents.js';
 import { DocumentParseError } from '../documents/errors.js';
 import { isJsonObject } from '../json.js';
-import { bundleDocument } from '../processing-plugins/bundle-external-refs.js';
 import { registerExternalSecuritySchemes } from '../processing-plugins/resolve-security-scheme-uris.js';
 import { convertPostmanToOpenAPI } from './postman/postman-converter.js';
 import type { PostmanCollection } from './postman/spec-types.js';
@@ -51,7 +51,7 @@ export async function loadSpec(
   const document: OpenAPIDocument = spec;
   // Relative references inside the document resolve against where it came from.
   document.$self ??= entry.href;
-  await bundleDocument(document, documents);
+  await new ExternalRefBundler(document, documents).bundle();
   // A scheme URI that fails stays a URI key; toIR reports it as a diagnostic.
   await registerExternalSecuritySchemes(document, documents);
   return { spec, documents: documents.uris() };

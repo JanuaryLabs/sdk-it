@@ -10,7 +10,7 @@ import { Worker } from 'node:worker_threads';
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
 import { isRef } from '@sdk-it/core';
-import { loadSpec, toIR } from '@sdk-it/spec';
+import { UnresolvedReferenceError, loadSpec, toIR } from '@sdk-it/spec';
 
 async function writeFiles(dir: string, files: Record<string, string>) {
   for (const [path, content] of Object.entries(files)) {
@@ -378,6 +378,87 @@ paths:
     loadSpec(join(dir, 'openapi.yaml')),
     /Could not resolve \$ref \.\/missing\.yaml/,
   );
+});
+
+test('an unresolvable $ref rejects with an UnresolvedReferenceError locating the reference in the entry document', async () => {
+  await using workspace = await new TemporaryFiles().directory(
+    'sdk-it-external-refs-',
+  );
+  const dir = workspace.path;
+  await writeFiles(dir, {
+    'openapi.yaml': `
+openapi: 3.1.0
+info: { title: Pets, version: 1.0.0 }
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        '200':
+          description: Pets
+          content:
+            application/json:
+              schema: { $ref: './missing.yaml' }
+`,
+  });
+
+  await assert.rejects(loadSpec(join(dir, 'openapi.yaml')), (error) => {
+    assert.ok(error instanceof UnresolvedReferenceError);
+    assert.deepEqual(error.location, {
+      document: pathToFileURL(join(dir, 'openapi.yaml')).href,
+      tokens: [
+        'paths',
+        '/pets',
+        'get',
+        'responses',
+        '200',
+        'content',
+        'application/json',
+        'schema',
+      ],
+    });
+    return true;
+  });
+});
+
+test('an unresolvable $ref inside an external file is located in that file', async () => {
+  await using workspace = await new TemporaryFiles().directory(
+    'sdk-it-external-refs-',
+  );
+  const dir = workspace.path;
+  await writeFiles(dir, {
+    'openapi.yaml': `
+openapi: 3.1.0
+info: { title: Pets, version: 1.0.0 }
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        '200':
+          description: Pets
+          content:
+            application/json:
+              schema: { $ref: './pet.yaml#/components/schemas/Pet' }
+`,
+    'pet.yaml': `
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        owner: { $ref: './missing.yaml' }
+`,
+  });
+
+  await assert.rejects(loadSpec(join(dir, 'openapi.yaml')), (error) => {
+    assert.ok(error instanceof UnresolvedReferenceError);
+    assert.deepEqual(error.location, {
+      document: pathToFileURL(join(dir, 'pet.yaml')).href,
+      tokens: ['components', 'schemas', 'Pet', 'properties', 'owner'],
+    });
+    return true;
+  });
 });
 
 test('a relative external reference in a spec without $self rejects with a clear message', async () => {
