@@ -72,7 +72,7 @@ export class ZodEmitter {
   #array(schema: SchemaObject, required = false): string {
     const { items } = schema;
     if (!items) {
-      return `z.array(z.unknown())${appendOptional(required)}`;
+      return `z.array(z.unknown())${arrayLimits(schema)}${appendOptional(required)}`;
     }
 
     // If items is an array => tuple
@@ -94,7 +94,7 @@ export class ZodEmitter {
 
     // If items is a single schema => standard z.array(...)
     const itemsSchema = this.handle(items, true);
-    return `z.array(${itemsSchema})${this.#suffixes(JSON.stringify(schema.default), required, false)}`;
+    return `z.array(${itemsSchema})${arrayLimits(schema)}${this.#suffixes(JSON.stringify(schema.default), required, false)}`;
   }
 
   #suffixes = (defaultValue: unknown, required: boolean, nullable: boolean) => {
@@ -459,6 +459,18 @@ function appendDefault(defaultValue?: any) {
   return defaultValue !== undefined || typeof defaultValue !== 'undefined'
     ? `.default(${defaultValue})`
     : '';
+}
+
+/** JSON Schema's array length keywords, mapped as zod's own `z.fromJSONSchema` maps them. */
+function arrayLimits(schema: SchemaObject) {
+  let limits = '';
+  if (typeof schema.minItems === 'number') {
+    limits += `.min(${schema.minItems})`;
+  }
+  if (typeof schema.maxItems === 'number') {
+    limits += `.max(${schema.maxItems})`;
+  }
+  return limits;
 }
 
 /** JSON Schema's string length and pattern keywords, mapped as zod's own `z.fromJSONSchema` maps them. */
