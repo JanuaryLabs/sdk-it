@@ -8,7 +8,13 @@ import { type StoreEndpoints, createStore, store } from './store.openapi.yaml';
 const pet = await store.request('GET /pets/{petId}', { petId: 'p1' });
 ```
 
-It gives types only: TypeScript never emits JavaScript for a mapped file. To run the import, the host that runs the code loads the document too: the Vite plugin `sdkIt.imports()` from `@sdk-it/vite`, and the Node loader (#3106 phase 5). Each host renders the document with this package's `renderDocument`, so the types and the running code come from one render.
+It gives types only: TypeScript never emits JavaScript for a mapped file. To run the import, the host that runs the code loads the document too: the Vite plugin `sdkIt.imports()` from `@sdk-it/vite`, and in Node this package's loader:
+
+```bash
+node --import @sdk-it/content-mapper/register main.ts
+```
+
+The loader renders a `file:` import that ends with `.openapi.yaml` or `.openapi` and gives Node the module as TypeScript, which Node strips. A document that does not render fails the import with `<file>:<line>:<column>: <message>`. Node's load hook is synchronous, so a worker thread renders while the hook waits (zukhruf #4966 will own that bridge). Each host renders the document with this package's `renderDocument`, so the types and the running code come from one render.
 
 ## Render a document in another host
 
