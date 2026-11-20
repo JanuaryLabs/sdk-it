@@ -43,6 +43,19 @@ test('a .json spec file whose text is not JSON rejects with a DocumentParseError
   );
 });
 
+test('a spec file that holds a YAML list rejects with a DocumentParseError naming the file', async () => {
+  await using dir = await new TemporaryFiles().directory('sdk-it-load-spec-');
+  const file = join(dir.path, 'openapi.yaml');
+  await writeFile(file, '- openapi: 3.1.0\n');
+
+  await assert.rejects(
+    loadSpec(file),
+    (error: Error) =>
+      error instanceof DocumentParseError &&
+      error.message.includes(pathToFileURL(file).href),
+  );
+});
+
 test('a .json spec file is read as JSON only, so YAML text in it rejects with a DocumentParseError', async () => {
   await using dir = await new TemporaryFiles().directory('sdk-it-load-spec-');
   const file = join(dir.path, 'openapi.json');

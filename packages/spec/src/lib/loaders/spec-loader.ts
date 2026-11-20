@@ -44,7 +44,7 @@ function isPostman(content: unknown): content is PostmanCollection {
 }
 
 function isDocument(content: unknown): content is OpenAPIObject {
-  return isJsonObject(content);
+  return isJsonObject(content) && !Array.isArray(content);
 }
 
 /** Reads an entry document through `documents` and bundles every document it references into it. */
