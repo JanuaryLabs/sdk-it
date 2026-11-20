@@ -64,6 +64,20 @@ app.post(
     client.request('POST /patients', { medications: {} }),
     parseErrorFor('medications'),
   );
+  await assert.rejects(
+    client.request('POST /patients', { medications: { answer: 'maybe' } }),
+    (error: {
+      name: string;
+      data: { fieldErrors: { medications: { path: unknown[] }[] } };
+    }) => {
+      assert.equal(error.name, 'ParseError');
+      assert.deepEqual(
+        error.data.fieldErrors.medications.map((issue) => issue.path),
+        [['medications', 'answer']],
+      );
+      return true;
+    },
+  );
   await assert.doesNotReject(
     client.request('POST /patients', { medications: { answer: 'none' } }),
   );

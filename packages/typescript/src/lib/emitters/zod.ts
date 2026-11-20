@@ -7,7 +7,7 @@ import {
   isRef,
   parseRef,
 } from '@sdk-it/core';
-import { isInlinable, isRecursiveRef } from '@sdk-it/spec';
+import { discriminatorOf, isInlinable, isRecursiveRef } from '@sdk-it/spec';
 
 import type { ModelNamer } from '../model-name.ts';
 import type { References } from '../references.ts';
@@ -203,22 +203,45 @@ export class ZodEmitter {
     return `${this.#toIntersection(allOfSchemas)}${appendOptional(required)}`;
   }
 
-  anyOf(schemas: (SchemaObject | ReferenceObject)[], required: boolean) {
-    const anyOfSchemas = schemas.map((sub) => this.handle(sub, true));
+  anyOf(schema: SchemaObject, required: boolean) {
+    const anyOfSchemas = (schema.anyOf ?? []).map((sub) =>
+      this.handle(sub, true),
+    );
     if (anyOfSchemas.length === 1) {
       return `${anyOfSchemas[0]}${appendOptional(required)}`;
+    }
+    const discriminated = this.#discriminatedUnion(schema, anyOfSchemas);
+    if (discriminated) {
+      return `${discriminated}${appendOptional(required)}`;
     }
     return `z.union([${anyOfSchemas.join(', ')}])${appendOptional(required)}`;
   }
 
-  oneOf(schemas: (SchemaObject | ReferenceObject)[], required: boolean) {
-    const oneOfSchemas = schemas.map((sub) => this.handle(sub, true));
+  oneOf(schema: SchemaObject, required: boolean) {
+    const oneOfSchemas = (schema.oneOf ?? []).map((sub) =>
+      this.handle(sub, true),
+    );
     if (oneOfSchemas.length === 1) {
       return `${oneOfSchemas[0]}${appendOptional(required)}`;
+    }
+    const discriminated = this.#discriminatedUnion(schema, oneOfSchemas);
+    if (discriminated) {
+      return `${discriminated}${appendOptional(required)}`;
     }
     // oneOf is exclusive-or per JSON Schema; z.xor rejects values matching
     // more than one branch, unlike z.union's anyOf semantics.
     return `z.xor([${oneOfSchemas.join(', ')}])${appendOptional(required)}`;
+  }
+
+  /**
+   * `branches` as a zod discriminated union, which reports an issue at the
+   * discriminator, when the spec says that validates the same values.
+   */
+  #discriminatedUnion(schema: SchemaObject, branches: string[]) {
+    const property = discriminatorOf(this.#spec, schema);
+    return property === undefined
+      ? undefined
+      : `z.discriminatedUnion(${JSON.stringify(property)}, [${branches.join(', ')}])`;
   }
 
   enum(values: any[]) {
@@ -385,12 +408,12 @@ export class ZodEmitter {
 
     // anyOf → union
     if (schema.anyOf && Array.isArray(schema.anyOf)) {
-      return this.anyOf(schema.anyOf ?? [], required);
+      return this.anyOf(schema, required);
     }
 
     // oneOf → union
     if (schema.oneOf && Array.isArray(schema.oneOf) && schema.oneOf.length) {
-      return this.oneOf(schema.oneOf ?? [], required);
+      return this.oneOf(schema, required);
     }
 
     if (schema.const !== undefined) {
