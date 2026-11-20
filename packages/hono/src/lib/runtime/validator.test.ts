@@ -220,6 +220,20 @@ describe('hono validator: content-type handling', () => {
       });
       assert.equal(accepted.status, 200);
       assert.deepEqual(await accepted.json(), { reached: true });
+      // RFC 9110 §8.3.1 allows an empty parameter and whitespace around ";".
+      for (const contentType of [
+        'application/json;',
+        'application/json; ;charset=utf-8',
+        'application/json\t;\tcharset=utf-8',
+      ]) {
+        const valid = await app.request('/', {
+          method: 'POST',
+          headers: { 'content-type': contentType },
+          body: '{}',
+        });
+        assert.equal(valid.status, 200, contentType);
+        assert.deepEqual(await valid.json(), { reached: true });
+      }
     }
     for (const [actual, detail] of [
       [undefined, 'Missing content type header'],

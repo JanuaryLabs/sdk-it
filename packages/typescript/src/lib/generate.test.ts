@@ -11,6 +11,7 @@ import { pathToFileURL } from 'node:url';
 import { createContext, runInContext } from 'node:vm';
 import type { OpenAPIObject, SchemaObject } from 'openapi3-ts/oas31';
 
+import runtime from '@sdk-it/runtime/package.json' with { type: 'json' };
 import { loadSpec } from '@sdk-it/spec';
 import { typecheck, workspaceDirectory } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
@@ -2856,4 +2857,29 @@ export const entry: Index = { name: 'a' };
     typecheck(join(directory.path, 'tsconfig.json')).diagnostics,
     [],
   );
+});
+
+test('a generated package asks for the content type parser its runtime is built with', async () => {
+  await using directory = await new TemporaryFiles().directory(
+    'generate-runtime-dependencies-',
+  );
+  await generate(
+    { openapi: '3.1.0', info: { title: 'Empty', version: '1.0.0' }, paths: {} },
+    {
+      output: directory.path,
+      name: 'Empty',
+      packageName: '@acme/empty',
+      readme: false,
+      mode: 'full',
+    },
+  );
+
+  const packageJson: { dependencies: Record<string, string> } = JSON.parse(
+    readFileSync(join(directory.path, 'package.json'), 'utf8'),
+  );
+  const range = runtime.dependencies['fast-content-type-parse'];
+  assert.equal(packageJson.dependencies['fast-content-type-parse'], range);
+  // Version 4 parses what RFC 9110 allows: an empty parameter and whitespace
+  // around ";".
+  assert.match(range, /^\^4\./);
 });

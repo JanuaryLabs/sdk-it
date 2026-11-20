@@ -222,6 +222,29 @@ void test('a vendor +json response resolves to the parsed JSON', async () => {
   assert.deepEqual(repo, { full_name: 'octo/hello' });
 });
 
+// RFC 9110 §8.3.1 allows an empty parameter and whitespace around ";".
+void test.each(
+  [
+    'application/json;',
+    'application/json; ;charset=utf-8',
+    'application/json\t;\tcharset=utf-8',
+  ],
+  (contentType) =>
+    test(`a JSON response sent as ${JSON.stringify(contentType)} resolves to the parsed JSON`, async () => {
+      await using workspace = await workspaceDirectory('json-rfc9110-');
+      const { client } = await generateClient(
+        workspace.path,
+        new Response(JSON.stringify({ full_name: 'octo/hello' }), {
+          headers: { 'Content-Type': contentType },
+        }),
+      );
+
+      const repo = await client.request('GET /repos/current', {});
+
+      assert.deepEqual(repo, { full_name: 'octo/hello' });
+    }),
+);
+
 void test('a JSON attachment resolves to the parsed JSON its type declares', async () => {
   await using workspace = await workspaceDirectory('attachment-json-');
   const { client } = await generateClient(
