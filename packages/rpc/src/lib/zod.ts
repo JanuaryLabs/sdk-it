@@ -337,6 +337,14 @@ export class RuntimeZodConverter {
       if (!required) {
         result = result.optional();
       }
+    } else if (schema.const !== undefined) {
+      result = z.literal(schema.const);
+      if (schema.default === schema.const && required) {
+        result = result.default(schema.const);
+      }
+      if (!required) {
+        result = result.optional();
+      }
     }
 
     // enum

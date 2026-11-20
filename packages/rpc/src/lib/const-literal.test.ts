@@ -1,0 +1,61 @@
+import { TemporaryFiles } from '@zukhruf/fs';
+import assert from 'node:assert/strict';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { test } from 'node:test';
+
+import { rpc } from '@sdk-it/rpc';
+import { parseErrorFor } from '@sdk-it/testing';
+
+const spec = {
+  openapi: '3.1.0',
+  info: { title: 'Const', version: '1.0.0' },
+  servers: [{ url: 'https://api.example.com' }],
+  paths: {
+    '/answers': {
+      post: {
+        operationId: 'answer',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['answer'],
+                properties: { answer: { type: 'string', const: 'none' } },
+              },
+            },
+          },
+        },
+        responses: { '204': { description: 'No Content' } },
+      },
+    },
+  },
+};
+
+async function constClient(dir: { path: string }) {
+  const specPath = join(dir.path, 'spec.json');
+  await writeFile(specPath, JSON.stringify(spec));
+  return rpc(specPath, {
+    fetch: async () => new Response(null, { status: 204 }),
+  });
+}
+
+test('a const property rejects any other value before a request is sent', async () => {
+  await using dir = await new TemporaryFiles().directory('rpc-const-');
+  const client = await constClient(dir);
+
+  await assert.rejects(
+    client.request('POST /answers', { answer: 'maybe' }),
+    parseErrorFor('answer'),
+  );
+});
+
+test('a const property accepts its value', async () => {
+  await using dir = await new TemporaryFiles().directory('rpc-const-');
+  const client = await constClient(dir);
+
+  await assert.doesNotReject(
+    client.request('POST /answers', { answer: 'none' }),
+  );
+});
