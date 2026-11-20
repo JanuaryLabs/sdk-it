@@ -388,8 +388,8 @@ export class RuntimeZodConverter {
       }
     } else if (schema.const !== undefined) {
       result = constSchema(schema.const);
-      if (schema.default === schema.const && required) {
-        result = result.default(schema.const);
+      if (schema.default !== undefined && required) {
+        result = result.default(schema.default);
       }
       if (!required) {
         result = result.optional();
