@@ -231,7 +231,6 @@ export async function generate(
       '/tsconfig*.json',
       '/package.json',
       '/metadata.json',
-      '/**/index.ts',
     ]);
   }
 

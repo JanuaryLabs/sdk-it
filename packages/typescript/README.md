@@ -236,6 +236,29 @@ await generate(spec, {
 });
 ```
 
+## Regenerate into the same folder
+
+Each run writes `metadata.json` into the source folder (`output`, or
+`<output>/src` in `full` mode). It lists the files that the run generated
+(`generatedFiles`) and globs for your own files (`userFiles`, by default
+`/dist/**`, `/build/**` and `/readme.md`), relative to that folder. The next
+run deletes every file that it does not write and that no `userFiles` glob
+matches, an `index.ts` included, so the files of a folder that a newer version
+or a changed spec no longer generates go away. `package.json`, `tsconfig*.json` and
+`metadata.json` stay.
+
+To keep a file of your own, add its glob to `userFiles`:
+
+```json
+{
+  "userFiles": ["/dist/**", "/build/**", "/readme.md", "/models/extra/**"]
+}
+```
+
+The generated index files export the user files that stay. `cleanup: false`
+keeps every file in the folder, including the ones that the spec no longer
+generates.
+
 ## Framework integrations
 
 - [React Query](../../docs/react-query.md)
