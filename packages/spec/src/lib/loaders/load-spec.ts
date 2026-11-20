@@ -5,10 +5,10 @@ import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import type { OpenAPIDocument } from '@sdk-it/core';
 
 import { ExternalRefBundler } from '../bundling/external-ref-bundler.js';
+import { ExternalSecuritySchemes } from '../bundling/external-security-schemes.js';
 import { Documents } from '../documents/documents.js';
 import { DocumentParseError } from '../documents/errors.js';
 import { isJsonObject } from '../json.js';
-import { registerExternalSecuritySchemes } from '../processing-plugins/resolve-security-scheme-uris.js';
 import { convertPostmanToOpenAPI } from './postman/postman-converter.js';
 import type { PostmanCollection } from './postman/spec-types.js';
 
@@ -53,7 +53,7 @@ export async function loadSpec(
   document.$self ??= entry.href;
   await new ExternalRefBundler(document, documents).bundle();
   // A scheme URI that fails stays a URI key; toIR reports it as a diagnostic.
-  await registerExternalSecuritySchemes(document, documents);
+  await new ExternalSecuritySchemes(document, documents).register();
   return { spec, documents: documents.uris() };
 }
 
