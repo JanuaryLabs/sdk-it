@@ -69,3 +69,39 @@ test('a discriminated union body property is documented as oneOf with its discri
     discriminator: { propertyName: 'answer' },
   });
 });
+
+test('an exclusive union body property is documented as oneOf without a discriminator', async () => {
+  await using dir = await analysisWorkspace('exclusive-union-', {
+    'route.ts': `import { Hono } from 'hono';
+import { z } from 'zod';
+import { validate } from '@sdk-it/hono/runtime';
+
+export const app = new Hono();
+
+/**
+ * @openapi pickOne
+ */
+app.post('/picks', validate('application/json', (payload) => ({
+  pick: {
+    select: payload.body.pick,
+    against: z.xor([z.object({ a: z.string() }), z.object({ b: z.number() })]),
+  },
+})), (c) => c.body(null, 204));
+`,
+  });
+  using project = openAnalysisProject(dir.tsconfig);
+  const { paths, components } = JSON.parse(
+    JSON.stringify(await analyze(project, { responseAnalyzer })),
+  );
+
+  const body =
+    paths['/picks'].post.requestBody.content['application/json'].schema;
+  const resolve = (schema: { $ref?: string }) =>
+    schema.$ref
+      ? components.schemas[schema.$ref.replace('#/components/schemas/', '')]
+      : schema;
+  const pick = resolve(resolve(body).properties.pick);
+  assert.equal(pick.oneOf.length, 2);
+  assert.equal(pick.anyOf, undefined);
+  assert.equal(pick.discriminator, undefined);
+});
