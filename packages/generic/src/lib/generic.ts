@@ -23,6 +23,7 @@ import {
   isFunctionExpression,
   isGetAccessorDeclaration,
   isIdentifier,
+  isImportDeclaration,
   isMethodDeclaration,
   isNamespaceImport,
   isNewExpression,
@@ -35,6 +36,7 @@ import {
   isReturnStatement,
   isSatisfiesExpression,
   isSetAccessorDeclaration,
+  isSourceFile,
   isSpreadElement,
   isStringLiteral,
   isStringLiteralLikeNode,
@@ -49,6 +51,7 @@ import {
   type Symbol as TsSymbol,
 } from '@typescript/native/sync';
 import { realpathSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { debuglog } from 'node:util';
 import type { SecurityRequirementObject } from 'openapi3-ts/oas31';
@@ -765,7 +768,7 @@ function visit(
         ? contentType.text
         : undefined
       : undefined,
-    toSelectors(props),
+    toSelectors(props, typeChecker, sourceFile.fileName),
     responses,
     sourceFile.fileName,
     {
@@ -783,7 +786,11 @@ function visit(
   }
 }
 
-function toSelectors(props: PropertyAssignment[]) {
+function toSelectors(
+  props: PropertyAssignment[],
+  typeChecker: Checker,
+  fileName: string,
+) {
   const selectors: Selector[] = [];
   for (const prop of props) {
     if (!isObjectLiteralExpression(prop.initializer)) {
@@ -808,10 +815,10 @@ function toSelectors(props: PropertyAssignment[]) {
       );
       continue;
     }
-    const selector = toSelector(
-      select.initializer,
-      against.initializer.getText(),
-    );
+    const selector = toSelector(select.initializer, {
+      against: against.initializer.getText(),
+      imports: namespaceImports(against.initializer, typeChecker, fileName),
+    });
     if (!selector) {
       console.warn(
         `⚠ Unsupported select in ${name}: ${select.initializer.getText()}. Select payload.body or one value, such as payload.params.id or payload.headers['x-id'].\n  at ${nodeLocation(prop) ?? 'unknown'}`,
@@ -827,9 +834,14 @@ function toSelectors(props: PropertyAssignment[]) {
  * `payload.body` selects the whole body; `payload.<source>.<name>` and
  * `payload.<source>['<name>']` select one value.
  */
-function toSelector(select: Expression, against: string): Selector | undefined {
+function toSelector(
+  select: Expression,
+  validation: Pick<Selector, 'against' | 'imports'>,
+): Selector | undefined {
   if (isPropertyAccessExpression(select) && isIdentifier(select.expression)) {
-    return select.name.text === 'body' ? { kind: 'body', against } : undefined;
+    return select.name.text === 'body'
+      ? { kind: 'body', ...validation }
+      : undefined;
   }
   if (
     !isPropertyAccessExpression(select) &&
@@ -847,7 +859,50 @@ function toSelector(select: Expression, against: string): Selector | undefined {
   ) {
     return undefined;
   }
-  return { kind: 'field', source: owner.name.text, name, against };
+  return { kind: 'field', source: owner.name.text, name, ...validation };
+}
+
+/**
+ * The `import * as <name>` namespaces of its own file that an `against`
+ * expression reads, each as the file TypeScript resolved, or, for a module
+ * that only ships declarations, as Node resolves it from that file. `z` stays
+ * out: evalZod binds it to zod itself.
+ */
+function namespaceImports(
+  expression: Expression,
+  typeChecker: Checker,
+  fileName: string,
+): InjectImport[] {
+  const imports = new Map<string, InjectImport>();
+  const collect = (node: Node): void => {
+    if (isIdentifier(node) && node.text !== 'z' && !imports.has(node.text)) {
+      const namespaceImport = typeChecker
+        .getSymbolAtLocation(node)
+        ?.declarations.find(isNamespaceImport.Handle)
+        ?.resolve();
+      const importDeclaration = namespaceImport?.parent.parent;
+      if (
+        importDeclaration &&
+        isImportDeclaration(importDeclaration) &&
+        isStringLiteral(importDeclaration.moduleSpecifier)
+      ) {
+        const specifier = importDeclaration.moduleSpecifier;
+        const module = typeChecker
+          .getSymbolAtLocation(specifier)
+          ?.valueDeclaration?.resolve();
+        imports.set(node.text, {
+          import: node.text,
+          from:
+            module && isSourceFile(module) && !module.isDeclarationFile
+              ? module.fileName
+              : createRequire(fileName).resolve(specifier.text),
+        });
+      }
+    }
+    node.forEachChild(collect);
+  };
+  collect(expression);
+  return [...imports.values()];
 }
 
 function memberName(node: Expression): string | undefined {

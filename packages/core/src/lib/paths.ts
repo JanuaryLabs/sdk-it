@@ -56,18 +56,22 @@ const semanticSourceToOpenAPI = {
   headers: 'header',
   params: 'path',
 } as const;
+interface Validation {
+  against: string;
+  /** The `import * as <name>` namespaces of its own file that `against` reads. */
+  imports: InjectImport[];
+}
+
 /** A validator entry that selects one named value, such as `payload.params.id`. */
-export interface FieldSelector {
+export interface FieldSelector extends Validation {
   kind: 'field';
   source: SemanticSource;
   name: string;
-  against: string;
 }
 
 /** A validator entry that selects the whole request body: `payload.body`. */
-export interface BodySelector {
+export interface BodySelector extends Validation {
   kind: 'body';
-  against: string;
 }
 
 export type Selector = FieldSelector | BodySelector;
@@ -269,7 +273,13 @@ export class Paths {
       components: Record<string, SchemaObject>;
     };
     try {
-      evaluated = await evalZod(selector.against, this.#imports);
+      evaluated = await evalZod(selector.against, [
+        ...this.#imports.filter(
+          (configured) =>
+            !selector.imports.some((own) => own.import === configured.import),
+        ),
+        ...selector.imports,
+      ]);
     } catch (error) {
       if (!Error.isError(error)) {
         throw error;
