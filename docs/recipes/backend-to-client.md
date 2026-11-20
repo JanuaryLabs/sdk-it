@@ -132,7 +132,7 @@ import { defineConfig } from 'vite';
 import sdkIt from '@sdk-it/vite';
 
 export default defineConfig({
-  plugins: [sdkIt()],
+  plugins: [sdkIt.project({})],
 });
 ```
 
@@ -141,7 +141,7 @@ It generates at development-server setup and before production builds. It does n
 Pass a config path when Vite cannot discover the workspace config from its root:
 
 ```ts
-sdkIt({
+sdkIt.project({
   config: '../backend/sdk-it.config.ts',
 });
 ```

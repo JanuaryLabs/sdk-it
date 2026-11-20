@@ -17,7 +17,7 @@ import sdkIt from '@sdk-it/vite';
 
 export default defineConfig({
   plugins: [
-    sdkIt('./openapi.yaml', {
+    sdkIt.file('./openapi.yaml', {
       output: './src/sdk',
       name: 'Example',
       packageName: '@acme/example-client',
@@ -53,11 +53,11 @@ import { defineConfig } from 'vite';
 import sdkIt from '@sdk-it/vite';
 
 export default defineConfig({
-  plugins: [sdkIt()],
+  plugins: [sdkIt.project({})],
 });
 ```
 
 Project mode loads the SDK-IT project config and uses the same generation
 path as the CLI. Install `@sdk-it/cli` alongside the plugin for this mode.
-Pass `sdkIt({ config: 'config/sdk-it.ts' })` to use a non-default config
+Pass `sdkIt.project({ config: 'config/sdk-it.ts' })` to use a non-default config
 location.

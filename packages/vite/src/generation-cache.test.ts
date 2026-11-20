@@ -75,23 +75,21 @@ void test.each(['object', 'file', 'function'] as const, (source) =>
         join(workspace.path, 'openapi.json'),
         JSON.stringify(document),
       );
+      const settings = {
+        name: 'Example',
+        packageName: '@acme/example-client',
+        output,
+        readme: false,
+        formatCode: () => {
+          formatted.push(operation);
+        },
+      };
       await buildWith(
-        sdkIt(
-          source === 'object'
-            ? document
-            : source === 'file'
-              ? 'openapi.json'
-              : async () => 'openapi.json',
-          {
-            name: 'Example',
-            packageName: '@acme/example-client',
-            output,
-            readme: false,
-            formatCode: () => {
-              formatted.push(operation);
-            },
-          },
-        ),
+        source === 'object'
+          ? sdkIt.document(document, settings)
+          : source === 'file'
+            ? sdkIt.file('openapi.json', settings)
+            : sdkIt.lazy(async () => 'openapi.json', settings),
         workspace.path,
       );
       snapshots.push(await readFile(join(output, 'api', 'example.ts'), 'utf8'));
@@ -129,7 +127,7 @@ test('concurrent different specs serialize writes and formatting for one output'
   const results = await Promise.allSettled(
     ['getAlpha', 'getBeta', 'getGamma'].map((operation) =>
       buildWith(
-        sdkIt(spec(operation), {
+        sdkIt.document(spec(operation), {
           name: 'Example',
           packageName: '@acme/example-client',
           output: operation === 'getBeta' ? `${output}/.` : output,
@@ -185,7 +183,7 @@ void test.each([false, true], (failFirst) =>
     const release = Promise.withResolvers<void>();
     const formatted: string[] = [];
     const firstFailure = new Error('first formatter failed');
-    const alpha = sdkIt(spec('getAlpha'), {
+    const alpha = sdkIt.document(spec('getAlpha'), {
       name: 'Example',
       packageName: '@acme/example-client',
       output,
@@ -199,7 +197,7 @@ void test.each([false, true], (failFirst) =>
         }
       },
     });
-    const beta = sdkIt(spec('getBeta'), {
+    const beta = sdkIt.document(spec('getBeta'), {
       name: 'Example',
       packageName: '@acme/example-client',
       output,

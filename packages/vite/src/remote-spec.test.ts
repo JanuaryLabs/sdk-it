@@ -43,7 +43,7 @@ test('a build generates the SDK from a spec served over http', async () => {
       write: false,
     },
     plugins: [
-      sdkIt(`${server.origin}/openapi.json`, {
+      sdkIt.file(`${server.origin}/openapi.json`, {
         name: 'Example',
         packageName: '@acme/example-client',
         output: join(app, 'sdk'),

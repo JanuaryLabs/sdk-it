@@ -40,7 +40,7 @@ await build({
   root,
   logLevel: 'silent',
   build: { rollupOptions: { input: join(root, 'main.js') }, write: false },
-  plugins: [sdkIt('openapi.json', { name: 'Example', packageName: '@acme/example-client', output: join(root, 'sdk'), cleanup: false, readme: false })],
+  plugins: [sdkIt.file('openapi.json', { name: 'Example', packageName: '@acme/example-client', output: join(root, 'sdk'), cleanup: false, readme: false })],
 });
 `,
   );
@@ -101,7 +101,7 @@ test('the dev server logs a failed regeneration with its error to stderr', async
     logLevel: 'silent',
     server: { middlewareMode: true },
     plugins: [
-      sdkIt('openapi.json', {
+      sdkIt.file('openapi.json', {
         name: 'Example',
         packageName: '@acme/example-client',
         output: join(app, 'sdk'),

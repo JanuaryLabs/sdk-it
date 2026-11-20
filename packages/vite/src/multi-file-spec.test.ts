@@ -101,7 +101,7 @@ function generatedModels() {
 }
 
 function plugin(output: string, writer: ReturnType<typeof generatedModels>) {
-  return sdkIt('../api/openapi.yaml', {
+  return sdkIt.file('../api/openapi.yaml', {
     name: 'Example',
     packageName: '@acme/example-client',
     output,

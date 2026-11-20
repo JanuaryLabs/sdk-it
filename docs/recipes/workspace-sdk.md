@@ -104,7 +104,7 @@ import sdkIt from '@sdk-it/vite';
 
 export default defineConfig({
   plugins: [
-    sdkIt('./openapi.json', {
+    sdkIt.file('./openapi.json', {
       output: '.sdk-it',
       mode: 'full',
       name: 'myApi',

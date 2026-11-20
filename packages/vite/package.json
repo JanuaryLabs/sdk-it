@@ -38,7 +38,6 @@
   "devDependencies": {
     "@sdk-it/core": "0.47.1",
     "@sdk-it/testing": "*",
-    "@zukhruf/async": "^0.8.33",
     "@zukhruf/fs": "^0.8.33"
   },
   "peerDependencies": {
@@ -52,5 +51,9 @@
     "@sdk-it/cli": {
       "optional": true
     }
+  },
+  "dependencies": {
+    "@zukhruf/mutex": "^0.8.43",
+    "@zukhruf/async": "^0.8.33"
   }
 }

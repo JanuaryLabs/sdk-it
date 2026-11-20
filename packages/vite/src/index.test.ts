@@ -124,7 +124,7 @@ app.get(
       new TemporaryFiles().directory('vite-test-'),
     );
     const root = workspace.path;
-    const plugin = sdkIt(minimalSpec, {
+    const plugin = sdkIt.document(minimalSpec, {
       name: 'Example',
       packageName: '@acme/example-client',
       output: join(root, 'sdk'),
@@ -156,7 +156,7 @@ app.get(
     writeFileSync(specPath, JSON.stringify(minimalSpec));
 
     const tracker = trackingWriter();
-    const plugin = sdkIt(async () => 'openapi.json', {
+    const plugin = sdkIt.lazy(async () => 'openapi.json', {
       name: 'Example',
       packageName: '@acme/example-client',
       output: join(tempDir, 'sdk'),
@@ -181,7 +181,7 @@ app.get(
     const output = join(root, 'sdk');
     const tracker = trackingWriter();
 
-    const pluginA = sdkIt(minimalSpec, {
+    const pluginA = sdkIt.document(minimalSpec, {
       name: 'Example',
       packageName: '@acme/example-client',
       output,
@@ -194,7 +194,7 @@ app.get(
     const firstWrites = tracker.calls;
 
     tracker.reset();
-    const pluginB = sdkIt(
+    const pluginB = sdkIt.document(
       { ...minimalSpec, info: { title: 'Different', version: '2.0.0' } },
       {
         name: 'Example',
@@ -221,7 +221,7 @@ app.get(
     );
     const root = workspace.path;
     const tracker = trackingWriter();
-    const plugin = sdkIt(minimalSpec, {
+    const plugin = sdkIt.document(minimalSpec, {
       name: 'Example',
       packageName: '@acme/example-client',
       output: join(root, 'sdk'),
@@ -238,7 +238,7 @@ app.get(
       new TemporaryFiles().directory('vite-test-'),
     );
     const root2 = workspace2.path;
-    const plugin2 = sdkIt(
+    const plugin2 = sdkIt.document(
       { ...minimalSpec, info: { title: 'Concurrent', version: '2.0.0' } },
       {
         name: 'Example',
@@ -269,7 +269,7 @@ app.get(
     );
     const root = workspace.path;
     const tracker = trackingWriter();
-    const plugin = sdkIt(minimalSpec, {
+    const plugin = sdkIt.document(minimalSpec, {
       name: 'Example',
       packageName: '@acme/example-client',
       output: join(root, 'sdk'),
@@ -278,7 +278,14 @@ app.get(
       readme: false,
     });
 
-    const server = await serveWith(plugin, root);
+    // A middleware-mode server runs buildStart while it is created.
+    const server = await createServer({
+      configFile: false,
+      root,
+      logLevel: 'silent',
+      server: { middlewareMode: true },
+      plugins: [plugin],
+    });
     await using _server = { [Symbol.asyncDispose]: () => server.close() };
     const afterServerWrites = tracker.calls;
 
@@ -305,7 +312,7 @@ app.get(
     writeFileSync(specPath, JSON.stringify(minimalSpec));
 
     const tracker = trackingWriter();
-    const plugin = sdkIt('openapi.json', {
+    const plugin = sdkIt.file('openapi.json', {
       name: 'Example',
       packageName: '@acme/example-client',
       output: join(tempDir, 'sdk'),
@@ -337,7 +344,7 @@ app.get(
     writeFileSync(specPath, JSON.stringify(minimalSpec));
 
     const tracker = trackingWriter();
-    const plugin = sdkIt('openapi.json', {
+    const plugin = sdkIt.file('openapi.json', {
       name: 'Example',
       packageName: '@acme/example-client',
       output: join(tempDir, 'sdk'),
@@ -376,7 +383,7 @@ app.get(
 
     let shouldFail = true;
     let generateAttempts = 0;
-    const plugin = sdkIt('openapi.json', {
+    const plugin = sdkIt.file('openapi.json', {
       name: 'Example',
       packageName: '@acme/example-client',
       output: join(tempDir, 'sdk'),
@@ -428,7 +435,7 @@ export default defineConfig({
       'utf8',
     );
 
-    await buildWith(sdkIt(), root);
+    await buildWith(sdkIt.project({}), root);
 
     const viteEndpoint = readFileSync(
       join(root, '.sdk-it', 'src', 'api', 'books.ts'),
@@ -453,7 +460,7 @@ export default defineConfig({
     );
     const root = workspace.path;
 
-    await buildWith(sdkIt({ config: 'config/project.ts' }), root);
+    await buildWith(sdkIt.project({ config: 'config/project.ts' }), root);
 
     const endpoint = readFileSync(
       join(root, 'explicit-sdk', 'src', 'api', 'books.ts'),
