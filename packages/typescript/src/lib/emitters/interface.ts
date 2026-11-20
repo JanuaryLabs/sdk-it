@@ -221,7 +221,7 @@ export class TypeScriptEmitter {
     }
 
     if (schema.const !== undefined) {
-      return this.enum([schema.const], true);
+      return constType(schema.const);
     }
 
     // Handle types, in TypeScript we can have union types directly
@@ -261,4 +261,18 @@ export class TypeScriptEmitter {
 
 function appendOptional(type: string, isRequired?: boolean): string {
   return isRequired ? type : `${type} | undefined`;
+}
+
+/** The type of exactly one JSON value, the type of a `const`. */
+function constType(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(constType).join(', ')}]`;
+  }
+  if (value !== null && typeof value === 'object') {
+    const members = Object.entries(value).map(
+      ([key, item]) => `${JSON.stringify(key)}: ${constType(item)}`,
+    );
+    return `{ ${members.join('; ')} }`;
+  }
+  return JSON.stringify(value);
 }

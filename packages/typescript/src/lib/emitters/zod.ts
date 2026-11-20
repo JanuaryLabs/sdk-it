@@ -417,7 +417,7 @@ export class ZodEmitter {
     }
 
     if (schema.const !== undefined) {
-      return `z.literal(${JSON.stringify(schema.const)})${this.#suffixes(JSON.stringify(schema.default), required, false)}`;
+      return `${constSchema(schema.const)}${this.#suffixes(JSON.stringify(schema.default), required, false)}`;
     }
 
     // enum
@@ -529,4 +529,24 @@ function regexLiteral(pattern: string) {
     }
     throw error;
   }
+}
+
+/**
+ * A schema that accepts exactly one JSON value, as JSON Schema compares a
+ * `const`: by value, element by element and key by key, with no other keys.
+ */
+function constSchema(value: unknown): string {
+  if (value === null) {
+    return 'z.null()';
+  }
+  if (Array.isArray(value)) {
+    return `z.tuple([${value.map(constSchema).join(', ')}])`;
+  }
+  if (typeof value === 'object') {
+    const shape = Object.entries(value).map(
+      ([key, item]) => `${JSON.stringify(key)}: ${constSchema(item)}`,
+    );
+    return `z.strictObject({ ${shape.join(', ')} })`;
+  }
+  return `z.literal(${JSON.stringify(value)})`;
 }
