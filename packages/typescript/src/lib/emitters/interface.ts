@@ -220,7 +220,7 @@ export class TypeScriptEmitter {
       return this.enum(schema.enum, required);
     }
 
-    if (schema.const) {
+    if (schema.const !== undefined) {
       return this.enum([schema.const], true);
     }
 

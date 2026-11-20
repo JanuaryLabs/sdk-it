@@ -64,20 +64,17 @@ export class PropEmitter {
       .replace('**Type:** ', '')
       .replace(' (nullable)', '|null');
 
-    // detect default if present on the schema
-    const defaultVal =
-      !isRef(schema) && schema.default !== undefined
-        ? ` default: ${JSON.stringify(schema.default)}`
-        : '';
+    const fixed = isRef(schema) ? '' : this.#fixedSummary(schema);
 
-    // build summary line
     const reqMark = required ? ' required' : '';
-    const summary = `- \`${name}\` ${rawType}${reqMark}${defaultVal}:`;
+    const summary = `- \`${name}\` ${rawType}${reqMark}${fixed}:`;
 
-    // assemble final lines (skip the type and any default in details)
+    // assemble final lines (skip the type and the value or default the summary shows)
     const detailLines = docs
       .slice(1)
-      .filter((it) => !it.startsWith('**Default:**'))
+      .filter(
+        (it) => !it.startsWith('**Value:**') && !it.startsWith('**Default:**'),
+      )
       .map((it) => `  ${it}`);
 
     return [summary, ...detailLines];
@@ -133,8 +130,38 @@ export class PropEmitter {
     return lines;
   }
 
-  #anyOf(schemas: (SchemaObject | ReferenceObject)[]): string[] {
-    const lines = ['**Any of (Union):**'];
+  #fixedSummary(schema: SchemaObject): string {
+    if (schema.const !== undefined) {
+      return ` value: ${JSON.stringify(schema.const)}`;
+    }
+    if (schema.default !== undefined) {
+      return ` default: ${JSON.stringify(schema.default)}`;
+    }
+    return '';
+  }
+
+  #fixedLines(schema: SchemaObject): string[] {
+    const lines: string[] = [];
+    if (schema.const !== undefined) {
+      lines.push(`**Value:** \`${JSON.stringify(schema.const)}\``);
+    }
+    if (schema.default !== undefined) {
+      lines.push(`**Default:** \`${JSON.stringify(schema.default)}\``);
+    }
+    return lines;
+  }
+
+  #discriminator(schema: SchemaObject): string[] {
+    return schema.discriminator
+      ? [`**Discriminator:** \`${schema.discriminator.propertyName}\``]
+      : [];
+  }
+
+  #anyOf(
+    schema: SchemaObject,
+    schemas: (SchemaObject | ReferenceObject)[],
+  ): string[] {
+    const lines = ['**Any of (Union):**', ...this.#discriminator(schema)];
     schemas.forEach((subSchema, index) => {
       lines.push(`- **Option ${index + 1}:**`);
       const subLines = this.handle(subSchema);
@@ -143,8 +170,14 @@ export class PropEmitter {
     return lines;
   }
 
-  #oneOf(schemas: (SchemaObject | ReferenceObject)[]): string[] {
-    const lines = ['**One of (Exclusive Union):**'];
+  #oneOf(
+    schema: SchemaObject,
+    schemas: (SchemaObject | ReferenceObject)[],
+  ): string[] {
+    const lines = [
+      '**One of (Exclusive Union):**',
+      ...this.#discriminator(schema),
+    ];
     schemas.forEach((subSchema, index) => {
       lines.push(`- **Option ${index + 1}:**`);
       const subLines = this.handle(subSchema);
@@ -249,9 +282,7 @@ export class PropEmitter {
         lines.push(`**Type:** \`${type}\`${nullableSuffix}`);
         lines.push(...description);
     }
-    if (schema.default !== undefined) {
-      lines.push(`**Default:** \`${JSON.stringify(schema.default)}\``);
-    }
+    lines.push(...this.#fixedLines(schema));
     return lines.filter((l) => l); // Filter out empty description lines
   }
 
@@ -269,10 +300,10 @@ export class PropEmitter {
       return this.#allOf(schema.allOf);
     }
     if (schema.anyOf && Array.isArray(schema.anyOf)) {
-      return this.#anyOf(schema.anyOf);
+      return this.#anyOf(schema, schema.anyOf);
     }
     if (schema.oneOf && Array.isArray(schema.oneOf)) {
-      return this.#oneOf(schema.oneOf);
+      return this.#oneOf(schema, schema.oneOf);
     }
 
     if (schema.enum && Array.isArray(schema.enum)) {
@@ -298,8 +329,7 @@ export class PropEmitter {
     if (types.length === 0) {
       const lines = ['**Type:** `unknown`'];
       if (schema.description) lines.push(schema.description);
-      if (schema.default !== undefined)
-        lines.push(`**Default:** \`${JSON.stringify(schema.default)}\``);
+      lines.push(...this.#fixedLines(schema));
       return lines;
     }
 
@@ -313,8 +343,7 @@ export class PropEmitter {
     const nullableSuffix = nullable ? ' (nullable)' : '';
     const lines = [`**Type:** \`${typeString}\`${nullableSuffix}`];
     if (schema.description) lines.push(schema.description);
-    if (schema.default !== undefined)
-      lines.push(`**Default:** \`${JSON.stringify(schema.default)}\``);
+    lines.push(...this.#fixedLines(schema));
     return lines;
   }
 

@@ -29,6 +29,7 @@ export class SnippetEmitter {
 
       if (
         isRequired ||
+        resolvedProp.const !== undefined ||
         resolvedProp.example !== undefined ||
         resolvedProp.default !== undefined
       ) {
@@ -66,9 +67,6 @@ export class SnippetEmitter {
   }
 
   public string(schema: SchemaObject): string {
-    if (schema.example !== undefined) return String(schema.example);
-    if (schema.default !== undefined) return String(schema.default);
-
     switch (schema.format) {
       case 'date-time':
       case 'datetime':
@@ -94,17 +92,11 @@ export class SnippetEmitter {
       case 'byte':
         return `new Blob(['example'], { type: 'text/plain' })`;
       default:
-        if (schema.enum && schema.enum.length > 0) {
-          return String(schema.enum[0]);
-        }
         return schema.pattern ? `string matching ${schema.pattern}` : 'example';
     }
   }
 
   public number(schema: SchemaObject): number {
-    if (schema.example !== undefined) return Number(schema.example);
-    if (schema.default !== undefined) return Number(schema.default);
-
     let value: number;
     if (typeof schema.exclusiveMinimum === 'number') {
       value = schema.exclusiveMinimum + 1;
@@ -133,9 +125,7 @@ export class SnippetEmitter {
     return schema.type === 'integer' ? Math.floor(value) : value;
   }
 
-  public boolean(schema: SchemaObject): boolean {
-    if (schema.example !== undefined) return Boolean(schema.example);
-    if (schema.default !== undefined) return Boolean(schema.default);
+  public boolean(): boolean {
     return true;
   }
 
@@ -194,6 +184,10 @@ export class SnippetEmitter {
 
     const schema = resolveRef(this.spec, schemaOrRef);
 
+    if (schema.const !== undefined) {
+      return schema.const;
+    }
+
     if (schema.example !== undefined) {
       return schema.example;
     }
@@ -240,7 +234,7 @@ export class SnippetEmitter {
       case 'integer':
         return this.number(schema);
       case 'boolean':
-        return this.boolean(schema);
+        return this.boolean();
       case 'object':
         return this.object(schema);
       case 'array':

@@ -408,3 +408,135 @@ test('the README logs the result itself, documents no application/empty input an
   assert.doesNotMatch(readme, /application\/empty/);
   assert.doesNotMatch(readme, /Validation errors \(422\)/);
 });
+
+const intake: OpenAPIObject = {
+  openapi: '3.1.0',
+  info: { title: 'Demo', version: '1.0.0' },
+  servers: [{ url: 'https://api.example.com' }],
+  paths: {
+    '/intake': {
+      post: {
+        operationId: 'submitIntake',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['kind', 'medications'],
+                properties: {
+                  kind: { type: 'string', const: 'intake' },
+                  flag: { type: 'boolean', const: false },
+                  medications: {
+                    oneOf: [
+                      {
+                        type: 'object',
+                        required: ['answer'],
+                        properties: {
+                          answer: { type: 'string', const: 'none' },
+                        },
+                      },
+                      {
+                        type: 'object',
+                        required: ['answer', 'entries'],
+                        properties: {
+                          answer: { type: 'string', const: 'yes' },
+                          entries: {
+                            type: 'array',
+                            minItems: 1,
+                            items: { type: 'string' },
+                          },
+                        },
+                      },
+                      {
+                        type: 'object',
+                        required: ['answer'],
+                        properties: {
+                          answer: { type: 'string', const: 'skip' },
+                        },
+                      },
+                    ],
+                    discriminator: { propertyName: 'answer' },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Received',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['ok'],
+                  properties: { ok: { type: 'boolean', const: false } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+async function generated(prefix: string) {
+  const workspace = await workspaceDirectory(prefix);
+  await generate(intake, {
+    output: workspace.path,
+    name: 'Demo',
+    packageName: '@acme/intake',
+    readme: true,
+    mode: 'full',
+  });
+  return workspace;
+}
+
+test('every README code block of a document with const properties type-checks against the generated SDK', async () => {
+  await using workspace = await generated('readme-const-');
+  const readme = await readFile(join(workspace.path, 'README.md'), 'utf8');
+  const blocks = typescriptBlocks(readme).filter((code) =>
+    /\b(demo|createDemo)\b/.test(code),
+  );
+
+  for (const [index, code] of blocks.entries()) {
+    await writeFile(
+      join(workspace.path, 'src', `readme-${index}.ts`),
+      `${code.replaceAll(/(['"])@acme\/intake\1/g, "'./index.ts'")}\nexport {};\n`,
+    );
+  }
+  const { diagnostics } = typecheck(join(workspace.path, 'tsconfig.json'));
+
+  assert.ok(blocks.some((code) => code.includes("'POST /intake'")));
+  assert.deepEqual(diagnostics, []);
+});
+
+test('the README documents a const as its value and a oneOf by its discriminator', async () => {
+  await using workspace = await generated('readme-const-docs-');
+  const readme = await readFile(join(workspace.path, 'README.md'), 'utf8');
+
+  assert.match(readme, /^- `kind` `string` required value: "intake":$/m);
+  assert.match(readme, /\*\*Discriminator:\*\* `answer`/);
+  assert.doesNotMatch(readme, /default: "intake"/);
+});
+
+test('a const false response property is typed as the literal false', async () => {
+  await using workspace = await generated('const-false-');
+  await writeFile(
+    join(workspace.path, 'src', 'consumer.ts'),
+    [
+      "import { demo } from './index.ts';",
+      "const result = await demo.request('POST /intake', { kind: 'intake', medications: { answer: 'none' } });",
+      'const ok: false = result.ok;',
+      '// @ts-expect-error a const false is not true',
+      'const wrong: true = result.ok;',
+      'export { ok, wrong };',
+      '',
+    ].join('\n'),
+  );
+  const { diagnostics } = typecheck(join(workspace.path, 'tsconfig.json'));
+
+  assert.deepEqual(diagnostics, []);
+});
