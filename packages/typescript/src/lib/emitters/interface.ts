@@ -221,7 +221,7 @@ export class TypeScriptEmitter {
     }
 
     if (schema.const !== undefined) {
-      return constType(schema.const);
+      return appendOptional(constType(schema.const), required);
     }
 
     // Handle types, in TypeScript we can have union types directly

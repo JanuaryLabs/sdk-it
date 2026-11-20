@@ -196,3 +196,74 @@ void invalid;
     }),
   ),
 );
+
+void test('generated SDK lets an optional const property be undefined under exact optional properties', async () => {
+  await using workspace = await workspaceDirectory('exact-optional-const-');
+  await generate(
+    {
+      openapi: '3.1.0',
+      info: { title: 'Exact', version: '1.0.0' },
+      paths: {
+        '/settings': {
+          get: {
+            operationId: 'readSettings',
+            responses: {
+              '200': {
+                description: 'Settings',
+                content: {
+                  'application/json': {
+                    schema: { $ref: '#/components/schemas/Settings' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      components: {
+        schemas: {
+          Settings: {
+            type: 'object',
+            properties: {
+              flag: { type: 'boolean', const: false },
+              meta: { const: { x: 1 } },
+            },
+          },
+        },
+      },
+    },
+    {
+      output: workspace.path,
+      name: 'Exact',
+      packageName: '@acme/sdk',
+      mode: 'minimal',
+      readme: false,
+    },
+  );
+  await writeFile(
+    join(workspace.path, 'consumer.ts'),
+    `
+import type { ExactEndpoints } from './index.ts';
+
+export const settings: ExactEndpoints['GET /settings']['output'] = { flag: undefined, meta: undefined };
+`,
+  );
+  const { diagnostics } = typecheck({
+    tsconfig: {
+      compilerOptions: {
+        target: 'ESNext',
+        module: 'ESNext',
+        moduleResolution: 'bundler',
+        strict: true,
+        types: ['node'],
+        exactOptionalPropertyTypes: true,
+        skipLibCheck: true,
+        noEmit: true,
+        allowImportingTsExtensions: true,
+      },
+      include: ['**/*.ts'],
+    },
+    directory: workspace.path,
+  });
+  assert.deepEqual(diagnostics, []);
+});
