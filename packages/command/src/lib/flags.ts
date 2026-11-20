@@ -66,6 +66,9 @@ function describe(schema: SchemaObject, required: boolean): string {
   if (schema.type) pieces.push(String(schema.type));
   if (schema.format) pieces.push(`format: ${schema.format}`);
   if (required) pieces.push('required');
+  if (schema.const !== undefined) {
+    pieces.push(`value: ${JSON.stringify(schema.const)}`);
+  }
   if (schema.default !== undefined) {
     pieces.push(`default: ${JSON.stringify(schema.default)}`);
   }
@@ -76,6 +79,16 @@ function describe(schema: SchemaObject, required: boolean): string {
 export interface FlagMap {
   names: Set<string>;
   skipped: Array<{ name: string; reason: string }>;
+}
+
+function allowedValues(schema: SchemaObject): unknown[] | undefined {
+  if (schema.enum && Array.isArray(schema.enum)) {
+    return schema.enum;
+  }
+  if (schema.const !== undefined) {
+    return [schema.const];
+  }
+  return undefined;
 }
 
 export function addFlagsFromSchema(
@@ -101,9 +114,10 @@ export function addFlagsFromSchema(
     const isRequired = required.has(name);
     const desc = describe(prop, isRequired);
 
-    if (prop.enum && Array.isArray(prop.enum)) {
+    const closedSet = allowedValues(prop);
+    if (closedSet) {
       const opt = new Option(`--${name} <value>`, desc).choices(
-        prop.enum.map((v) => String(v)),
+        closedSet.map((v) => String(v)),
       );
       command.addOption(opt);
       names.add(name);
