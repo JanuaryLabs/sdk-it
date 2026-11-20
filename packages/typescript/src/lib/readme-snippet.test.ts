@@ -518,7 +518,10 @@ test('the README documents a const as its value and a oneOf by its discriminator
   const readme = await readFile(join(workspace.path, 'README.md'), 'utf8');
 
   assert.match(readme, /^- `kind` `string` required value: "intake":$/m);
-  assert.match(readme, /\*\*Discriminator:\*\* `answer`/);
+  assert.match(
+    readme,
+    /^- `medications` \*\*One of \(Exclusive Union\):\*\* required:\n\n\*\*Discriminator:\*\* `answer`$/m,
+  );
   assert.doesNotMatch(readme, /default: "intake"/);
 });
 
@@ -539,4 +542,14 @@ test('a const false response property is typed as the literal false', async () =
   const { diagnostics } = typecheck(join(workspace.path, 'tsconfig.json'));
 
   assert.deepEqual(diagnostics, []);
+});
+
+test('the README request snippet gives an optional const property its value', async () => {
+  await using workspace = await generated('readme-optional-const-');
+  const readme = await readFile(join(workspace.path, 'README.md'), 'utf8');
+  const [usage] = typescriptBlocks(
+    readme.slice(readme.indexOf('### submitIntake')),
+  );
+
+  assert.match(usage, /^ {2}"flag": false,$/m);
 });
