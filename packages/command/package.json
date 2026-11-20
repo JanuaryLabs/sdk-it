@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/command",
-  "version": "0.48.0",
+  "version": "0.48.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/JanuaryLabs/sdk-it",
@@ -31,9 +31,9 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.48.0",
-    "@sdk-it/rpc": "0.48.0",
-    "@sdk-it/spec": "0.48.0",
+    "@sdk-it/core": "0.48.1",
+    "@sdk-it/rpc": "0.48.1",
+    "@sdk-it/spec": "0.48.1",
     "commander": "^13.0.0",
     "openapi3-ts": "4.6.2",
     "zod": "^4.6.7"
