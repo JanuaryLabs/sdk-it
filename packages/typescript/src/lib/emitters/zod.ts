@@ -388,11 +388,9 @@ export class ZodEmitter {
       base += `.max(${schema.maximum})`;
     }
 
-    // multipleOf
+    // zod's multipleOf is float-safe: Number.isInteger(0.7 / 0.001) is false.
     if (typeof schema.multipleOf === 'number') {
-      // There's no direct multipleOf in Zod. Some folks do a custom refine.
-      // For example:
-      base += `.refine((val) => Number.isInteger(val / ${schema.multipleOf}), "Must be a multiple of ${schema.multipleOf}")`;
+      base += `.multipleOf(${schema.multipleOf})`;
     }
 
     return { base, defaultValue: schema.default };
