@@ -2,7 +2,7 @@ import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 import { type ZodType, z } from 'zod';
 
 import { type OpenAPIDocument, followRef, isEmpty, isRef } from '@sdk-it/core';
-import { discriminatorOf, isRecursiveRef } from '@sdk-it/spec';
+import { discriminatorOf, isRecursiveRef, tupleOf } from '@sdk-it/spec';
 
 // z.iso.time() rejects RFC 3339 zone suffixes ('10:30:00Z', '10:30:00+02:00'),
 // which JSON Schema's format: time allows. Accept both local and
@@ -72,12 +72,21 @@ export class RuntimeZodConverter {
   }
 
   #array(schema: SchemaObject): ZodType {
-    const { items } = schema;
-    if (Array.isArray(items)) {
-      const [first, ...rest] = items.map((sub) => this.handle(sub, true));
-      return first ? z.tuple([first, ...rest]) : z.tuple([]);
+    const tuple = tupleOf(schema);
+    if (tuple) {
+      const [first, ...others] = tuple.elements;
+      const elements: [ZodType, ...ZodType[]] = [
+        this.handle(first.schema, first.required),
+        ...others.map((element) =>
+          this.handle(element.schema, element.required),
+        ),
+      ];
+      return tuple.rest
+        ? z.tuple(elements, this.handle(tuple.rest, true))
+        : z.tuple(elements);
     }
 
+    const { items } = schema;
     const array = z
       .array(items ? this.handle(items, true) : z.unknown())
       .check(...arrayLimits(schema));
