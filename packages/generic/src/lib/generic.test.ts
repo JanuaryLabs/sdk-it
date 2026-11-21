@@ -1263,7 +1263,7 @@ app.get('/users/:userId', validate((payload) => ({
       Object.entries(files)
         .filter(([path]) => path.startsWith('inputs/'))
         .map(([, text]) =>
-          new RegExp(`^export const ${name} = (.*);$`, 'm').exec(text),
+          new RegExp(`^export const ${name} = ([\\s\\S]*?);$`, 'm').exec(text),
         )
         .find((match) => match !== null)?.[1];
 
@@ -1437,7 +1437,7 @@ app.get('/users/:userId', validate((payload) => ({
       Object.entries(files)
         .filter(([path]) => path.startsWith('inputs/'))
         .map(([, text]) =>
-          new RegExp(`^export const ${name} = (.*);$`, 'm').exec(text),
+          new RegExp(`^export const ${name} = ([\\s\\S]*?);$`, 'm').exec(text),
         )
         .find((match) => match !== null)?.[1];
 
