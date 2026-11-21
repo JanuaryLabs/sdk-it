@@ -918,21 +918,40 @@ function middlewareFunction(
   return undefined;
 }
 
+export interface AnalyzeOptions {
+  /**
+   * The exports an `against` may read through a named import of its route
+   * file, such as Prisma's `$Enums` and `Prisma`. Any other named import is
+   * refused.
+   */
+  allowedNamedImports?: readonly string[];
+  /** A TypeScript type name and the JSON Schema written in its place, added onto the defaults. */
+  types?: Readonly<Record<string, SchemaObject>>;
+  responseAnalyzer: ResponseAnalyzerFn | NaunceResponseAnalyzer;
+  middlewareSecurity?: readonly MiddlewareSecurityRule[];
+}
+
+/** Every option analyze() takes; TypeScript keeps it equal to AnalyzeOptions. */
+const analyzeOptions: Record<keyof AnalyzeOptions, true> = {
+  allowedNamedImports: true,
+  types: true,
+  responseAnalyzer: true,
+  middlewareSecurity: true,
+};
+
 export async function analyze(
   project: AnalysisProject,
-  config: {
-    /**
-     * The exports an `against` may read through a named import of its route
-     * file, such as Prisma's `$Enums` and `Prisma`. Any other named import is
-     * refused.
-     */
-    allowedNamedImports?: readonly string[];
-    /** A TypeScript type name and the JSON Schema written in its place, added onto the defaults. */
-    types?: Readonly<Record<string, SchemaObject>>;
-    responseAnalyzer: ResponseAnalyzerFn | NaunceResponseAnalyzer;
-    middlewareSecurity?: readonly MiddlewareSecurityRule[];
-  },
+  config: AnalyzeOptions,
 ) {
+  // A JavaScript caller has no type check, so an option analyze() does not
+  // take (one it took before, such as typesMap) would silently change the document.
+  for (const option of Object.keys(config)) {
+    if (!Object.hasOwn(analyzeOptions, option)) {
+      throw new TypeError(
+        `analyze() takes no option '${option}'. It takes ${Object.keys(analyzeOptions).join(', ')}.`,
+      );
+    }
+  }
   const typeChecker = project.checker;
   const typeDeriver = new TypeDeriver(typeChecker, config.types);
   using evaluator = new ZodEvaluator({
