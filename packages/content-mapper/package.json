@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/content-mapper",
-  "version": "0.50.1",
+  "version": "0.50.2",
   "type": "module",
   "repository": {
     "type": "git",
@@ -40,8 +40,8 @@
     }
   },
   "dependencies": {
-    "@sdk-it/spec": "0.50.1",
-    "@sdk-it/typescript": "0.50.1",
+    "@sdk-it/spec": "0.50.2",
+    "@sdk-it/typescript": "0.50.2",
     "ts-content-mapper": "^0.1.1",
     "yaml": "^2.9.1"
   },

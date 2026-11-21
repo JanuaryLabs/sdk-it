@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/runtime",
-  "version": "0.50.1",
+  "version": "0.50.2",
   "repository": {
     "type": "git",
     "url": "https://github.com/JanuaryLabs/sdk-it",
