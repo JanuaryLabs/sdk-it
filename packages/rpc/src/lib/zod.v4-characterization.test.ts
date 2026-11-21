@@ -248,6 +248,33 @@ describe('schemaToZod — v3→v4 characterization (number constraints)', () => 
     assert.equal(schema.safeParse(7).success, false);
   });
 
+  test('a decimal multipleOf accepts every multiple, which float division rounds off, and refuses the rest', () => {
+    // What zod writes for z.number().positive().multipleOf(0.001).lt(10_000_000) (#5130).
+    const schema = schemaToZod(
+      {
+        type: 'number',
+        exclusiveMinimum: 0,
+        multipleOf: 0.001,
+        exclusiveMaximum: 10_000_000,
+      },
+      ir,
+      { required: true },
+    );
+    const refused: number[] = [];
+    for (let step = 1; step <= 100_000; step++) {
+      const value = Number((step / 1000).toFixed(3));
+      if (!schema.safeParse(value).success) refused.push(value);
+    }
+    assert.deepEqual(
+      refused.slice(0, 5),
+      [],
+      `${refused.length} multiples refused`,
+    );
+    for (const value of [0.0004, 0.0015, 1.0005]) {
+      assert.equal(schema.safeParse(value).success, false, `${value}`);
+    }
+  });
+
   test('type: integer rejects floats', () => {
     const schema = schemaToZod({ type: 'integer' }, ir, { required: true });
     assert.equal(schema.safeParse(42).success, true);

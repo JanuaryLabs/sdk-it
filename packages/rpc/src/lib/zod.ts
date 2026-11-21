@@ -280,13 +280,9 @@ export class RuntimeZodConverter {
       base = base.max(schema.maximum);
     }
 
-    // multipleOf
+    // zod's multipleOf is float-safe: Number.isInteger(0.7 / 0.001) is false.
     if (typeof schema.multipleOf === 'number') {
-      const multipleOf = schema.multipleOf;
-      return base.refine(
-        (val) => Number.isInteger(Number(val) / multipleOf),
-        `Must be a multiple of ${multipleOf}`,
-      );
+      base = base.multipleOf(schema.multipleOf);
     }
 
     return base;
