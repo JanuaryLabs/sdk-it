@@ -1,6 +1,5 @@
 import { isImportDeclaration, isNamedImports } from '@typescript/native/ast/is';
 
-import { defaultTypesMap } from '@sdk-it/core/deriver.js';
 import {
   type AnalysisProject,
   openAnalysisProject,
@@ -27,12 +26,11 @@ export async function analyzeProject(tsconfig: string, config: ProjectConfig) {
   try {
     analysis = await analyze(project, {
       responseAnalyzer: honoResponseAnalyzer,
-      securitySchemes: config.securitySchemes,
       middlewareSecurity: config.middlewareSecurity,
       ...(prisma
         ? {
             allowedNamedImports: prismaBindings,
-            typesMap: { ...defaultTypesMap, Decimal: 'string' },
+            types: { Decimal: { type: 'string' } },
           }
         : {}),
     });
@@ -59,7 +57,7 @@ export async function analyzeProject(tsconfig: string, config: ProjectConfig) {
       version: '0.0.0',
     },
     paths,
-    components,
+    components: { ...components, securitySchemes: config.securitySchemes },
   };
 }
 
