@@ -1,9 +1,14 @@
-import type { Statement } from '@typescript/native/ast';
+import {
+  type SourceFile,
+  type Statement,
+  SyntaxKind,
+} from '@typescript/native/ast';
 import {
   isImportDeclaration,
   isNamedImports,
   isStringLiteral,
 } from '@typescript/native/ast/is';
+import { formatDiagnostics } from '@typescript/native/sync';
 import { createRequire } from 'node:module';
 
 import { type InjectImport } from '@sdk-it/core';
@@ -41,10 +46,7 @@ export async function analyzeProject(tsconfig: string, config: ProjectConfig) {
     ...(prisma
       ? {
           imports: prisma.imports,
-          typesMap: {
-            ...defaultTypesMap,
-            Decimal: 'string',
-          },
+          typesMap: { ...defaultTypesMap, Decimal: 'string' },
         }
       : {}),
   });
@@ -85,52 +87,87 @@ function detectFramework(project: AnalysisProject): 'hono' | 'auto' {
   return 'auto';
 }
 
+/**
+ * The `Prisma` and `$Enums` bindings that route files import by name, from
+ * `@prisma/client`, a custom generated-client path or a package that
+ * re-exports one, each loaded the way an `against` loads it. A binding that
+ * does not load fails here, before any `against` reads it.
+ */
 function detectPrisma(
   project: AnalysisProject,
 ): { imports: InjectImport[] } | undefined {
+  let detected = false;
   const imports: InjectImport[] = [];
-  const reportedModules = new Set<string>();
   for (const sourceFile of sourceFiles(project.program)) {
     for (const statement of sourceFile.statements) {
       const prismaImport = getPrismaImport(statement);
       if (!prismaImport) continue;
-      const resolvedModule =
-        project.program.getResolvedModuleFromModuleSpecifier(
-          prismaImport.moduleSpecifier,
-          sourceFile.fileName,
-        );
-      if (!resolvedModule) continue;
-
-      let runtimeModule: string;
-      try {
-        runtimeModule = createRequire(sourceFile.fileName).resolve(
-          prismaImport.moduleSpecifier.text,
-        );
-      } catch {
-        continue;
-      }
-
-      if (!reportedModules.has(runtimeModule)) {
-        console.log(`SDKIT: detected Prisma from ${runtimeModule}`);
-        reportedModules.add(runtimeModule);
-      }
-      for (const { imported, local } of prismaImport.bindings) {
+      detected = true;
+      const { moduleSpecifier, bindings } = prismaImport;
+      const require = createRequire(sourceFile.fileName);
+      for (const { imported, local, isTypeOnly } of bindings) {
+        // A type-only binding has no value for an against to read.
+        if (isTypeOnly) continue;
+        let from: string;
+        try {
+          from = require.resolve(moduleSpecifier.text);
+          if (!(imported in require(from))) {
+            throw new Error(`the module does not export ${imported}`);
+          }
+        } catch (error) {
+          throw new Error(
+            `${sourceFile.fileName} imports ${imported} from '${moduleSpecifier.text}', which an against may read, but it does not load: ${(Error.isError(error) ? error.message : String(error)).split('\n')[0]}${typeScriptReports(project, sourceFile, prismaImport)}\nRun the Prisma client's generate target (prisma generate) before sdk-it generate.`,
+            { cause: error },
+          );
+        }
         if (
-          !imports.some(
-            (item) => item.import === local && item.from === runtimeModule,
-          )
+          !imports.some((item) => item.import === local && item.from === from)
         ) {
-          imports.push({
-            import: local,
-            from: runtimeModule,
-            property: imported,
-          });
+          imports.push({ import: local, from, property: imported });
         }
       }
     }
   }
-  return imports.length > 0 ? { imports } : undefined;
+  for (const from of new Set(imports.map((item) => item.from))) {
+    console.log(`SDKIT: detected Prisma from ${from}`);
+  }
+  return detected ? { imports } : undefined;
 }
+
+/**
+ * TypeScript's errors for an import that does not load: those on the import
+ * itself, and each module the imported file cannot find (as a generated
+ * client that a package re-exports).
+ */
+function typeScriptReports(
+  project: AnalysisProject,
+  sourceFile: SourceFile,
+  { statement, moduleSpecifier }: PrismaImport,
+): string {
+  const program = project.program;
+  const resolved = program.getResolvedModuleFromModuleSpecifier(
+    moduleSpecifier,
+    sourceFile.fileName,
+  )?.resolvedFileName;
+  const diagnostics = [
+    ...program
+      .getSemanticDiagnostics(sourceFile.fileName)
+      .filter(
+        (diagnostic) =>
+          diagnostic.pos < statement.end && diagnostic.end > statement.pos,
+      ),
+    ...(resolved
+      ? program
+          .getSemanticDiagnostics(resolved)
+          .filter((diagnostic) => diagnostic.code === 2307)
+      : []),
+  ];
+  return diagnostics.length
+    ? `\nTypeScript reports:\n${formatDiagnostics(diagnostics, program).trimEnd()}`
+    : '';
+}
+
+type PrismaImport = NonNullable<ReturnType<typeof getPrismaImport>>;
 
 function getPrismaImport(statement: Statement) {
   if (
@@ -145,12 +182,12 @@ function getPrismaImport(statement: Statement) {
     .map((element) => ({
       imported: element.propertyName?.text ?? element.name.text,
       local: element.name.text,
+      isTypeOnly:
+        statement.importClause?.phaseModifier === SyntaxKind.TypeKeyword ||
+        element.isTypeOnly,
     }))
     .filter(({ imported }) => imported === 'Prisma' || imported === '$Enums');
   return bindings.length > 0
-    ? {
-        moduleSpecifier: statement.moduleSpecifier,
-        bindings,
-      }
+    ? { statement, moduleSpecifier: statement.moduleSpecifier, bindings }
     : undefined;
 }
