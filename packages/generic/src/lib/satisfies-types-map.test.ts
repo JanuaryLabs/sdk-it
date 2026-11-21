@@ -9,7 +9,7 @@ import { responseAnalyzer } from '@sdk-it/hono';
 import { analysisWorkspace, typecheck } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
-test('typesMap applies to UIMessage[] written with satisfies and with an annotation', async () => {
+test('a $ref type mapping applies to UIMessage[] written with satisfies and with an annotation', async () => {
   await using dir = await analysisWorkspace('satisfies-types-map-', {
     'route.ts': `import { Hono } from 'hono';
 import type { UIMessage } from 'ai';
@@ -40,7 +40,7 @@ app.get('/annotated', validate(() => ({})), (c) => {
   using project = openAnalysisProject(dir.tsconfig);
   const { paths, components } = await analyze(project, {
     responseAnalyzer,
-    typesMap: { UIMessage: '#/components/schemas/JsonObject' },
+    types: { UIMessage: { $ref: '#/components/schemas/JsonObject' } },
   });
   const {
     paths: documented,

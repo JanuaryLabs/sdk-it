@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
+import type { SchemaObject } from 'openapi3-ts/oas31';
 
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze, responseAnalyzer } from '@sdk-it/generic';
 
 async function analyzeWorkspace(
   files: Record<string, string>,
-  typesMap?: Record<string, string>,
+  types?: Record<string, SchemaObject>,
 ) {
   await using dir = await new TemporaryFiles().directory(
     'sdk-it-type-serialization-',
@@ -35,7 +36,7 @@ async function analyzeWorkspace(
   using project = openAnalysisProject(join(dir.path, 'tsconfig.json'));
   const { paths, components } = await analyze(project, {
     responseAnalyzer,
-    ...(typesMap ? { typesMap } : {}),
+    ...(types ? { types } : {}),
   });
   // Assert the document as consumers write it to openapi.json.
   return JSON.parse(JSON.stringify({ paths, components }));
@@ -313,7 +314,7 @@ export {};
     );
   });
 
-  test('typesMap entry replaces the declared type', async () => {
+  test('a type mapping writes its JSON Schema, keywords included, where the type is a property', async () => {
     const { paths, components } = await analyzeWorkspace(
       {
         'index.ts': `
@@ -331,19 +332,123 @@ app.get('/x', validate(() => ({})), () => {
 export {};
 `,
       },
-      { Money: 'string' },
+      { Money: { type: 'string', format: 'decimal' } },
     );
 
     assert.deepStrictEqual(
       paths['/x'].get.responses,
       jsonResponse({
         type: 'object',
-        properties: { total: { type: 'string' } },
+        properties: { total: { type: 'string', format: 'decimal' } },
         required: ['total'],
         additionalProperties: false,
       }),
     );
     assert.deepStrictEqual(components.schemas, {});
+  });
+
+  test('a type mapping applies to each item of an array of the mapped type', async () => {
+    const { paths } = await analyzeWorkspace(
+      {
+        'index.ts': `
+const app = { get: (..._args: unknown[]) => undefined };
+const output = { json: (value: unknown) => value };
+const validate = (selector: unknown) => selector;
+interface Money {
+  amount: number;
+  currency: string;
+}
+declare const prices: { totals: Money[] };
+app.get('/x', validate(() => ({})), () => {
+  return output.json(prices);
+});
+export {};
+`,
+      },
+      { Money: { type: 'string', format: 'decimal' } },
+    );
+
+    assert.deepStrictEqual(
+      paths['/x'].get.responses,
+      jsonResponse({
+        type: 'object',
+        properties: {
+          totals: {
+            type: 'array',
+            items: { type: 'string', format: 'decimal' },
+          },
+        },
+        required: ['totals'],
+        additionalProperties: false,
+      }),
+    );
+  });
+
+  test('passing type mappings keeps the default ones: a Uint8Array stays any value', async () => {
+    const { paths } = await analyzeWorkspace(
+      {
+        'index.ts': `
+const app = { get: (..._args: unknown[]) => undefined };
+const output = { json: (value: unknown) => value };
+const validate = (selector: unknown) => selector;
+interface Money {
+  amount: number;
+}
+declare const file: { bytes: Uint8Array; price: Money };
+app.get('/x', validate(() => ({})), () => {
+  return output.json(file);
+});
+export {};
+`,
+      },
+      { Money: { type: 'string' } },
+    );
+
+    assert.deepStrictEqual(
+      paths['/x'].get.responses,
+      jsonResponse({
+        type: 'object',
+        properties: { bytes: {}, price: { type: 'string' } },
+        required: ['bytes', 'price'],
+        additionalProperties: false,
+      }),
+    );
+  });
+
+  test("a caller's mapping for a type the defaults map wins over the default", async () => {
+    const { paths } = await analyzeWorkspace(
+      {
+        'index.ts': `
+const app = { get: (..._args: unknown[]) => undefined };
+const output = { json: (value: unknown) => value };
+const validate = (selector: unknown) => selector;
+declare const file: { bytes: Uint8Array };
+app.get('/x', validate(() => ({})), () => {
+  return output.json(file);
+});
+export {};
+`,
+      },
+      { Uint8Array: { type: 'string', format: 'binary' } },
+    );
+
+    assert.deepStrictEqual(
+      paths['/x'].get.responses,
+      jsonResponse({
+        type: 'object',
+        properties: { bytes: { type: 'string', format: 'binary' } },
+        required: ['bytes'],
+        additionalProperties: false,
+      }),
+    );
+  });
+
+  test('a type mapping is a JSON Schema object; the string forms no longer type-check', () => {
+    const mappings: Parameters<typeof analyze>[1]['types'] = {
+      // @ts-expect-error 'any', '#/…' and a bare type name were the string forms.
+      Money: 'string',
+    };
+    assert.ok(mappings);
   });
 
   test('discriminated union keeps each variant with its literal discriminator', async () => {

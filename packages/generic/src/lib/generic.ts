@@ -57,15 +57,16 @@ import {
 import { realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { debuglog } from 'node:util';
-import type { SecurityRequirementObject } from 'openapi3-ts/oas31';
+import type {
+  SchemaObject,
+  SecurityRequirementObject,
+} from 'openapi3-ts/oas31';
 import { camelcase } from 'stringcase';
 
 import {
   type FunctionWithBody,
   type NaunceResponseAnalyzer,
-  type OnOperation,
   type OpenAPIComponentsObject,
-  type OpenAPISecuritySchemeObject,
   Paths,
   type ResponseAnalyzerFn,
   type ResponseItem,
@@ -787,7 +788,6 @@ function visit(
       : undefined,
     selectors,
     responses,
-    sourceFile.fileName,
     {
       ...metadata,
       security: security
@@ -913,19 +913,18 @@ export async function analyze(
      * refused.
      */
     allowedNamedImports?: readonly string[];
-    typesMap?: Record<string, string>;
+    /** A TypeScript type name and the JSON Schema written in its place, added onto the defaults. */
+    types?: Readonly<Record<string, SchemaObject>>;
     responseAnalyzer: ResponseAnalyzerFn | NaunceResponseAnalyzer;
-    onOperation?: OnOperation;
-    securitySchemes?: Record<string, OpenAPISecuritySchemeObject>;
     middlewareSecurity?: readonly MiddlewareSecurityRule[];
   },
 ) {
   const typeChecker = project.checker;
-  const typeDeriver = new TypeDeriver(typeChecker, config.typesMap);
+  const typeDeriver = new TypeDeriver(typeChecker, config.types);
   using evaluator = new ZodEvaluator({
     conditions: project.program.getCompilerOptions().customConditions ?? [],
   });
-  const paths = new Paths({ evaluator, onOperation: config.onOperation });
+  const paths = new Paths({ evaluator });
   const bindings = new AgainstBindings(config.allowedNamedImports ?? []);
   const security: SecurityAnalysis | undefined = config.middlewareSecurity && {
     rules: config.middlewareSecurity,
@@ -994,7 +993,6 @@ export async function analyze(
         {},
       ),
     },
-    securitySchemes: config.securitySchemes,
   };
 
   return {

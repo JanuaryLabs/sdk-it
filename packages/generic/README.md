@@ -92,36 +92,15 @@ node openapi.ts
 See [`@sdk-it/typescript`](../typescript/README.md) to generate a client from
 the OpenAPI document.
 
-## Customize operations
-
-`onOperation` receives every derived operation. This example uses the route
-file name as its tag:
-
-```typescript
-import { basename } from 'node:path';
-
-import { openAnalysisProject } from '@sdk-it/core/program.js';
-import { analyze } from '@sdk-it/generic';
-import { responseAnalyzer } from '@sdk-it/hono';
-
-using project = openAnalysisProject('./apps/backend/tsconfig.app.json');
-const { paths, components } = await analyze(project, {
-  responseAnalyzer,
-  onOperation(sourceFile, _method, _path, operation) {
-    operation.tags = [basename(sourceFile, '.ts')];
-    return {};
-  },
-});
-```
-
 ## Customize type mappings
 
-Use `typesMap` for TypeScript types without a direct OpenAPI representation.
-For example, map Prisma's `Decimal` to a string so it keeps its precision on
-the wire:
+Use `types` for TypeScript types without a direct OpenAPI representation. Each
+entry is a type name and the JSON Schema the analysis writes in its place. The
+entries are added onto the defaults, which write streams and binary arrays as
+any value (`{}`). For example, map Prisma's `Decimal` to a string so it keeps
+its precision on the wire:
 
 ```typescript
-import { defaultTypesMap } from '@sdk-it/core/deriver.js';
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
@@ -129,9 +108,8 @@ import { responseAnalyzer } from '@sdk-it/hono';
 using project = openAnalysisProject('./tsconfig.json');
 const { paths, components } = await analyze(project, {
   responseAnalyzer,
-  typesMap: {
-    ...defaultTypesMap,
-    Decimal: 'string',
+  types: {
+    Decimal: { type: 'string' },
   },
 });
 ```
@@ -242,8 +220,9 @@ named component recursively.
 
 ## Derive operation security from middleware
 
-Declare each OpenAPI security scheme once, then associate authentication and
-authorization middleware by its exported symbol and source file:
+Associate authentication and authorization middleware with security
+requirements by its exported symbol and source file. The schemes the
+requirements name belong in the document's `components.securitySchemes`:
 
 ```typescript
 import { fileURLToPath } from 'node:url';
@@ -257,9 +236,6 @@ const authModule = fileURLToPath(new URL('./src/auth.ts', import.meta.url));
 using project = openAnalysisProject('./tsconfig.json');
 const { paths, components } = await analyze(project, {
   responseAnalyzer,
-  securitySchemes: {
-    bearer: { type: 'http', scheme: 'bearer' },
-  },
   middlewareSecurity: [
     {
       middleware: { import: 'authenticate', from: authModule },

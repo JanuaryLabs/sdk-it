@@ -357,9 +357,6 @@ app.get('/status', validate(() => ({})), (c) => c.json({ ok: true }));
     using project = openAnalysisProject(workspace.tsconfig);
     const result = await analyze(project, {
       responseAnalyzer,
-      securitySchemes: {
-        bearer: { type: 'http', scheme: 'bearer' },
-      },
       middlewareSecurity: [
         {
           middleware: {
@@ -371,9 +368,6 @@ app.get('/status', validate(() => ({})), (c) => c.json({ ok: true }));
       ],
     });
 
-    assert.deepStrictEqual(result.components.securitySchemes, {
-      bearer: { type: 'http', scheme: 'bearer' },
-    });
     assert.deepStrictEqual(result.paths['/account']?.get?.security, [
       { bearer: [] },
     ]);
@@ -404,9 +398,6 @@ app.get('/account', authenticate, validate(() => ({})), (c) => c.json({ ok: true
     using project = openAnalysisProject(workspace.tsconfig);
     const result = await analyze(project, {
       responseAnalyzer,
-      securitySchemes: {
-        bearer: { type: 'http', scheme: 'bearer' },
-      },
       middlewareSecurity: [
         {
           middleware: {
@@ -456,9 +447,6 @@ app.get(
     using project = openAnalysisProject(workspace.tsconfig);
     const result = await analyze(project, {
       responseAnalyzer,
-      securitySchemes: {
-        bearer: { type: 'http', scheme: 'bearer' },
-      },
       middlewareSecurity: [
         {
           middleware: {
@@ -524,9 +512,6 @@ app.get(
     using project = openAnalysisProject(workspace.tsconfig);
     const result = await analyze(project, {
       responseAnalyzer,
-      securitySchemes: {
-        bearer: { type: 'http', scheme: 'bearer' },
-      },
       middlewareSecurity: [
         {
           middleware: { import: 'authenticate', from: authModule },
@@ -584,10 +569,6 @@ app.get(
     using project = openAnalysisProject(workspace.tsconfig);
     const result = await analyze(project, {
       responseAnalyzer,
-      securitySchemes: {
-        bearer: { type: 'http', scheme: 'bearer' },
-        tenantKey: { type: 'apiKey', in: 'header', name: 'X-Tenant-Key' },
-      },
       middlewareSecurity: [
         {
           middleware: { import: 'authorise', from: authModule },
@@ -639,7 +620,6 @@ app.get(
     await assert.rejects(
       analyze(project, {
         responseAnalyzer,
-        securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } },
         middlewareSecurity: [
           {
             middleware: {
