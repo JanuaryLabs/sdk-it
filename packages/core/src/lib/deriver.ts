@@ -137,6 +137,8 @@ export class TypeDeriver {
   readonly #types: Readonly<Record<string, SchemaObject>>;
   private trace: TraceContext = {};
   private readonly activeAliases = new Map<Type, boolean>();
+  /** The component name of each generic interface instantiation, by type id. */
+  private readonly instantiationNames = new Map<number, string>();
   /** `types`: a TypeScript type name and the JSON Schema written in its place, added onto the defaults. */
   constructor(
     checker: Checker,
@@ -193,6 +195,54 @@ export class TypeDeriver {
       parts.push(`  in \x1b[2m${this.trace.operation}\x1b[0m`);
     }
     console.warn(parts.join('\n'));
+  }
+
+  /**
+   * The component name of an interface. A generic interface's instantiation has
+   * its own members, so each one is its own component: one whose type arguments
+   * are all its type parameters' defaults keeps the interface's name, as
+   * UIMessage does, and any other is named after its type arguments, so
+   * Box<'x'> is Box_x. A name that another type holds takes the first free
+   * numeric suffix.
+   */
+  private componentNameOf(type: Type, name: string): string {
+    if (!type.isTypeReference()) {
+      return name;
+    }
+    const typeArguments = this.checker.getTypeArguments(type);
+    if (typeArguments.length === 0) {
+      return name;
+    }
+    const known = this.instantiationNames.get(type.id);
+    if (known) {
+      return known;
+    }
+    const typeParameters = type.getTarget().getTypeParameters();
+    const defaulted = typeArguments.every(
+      (argument, index) =>
+        typeParameters[index]?.getDefault()?.id === argument.id,
+    );
+    const base = defaulted
+      ? name
+      : [
+          name,
+          ...typeArguments.map((argument) =>
+            this.checker.typeToString(argument),
+          ),
+        ]
+          .join('_')
+          .replace(/[^A-Za-z0-9]+/g, '_')
+          .replace(/^_+|_+$/g, '');
+    const taken = new Set([
+      ...Object.keys(this.collector),
+      ...this.instantiationNames.values(),
+    ]);
+    let component = base;
+    for (let suffix = 2; taken.has(component); suffix++) {
+      component = `${base}_${suffix}`;
+    }
+    this.instantiationNames.set(type.id, component);
+    return component;
   }
 
   serializeType(type: Type): any {
@@ -407,7 +457,7 @@ export class TypeDeriver {
       return this.serializeNode(declaration);
     }
     if (symbol && symbol.flags & SymbolFlags.Interface) {
-      const name = symbol.name;
+      const name = this.componentNameOf(type, symbol.name);
       if (!this.collector[name]) {
         this.collector[name] = {};
         const properties: Record<string, unknown> = {};
