@@ -77,16 +77,99 @@ describe('schemaToZod — v3→v4 characterization (string formats)', () => {
     assert.equal(schema.safeParse('not-a-uuid').success, false);
   });
 
-  test('format: uuid keeps v3 GUID semantics (no RFC 9562 variant enforcement)', () => {
+  test('format: uuid refuses a GUID outside RFC 9562', () => {
     const schema = schemaToZod({ type: 'string', format: 'uuid' }, ir, {
       required: true,
     });
-    // Microsoft-style GUID: variant nibble is not 8/9/a/b. Accepted by zod
-    // v3's .uuid(); zod 4's z.uuid() rejects it, z.guid() accepts it.
+    // Version 1 with variant nibble 1: a GUID, but not an RFC 9562 UUID.
     assert.equal(
-      schema.safeParse('12345678-1234-1234-1234-123456789012').success,
+      schema.safeParse('12345678-1234-1234-1234-123456789abc').success,
+      false,
+    );
+  });
+
+  test("format: uuid accepts a GUID outside RFC 9562 when the pattern is z.guid()'s", () => {
+    const schema = schemaToZod(
+      {
+        type: 'string',
+        format: 'uuid',
+        pattern:
+          '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$',
+      },
+      ir,
+      { required: true },
+    );
+    assert.equal(
+      schema.safeParse('12345678-1234-1234-1234-123456789abc').success,
       true,
     );
+    assert.equal(schema.safeParse('not-a-guid').success, false);
+  });
+
+  test('a format with the pattern zod writes for it reports one issue for a refused value', () => {
+    const cases = [
+      {
+        format: 'uuid',
+        pattern:
+          '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+      },
+      {
+        format: 'email',
+        pattern:
+          "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+      },
+      {
+        format: 'date',
+        pattern:
+          '^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$',
+      },
+      {
+        format: 'date-time',
+        pattern:
+          '^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$',
+      },
+    ];
+
+    for (const { format, pattern } of cases) {
+      const schema = schemaToZod({ type: 'string', format, pattern }, ir, {
+        required: true,
+      });
+
+      assert.deepEqual(
+        schema
+          .safeParse('nope')
+          .error?.issues.map((issue) =>
+            'format' in issue ? issue.format : issue.code,
+          ),
+        [format === 'date-time' ? 'datetime' : format],
+        format,
+      );
+    }
+  });
+
+  test("format: date-time refuses a zone offset when the pattern is z.iso.datetime()'s", () => {
+    const schema = schemaToZod(
+      {
+        type: 'string',
+        format: 'date-time',
+        pattern:
+          '^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$',
+      },
+      ir,
+      { required: true },
+    );
+    assert.equal(schema.safeParse('2024-01-01T10:00:00Z').success, true);
+    assert.equal(schema.safeParse('2024-01-01T10:00:00+02:00').success, false);
+  });
+
+  test('a format keeps a pattern of its own, which refuses a value the format accepts', () => {
+    const schema = schemaToZod(
+      { type: 'string', format: 'email', pattern: '@example\\.com$' },
+      ir,
+      { required: true },
+    );
+    assert.equal(schema.safeParse('ada@example.com').success, true);
+    assert.equal(schema.safeParse('ada@other.com').success, false);
   });
 
   void test.each(['url', 'uri'] as const, (format) =>

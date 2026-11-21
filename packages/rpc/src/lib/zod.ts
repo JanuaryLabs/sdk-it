@@ -2,6 +2,7 @@ import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 import { type ZodType, z } from 'zod';
 
 import { type OpenAPIDocument, followRef, isEmpty, isRef } from '@sdk-it/core';
+import { zodStringFormat } from '@sdk-it/core/zod-string-format.js';
 import {
   annotationsOf,
   discriminatorOf,
@@ -9,15 +10,6 @@ import {
   requiredOn,
   tupleOf,
 } from '@sdk-it/spec';
-
-// z.iso.time() rejects RFC 3339 zone suffixes ('10:30:00Z', '10:30:00+02:00'),
-// which JSON Schema's format: time allows. Accept both local and
-// zone-qualified times.
-const isoTime = z
-  .string()
-  .regex(
-    /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d+)?)?(Z|[+-]([01]\d|2[0-3]):[0-5]\d)?$/,
-  );
 
 type Discriminable = ZodType & z.core.$ZodTypeDiscriminable;
 
@@ -229,52 +221,34 @@ export class RuntimeZodConverter {
       return z.custom<Blob>();
     }
 
-    const coerced = schema['x-zod-type'] === 'coerce-string';
-    const base = coerced ? z.coerce.string() : z.string();
-    const limits = stringLimits(schema);
-    const withFormat = (format: ZodType<string, string>): ZodType =>
-      coerced ? base.pipe(format.check(...limits)) : format.check(...limits);
-
-    switch (schema.format) {
-      case 'date-time':
-      case 'datetime':
-        if (schema['x-zod-type'] === 'coerce-date') {
-          return z.coerce.date();
-        } else if (schema['x-zod-type'] === 'date') {
-          return z.date();
-        } else {
-          // RFC 3339 date-time allows numeric zone offsets, which
-          // z.iso.datetime() rejects by default.
-          return withFormat(z.iso.datetime({ offset: true }));
-        }
-      case 'date':
-        return withFormat(z.iso.date());
-      case 'time':
-        return withFormat(isoTime);
-      case 'email':
-        return withFormat(z.email());
-      case 'uuid':
-        // z.guid() preserves zod v3's looser .uuid() semantics; z.uuid()
-        // enforces RFC 9562 variant bits and rejects Microsoft-style GUIDs.
-        return withFormat(z.guid());
-      case 'url':
-      case 'uri':
-        return withFormat(z.url());
-      case 'ipv4':
-        return withFormat(z.ipv4());
-      case 'ipv6':
-        return withFormat(z.ipv6());
-      case 'cidrv4':
-        return withFormat(z.cidrv4());
-      case 'cidrv6':
-        return withFormat(z.cidrv6());
-      case 'byte':
-      case 'binary':
-        // Bare z.custom on purpose — see the contentEncoding branch above.
-        return z.custom<Blob>();
-      default:
-        return base.check(...limits);
+    if (schema.format === 'byte' || schema.format === 'binary') {
+      // Bare z.custom on purpose — see the contentEncoding branch above.
+      return z.custom<Blob>();
     }
+    const dateTime =
+      schema.format === 'date-time' || schema.format === 'datetime';
+    if (dateTime && schema['x-zod-type'] === 'coerce-date') {
+      return z.coerce.date();
+    }
+    if (dateTime && schema['x-zod-type'] === 'date') {
+      return z.date();
+    }
+
+    const base =
+      schema['x-zod-type'] === 'coerce-string' ? z.coerce.string() : z.string();
+    const format =
+      schema.format === undefined
+        ? undefined
+        : zodStringFormat(schema.format, schema.pattern);
+    if (!format) {
+      return base.check(...stringLimits(schema));
+    }
+    const checked = format.schema.check(
+      ...stringLimits({ ...schema, pattern: format.pattern }),
+    );
+    return schema['x-zod-type'] === 'coerce-string'
+      ? base.pipe(checked)
+      : checked;
   }
 
   /**
