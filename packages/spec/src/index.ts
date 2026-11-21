@@ -23,5 +23,6 @@ export * from './lib/overview-docs/types.js';
 export * from './lib/reserved-keywords.js';
 export * from './lib/sidebar.js';
 export * from './lib/tag.js';
+export * from './lib/tuple.js';
 export * from './lib/types.js';
 export * from './lib/walk-schemas.js';

@@ -63,7 +63,14 @@ function normalizeSchemaObjects(
       );
     }
 
-    if (!isEmpty(schema.items)) {
+    if (!isEmpty(schema.prefixItems)) {
+      schema.type = 'array';
+      normalizeSchemaObjects(spec, schema.prefixItems, visited);
+    }
+
+    // items: false closes a tuple; it is no schema to normalize.
+    const declaredItems: unknown = schema.items;
+    if (declaredItems !== false && !isEmpty(schema.items)) {
       delete schema.oneOf;
       delete schema.anyOf;
       schema.type = 'array';

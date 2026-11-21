@@ -253,6 +253,7 @@ function holdsBinary(
   const children = [
     ...Object.values(schema.properties ?? {}),
     ...(schema.items ? [schema.items] : []),
+    ...(schema.prefixItems ?? []),
     ...(typeof schema.additionalProperties === 'object'
       ? [schema.additionalProperties]
       : []),
