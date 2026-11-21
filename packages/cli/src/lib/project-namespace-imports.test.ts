@@ -328,7 +328,7 @@ app.post('/patients', validate('application/json', (payload) => ({
   // Assert
   const shown = relative(process.cwd(), workspace.path);
   await assert.rejects(generation, {
-    message: `${workspace.path}/src/patients.route.ts imports $Enums from './db.ts', which an against may read, but it does not load: Cannot find module '${workspace.path}/src/generated/client.js' imported from ${workspace.path}/src/db.ts
+    message: `${workspace.path}/src/patients.route.ts imports $Enums from './db.ts', which an against reads, but it does not load: Cannot find module '${workspace.path}/src/generated/client.js' imported from ${workspace.path}/src/db.ts
 TypeScript reports:
 ${shown}/src/patients.route.ts(4,10): error TS2305: Module '"./db.ts"' has no exported member '$Enums'.
 ${shown}/src/db.ts(1,15): error TS2307: Cannot find module './generated/client.js' or its corresponding type declarations.
@@ -364,7 +364,7 @@ app.post('/patients', validate('application/json', (payload) => ({
   // Assert
   const shown = relative(process.cwd(), workspace.path);
   await assert.rejects(generation, {
-    message: `${workspace.path}/src/patients.route.ts imports $Enums from './generated/client.js', which an against may read, but it does not load: Cannot find module './generated/client.js'
+    message: `${workspace.path}/src/patients.route.ts imports $Enums from './generated/client.js', which an against reads, but it does not load: Cannot find module '${workspace.path}/src/generated/client.js'
 TypeScript reports:
 ${shown}/src/patients.route.ts(4,24): error TS2307: Cannot find module './generated/client.js' or its corresponding type declarations.
 Run the Prisma client's generate target (prisma generate) before sdk-it generate.`,
@@ -400,6 +400,6 @@ app.post('/patients', validate('application/json', (payload) => ({
 
   // Assert
   await assert.rejects(generation, {
-    message: `POST /patients input sex: against reads Sex, which is neither z nor a namespace it is given. An against may read only z and the namespaces it is given: import * as <name> in its route file (such as inputs.*) or the imports passed to analyze(). Write the schema inline.\n  at ${workspace.path}/src/patients.route.ts:10:52`,
+    message: `POST /patients input sex: against reads Sex, which is neither z nor a namespace it is given. An against may read only z, the import * as <name> namespaces of its route file (such as inputs.*) and the named imports analyze() allows (allowedNamedImports). Write the schema inline.\n  at ${workspace.path}/src/patients.route.ts:10:52`,
   });
 });
