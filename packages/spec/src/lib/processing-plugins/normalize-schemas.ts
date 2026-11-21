@@ -15,10 +15,34 @@ import { coerceTypes } from '../is.js';
 import type { IRPlugin } from '../processing.js';
 import type { IR } from '../types.js';
 
+/**
+ * Where a schema sits: `merging` is the chain of components an allOf is
+ * merging into it, and `enclosing` the components that hold it beneath a
+ * property or an item. An allOf member that names a merging component is a
+ * cycle that no merge ends; one that names an enclosing component is a
+ * recursive type and stays a reference.
+ */
+interface SchemaPath {
+  owner?: string;
+  merging: readonly string[];
+  enclosing: ReadonlySet<string>;
+}
+
+function beneath(path: SchemaPath): SchemaPath {
+  return {
+    merging: [],
+    enclosing: new Set([
+      ...path.enclosing,
+      ...path.merging,
+      ...(path.owner ? [path.owner] : []),
+    ]),
+  };
+}
+
 function normalizeSchemaObjects(
   spec: IR,
   schemas: (SchemaObject | ReferenceObject)[],
-  visited = new Set<string>(),
+  path: SchemaPath,
 ) {
   for (const schema of schemas) {
     if (isRef(schema)) continue;
@@ -41,7 +65,11 @@ function normalizeSchemaObjects(
       schema.type ??= 'object';
       delete schema.oneOf;
       delete schema.anyOf;
-      normalizeSchemaObjects(spec, Object.values(schema.properties), visited);
+      normalizeSchemaObjects(
+        spec,
+        Object.values(schema.properties),
+        beneath(path),
+      );
       for (const [key, value] of Object.entries(schema.properties)) {
         if (
           notRef(value) &&
@@ -59,13 +87,13 @@ function normalizeSchemaObjects(
       normalizeSchemaObjects(
         spec,
         Object.values(schema['x-properties']),
-        visited,
+        beneath(path),
       );
     }
 
     if (!isEmpty(schema.prefixItems)) {
       schema.type = 'array';
-      normalizeSchemaObjects(spec, schema.prefixItems, visited);
+      normalizeSchemaObjects(spec, schema.prefixItems, beneath(path));
     }
 
     // items: false closes a tuple; it is no schema to normalize.
@@ -74,7 +102,7 @@ function normalizeSchemaObjects(
       delete schema.oneOf;
       delete schema.anyOf;
       schema.type = 'array';
-      normalizeSchemaObjects(spec, [schema.items], visited);
+      normalizeSchemaObjects(spec, [schema.items], beneath(path));
       const items = resolveRef<SchemaObject>(spec, schema.items);
       if (Array.isArray(items.default)) {
         schema.default ??= structuredClone(items.default);
@@ -109,7 +137,20 @@ function normalizeSchemaObjects(
       delete schema.allOf;
     }
 
-    if (!isEmpty(schema.allOf)) {
+    if (
+      !isEmpty(schema.allOf) &&
+      schema.allOf.some((item) => isRef(item) && path.enclosing.has(item.$ref))
+    ) {
+      // A recursive member keeps the allOf an intersection of references.
+      for (const item of schema.allOf) {
+        if (notRef(item)) normalizeSchemaObjects(spec, [item], path);
+      }
+      const [only] = schema.allOf;
+      if (schema.allOf.length === 1 && isRef(only)) {
+        schema.$ref = only.$ref;
+        delete schema.allOf;
+      }
+    } else if (!isEmpty(schema.allOf)) {
       const schemas = schema.allOf;
       const resolved = schemas.map((item) =>
         resolveRef<SchemaObject>(spec, item),
@@ -126,21 +167,20 @@ function normalizeSchemaObjects(
         ...resolved.map((resolvedSchema, index) => {
           const sourceSchema = schemas[index];
           if (isRef(sourceSchema)) {
-            if (visited.has(sourceSchema.$ref)) {
+            if (path.merging.includes(sourceSchema.$ref)) {
               throw new Error(
                 `Circular allOf reference detected: ${[
-                  ...visited,
+                  ...path.merging,
                   sourceSchema.$ref,
                 ].join(' -> ')}`,
               );
             }
-            normalizeSchemaObjects(
-              spec,
-              [resolvedSchema],
-              new Set(visited).add(sourceSchema.$ref),
-            );
+            normalizeSchemaObjects(spec, [resolvedSchema], {
+              ...path,
+              merging: [...path.merging, sourceSchema.$ref],
+            });
           } else {
-            normalizeSchemaObjects(spec, [resolvedSchema], visited);
+            normalizeSchemaObjects(spec, [resolvedSchema], path);
           }
           return resolvedSchema;
         }),
@@ -162,14 +202,14 @@ function normalizeSchemaObjects(
       normalizeSchemaObjects(
         spec,
         Object.values(schema.additionalProperties.properties),
-        visited,
+        beneath(path),
       );
     }
 
     for (const kind of ['oneOf', 'anyOf'] as const) {
       if (!isEmpty(schema[kind])) {
         delete schema.type;
-        normalizeSchemaObjects(spec, schema[kind], visited);
+        normalizeSchemaObjects(spec, schema[kind], path);
         if (isEmpty(schema[kind])) {
           continue;
         }
@@ -254,7 +294,13 @@ export function normalizeSchemas(): IRPlugin {
   return {
     name: 'normalize-schemas',
     process({ spec }) {
-      normalizeSchemaObjects(spec, Object.values(spec.components.schemas));
+      for (const [name, schema] of Object.entries(spec.components.schemas)) {
+        normalizeSchemaObjects(spec, [schema], {
+          owner: `#/components/schemas/${name}`,
+          merging: [],
+          enclosing: new Set(),
+        });
+      }
     },
   };
 }
