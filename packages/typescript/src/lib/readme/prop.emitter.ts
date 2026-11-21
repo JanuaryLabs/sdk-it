@@ -5,8 +5,8 @@ import type {
   SchemaObject,
 } from 'openapi3-ts/oas31';
 
-import { type OpenAPIDocument, followRef, isRef } from '@sdk-it/core';
-import { coerceTypes } from '@sdk-it/spec';
+import { type OpenAPIDocument, isRef } from '@sdk-it/core';
+import { annotationsOf, coerceTypes } from '@sdk-it/spec';
 
 /**
  * PropEmitter handles converting OpenAPI schemas to Markdown documentation
@@ -64,7 +64,7 @@ export class PropEmitter {
       .replace('**Type:** ', '')
       .replace(' (nullable)', '|null');
 
-    const fixed = isRef(schema) ? '' : this.#fixedSummary(schema);
+    const fixed = this.#fixedSummary(schema);
 
     const reqMark = required ? ' required' : '';
     const summary = `- \`${name}\` ${rawType}${reqMark}${fixed}:`;
@@ -105,18 +105,18 @@ export class PropEmitter {
     return lines;
   }
 
-  #ref($ref: string): string[] {
-    const schemaName = $ref.split('/').pop() || 'object';
-    const resolved = followRef<SchemaObject>(this.#spec, $ref);
-    // Link to the schema definition (assuming heading anchors are generated elsewhere)
+  #ref(schema: ReferenceObject): string[] {
+    const schemaName = schema.$ref.split('/').pop() || 'object';
+    const annotations = annotationsOf(schema, this.#spec);
     const lines = [
       `**Type:** [\`${schemaName}\`](#${schemaName.toLowerCase()})`,
     ];
-    if (resolved.description) {
-      lines.push(resolved.description);
+    if (annotations.description) {
+      lines.push(annotations.description);
     }
-    // Avoid deep recursion by default, just link and show description.
-    // If more detail is needed, the linked definition should provide it.
+    if (annotations.default !== undefined) {
+      lines.push(`**Default:** \`${JSON.stringify(annotations.default)}\``);
+    }
     return lines;
   }
 
@@ -130,12 +130,13 @@ export class PropEmitter {
     return lines;
   }
 
-  #fixedSummary(schema: SchemaObject): string {
-    if (schema.const !== undefined) {
+  #fixedSummary(schema: SchemaObject | ReferenceObject): string {
+    if (!isRef(schema) && schema.const !== undefined) {
       return ` value: ${JSON.stringify(schema.const)}`;
     }
-    if (schema.default !== undefined) {
-      return ` default: ${JSON.stringify(schema.default)}`;
+    const { default: value } = annotationsOf(schema, this.#spec);
+    if (value !== undefined) {
+      return ` default: ${JSON.stringify(value)}`;
     }
     return '';
   }
@@ -290,8 +291,15 @@ export class PropEmitter {
    * Handle schemas by resolving references and delegating to appropriate handler
    */
   public handle(schemaOrRef: SchemaObject | ReferenceObject): string[] {
+    const [type, ...details] = this.#describe(schemaOrRef);
+    return annotationsOf(schemaOrRef, this.#spec).deprecated
+      ? [type, '**Deprecated**', ...details]
+      : [type, ...details];
+  }
+
+  #describe(schemaOrRef: SchemaObject | ReferenceObject): string[] {
     if (isRef(schemaOrRef)) {
-      return this.#ref(schemaOrRef.$ref);
+      return this.#ref(schemaOrRef);
     }
 
     const schema = schemaOrRef;
@@ -392,7 +400,7 @@ export class PropEmitter {
             `\`${parameter.name}\``,
             parameter.in,
             parameter.schema
-              ? this.handle(parameter.schema)[0].replace('**Type:** ', '')
+              ? `${this.handle(parameter.schema)[0].replace('**Type:** ', '')}${this.#fixedSummary(parameter.schema)}`
               : '',
             parameter.required ? 'Yes' : 'No',
             (parameter.description ?? '').replaceAll('\n', ' '),

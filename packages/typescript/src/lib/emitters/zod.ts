@@ -472,8 +472,6 @@ export class ZodEmitter {
     // backward compatibility with openapi 3.0
     if ('nullable' in schema && schema.nullable) {
       types.push('null');
-    } else if (schema.default === null) {
-      types.push('null');
     }
 
     if (types.length > 1) {

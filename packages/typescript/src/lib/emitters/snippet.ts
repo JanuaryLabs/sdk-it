@@ -1,7 +1,7 @@
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
 import { followRef, isRef, resolveRef } from '@sdk-it/core';
-import type { IR } from '@sdk-it/spec';
+import { type IR, annotationsOf } from '@sdk-it/spec';
 
 /**
  * Generate example values for OpenAPI schemas
@@ -31,7 +31,7 @@ export class SnippetEmitter {
         isRequired ||
         resolvedProp.const !== undefined ||
         resolvedProp.example !== undefined ||
-        resolvedProp.default !== undefined
+        annotationsOf(propSchema, this.spec).default !== undefined
       ) {
         result[propName] = this.handle(propSchema);
       }
@@ -179,7 +179,13 @@ export class SnippetEmitter {
 
   public handle(schemaOrRef: SchemaObject | ReferenceObject): unknown {
     if (isRef(schemaOrRef)) {
-      return this.ref(schemaOrRef.$ref);
+      const target = resolveRef(this.spec, schemaOrRef);
+      const { default: value } = annotationsOf(schemaOrRef, this.spec);
+      return target.const === undefined &&
+        target.example === undefined &&
+        value !== undefined
+        ? value
+        : this.ref(schemaOrRef.$ref);
     }
 
     const schema = resolveRef(this.spec, schemaOrRef);

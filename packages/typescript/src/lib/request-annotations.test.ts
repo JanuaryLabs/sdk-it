@@ -158,3 +158,54 @@ await accounts.request('POST /accounts', { name: 'Ada' });
     [],
   );
 });
+
+test('a property whose default is null still refuses null unless its type allows it', async () => {
+  const { text } = await renderModule(
+    {
+      openapi: '3.1.0',
+      info: { title: 'Notes', version: '1.0.0' },
+      servers: [{ url: 'https://notes.test' }],
+      paths: {
+        '/notes': {
+          post: {
+            operationId: 'createNote',
+            requestBody: {
+              required: true,
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: { note: { type: 'string', default: null } },
+                  },
+                },
+              },
+            },
+            responses: { '204': { description: 'Created' } },
+          },
+        },
+      },
+    },
+    { name: 'Notes' },
+  );
+  await using workspace = await analysisWorkspace('request-default-null-', {
+    'notes.ts': text,
+  });
+  const { createNotes } = await import(
+    pathToFileURL(join(workspace.path, 'notes.ts')).href
+  );
+  const bodies: unknown[] = [];
+  const client = createNotes({
+    fetch: async (request: Request) => {
+      bodies.push(await request.json());
+      return new Response(null, { status: 204 });
+    },
+  });
+
+  await client.request('POST /notes', { note: 'x' });
+  await assert.rejects(
+    client.request('POST /notes', { note: null }),
+    parseErrorFor('note'),
+  );
+
+  assert.deepEqual(bodies, [{ note: 'x' }]);
+});
