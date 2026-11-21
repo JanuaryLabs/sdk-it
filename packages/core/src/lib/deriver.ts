@@ -47,6 +47,7 @@ import {
   TypeFlags,
   TypeFormatFlags,
 } from '@typescript/native/sync';
+import type { SchemaObject } from 'openapi3-ts/oas31';
 
 import { $types, deriveSymbol } from './derived-type.js';
 import { sortObjectKeys } from './utils.js';
@@ -63,14 +64,15 @@ type Collector = Record<string, any>;
  */
 type LiteralWidening = 'none' | 'values' | 'all';
 
-export const defaultTypesMap: Record<string, string> = {
-  Readable: 'any',
-  ReadableStream: 'any',
-  DateConstructor: 'string',
-  ArrayBufferConstructor: 'any',
-  SharedArrayBufferConstructor: 'any',
-  Int8ArrayConstructor: 'any',
-  Uint8Array: 'any',
+/** The JSON Schema each of these types stands for, under any mappings a caller adds. */
+const defaultTypes: Readonly<Record<string, SchemaObject>> = {
+  Readable: {},
+  ReadableStream: {},
+  DateConstructor: { type: 'string' },
+  ArrayBufferConstructor: {},
+  SharedArrayBufferConstructor: {},
+  Int8ArrayConstructor: {},
+  Uint8Array: {},
 };
 
 interface TraceContext {
@@ -132,15 +134,26 @@ export class UnresolvedTypeError extends Error {
 export class TypeDeriver {
   public readonly collector: Collector = {};
   public readonly checker: Checker;
-  public readonly typesMap: Record<string, string>;
+  readonly #types: Readonly<Record<string, SchemaObject>>;
   private trace: TraceContext = {};
   private readonly activeAliases = new Map<Type, boolean>();
+  /** `types`: a TypeScript type name and the JSON Schema written in its place, added onto the defaults. */
   constructor(
     checker: Checker,
-    typeMappings: Record<string, string> = defaultTypesMap,
+    types?: Readonly<Record<string, SchemaObject>>,
   ) {
     this.checker = checker;
-    this.typesMap = typeMappings;
+    this.#types = { ...defaultTypes, ...types };
+  }
+
+  /** The derived form of a mapped type: its schema, written as given. */
+  #mapped(schema: SchemaObject) {
+    return {
+      [deriveSymbol]: true,
+      kind: 'schema',
+      optional: false,
+      [$types]: [schema],
+    };
   }
 
   setTrace(ctx: { file?: string; operation?: string }) {
@@ -215,13 +228,9 @@ export class TypeDeriver {
   private serializeResolved(type: Type, widening: LiteralWidening): unknown {
     const symbol = type.getSymbol();
     const typeName = type.getAliasSymbol()?.name || symbol?.name;
-    const mappedType = typeName ? this.typesMap[typeName] : undefined;
+    const mappedType = typeName ? this.#types[typeName] : undefined;
     if (mappedType) {
-      return {
-        [deriveSymbol]: true,
-        optional: false,
-        [$types]: [mappedType],
-      };
+      return this.#mapped(mappedType);
     }
     if (symbol?.name === 'Date') {
       return {
@@ -369,20 +378,13 @@ export class TypeDeriver {
           [$types]: ['any'],
         };
       }
-      const elementTypeName =
-        elementType.getAliasSymbol()?.name || elementType.getSymbol()?.name;
-      const mappedElementType = elementTypeName
-        ? this.typesMap[elementTypeName]
-        : undefined;
       const itemWidening: LiteralWidening =
         widening === 'all' || this.checker.isTupleType(type) ? 'all' : 'values';
       return {
         kind: 'array',
         optional: false,
         [deriveSymbol]: true,
-        [$types]: mappedElementType
-          ? [mappedElementType]
-          : [this.serialize(elementType, itemWidening)],
+        [$types]: [this.serialize(elementType, itemWidening)],
       };
     }
     if (this.hasNoJsonForm(type)) {
@@ -424,12 +426,9 @@ export class TypeDeriver {
       };
     }
     if (type.flags & TypeFlags.Object) {
-      if (symbol && this.typesMap[symbol.name]) {
-        return {
-          [deriveSymbol]: true,
-          optional: false,
-          [$types]: [this.typesMap[symbol.name]],
-        };
+      const mappedObject = symbol ? this.#types[symbol.name] : undefined;
+      if (mappedObject) {
+        return this.#mapped(mappedObject);
       }
       const properties = this.checker
         .getPropertiesOfType(type)
@@ -683,12 +682,9 @@ export class TypeDeriver {
       if (!node.name?.text) {
         throw new Error('Class has no name');
       }
-      if (this.typesMap[node.name.text]) {
-        return {
-          [deriveSymbol]: true,
-          optional: false,
-          [$types]: [this.typesMap[node.name.text]],
-        };
+      const mappedClass = this.#types[node.name.text];
+      if (mappedClass) {
+        return this.#mapped(mappedClass);
       }
 
       if (!this.collector[node.name.text]) {

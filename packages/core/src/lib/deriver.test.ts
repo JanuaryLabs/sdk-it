@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
+import type { SchemaObject } from 'openapi3-ts/oas31';
 
 import { $types, deriveSymbol, toSchema } from '@sdk-it/core';
 import { TypeDeriver } from '@sdk-it/core/deriver.js';
@@ -93,7 +94,7 @@ async function deriveTypeFromCode(code: string, targetName: string) {
 async function deriveExpressionFromCode(
   code: string,
   targetName: string,
-  typesMap?: Record<string, string>,
+  types?: Record<string, SchemaObject>,
   compilerOptions?: Record<string, unknown>,
 ) {
   const { checker, sourceFile, cleanup } = await createTestProject(
@@ -101,7 +102,7 @@ async function deriveExpressionFromCode(
     compilerOptions,
   );
   try {
-    const deriver = new TypeDeriver(checker, typesMap);
+    const deriver = new TypeDeriver(checker, types);
     let targetNode: Expression | undefined;
 
     function visit(node: Node) {
@@ -622,10 +623,6 @@ describe('Type Derivation', () => {
     });
   });
 
-  describe('Type Mappings', () => {
-    void test.todo('uses custom typesMap');
-  });
-
   describe('AST Node Serialization', () => {
     void test.todo('handles typeof expressions');
     void test.todo('handles const assertions');
@@ -638,7 +635,7 @@ describe('Type Derivation', () => {
 
       const result = toSchema(
         await deriveExpressionFromCode(code, 'empty', {
-          ChatShare: '#/components/schemas/ChatShare',
+          ChatShare: { $ref: '#/components/schemas/ChatShare' },
         }),
       );
 
@@ -661,14 +658,12 @@ describe('Type Derivation', () => {
       `;
 
       const result = await deriveExpressionFromCode(code, 'payload', {
-        UIMessage: '#/components/schemas/JsonObject',
+        UIMessage: { $ref: '#/components/schemas/JsonObject' },
       });
 
-      assert.deepStrictEqual(result.messages, {
-        [deriveSymbol]: true,
-        kind: 'array',
-        optional: false,
-        [$types]: ['#/components/schemas/JsonObject'],
+      assert.deepStrictEqual(toSchema(result.messages), {
+        type: 'array',
+        items: { $ref: '#/components/schemas/JsonObject' },
       });
     });
 
@@ -701,7 +696,7 @@ describe('Type Derivation', () => {
             };
           `,
           'payload',
-          { UIMessage: '#/components/schemas/JsonObject' },
+          { UIMessage: { $ref: '#/components/schemas/JsonObject' } },
           { strictNullChecks: false },
         ),
       );
@@ -726,7 +721,7 @@ describe('Type Derivation', () => {
               export const payload = ${response};
             `,
             'payload',
-            { UIMessage: '#/components/schemas/JsonObject' },
+            { UIMessage: { $ref: '#/components/schemas/JsonObject' } },
           ),
         );
 
@@ -761,7 +756,7 @@ describe('Type Derivation', () => {
             };
           `,
           'payload',
-          { UIMessage: '#/components/schemas/JsonObject' },
+          { UIMessage: { $ref: '#/components/schemas/JsonObject' } },
         ),
       );
 
@@ -794,7 +789,7 @@ describe('Type Derivation', () => {
             export const payload = { messages };
           `,
           'payload',
-          { UIMessage: '#/components/schemas/JsonObject' },
+          { UIMessage: { $ref: '#/components/schemas/JsonObject' } },
         ),
       );
 
@@ -820,7 +815,7 @@ describe('Type Derivation', () => {
             export const payload = { data: { messages } };
           `,
           'payload',
-          { UIMessage: '#/components/schemas/JsonObject' },
+          { UIMessage: { $ref: '#/components/schemas/JsonObject' } },
         ),
       );
 
@@ -839,7 +834,7 @@ describe('Type Derivation', () => {
             export const payload = { messages };
           `,
           'payload',
-          { UIMessage: '#/components/schemas/JsonObject' },
+          { UIMessage: { $ref: '#/components/schemas/JsonObject' } },
         ),
       );
 
@@ -900,14 +895,12 @@ describe('Type Derivation', () => {
       `;
 
       const result = await deriveExpressionFromCode(code, 'payload', {
-        ChatShare: '#/components/schemas/ChatShare',
+        ChatShare: { $ref: '#/components/schemas/ChatShare' },
       });
 
-      assert.deepStrictEqual(result.shares, {
-        [deriveSymbol]: true,
-        kind: 'array',
-        optional: false,
-        [$types]: ['#/components/schemas/ChatShare'],
+      assert.deepStrictEqual(toSchema(result.shares), {
+        type: 'array',
+        items: { $ref: '#/components/schemas/ChatShare' },
       });
     });
 
@@ -919,7 +912,7 @@ describe('Type Derivation', () => {
             export const payload = ([] satisfies ChatShare[]);
           `,
           'payload',
-          { ChatShare: '#/components/schemas/ChatShare' },
+          { ChatShare: { $ref: '#/components/schemas/ChatShare' } },
         ),
       );
 

@@ -131,20 +131,12 @@ export type ResponseItem = ResponseItemBase &
     | { schema: SchemaObject; response?: never }
   );
 
-export type OnOperation = (
-  sourceFile: string,
-  method: Method,
-  path: string,
-  operation: OperationObject,
-) => PathsObject;
 export class Paths {
   #evaluator: ZodEvaluator;
-  #onOperation?: OnOperation;
   #sharedResponses = new Map<string, SchemaObject>();
   /** The schemas zod names with `.meta({ id })`, by id, across every operation. */
   #components = new Map<string, SchemaObject>();
   #operations: Array<{
-    sourceFile: string;
     name: string;
     path: string;
     method: Method;
@@ -154,9 +146,8 @@ export class Paths {
     info: OperationInfo;
   }> = [];
 
-  constructor(config: { evaluator: ZodEvaluator; onOperation?: OnOperation }) {
+  constructor(config: { evaluator: ZodEvaluator }) {
     this.#evaluator = config.evaluator;
-    this.#onOperation = config.onOperation;
   }
 
   addPath(
@@ -166,7 +157,6 @@ export class Paths {
     contentType: string | undefined,
     selectors: Selector[],
     responses: ResponseItem[],
-    sourceFile: string,
     info: OperationInfo,
   ) {
     const responsesObject = this.#responseItemToResponses(responses);
@@ -174,7 +164,6 @@ export class Paths {
     this.#operations.push({
       name,
       path: this.#tunePath(path),
-      sourceFile,
       contentType: contentType,
       method,
       selectors,
@@ -421,15 +410,6 @@ export class Paths {
         operations[path] = {};
       }
       operations[path][method] = operationObject;
-      if (this.#onOperation) {
-        const paths = this.#onOperation?.(
-          operation.sourceFile,
-          method,
-          path,
-          operationObject,
-        );
-        Object.assign(operations, paths ?? {});
-      }
     }
     return operations;
   }
@@ -484,6 +464,8 @@ export function toSchema(
       required: sortArray(required),
       additionalProperties: false,
     };
+  } else if (data.kind === 'schema') {
+    return structuredClone(data[$types][0]);
   } else if (data.kind === 'date') {
     return { type: 'string', format: 'date-time' };
   } else if (data.kind === 'never') {
