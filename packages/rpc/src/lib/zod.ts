@@ -133,33 +133,54 @@ export class RuntimeZodConverter {
   }
 
   anyOf(schema: SchemaObject): ZodType {
-    const anyOfSchemas = (schema.anyOf ?? []).map((sub) =>
-      this.handle(sub, true),
-    );
-    if (anyOfSchemas.length === 1) {
-      return anyOfSchemas[0];
-    }
-    const discriminated = this.#discriminatedUnion(schema, anyOfSchemas);
-    if (discriminated) {
-      return discriminated;
-    }
-    return z.union(anyOfSchemas);
+    return this.#union(schema, 'anyOf');
   }
 
   oneOf(schema: SchemaObject): ZodType {
-    const oneOfSchemas = (schema.oneOf ?? []).map((sub) =>
-      this.handle(sub, true),
-    );
-    if (oneOfSchemas.length === 1) {
-      return oneOfSchemas[0];
+    return this.#union(schema, 'oneOf');
+  }
+
+  /**
+   * zod's union returns the first branch that succeeds, and JSON Schema's
+   * unions have no order, so the null branch is checked before every other
+   * branch, as `.nullable()` does: a coerce branch would turn null into 'null'.
+   */
+  #union(schema: SchemaObject, kind: 'anyOf' | 'oneOf'): ZodType {
+    const all = schema[kind] ?? [];
+    const branches = all
+      .filter((sub) => !this.#isNull(sub))
+      .map((sub) => this.handle(sub, true));
+    if (branches.length === 0) {
+      return z.null();
     }
-    const discriminated = this.#discriminatedUnion(schema, oneOfSchemas);
+    const union = this.#branches(schema, kind, branches);
+    return branches.length < all.length ? union.nullable() : union;
+  }
+
+  #branches(
+    schema: SchemaObject,
+    kind: 'anyOf' | 'oneOf',
+    branches: ZodType[],
+  ): ZodType {
+    if (branches.length === 1) {
+      return branches[0];
+    }
+    const discriminated = this.#discriminatedUnion(schema, branches);
     if (discriminated) {
       return discriminated;
     }
     // oneOf is exclusive-or per JSON Schema; z.xor rejects values matching
     // more than one branch, unlike z.union's anyOf semantics.
-    return z.xor(oneOfSchemas);
+    return kind === 'oneOf' ? z.xor(branches) : z.union(branches);
+  }
+
+  #isNull(schema: SchemaObject | ReferenceObject): boolean {
+    return (
+      (isRef(schema)
+        ? followRef<SchemaObject>(this.#spec, schema.$ref)
+        : schema
+      ).type === 'null'
+    );
   }
 
   /**
@@ -425,8 +446,11 @@ export class RuntimeZodConverter {
           // Single real type + "null"
           result = this.normal(realTypes[0], schema, required, true);
         } else {
-          // Multiple different types, build a union
-          result = z.union(types.map((t) => this.normal(t, schema, true)));
+          // A union of several types, its null checked first as in #union.
+          result = z.union(realTypes.map((t) => this.normal(t, schema, true)));
+          if (realTypes.length < types.length) {
+            result = result.nullable();
+          }
           if (!required) {
             result = result.optional();
           }
