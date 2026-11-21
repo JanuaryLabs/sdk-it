@@ -226,33 +226,52 @@ export class ZodEmitter {
   }
 
   anyOf(schema: SchemaObject, required: boolean) {
-    const anyOfSchemas = (schema.anyOf ?? []).map((sub) =>
-      this.handle(sub, true),
-    );
-    if (anyOfSchemas.length === 1) {
-      return `${anyOfSchemas[0]}${appendOptional(required)}`;
-    }
-    const discriminated = this.#discriminatedUnion(schema, anyOfSchemas);
-    if (discriminated) {
-      return `${discriminated}${appendOptional(required)}`;
-    }
-    return `z.union([${anyOfSchemas.join(', ')}])${appendOptional(required)}`;
+    return this.#union(schema, 'anyOf', required);
   }
 
   oneOf(schema: SchemaObject, required: boolean) {
-    const oneOfSchemas = (schema.oneOf ?? []).map((sub) =>
-      this.handle(sub, true),
-    );
-    if (oneOfSchemas.length === 1) {
-      return `${oneOfSchemas[0]}${appendOptional(required)}`;
+    return this.#union(schema, 'oneOf', required);
+  }
+
+  /**
+   * zod's union returns the first branch that succeeds, and JSON Schema's
+   * unions have no order, so the null branch is checked before every other
+   * branch, as `.nullable()` does: a coerce branch would turn null into 'null'.
+   */
+  #union(schema: SchemaObject, kind: 'anyOf' | 'oneOf', required: boolean) {
+    const all = schema[kind] ?? [];
+    const branches = all
+      .filter((sub) => !this.#isNull(sub))
+      .map((sub) => this.handle(sub, true));
+    if (branches.length === 0) {
+      return `z.null()${appendOptional(required)}`;
     }
-    const discriminated = this.#discriminatedUnion(schema, oneOfSchemas);
+    const nullable = branches.length < all.length ? '.nullable()' : '';
+    return `${this.#branches(schema, kind, branches)}${nullable}${appendOptional(required)}`;
+  }
+
+  #branches(schema: SchemaObject, kind: 'anyOf' | 'oneOf', branches: string[]) {
+    if (branches.length === 1) {
+      return branches[0];
+    }
+    const discriminated = this.#discriminatedUnion(schema, branches);
     if (discriminated) {
-      return `${discriminated}${appendOptional(required)}`;
+      return discriminated;
     }
     // oneOf is exclusive-or per JSON Schema; z.xor rejects values matching
     // more than one branch, unlike z.union's anyOf semantics.
-    return `z.xor([${oneOfSchemas.join(', ')}])${appendOptional(required)}`;
+    return kind === 'oneOf'
+      ? `z.xor([${branches.join(', ')}])`
+      : `z.union([${branches.join(', ')}])`;
+  }
+
+  #isNull(schema: SchemaObject | ReferenceObject) {
+    return (
+      (isRef(schema)
+        ? followRef<SchemaObject>(this.#spec, schema.$ref)
+        : schema
+      ).type === 'null'
+    );
   }
 
   /**
@@ -486,11 +505,12 @@ export class ZodEmitter {
           true,
         );
       }
-      // If multiple different types, build a union
-      const subSchemas = types.map((t) =>
+      // A union of several types, its null checked first as in #union.
+      const subSchemas = realTypes.map((t) =>
         this.normal(t, { ...schema, type: t }, true),
       );
-      return `z.union([${subSchemas.join(', ')}])${appendOptional(required)}`;
+      const nullable = realTypes.length < types.length ? '.nullable()' : '';
+      return `z.union([${subSchemas.join(', ')}])${nullable}${appendOptional(required)}`;
     }
     return this.normal(types[0], schema, required, false);
   }
