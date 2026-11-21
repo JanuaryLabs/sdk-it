@@ -13,7 +13,7 @@ import type {
 import { $types } from './derived-type.js';
 import { isRef } from './ref.js';
 import { sortArray, sortObjectKeys } from './utils.js';
-import { type InjectImport, evalZod } from './zod-jsonschema.js';
+import type { ZodEvaluator } from './zod-jsonschema.js';
 
 export type OperationInfo = {
   tool?: string;
@@ -56,10 +56,23 @@ const semanticSourceToOpenAPI = {
   headers: 'header',
   params: 'path',
 } as const;
+/**
+ * A binding of its route file that an `against` reads: an `import * as
+ * <name>` namespace, or the export `property` of a named import. Paths
+ * resolves `specifier` from `referrer` (the route file's URL) through its
+ * ZodEvaluator.
+ */
+export interface AgainstBinding {
+  import: string;
+  specifier: string;
+  referrer: string;
+  property?: string;
+}
+
 interface Validation {
   against: string;
-  /** The `import * as <name>` namespaces of its own file that `against` reads. */
-  imports: InjectImport[];
+  /** The bindings of its route file that `against` reads. */
+  imports: AgainstBinding[];
 }
 
 /** A validator entry that selects one named value, such as `payload.params.id`. */
@@ -125,7 +138,7 @@ export type OnOperation = (
   operation: OperationObject,
 ) => PathsObject;
 export class Paths {
-  #imports: InjectImport[] = [];
+  #evaluator: ZodEvaluator;
   #onOperation?: OnOperation;
   #sharedResponses = new Map<string, SchemaObject>();
   /** The schemas zod names with `.meta({ id })`, by id, across every operation. */
@@ -141,8 +154,8 @@ export class Paths {
     info: OperationInfo;
   }> = [];
 
-  constructor(config: { imports: InjectImport[]; onOperation?: OnOperation }) {
-    this.#imports = config.imports;
+  constructor(config: { evaluator: ZodEvaluator; onOperation?: OnOperation }) {
+    this.#evaluator = config.evaluator;
     this.#onOperation = config.onOperation;
   }
 
@@ -273,13 +286,19 @@ export class Paths {
       components: Record<string, SchemaObject>;
     };
     try {
-      evaluated = await evalZod(selector.against, [
-        ...this.#imports.filter(
-          (configured) =>
-            !selector.imports.some((own) => own.import === configured.import),
+      evaluated = await this.#evaluator.evaluate(
+        selector.against,
+        await Promise.all(
+          selector.imports.map(async (binding) => ({
+            import: binding.import,
+            from: await this.#evaluator.resolve(
+              binding.specifier,
+              binding.referrer,
+            ),
+            property: binding.property,
+          })),
         ),
-        ...selector.imports,
-      ]);
+      );
     } catch (error) {
       if (!Error.isError(error)) {
         throw error;

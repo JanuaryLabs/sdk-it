@@ -1,48 +1,77 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
+import * as z from 'zod';
 
-import { evalZod } from '@sdk-it/core';
+import { ZodEvaluator } from '@sdk-it/core';
 
-describe('evalZod characterization (v3 baseline that v4 migration must preserve)', () => {
+/** zod's own JSON Schema for `schema`, which the evaluator writes as is. */
+function zodsOwn(schema: z.ZodType) {
+  const { $schema: _ignored, ...json } = z.toJSONSchema(schema, {
+    io: 'input',
+  });
+  return json;
+}
+
+/** The value at `keys` below a converted JSON Schema node. */
+function at(node: unknown, ...keys: string[]): unknown {
+  return keys.reduce<unknown>(
+    (value, key) =>
+      typeof value === 'object' && value !== null
+        ? Reflect.get(value, key)
+        : undefined,
+    node,
+  );
+}
+
+describe("ZodEvaluator writes zod's JSON Schema", () => {
   describe('z.string() format keywords', () => {
-    test('z.string().email() emits format: "email"', async () => {
-      const { schema, optional } = await evalZod('z.string().email()');
+    test('z.string().email() emits format: "email" with zod\'s pattern', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema, optional } =
+        await evaluator.evaluate('z.string().email()');
       assert.equal(optional, false);
-      assert.deepStrictEqual(schema, { type: 'string', format: 'email' });
+      assert.deepStrictEqual(schema, zodsOwn(z.email()));
     });
 
     test('z.string().url() emits format: "uri"', async () => {
-      const { schema } = await evalZod('z.string().url()');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.string().url()');
       assert.deepStrictEqual(schema, { type: 'string', format: 'uri' });
     });
 
-    test('z.string().uuid() emits format: "uuid"', async () => {
-      const { schema } = await evalZod('z.string().uuid()');
-      assert.deepStrictEqual(schema, { type: 'string', format: 'uuid' });
+    test('z.string().uuid() emits format: "uuid" with zod\'s pattern', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.string().uuid()');
+      assert.deepStrictEqual(schema, zodsOwn(z.uuid()));
     });
 
-    test('z.string().datetime() emits format: "date-time"', async () => {
-      const { schema } = await evalZod('z.string().datetime()');
-      assert.deepStrictEqual(schema, { type: 'string', format: 'date-time' });
+    test('z.string().datetime() emits format: "date-time" with zod\'s pattern', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.string().datetime()');
+      assert.deepStrictEqual(schema, zodsOwn(z.iso.datetime()));
     });
 
-    test('z.string().date() emits format: "date"', async () => {
-      const { schema } = await evalZod('z.string().date()');
-      assert.deepStrictEqual(schema, { type: 'string', format: 'date' });
+    test('z.string().date() emits format: "date" with zod\'s pattern', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.string().date()');
+      assert.deepStrictEqual(schema, zodsOwn(z.iso.date()));
     });
 
-    test('z.string().ip({ version: "v4" }) emits format: "ipv4"', async () => {
-      const { schema } = await evalZod('z.string().ip({ version: "v4" })');
-      assert.deepStrictEqual(schema, { type: 'string', format: 'ipv4' });
+    test('z.ipv4() emits format: "ipv4" with zod\'s pattern', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.ipv4()');
+      assert.deepStrictEqual(schema, zodsOwn(z.ipv4()));
     });
 
-    test('z.string().ip({ version: "v6" }) emits format: "ipv6"', async () => {
-      const { schema } = await evalZod('z.string().ip({ version: "v6" })');
-      assert.deepStrictEqual(schema, { type: 'string', format: 'ipv6' });
+    test('z.ipv6() emits format: "ipv6" with zod\'s pattern', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.ipv6()');
+      assert.deepStrictEqual(schema, zodsOwn(z.ipv6()));
     });
 
     test('z.string().min(2).max(8) emits minLength and maxLength', async () => {
-      const { schema } = await evalZod('z.string().min(2).max(8)');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.string().min(2).max(8)');
       assert.deepStrictEqual(schema, {
         type: 'string',
         minLength: 2,
@@ -51,14 +80,16 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
     });
 
     test('z.string().regex(/^a+$/) emits pattern', async () => {
-      const { schema } = await evalZod('z.string().regex(/^a+$/)');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.string().regex(/^a+$/)');
       assert.deepStrictEqual(schema, { type: 'string', pattern: '^a+$' });
     });
   });
 
   describe('z.number() numeric constraints', () => {
     test('z.number().min(0).max(10) emits minimum and maximum', async () => {
-      const { schema } = await evalZod('z.number().min(0).max(10)');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.number().min(0).max(10)');
       assert.deepStrictEqual(schema, {
         type: 'number',
         minimum: 0,
@@ -67,7 +98,8 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
     });
 
     test('z.number().int().gt(0).lt(100).multipleOf(2) emits integer with exclusive bounds and multipleOf', async () => {
-      const { schema } = await evalZod(
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
         'z.number().int().gt(0).lt(100).multipleOf(2)',
       );
       assert.deepStrictEqual(schema, {
@@ -81,7 +113,8 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
 
   describe('z.object() shape variants', () => {
     test('catchall(z.unknown()) emits additionalProperties: {}', async () => {
-      const { schema } = await evalZod(
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
         'z.object({ a: z.string() }).catchall(z.unknown())',
       );
       assert.deepStrictEqual(schema, {
@@ -93,7 +126,10 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
     });
 
     test('.strict() emits additionalProperties: false', async () => {
-      const { schema } = await evalZod('z.object({ a: z.string() }).strict()');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
+        'z.object({ a: z.string() }).strict()',
+      );
       assert.deepStrictEqual(schema, {
         type: 'object',
         properties: { a: { type: 'string' } },
@@ -102,18 +138,21 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
       });
     });
 
-    test('plain object emits additionalProperties: false and a required array', async () => {
-      const { schema } = await evalZod('z.object({ a: z.string() })');
+    test('plain object emits a required array and leaves unknown keys open, as zod strips them', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
+        'z.object({ a: z.string() })',
+      );
       assert.deepStrictEqual(schema, {
         type: 'object',
         properties: { a: { type: 'string' } },
         required: ['a'],
-        additionalProperties: false,
       });
     });
 
     test('nested objects emit deeply nested properties with their own required arrays', async () => {
-      const { schema } = await evalZod(
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
         'z.object({ outer: z.object({ inner: z.number() }) })',
       );
       assert.deepStrictEqual(schema, {
@@ -123,41 +162,48 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
             type: 'object',
             properties: { inner: { type: 'number' } },
             required: ['inner'],
-            additionalProperties: false,
           },
         },
         required: ['outer'],
-        additionalProperties: false,
       });
     });
 
     test('an optional field is omitted from the required array', async () => {
-      const { schema } = await evalZod(
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
         'z.object({ a: z.string(), b: z.number().optional() })',
       );
       assert.deepStrictEqual(schema.required, ['a']);
-      assert.deepStrictEqual(schema.properties.b, { type: 'number' });
+      assert.deepStrictEqual(at(schema, 'properties', 'b'), { type: 'number' });
     });
   });
 
   describe('unions, literals, enums', () => {
     test('z.union of primitives collapses to a multi-type array (not anyOf)', async () => {
-      const { schema } = await evalZod('z.union([z.string(), z.number()])');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
+        'z.union([z.string(), z.number()])',
+      );
       assert.deepStrictEqual(schema, { type: ['string', 'number'] });
     });
 
     test('z.literal("hello") emits string type with const', async () => {
-      const { schema } = await evalZod('z.literal("hello")');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.literal("hello")');
       assert.deepStrictEqual(schema, { type: 'string', const: 'hello' });
     });
 
     test('z.literal(42) emits number type with const', async () => {
-      const { schema } = await evalZod('z.literal(42)');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.literal(42)');
       assert.deepStrictEqual(schema, { type: 'number', const: 42 });
     });
 
     test('z.enum of strings emits string type with enum array', async () => {
-      const { schema } = await evalZod('z.enum(["red", "green", "blue"])');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
+        'z.enum(["red", "green", "blue"])',
+      );
       assert.deepStrictEqual(schema, {
         type: 'string',
         enum: ['red', 'green', 'blue'],
@@ -165,7 +211,8 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
     });
 
     test('z.discriminatedUnion emits oneOf of object branches with its discriminator', async () => {
-      const { schema } = await evalZod(
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
         'z.discriminatedUnion("kind", [z.object({ kind: z.literal("a"), a: z.string() }), z.object({ kind: z.literal("b"), b: z.number() })])',
       );
       assert.deepStrictEqual(schema, {
@@ -178,7 +225,6 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
               a: { type: 'string' },
             },
             required: ['kind', 'a'],
-            additionalProperties: false,
           },
           {
             type: 'object',
@@ -187,7 +233,6 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
               b: { type: 'number' },
             },
             required: ['kind', 'b'],
-            additionalProperties: false,
           },
         ],
       });
@@ -196,7 +241,10 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
 
   describe('arrays and tuples', () => {
     test('z.array(z.string()).min(1).max(10) emits items, minItems, maxItems', async () => {
-      const { schema } = await evalZod('z.array(z.string()).min(1).max(10)');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
+        'z.array(z.string()).min(1).max(10)',
+      );
       assert.deepStrictEqual(schema, {
         type: 'array',
         items: { type: 'string' },
@@ -206,7 +254,10 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
     });
 
     test('z.array(z.enum(...)) preserves enum on items', async () => {
-      const { schema } = await evalZod('z.array(z.enum(["a","b"])).min(1)');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
+        'z.array(z.enum(["a","b"])).min(1)',
+      );
       assert.deepStrictEqual(schema, {
         type: 'array',
         items: { type: 'string', enum: ['a', 'b'] },
@@ -214,21 +265,38 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
       });
     });
 
-    test('z.tuple emits a closed array with positional items and bounded length', async () => {
-      const { schema } = await evalZod('z.tuple([z.string(), z.number()])');
+    test('z.tuple emits a closed array with prefixItems and bounded length', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
+        'z.tuple([z.string(), z.number()])',
+      );
       assert.deepStrictEqual(schema, {
         type: 'array',
         minItems: 2,
         maxItems: 2,
-        items: [{ type: 'string' }, { type: 'number' }],
-        additionalItems: false,
+        prefixItems: [{ type: 'string' }, { type: 'number' }],
+        items: false,
+      });
+    });
+
+    test('z.tuple with a rest emits prefixItems and the rest as items', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
+        'z.tuple([z.string()], z.number())',
+      );
+      assert.deepStrictEqual(schema, {
+        type: 'array',
+        minItems: 1,
+        prefixItems: [{ type: 'string' }],
+        items: { type: 'number' },
       });
     });
   });
 
   describe('refinements and transforms (effectStrategy: input)', () => {
     test('.refine() with custom message drops to bare type', async () => {
-      const { schema, optional } = await evalZod(
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema, optional } = await evaluator.evaluate(
         'z.string().refine((v) => v.length > 3, { message: "too short" })',
       );
       assert.equal(optional, false);
@@ -236,26 +304,35 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
     });
 
     test('.transform() on z.string() drops to bare string type', async () => {
-      const { schema } = await evalZod(
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
         'z.string().transform((s) => s.toUpperCase())',
       );
       assert.deepStrictEqual(schema, { type: 'string' });
     });
 
     test('.transform() on z.number() drops to bare number type', async () => {
-      const { schema } = await evalZod('z.number().transform((n) => n + 1)');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
+        'z.number().transform((n) => n + 1)',
+      );
       assert.deepStrictEqual(schema, { type: 'number' });
     });
 
     test('.transform() on z.boolean() drops to bare boolean type', async () => {
-      const { schema } = await evalZod('z.boolean().transform((b) => !b)');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
+        'z.boolean().transform((b) => !b)',
+      );
       assert.deepStrictEqual(schema, { type: 'boolean' });
     });
   });
 
   describe('coerce.bigint edge cases', () => {
     test('z.coerce.bigint() without default emits int64 with x-zod-type marker', async () => {
-      const { schema, optional } = await evalZod('z.coerce.bigint()');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema, optional } =
+        await evaluator.evaluate('z.coerce.bigint()');
       assert.equal(optional, false);
       assert.deepStrictEqual(schema, {
         type: 'integer',
@@ -265,7 +342,10 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
     });
 
     test('z.coerce.bigint().default(1n) lands the default in the spec as a plain number', async () => {
-      const { schema } = await evalZod('z.coerce.bigint().default(1n)');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
+        'z.coerce.bigint().default(1n)',
+      );
       assert.equal(schema.type, 'integer');
       assert.equal(schema.format, 'int64');
       assert.equal(schema['x-zod-type'], 'coerce-bigint');
@@ -276,106 +356,111 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
 
   describe('records, nullable, any/unknown, null', () => {
     test('z.record(z.string(), z.number()) emits object with additionalProperties schema', async () => {
-      const { schema } = await evalZod('z.record(z.string(), z.number())');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
+        'z.record(z.string(), z.number())',
+      );
       assert.deepStrictEqual(schema, {
         type: 'object',
+        propertyNames: { type: 'string' },
         additionalProperties: { type: 'number' },
       });
     });
 
     test('z.nullable(z.string()) emits multi-type ["string","null"]', async () => {
-      const { schema } = await evalZod('z.nullable(z.string())');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.nullable(z.string())');
       assert.deepStrictEqual(schema, { type: ['string', 'null'] });
     });
 
     test('z.null() emits type: "null"', async () => {
-      const { schema } = await evalZod('z.null()');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.null()');
       assert.deepStrictEqual(schema, { type: 'null' });
     });
 
     test('z.any() emits empty schema', async () => {
-      const { schema } = await evalZod('z.any()');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.any()');
       assert.deepStrictEqual(schema, {});
     });
 
     test('z.unknown() emits empty schema', async () => {
-      const { schema } = await evalZod('z.unknown()');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.unknown()');
       assert.deepStrictEqual(schema, {});
     });
   });
 
   describe('intersections', () => {
     test("z.intersection of two objects is one satisfiable object holding both members' fields", async () => {
-      const { schema } = await evalZod(
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
         'z.intersection(z.object({ a: z.string() }), z.object({ b: z.number() }))',
       );
       assert.deepStrictEqual(schema, {
         type: 'object',
         properties: { a: { type: 'string' }, b: { type: 'number' } },
         required: ['a', 'b'],
-        additionalProperties: false,
       });
     });
   });
 
-  describe('zod v3 methods removed in v4 (analyzed user source keeps working)', () => {
-    test('bare z.string().ip() emits an anyOf of ipv4/ipv6 formats', async () => {
-      const { schema } = await evalZod('z.string().ip()');
-      assert.deepStrictEqual(schema.anyOf, [
-        { type: 'string', format: 'ipv4' },
-        { type: 'string', format: 'ipv6' },
-      ]);
-    });
-
-    test('z.string().ip({ version }) emits the single format', async () => {
-      const v4 = await evalZod("z.string().ip({ version: 'v4' })");
-      assert.deepStrictEqual(v4.schema, { type: 'string', format: 'ipv4' });
-      const v6 = await evalZod("z.string().ip({ version: 'v6' })");
-      assert.deepStrictEqual(v6.schema, { type: 'string', format: 'ipv6' });
-    });
-
-    test('z.string().cidr() converts instead of crashing', async () => {
-      const { schema } = await evalZod('z.string().cidr()');
-      assert.equal(schema.anyOf.length, 2);
-      const v4 = await evalZod("z.string().cidr({ version: 'v4' })");
-      assert.equal(v4.schema.type, 'string');
-    });
-
+  describe('cidr formats', () => {
     test('cidr keeps both format (for sdk-it converters) and pattern (for third-party validators)', async () => {
-      const { schema } = await evalZod("z.string().cidr({ version: 'v4' })");
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.cidrv4()');
       assert.equal(schema.format, 'cidrv4');
       assert.ok(
         schema.pattern,
         'pattern retained for consumers without cidrv4 support',
       );
-      assert.ok(new RegExp(schema.pattern).test('192.168.0.0/24'));
+      assert.ok(new RegExp(String(schema.pattern)).test('192.168.0.0/24'));
     });
   });
 
   describe('.catch() fallbacks', () => {
-    test('z.string().catch() does not leak the fallback as a spec default', async () => {
-      const { schema } = await evalZod("z.string().catch('fallback')");
-      assert.deepStrictEqual(schema, { type: 'string' });
+    test('z.string().catch() writes its fallback as the default', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
+        "z.string().catch('fallback')",
+      );
+      assert.deepStrictEqual(schema, { default: 'fallback', type: 'string' });
     });
 
     test('z.bigint().catch() converts instead of crashing on bigint serialization', async () => {
-      const { schema } = await evalZod('z.bigint().catch(5n)');
-      assert.deepStrictEqual(schema, { type: 'integer', format: 'int64' });
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.bigint().catch(5n)');
+      assert.deepStrictEqual(schema, {
+        default: 5,
+        type: 'integer',
+        format: 'int64',
+      });
     });
 
     test('a bigint default behind z.lazy still masks and lands as a plain number', async () => {
-      const { schema } = await evalZod(
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
         'z.object({ n: z.lazy(() => z.bigint().default(1n)) })',
       );
-      assert.equal(schema.properties.n.format, 'int64');
-      assert.equal(schema.properties.n.default, 1);
+      assert.equal(at(schema, 'properties', 'n', 'format'), 'int64');
+      assert.equal(at(schema, 'properties', 'n', 'default'), 1);
     });
   });
 
   describe('recursive schemas', () => {
-    test('non-root recursion without a name is refused with how to name it', async () => {
+    test('root recursion without a name is refused with how to name it', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
       await assert.rejects(
-        evalZod(
+        evaluator.evaluate('z.json()'),
+        /\.meta\(\{ id \}\)/,
+      );
+    });
+
+    test('non-root recursion without a name is refused with how to name it', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      await assert.rejects(
+        evaluator.evaluate(
           `z.object({
           leaf: (() => {
             const leaf = z.object({
@@ -391,7 +476,8 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
     });
 
     test('named non-root recursion becomes a component that its recursive field points at (no definitions block)', async () => {
-      const { schema, components } = await evalZod(
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema, components } = await evaluator.evaluate(
         `z.object({
           leaf: (() => {
             const leaf = z.object({
@@ -407,10 +493,15 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
         undefined,
         'no draft-7 definitions block',
       );
-      assert.equal(schema.properties.leaf.$ref, '#/components/schemas/Leaf');
-      assert.deepStrictEqual(components.Leaf.properties.v, { type: 'string' });
       assert.equal(
-        components.Leaf.properties.next.$ref,
+        at(schema, 'properties', 'leaf', '$ref'),
+        '#/components/schemas/Leaf',
+      );
+      assert.deepStrictEqual(at(components, 'Leaf', 'properties', 'v'), {
+        type: 'string',
+      });
+      assert.equal(
+        at(components, 'Leaf', 'properties', 'next', '$ref'),
         '#/components/schemas/Leaf',
         'the recursive ref points at the component',
       );
@@ -419,7 +510,8 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
 
   describe('sets and maps', () => {
     test('z.set() emits a unique-items array schema', async () => {
-      const { schema } = await evalZod('z.set(z.string())');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.set(z.string())');
       assert.deepStrictEqual(schema, {
         type: 'array',
         uniqueItems: true,
@@ -428,55 +520,149 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
     });
 
     test('z.map() emits an array-of-entry-pairs schema', async () => {
-      const { schema } = await evalZod('z.map(z.string(), z.number())');
-      assert.equal(schema.type, 'array');
-      assert.deepStrictEqual(schema.items.items, [
-        { type: 'string' },
-        { type: 'number' },
-      ]);
-      assert.equal(schema.items.minItems, 2);
-      assert.equal(schema.items.maxItems, 2);
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
+        'z.map(z.string(), z.number())',
+      );
+      assert.deepStrictEqual(schema, {
+        type: 'array',
+        items: {
+          type: 'array',
+          prefixItems: [{ type: 'string' }, { type: 'number' }],
+          items: false,
+          minItems: 2,
+          maxItems: 2,
+        },
+      });
+    });
+
+    test('a self-reference that carries a description keeps it beside its $ref', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema, components } = await evaluator.evaluate(
+        `(() => {
+          const node = z.object({
+            get next() { return node.optional().describe('the next node'); },
+          }).meta({ id: 'Node' });
+          return node;
+        })()`,
+      );
+      assert.deepStrictEqual(schema, { $ref: '#/components/schemas/Node' });
+      assert.deepStrictEqual(components, {
+        Node: {
+          type: 'object',
+          properties: {
+            next: {
+              description: 'the next node',
+              $ref: '#/components/schemas/Node',
+            },
+          },
+        },
+      });
+    });
+
+    test('a named recursive schema reached only through z.set() becomes the component its items point at', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema, components } = await evaluator.evaluate(
+        `(() => {
+          const tree = z.object({
+            v: z.string(),
+            get kids() { return z.array(tree); },
+          }).meta({ id: 'Tree' });
+          return z.set(tree);
+        })()`,
+      );
+      assert.deepStrictEqual(schema, {
+        type: 'array',
+        uniqueItems: true,
+        items: { $ref: '#/components/schemas/Tree' },
+      });
+      assert.deepStrictEqual(components, {
+        Tree: {
+          type: 'object',
+          properties: {
+            v: { type: 'string' },
+            kids: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/Tree' },
+            },
+          },
+          required: ['v', 'kids'],
+        },
+      });
+    });
+
+    test('a named schema reached only through a pipe output becomes the component the pipe points at', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema, components } = await evaluator.evaluate(
+        "z.string().pipe(z.string().max(3).meta({ id: 'Code' }))",
+      );
+      assert.deepStrictEqual(schema, {
+        allOf: [{ type: 'string' }, { $ref: '#/components/schemas/Code' }],
+      });
+      assert.deepStrictEqual(components, {
+        Code: { type: 'string', maxLength: 3 },
+      });
+    });
+
+    test('two different schemas with one id inside two sets fail with how to fix it', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      await assert.rejects(
+        evaluator.evaluate(
+          "z.object({ a: z.set(z.string().meta({ id: 'Name' })), b: z.set(z.number().meta({ id: 'Name' })) })",
+        ),
+        /Two different schemas share the id "Name"; give each its own \.meta\(\{ id \}\)/,
+      );
     });
   });
 
   describe('nonstandard string formats keep their pattern', () => {
-    test('z.string().cuid() emits a validating pattern, not a bare nonstandard format keyword', async () => {
-      const { schema } = await evalZod('z.string().cuid()');
+    test('z.string().cuid() emits a validating pattern beside its format', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.string().cuid()');
       assert.equal(schema.type, 'string');
-      assert.equal(schema.format, undefined, 'no nonstandard format keyword');
+      assert.equal(schema.format, 'cuid');
       assert.ok(schema.pattern, 'pattern preserved');
-      const re = new RegExp(schema.pattern);
+      const re = new RegExp(String(schema.pattern));
       assert.ok(re.test('cjld2cjxh0000qzrmn831i7rn'), 'accepts a real cuid');
       assert.ok(!re.test('nope!'), 'rejects junk');
     });
 
     test('z.string().ulid() and .emoji() keep their patterns too', async () => {
-      const ulid = await evalZod('z.string().ulid()');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const ulid = await evaluator.evaluate('z.string().ulid()');
       assert.ok(ulid.schema.pattern, 'ulid pattern preserved');
       assert.ok(
-        new RegExp(ulid.schema.pattern).test('01ARZ3NDEKTSV4RRFFQ69G5FAV'),
+        new RegExp(String(ulid.schema.pattern)).test(
+          '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+        ),
       );
-      const emoji = await evalZod('z.string().emoji()');
+      const emoji = await evaluator.evaluate('z.string().emoji()');
       assert.ok(emoji.schema.pattern, 'emoji pattern preserved');
     });
   });
 
   describe('safe-integer bounds', () => {
-    test('implicit z.int() safe-integer bounds are stripped', async () => {
-      const { schema } = await evalZod('z.number().int()');
-      assert.equal(schema.maximum, undefined);
-      assert.equal(schema.minimum, undefined);
+    test('z.int() writes the safe-integer bounds it checks', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.number().int()');
+      assert.deepStrictEqual(schema, {
+        type: 'integer',
+        minimum: Number.MIN_SAFE_INTEGER,
+        maximum: Number.MAX_SAFE_INTEGER,
+      });
     });
 
     test('an explicit .max(MAX_SAFE_INTEGER) declared by the author is preserved', async () => {
-      const { schema } = await evalZod(
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
         'z.number().int().max(9007199254740991)',
       );
       assert.equal(schema.maximum, 9007199254740991);
     });
 
     test('an explicit .min(MIN_SAFE_INTEGER) declared by the author is preserved', async () => {
-      const { schema } = await evalZod(
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
         'z.number().int().min(-9007199254740991)',
       );
       assert.equal(schema.minimum, -9007199254740991);
@@ -485,29 +671,37 @@ describe('evalZod characterization (v3 baseline that v4 migration must preserve)
 
   describe('optional flag tracking', () => {
     test('a top-level .optional() sets optional: true', async () => {
-      const { optional, schema } = await evalZod('z.string().optional()');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { optional, schema } = await evaluator.evaluate(
+        'z.string().optional()',
+      );
       assert.equal(optional, true);
       assert.equal(schema.type, 'string');
     });
 
     test('a required schema sets optional: false', async () => {
-      const { optional } = await evalZod('z.string()');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { optional } = await evaluator.evaluate('z.string()');
       assert.equal(optional, false);
     });
 
     test('a top-level .nullish() sets optional: true and adds null branch', async () => {
-      const { optional, schema } = await evalZod('z.string().nullish()');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { optional, schema } = await evaluator.evaluate(
+        'z.string().nullish()',
+      );
       assert.equal(optional, true);
       assert.ok(Array.isArray(schema.anyOf) || Array.isArray(schema.type));
     });
 
     test('a nested optional inside an object leaves the root optional: false', async () => {
-      const { optional, schema } = await evalZod(
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { optional, schema } = await evaluator.evaluate(
         'z.object({ a: z.string().optional() })',
       );
       assert.equal(optional, false);
       assert.equal(schema.type, 'object');
-      assert.deepStrictEqual(schema.properties.a, { type: 'string' });
+      assert.deepStrictEqual(at(schema, 'properties', 'a'), { type: 'string' });
       assert.deepStrictEqual(schema.required ?? [], []);
     });
   });

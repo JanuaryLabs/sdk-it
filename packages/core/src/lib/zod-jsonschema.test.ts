@@ -1,7 +1,8 @@
 import { describe, test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
+import * as z from 'zod';
 
-import { evalZod } from '@sdk-it/core';
+import { ZodEvaluator } from '@sdk-it/core';
 
 function getNonNullBranch(
   schema: Record<string, unknown>,
@@ -19,7 +20,7 @@ function getNonNullBranch(
   return nonNullBranch;
 }
 
-describe('evalZod', () => {
+describe('ZodEvaluator.evaluate', () => {
   test('preserves wrapped coerce metadata for supported primitive schemas', async (t) => {
     const cases = [
       {
@@ -29,6 +30,7 @@ describe('evalZod', () => {
         expected: {
           type: 'integer',
           exclusiveMinimum: 0,
+          maximum: Number.MAX_SAFE_INTEGER,
           default: 1,
           'x-zod-type': 'coerce-number',
         },
@@ -79,7 +81,8 @@ describe('evalZod', () => {
 
     await test.each(cases, (testCase) =>
       t.test(testCase.name, async () => {
-        const { optional, schema } = await evalZod(testCase.source);
+        using evaluator = new ZodEvaluator({ conditions: [] });
+        const { optional, schema } = await evaluator.evaluate(testCase.source);
         assert.equal(optional, true, `${testCase.name} should be optional`);
         assert.deepStrictEqual(
           getNonNullBranch(schema),
@@ -121,7 +124,8 @@ describe('evalZod', () => {
 
     await test.each(cases, ({ name, source, desc }) =>
       t.test(name, async () => {
-        const { optional, schema } = await evalZod(source);
+        using evaluator = new ZodEvaluator({ conditions: [] });
+        const { optional, schema } = await evaluator.evaluate(source);
         assert.equal(optional, true, `${name} should be optional`);
         assert.equal(
           schema.description,
@@ -173,7 +177,8 @@ describe('evalZod', () => {
 
     await test.each(cases, ({ name, source, desc, type, extra }) =>
       t.test(name, async () => {
-        const { optional, schema } = await evalZod(source);
+        using evaluator = new ZodEvaluator({ conditions: [] });
+        const { optional, schema } = await evaluator.evaluate(source);
         assert.equal(optional, false, `${name} should not be optional`);
         assert.equal(
           schema.description,
@@ -189,7 +194,8 @@ describe('evalZod', () => {
   });
 
   test('preserves .describe() on z.number().optional()', async () => {
-    const { optional, schema } = await evalZod(
+    using evaluator = new ZodEvaluator({ conditions: [] });
+    const { optional, schema } = await evaluator.evaluate(
       'z.number().optional().describe("opt num")',
     );
 
@@ -219,7 +225,8 @@ describe('evalZod', () => {
 
     await test.each(cases, ({ name, source, desc }) =>
       t.test(name, async () => {
-        const { optional, schema } = await evalZod(source);
+        using evaluator = new ZodEvaluator({ conditions: [] });
+        const { optional, schema } = await evaluator.evaluate(source);
         assert.equal(optional, true, `${name} should be optional`);
         assert.equal(
           schema.description,
@@ -230,60 +237,90 @@ describe('evalZod', () => {
     );
   });
 
-  test('converts binary-like zod schemas to a base64 string schema', async (t) => {
+  test("z.instanceof(File) and z.instanceof(Blob) write z.file()'s schema", async (t) => {
     const cases = [
       'z.instanceof(File)',
       'z.instanceof(Blob)',
-      'z.custom<File>()',
-      'z.custom<Blob>()',
+      'z.instanceof(globalThis.File)',
     ];
 
     await test.each(cases, (source) =>
       t.test(source, async () => {
-        const { schema } = await evalZod(source);
-        assert.equal(schema.type, 'string', `${source}: expected string type`);
-        assert.equal(
-          schema.format,
-          'binary',
-          `${source}: expected base64 format:binary`,
-        );
+        using evaluator = new ZodEvaluator({ conditions: [] });
+        const { schema } = await evaluator.evaluate(source);
+        assert.deepStrictEqual(schema, {
+          type: 'string',
+          format: 'binary',
+          contentEncoding: 'binary',
+        });
       }),
     );
   });
 
-  test('collapses primitive pipelines into a single schema', async () => {
-    const { optional, schema } = await evalZod(
+  test('z.custom<File>() is an empty schema: its generic is a type only', async () => {
+    using evaluator = new ZodEvaluator({ conditions: [] });
+    const { schema } = await evaluator.evaluate('z.custom<File>()');
+    assert.deepStrictEqual(schema, {});
+  });
+
+  test('an against that names z.instanceof(File) in a string keeps the string', async () => {
+    using evaluator = new ZodEvaluator({ conditions: [] });
+    const { schema } = await evaluator.evaluate(
+      "z.literal('z.instanceof(File)')",
+    );
+    assert.deepStrictEqual(schema, {
+      type: 'string',
+      const: 'z.instanceof(File)',
+    });
+  });
+
+  test('a primitive pipeline writes both of its sides as an allOf', async () => {
+    using evaluator = new ZodEvaluator({ conditions: [] });
+    const { optional, schema } = await evaluator.evaluate(
       'z.coerce.number().int().default(1).pipe(z.number().min(0)).nullish()',
     );
 
     assert.equal(optional, true);
-    assert.deepStrictEqual(getNonNullBranch(schema), {
-      type: 'integer',
-      minimum: 0,
-      default: 1,
-      'x-zod-type': 'coerce-number',
-    });
+    assert.deepStrictEqual(schema.anyOf, [
+      {
+        allOf: [
+          {
+            default: 1,
+            type: 'integer',
+            minimum: Number.MIN_SAFE_INTEGER,
+            maximum: Number.MAX_SAFE_INTEGER,
+            'x-zod-type': 'coerce-number',
+          },
+          { type: 'number', minimum: 0 },
+        ],
+      },
+      { type: 'null' },
+    ]);
   });
 });
 
 describe('bigint spec mapping', () => {
   test('z.int64() claims format int64 without restating implied bounds', async () => {
-    const { schema } = await evalZod('z.int64()');
+    using evaluator = new ZodEvaluator({ conditions: [] });
+    const { schema } = await evaluator.evaluate('z.int64()');
     assert.deepStrictEqual(schema, { type: 'integer', format: 'int64' });
   });
 
   test('z.uint64() claims format uint64 without restating implied bounds', async () => {
-    const { schema } = await evalZod('z.uint64()');
+    using evaluator = new ZodEvaluator({ conditions: [] });
+    const { schema } = await evaluator.evaluate('z.uint64()');
     assert.deepStrictEqual(schema, { type: 'integer', format: 'uint64' });
   });
 
   test('bare z.bigint() is interpreted as int64 — sdk-it has no unbounded integer concept', async () => {
-    const { schema } = await evalZod('z.bigint()');
+    using evaluator = new ZodEvaluator({ conditions: [] });
+    const { schema } = await evaluator.evaluate('z.bigint()');
     assert.deepStrictEqual(schema, { type: 'integer', format: 'int64' });
   });
 
   test('z.coerce.bigint() claims int64 alongside the coerce marker', async () => {
-    const { schema } = await evalZod('z.coerce.bigint()');
+    using evaluator = new ZodEvaluator({ conditions: [] });
+    const { schema } = await evaluator.evaluate('z.coerce.bigint()');
     assert.deepStrictEqual(schema, {
       type: 'integer',
       format: 'int64',
@@ -292,14 +329,24 @@ describe('bigint spec mapping', () => {
   });
 
   test('int64 defaults land in the spec as plain numbers', async () => {
-    const { schema } = await evalZod('z.int64().default(42n)');
+    using evaluator = new ZodEvaluator({ conditions: [] });
+    const { schema } = await evaluator.evaluate('z.int64().default(42n)');
     assert.equal(schema.default, 42);
     assert.equal(schema.format, 'int64');
   });
 
+  test('bigints inside a default land in the spec as plain numbers', async () => {
+    using evaluator = new ZodEvaluator({ conditions: [] });
+    const { schema } = await evaluator.evaluate(
+      'z.array(z.int64()).default([1n, 2n])',
+    );
+    assert.deepStrictEqual(schema.default, [1, 2]);
+  });
+
   describe('input optionality', () => {
     test('a root .default() marks the input optional', async () => {
-      const { optional, schema } = await evalZod(
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { optional, schema } = await evaluator.evaluate(
         "z.enum(['asc', 'desc']).default('desc')",
       );
       assert.equal(optional, true);
@@ -307,22 +354,28 @@ describe('bigint spec mapping', () => {
     });
 
     test('a root .prefault() marks the input optional', async () => {
-      const { optional } = await evalZod("z.string().prefault('x')");
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { optional } = await evaluator.evaluate("z.string().prefault('x')");
       assert.equal(optional, true);
     });
 
     test('a root .catch() marks the input optional', async () => {
-      const { optional } = await evalZod("z.string().catch('x')");
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { optional } = await evaluator.evaluate("z.string().catch('x')");
       assert.equal(optional, true);
     });
 
     test('.nonoptional() over an optional schema marks the input required', async () => {
-      const { optional } = await evalZod('z.string().optional().nonoptional()');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { optional } = await evaluator.evaluate(
+        'z.string().optional().nonoptional()',
+      );
       assert.equal(optional, false);
     });
 
     test('a nested .default() inside an array element does not mark the root optional', async () => {
-      const { optional } = await evalZod(
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { optional } = await evaluator.evaluate(
         'z.array(z.object({ equipment: z.array(z.string()).default([]) }))',
       );
       assert.equal(optional, false);
@@ -331,21 +384,31 @@ describe('bigint spec mapping', () => {
 
   describe('pipes', () => {
     test('z.stringbool() renders its string input', async () => {
-      const { schema } = await evalZod('z.stringbool()');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate('z.stringbool()');
       assert.deepStrictEqual(schema, { type: 'string' });
     });
 
     test('a pipe into a conflicting primitive keeps the input side', async () => {
-      const { schema } = await evalZod('z.string().pipe(z.coerce.number())');
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
+        'z.string().pipe(z.coerce.number())',
+      );
       assert.equal(schema.type, 'string');
       assert.equal(schema.allOf, undefined);
     });
 
-    test('a pipe into a compatible primitive merges the constraints', async () => {
-      const { schema } = await evalZod('z.string().min(1).pipe(z.email())');
-      assert.equal(schema.type, 'string');
-      assert.equal(schema.minLength, 1);
-      assert.equal(schema.format, 'email');
+    test('a pipe into a compatible primitive keeps the constraints of both sides', async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      const { schema } = await evaluator.evaluate(
+        'z.string().min(1).pipe(z.email())',
+      );
+      assert.deepStrictEqual(schema, {
+        allOf: [
+          { type: 'string', minLength: 1 },
+          { type: 'string', format: 'email', pattern: z.regexes.email.source },
+        ],
+      });
     });
   });
 });

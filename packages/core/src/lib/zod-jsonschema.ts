@@ -1,665 +1,139 @@
-export type InjectImport = {
-  import: string;
-  from: string;
-  property?: string;
-};
+import { Worker } from 'node:worker_threads';
 
-function removeUnsupportedMethods(schema: string) {
-  return schema
-    .replaceAll('.instanceof(File)', '.string().base64()')
-    .replaceAll('.instanceof(Blob)', '.string().base64()')
-    .replaceAll('.custom<File>()', '.string().base64()')
-    .replaceAll('.custom<Blob>()', '.string().base64()');
+import type {
+  Binding,
+  EvaluationReply,
+  EvaluationRequest,
+} from './zod-evaluation-protocol.js';
+import type { ConvertedSchema } from './zod-to-json-schema.js';
+
+export type { ConvertedSchema } from './zod-to-json-schema.js';
+
+type Request<R = EvaluationRequest> = R extends unknown ? Omit<R, 'id'> : never;
+
+/** How a request waiting for its reply ends. */
+interface Settlement {
+  resolve(reply: EvaluationReply): void;
+  reject(error: unknown): void;
 }
 
-export async function evalZod(schema: string, imports: InjectImport[] = []) {
-  // https://github.com/nodejs/node/issues/51956
-  const lines = [
-    `import { createRequire } from "node:module";`,
-    `const filename = "${import.meta.url}";`,
-    `const require = createRequire(filename);`,
-    `const z = require("zod");`,
-    `if (typeof z.toJSONSchema !== 'function') {
-      throw new Error('@sdk-it/core requires Zod 4. Install zod@^4.6.7 and migrate Zod 3 schemas before analysis.');
-    }`,
-    // zod 4 removed ZodString.ip/.cidr; restore them for analyzed user source
-    // that still uses the v3 spellings.
-    `const stringProto = Object.getPrototypeOf(z.string());
-    const installedShims = [];
-    function withReceiverChecks(receiver, format) {
-      return (receiver._zod.def.checks ?? []).length
-        ? z.intersection(receiver, format)
-        : format;
-    }
-    if (!stringProto.ip) {
-      installedShims.push('ip');
-      stringProto.ip = function (options) {
-        if (options?.version === 'v4') return withReceiverChecks(this, z.ipv4());
-        if (options?.version === 'v6') return withReceiverChecks(this, z.ipv6());
-        return withReceiverChecks(this, z.union([z.ipv4(), z.ipv6()]));
-      };
-    }
-    if (!stringProto.cidr) {
-      installedShims.push('cidr');
-      stringProto.cidr = function (options) {
-        if (options?.version === 'v4') return withReceiverChecks(this, z.cidrv4());
-        if (options?.version === 'v6') return withReceiverChecks(this, z.cidrv6());
-        return withReceiverChecks(this, z.union([z.cidrv4(), z.cidrv6()]));
-      };
-    }`,
-    ...imports.map(
-      (imp) =>
-        `const ${imp.import} = require(${JSON.stringify(imp.from)})${
-          imp.property ? `[${JSON.stringify(imp.property)}]` : ''
-        };`,
-    ),
-    `let optional = false;`,
-    `const WRAPPER_TYPES = new Set([
-      'optional',
-      'nullable',
-      'default',
-      'prefault',
-      'catch',
-      'readonly',
-      'nonoptional',
-    ]);`,
-    `function unwrapSchemaDef(def) {
-      while (def) {
-        if (WRAPPER_TYPES.has(def.type)) {
-          def = def.innerType?._zod?.def;
-          continue;
-        }
-        if (def.type === 'pipe') {
-          def = def.in?._zod?.def;
-          continue;
-        }
-        return def;
-      }
-      return def;
-    }`,
-    `function matchesDefType(schema, defType) {
-      if (!schema || typeof schema !== 'object') return false;
-      if (defType === 'number') {
-        return schema.type === 'number' || schema.type === 'integer';
-      }
-      if (defType === 'bigint') {
-        return schema.type === 'integer';
-      }
-      if (defType === 'string') {
-        return schema.type === 'string';
-      }
-      if (defType === 'boolean') {
-        return schema.type === 'boolean';
-      }
-      if (defType === 'date') {
-        return schema.type === 'string' && schema.format === 'date-time';
-      }
-      return typeof schema.type === 'string';
-    }`,
-    `function applyZodType(schema, zodType, defType) {
-      if (!schema || typeof schema !== 'object') return false;
-      if (schema['x-zod-type']) return true;
-      if (matchesDefType(schema, defType)) {
-        schema['x-zod-type'] = zodType;
-        return true;
-      }
-      for (const key of ['anyOf', 'oneOf', 'allOf']) {
-        if (!Array.isArray(schema[key])) continue;
-        const candidates = schema[key].filter(
-          (candidate) => candidate && candidate.type !== 'null',
-        );
-        if (candidates.length === 1 && applyZodType(candidates[0], zodType, defType)) {
-          return true;
-        }
-        for (const candidate of candidates) {
-          if (applyZodType(candidate, zodType, defType)) {
-            return true;
-          }
-        }
-      }
-      return false;
-    }`,
-    `const BIGINT_SENTINEL = '__sdkit_bigint__';`,
-    // zod v4 JSON-round-trips default values before the override callback
-    // runs, which throws on bigint. Mask them as sentinel strings up front
-    // and restore after conversion.
-    `function maskBigIntDefaults(schema, seen = new Set()) {
-      if (!schema?._zod || schema._zod.version?.major !== 4) {
-        throw new Error('@sdk-it/core requires Zod 4 schemas; migrate imported Zod 3 schemas before analysis.');
-      }
-      if (seen.has(schema)) return;
-      seen.add(schema);
-      const def = schema._zod.def;
-      if (
-        (def.type === 'default' || def.type === 'prefault') &&
-        typeof def.defaultValue === 'bigint'
-      ) {
-        Object.defineProperty(def, 'defaultValue', {
-          value: BIGINT_SENTINEL + def.defaultValue.toString(),
-          configurable: true,
-        });
-      }
-      for (const key of ['innerType', 'in', 'out', 'element', 'valueType', 'keyType', 'left', 'right', 'catchall', 'rest']) {
-        if (def[key]) maskBigIntDefaults(def[key], seen);
-      }
-      if (typeof def.getter === 'function') {
-        const inner = def.getter();
-        maskBigIntDefaults(inner, seen);
-        Object.defineProperty(def, 'getter', {
-          value: () => inner,
-          configurable: true,
-        });
-      }
-      if (def.shape) {
-        for (const value of Object.values(def.shape)) maskBigIntDefaults(value, seen);
-      }
-      if (Array.isArray(def.options)) {
-        for (const option of def.options) maskBigIntDefaults(option, seen);
-      }
-      if (Array.isArray(def.items)) {
-        for (const item of def.items) maskBigIntDefaults(item, seen);
-      }
-    }`,
-    // int64 is a plain number in sdk-it, so masked bigint defaults unmask to
-    // JS numbers — the spec stays plain JSON with no bigint values to trip up
-    // JSON.stringify.
-    `function unmaskBigIntDefaults(schema) {
-      if (!schema || typeof schema !== 'object') return;
-      for (const [key, value] of Object.entries(schema)) {
-        if (typeof value === 'string' && value.startsWith(BIGINT_SENTINEL)) {
-          schema[key] = Number(value.slice(BIGINT_SENTINEL.length));
-        } else if (Array.isArray(value)) {
-          value.forEach(unmaskBigIntDefaults);
-        } else if (value && typeof value === 'object') {
-          unmaskBigIntDefaults(value);
-        }
-      }
-    }`,
-    `function hasExplicitRegexCheck(def) {
-      return (def.checks ?? []).some(
-        (check) => check._zod?.def?.format === 'regex',
-      );
-    }`,
-    `const STANDARD_STRING_FORMATS = new Set([
-      'email',
-      'uri',
-      'url',
-      'uuid',
-      'guid',
-      'date-time',
-      'date',
-      'time',
-      'duration',
-      'ipv4',
-      'ipv6',
-      'hostname',
-      'binary',
-    ]);`,
-    // Nonstandard formats that sdk-it's own converters map to semantic zod
-    // validators. Keep both keys: format for our converters, pattern for
-    // third-party validators that do not recognize the format.
-    `const MAPPED_NONSTANDARD_FORMATS = new Set(['cidrv4', 'cidrv6']);`,
-    `function normalizeDefaultValue(value) {
-      return value instanceof Date ? value.toISOString() : value;
-    }`,
-    `function mergeComparableValue(target, key, value) {
-      if (value === undefined) return true;
-      const normalized = normalizeDefaultValue(value);
-      if (target[key] === undefined) {
-        target[key] = normalized;
-        return true;
-      }
-      return Object.is(target[key], normalized);
-    }`,
-    `function mergeLowerBound(target, key, value) {
-      if (value === undefined) return true;
-      if (typeof value !== 'number') return false;
-      if (target[key] === undefined || value > target[key]) {
-        target[key] = value;
-      }
-      return true;
-    }`,
-    `function mergeUpperBound(target, key, value) {
-      if (value === undefined) return true;
-      if (typeof value !== 'number') return false;
-      if (target[key] === undefined || value < target[key]) {
-        target[key] = value;
-      }
-      return true;
-    }`,
-    `function mergeEnumValues(target, values) {
-      if (!Array.isArray(values)) return false;
-      if (!Array.isArray(target.enum)) {
-        target.enum = [...values];
-        return true;
-      }
-      target.enum = target.enum.filter((candidate) =>
-        values.some((value) => Object.is(candidate, value)),
-      );
-      return target.enum.length > 0;
-    }`,
-    `function isMergeablePrimitiveSchema(schema) {
-      return (
-        schema &&
-        typeof schema === 'object' &&
-        !schema.$ref &&
-        !schema.anyOf &&
-        !schema.oneOf &&
-        !schema.allOf &&
-        (schema.type === 'string' ||
-          schema.type === 'boolean' ||
-          schema.type === 'number' ||
-          schema.type === 'integer')
-      );
-    }`,
-    `function isNumericPair(left, right) {
-      return (
-        (left.type === 'number' && right.type === 'integer') ||
-        (left.type === 'integer' && right.type === 'number')
-      );
-    }`,
-    `function mergePrimitiveSchemas(schemas) {
-      const merged = {};
-      for (const schema of schemas) {
-        if (
-          schema &&
-          typeof schema === 'object' &&
-          Object.keys(schema).length === 0
-        ) {
-          continue;
-        }
-        if (!isMergeablePrimitiveSchema(schema)) {
-          return null;
-        }
-        if (merged.type === undefined) {
-          merged.type = schema.type;
-        } else if (merged.type !== schema.type) {
-          if (!isNumericPair(merged, schema)) {
-            return null;
-          }
-          merged.type = 'integer';
-        }
+/** The thread takes requests. */
+class Open {}
 
-        for (const [key, value] of Object.entries(schema)) {
-          if (key === 'type') {
-            continue;
-          }
-          switch (key) {
-            case 'minimum':
-            case 'exclusiveMinimum':
-            case 'minLength':
-            case 'minItems':
-            case 'minProperties':
-              if (!mergeLowerBound(merged, key, value)) {
-                return null;
-              }
-              break;
-            case 'maximum':
-            case 'exclusiveMaximum':
-            case 'maxLength':
-            case 'maxItems':
-            case 'maxProperties':
-              if (!mergeUpperBound(merged, key, value)) {
-                return null;
-              }
-              break;
-            case 'enum':
-              if (!mergeEnumValues(merged, value)) {
-                return null;
-              }
-              break;
-            default:
-              if (!mergeComparableValue(merged, key, value)) {
-                return null;
-              }
-          }
-        }
-      }
-      return merged;
-    }`,
-    `function normalizeSchema(schema, isIntersectionMember = false) {
-      if (!schema || typeof schema !== 'object') {
-        return schema;
-      }
+/** The thread failed or is disposed: every request fails with `error`. */
+class Closed {
+  readonly error: unknown;
+  constructor(error: unknown) {
+    this.error = error;
+  }
+}
 
-      if (schema.default !== undefined) {
-        schema.default = normalizeDefaultValue(schema.default);
-      }
+/**
+ * Resolves and loads the modules an `against` reads, and evaluates it, in a
+ * thread of its own that resolves with the analyzed project's
+ * `customConditions`, as TypeScript does. Dispose it once analysis is done:
+ * it owns the thread.
+ */
+export class ZodEvaluator implements Disposable {
+  #worker: Worker;
+  #pending = new Map<number, Settlement>();
+  #next = 0;
+  #state: Open | Closed = new Open();
 
-      if (Array.isArray(schema.items)) {
-        schema.items = schema.items.map((item) => normalizeSchema(item));
-      } else if (schema.items && typeof schema.items === 'object') {
-        schema.items = normalizeSchema(schema.items);
-      }
-
-      if (schema.properties && typeof schema.properties === 'object') {
-        for (const [key, value] of Object.entries(schema.properties)) {
-          schema.properties[key] = normalizeSchema(value);
-        }
-      }
-
-      if (
-        schema.additionalProperties &&
-        typeof schema.additionalProperties === 'object'
-      ) {
-        schema.additionalProperties = normalizeSchema(schema.additionalProperties);
-      }
-
-      for (const key of ['anyOf', 'oneOf', 'allOf']) {
-        if (!Array.isArray(schema[key])) continue;
-        schema[key] = schema[key].map((candidate) =>
-          normalizeSchema(candidate, key === 'allOf'),
-        );
-      }
-
-      if (
-        Array.isArray(schema.anyOf) &&
-        schema.anyOf.every(
-          (member) =>
-            member &&
-            typeof member === 'object' &&
-            Object.keys(member).length === 1 &&
-            typeof member.type === 'string',
-        )
-      ) {
-        const { anyOf, ...rest } = schema;
-        schema = { ...rest, type: anyOf.map((member) => member.type) };
-      }
-
-      if (
-        schema.type === 'object' &&
-        schema.properties &&
-        schema.additionalProperties === undefined &&
-        !isIntersectionMember
-      ) {
-        schema.additionalProperties = false;
-      }
-
-      if (
-        schema.type === 'object' &&
-        schema.propertyNames &&
-        JSON.stringify(schema.propertyNames) === '{"type":"string"}'
-      ) {
-        delete schema.propertyNames;
-      }
-
-      if (Array.isArray(schema.allOf)) {
-        const merged = mergePrimitiveSchemas(schema.allOf);
-        if (merged) {
-          const { allOf, ...rest } = schema;
-          return { ...rest, ...merged };
-        }
-        if (schema.allOf.length === 1 && Object.keys(schema).length === 1) {
-          return schema.allOf[0];
-        }
-      }
-
-      return schema;
-    }`,
-    `const components = Object.create(null);`,
-    `function addComponent(name, schema) {
-      if (
-        name in components &&
-        JSON.stringify(components[name]) !== JSON.stringify(schema)
-      ) {
-        throw new Error(
-          'Two different schemas share the id "' + name + '"; give each its own .meta({ id }).',
-        );
-      }
-      components[name] = schema;
-    }`,
-    `function definitionName(ref) {
-      return typeof ref === 'string' && ref.startsWith('#/definitions/')
-        ? ref.slice('#/definitions/'.length)
-        : undefined;
-    }`,
-    `function isAnonymous(name) {
-      return /^__schema[0-9]+$/.test(name);
-    }`,
-    // .meta({ id }) on a schema whose cycle zod already named (z.json() is
-    // one) writes the id as { allOf: [{ $ref: anonymous }] }: the id names
-    // that anonymous definition.
-    `function aliasedDefinition(schema) {
-      if (
-        Object.keys(schema).length !== 1 ||
-        !Array.isArray(schema.allOf) ||
-        schema.allOf.length !== 1
-      ) {
-        return undefined;
-      }
-      const name = definitionName(schema.allOf[0]?.$ref);
-      return name && isAnonymous(name) ? name : undefined;
-    }`,
-    `function refersTo(node, ref) {
-      if (!node || typeof node !== 'object') return false;
-      if (node.$ref === ref) return true;
-      return Object.values(node).some((child) => refersTo(child, ref));
-    }`,
-    // zod writes every schema that carries an id, and every cycle, as a draft-7
-    // definition; a root with an id becomes a $ref to its own definition, and
-    // an id-less root that cycles refers to itself as '#'. Each named
-    // definition becomes a component the refs point at; a cycle without a name
-    // cannot become one.
-    `function extractComponents(doc, rootId) {
-      const { definitions = {}, ...root } = doc;
-      const names = Object.create(null);
-      const aliases = new Set();
-      for (const name of Object.keys(definitions)) {
-        if (!isAnonymous(name)) names[name] = name;
-      }
-      for (const [name, definition] of Object.entries(definitions)) {
-        const anonymous = names[name] && aliasedDefinition(definition);
-        if (anonymous && !(anonymous in names)) {
-          names[anonymous] = name;
-          aliases.add(name);
-        }
-      }
-      if (
-        Object.keys(definitions).some((name) => !(name in names)) ||
-        (!rootId && refersTo(root, '#'))
-      ) {
-        throw new Error(
-          'A recursive schema has no name; give it .meta({ id }) so it becomes a named component.',
-        );
-      }
-      function rewrite(node) {
-        if (Array.isArray(node)) return node.map(rewrite);
-        if (!node || typeof node !== 'object') return node;
-        const rewritten = {};
-        for (const [key, value] of Object.entries(node)) {
-          const target = key === '$ref' ? definitionName(value) : undefined;
-          if (target) {
-            rewritten.$ref = '#/components/schemas/' + names[target];
-          } else {
-            rewritten[key] = rewrite(value);
-          }
-        }
-        return rewritten;
-      }
-      for (const [name, definition] of Object.entries(definitions)) {
-        if (!aliases.has(name)) {
-          addComponent(names[name], normalizeSchema(rewrite(definition)));
-        }
-      }
-      return rewrite(root);
-    }`,
-    // Nested toJsonSchema passes (set/map values, pipe outputs) return
-    // self-contained documents whose '#' and '#/definitions/*' refs are
-    // relative to their own root; each is lifted on its own, innermost first.
-    `function liftEmbedded(node) {
-      if (Array.isArray(node)) return node.map(liftEmbedded);
-      if (!node || typeof node !== 'object') return node;
-      const lifted = {};
-      for (const [key, value] of Object.entries(node)) {
-        lifted[key] = liftEmbedded(value);
-      }
-      if (!lifted['x-sdkit-embedded-root']) return lifted;
-      const {
-        'x-sdkit-embedded-root': _root,
-        'x-sdkit-embedded-id': id,
-        ...doc
-      } = lifted;
-      return extractComponents(doc, id);
-    }`,
-    // Wraps nested conversions: when the embedded document carries an id,
-    // refs or a definitions block, tag its root so liftEmbedded extracts it.
-    `function convertEmbedded(schema) {
-      const { $schema: _ignored, ...doc } = toJsonSchema(schema);
-      const id = z.globalRegistry.get(schema)?.id;
-      if (id || doc.definitions || JSON.stringify(doc).includes('"$ref"')) {
-        doc['x-sdkit-embedded-root'] = true;
-        if (id) doc['x-sdkit-embedded-id'] = id;
-      }
-      return doc;
-    }`,
-    `function toJsonSchema(schema) {
-      return z.toJSONSchema(schema, {
-        target: 'draft-7',
-        io: 'input',
-        unrepresentable: 'any',
-        override(ctx) {
-          const def = ctx.zodSchema._zod.def;
-          const json = ctx.jsonSchema;
-          if (def.type === 'catch') {
-            delete json.default;
-          }
-          if (def.type === 'date') {
-            json.type = 'string';
-            json.format = 'date-time';
-            json['x-zod-type'] = def.coerce ? 'coerce-date' : 'date';
-          }
-          if (def.type === 'union' && def.discriminator) {
-            json.discriminator = { propertyName: def.discriminator };
-          }
-          if (def.type === 'bigint') {
-            json.type = 'integer';
-            // z.bigint()'s format is null; treat it as int64.
-            json.format = ctx.zodSchema.format ?? 'int64';
-            if (def.coerce) {
-              json['x-zod-type'] = 'coerce-bigint';
-            }
-          }
-          if (def.type === 'set') {
-            json.type = 'array';
-            json.uniqueItems = true;
-            json.items = convertEmbedded(def.valueType);
-          }
-          if (def.type === 'map') {
-            json.type = 'array';
-            json.items = {
-              type: 'array',
-              items: [convertEmbedded(def.keyType), convertEmbedded(def.valueType)],
-              minItems: 2,
-              maxItems: 2,
-            };
-          }
-          if (def.type === 'string' && json.format === 'base64') {
-            json.format = 'binary';
-            delete json.pattern;
-            delete json.contentEncoding;
-          }
-          if (
-            def.type === 'string' &&
-            json.format &&
-            json.pattern &&
-            !hasExplicitRegexCheck(def)
-          ) {
-            if (STANDARD_STRING_FORMATS.has(json.format)) {
-              delete json.pattern;
-            } else if (!MAPPED_NONSTANDARD_FORMATS.has(json.format)) {
-              delete json.format;
-            }
-          }
-          if (def.type === 'number') {
-            const explicitBound = (kind, value) =>
-              (def.checks ?? []).some(
-                (check) =>
-                  check._zod?.def?.check === kind &&
-                  Number(check._zod.def.value) === value,
-              );
-            if (
-              json.maximum === Number.MAX_SAFE_INTEGER &&
-              !explicitBound('less_than', Number.MAX_SAFE_INTEGER)
-            ) {
-              delete json.maximum;
-            }
-            if (
-              json.minimum === Number.MIN_SAFE_INTEGER &&
-              !explicitBound('greater_than', Number.MIN_SAFE_INTEGER)
-            ) {
-              delete json.minimum;
-            }
-          }
-          if (def.type === 'pipe') {
-            const outJson = convertEmbedded(def.out);
-            const outKeys = Object.keys(outJson).filter(
-              (key) =>
-                key !== 'x-sdkit-embedded-root' &&
-                key !== 'x-sdkit-embedded-id',
-            );
-            if (outKeys.length > 0) {
-              const inJson = { ...json };
-              const compatible =
-                inJson.type === undefined ||
-                outJson.type === undefined ||
-                inJson.type === outJson.type ||
-                isNumericPair(inJson, outJson);
-              if (compatible) {
-                for (const key of Object.keys(json)) delete json[key];
-                json.allOf = [inJson, outJson];
-              }
-            }
-          }
-          if (def.type === 'tuple' && Array.isArray(json.items)) {
-            if (json.minItems === undefined) {
-              json.minItems = json.items.length;
-            }
-            if (
-              json.additionalItems === undefined &&
-              json.maxItems === undefined
-            ) {
-              json.maxItems = json.items.length;
-            }
-          }
-        },
-      });
-    }`,
-    `let zodSchema;
-    let rawResult;
-    try {
-      zodSchema = ${removeUnsupportedMethods(schema)};
-      maskBigIntDefaults(zodSchema);
-      // zod's own input-side flag: 'optional' for optional/nullish/catch,
-      // 'defaulted' for default/prefault, undefined once .nonoptional() applies.
-      optional = ['optional', 'defaulted'].includes(zodSchema._zod.optin);
-      const { $schema, ...converted } = toJsonSchema(zodSchema);
-      rawResult = converted;
-    } finally {
-      // The v3 shims exist only while the analyzed source evaluates and
-      // converts (lazy getters can call them mid-conversion); remove them so
-      // the shared zod instance is not left with v3 API surface process-wide.
-      for (const method of installedShims) delete stringProto[method];
-    }
-    unmaskBigIntDefaults(rawResult);
-    const result = normalizeSchema(
-      extractComponents(
-        liftEmbedded(rawResult),
-        z.globalRegistry.get(zodSchema)?.id,
+  constructor(options: { conditions: readonly string[] }) {
+    this.#worker = new Worker(new URL('./zod-evaluation.js', import.meta.url), {
+      execArgv: [
+        // import.meta.resolve takes a parent URL only behind this flag.
+        '--experimental-import-meta-resolve',
+        ...options.conditions.map((condition) => `--conditions=${condition}`),
+        // The flag above and stripTypeScriptTypes warn that they are experimental.
+        '--disable-warning=ExperimentalWarning',
+      ],
+    });
+    this.#worker.unref();
+    this.#worker.on('message', (reply: EvaluationReply) => {
+      this.#settle(reply.id)?.resolve(reply);
+    });
+    this.#worker.on('error', (error) => this.#fail(error));
+    this.#worker.on('exit', (code) =>
+      this.#fail(
+        new Error(`The zod evaluation thread exited with code ${code}`),
       ),
-    );`,
-    `const innerDef = unwrapSchemaDef(zodSchema._zod.def);
-    if (innerDef?.coerce && !result['x-zod-type']) {
-      const zodType = 'coerce-' + innerDef.type;
-      if (!applyZodType(result, zodType, innerDef.type)) {
-        result['x-zod-type'] = zodType;
-      }
-    }`,
-    `export default {schema: result, optional, components}`,
-  ];
+    );
+  }
 
-  const base64 = Buffer.from(lines.join('\n')).toString('base64');
-  return import(
-    /* @vite-ignore */
-    `data:text/javascript;base64,${base64}`
-  ).then((mod) => mod.default);
+  /**
+   * The URL of the module `specifier` names when the module at `referrer` (a
+   * URL) imports it, resolved once for each pair.
+   */
+  async resolve(specifier: string, referrer: string): Promise<string> {
+    const reply = await this.#send({ kind: 'resolve', specifier, referrer });
+    if (reply.kind !== 'resolved') {
+      throw new Error(`Expected a resolved URL, got ${reply.kind}`);
+    }
+    return reply.url;
+  }
+
+  /** Converts the zod schema an `against` expression builds. */
+  async evaluate(
+    against: string,
+    imports: readonly Binding[] = [],
+  ): Promise<ConvertedSchema> {
+    const reply = await this.#send({ kind: 'evaluate', against, imports });
+    if (reply.kind !== 'evaluated') {
+      throw new Error(`Expected an evaluated schema, got ${reply.kind}`);
+    }
+    return reply.result;
+  }
+
+  /** Loads each binding as `evaluate` would, failing on one that does not load. */
+  async load(imports: readonly Binding[]): Promise<void> {
+    await this.#send({ kind: 'load', imports });
+  }
+
+  async #send(request: Request): Promise<EvaluationReply> {
+    for (const binding of 'imports' in request ? request.imports : []) {
+      if (!URL.canParse(binding.from)) {
+        throw new Error(
+          `The import ${binding.import} is from ${binding.from}, which is not a module URL. Pass ZodEvaluator.resolve(specifier, referrer) or pathToFileURL(path).href.`,
+        );
+      }
+    }
+    if (this.#state instanceof Closed) {
+      throw this.#state.error;
+    }
+    const id = this.#next++;
+    const { promise, resolve, reject } =
+      Promise.withResolvers<EvaluationReply>();
+    if (this.#pending.size === 0) this.#worker.ref();
+    this.#pending.set(id, { resolve, reject });
+    this.#worker.postMessage({ ...request, id });
+    const reply = await promise;
+    if (reply.kind === 'failed') {
+      throw reply.error;
+    }
+    return reply;
+  }
+
+  #settle(id: number) {
+    const pending = this.#pending.get(id);
+    this.#pending.delete(id);
+    if (this.#pending.size === 0) this.#worker.unref();
+    return pending;
+  }
+
+  #fail(error: unknown) {
+    if (this.#state instanceof Closed) {
+      return;
+    }
+    this.#state = new Closed(error);
+    for (const id of [...this.#pending.keys()]) {
+      this.#settle(id)?.reject(error);
+    }
+  }
+
+  [Symbol.dispose]() {
+    this.#fail(new Error('The zod evaluator is disposed'));
+    void this.#worker.terminate();
+  }
 }

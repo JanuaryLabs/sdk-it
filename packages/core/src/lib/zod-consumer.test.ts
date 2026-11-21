@@ -1,15 +1,14 @@
 import { TemporaryFiles } from '@zukhruf/fs';
 import assert from 'node:assert/strict';
 import { cp, mkdir, readFile } from 'node:fs/promises';
-import { createRequire, findPackageJSON } from 'node:module';
+import { findPackageJSON } from 'node:module';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 
-import { evalZod } from '@sdk-it/core';
+import { ZodEvaluator } from '@sdk-it/core';
 
 test('Zod consumers receive an explicit version contract and incompatible-schema diagnostics', async () => {
-  const require = createRequire(import.meta.url);
   const coreManifest = findPackageJSON('@sdk-it/core', import.meta.url);
   const zodManifest = findPackageJSON('zod', import.meta.url);
   assert.ok(coreManifest && zodManifest, '@sdk-it/core and zod resolve');
@@ -32,31 +31,37 @@ test('Zod consumers receive an explicit version contract and incompatible-schema
       join(consumer, 'node_modules/zod'),
       { recursive: true },
     );
-    const consumerRequire = createRequire(join(consumer, 'consumer.cjs'));
-    const isolated: { evalZod: typeof evalZod } = await import(
-      pathToFileURL(consumerRequire.resolve('@sdk-it/core/zod-jsonschema.js'))
-        .href
+    const isolated: { ZodEvaluator: typeof ZodEvaluator } = await import(
+      pathToFileURL(join(core, 'dist/lib/zod-jsonschema.js')).href
     );
+    using evaluator = new isolated.ZodEvaluator({ conditions: [] });
     if (major === 3) {
       await assert.rejects(
-        isolated.evalZod('z.string()'),
+        evaluator.evaluate('z.string()'),
         /@sdk-it\/core requires Zod 4/,
       );
       continue;
     }
-    assert.equal((await isolated.evalZod('z.string()')).schema.type, 'string');
+    assert.equal(
+      (await evaluator.evaluate('z.string()')).schema.type,
+      'string',
+    );
     await cp(zodRoot, join(consumer, 'node_modules/consumer-zod'), {
       recursive: true,
     });
-    const imported = await isolated.evalZod('consumer.string()', [
+    const imported = await evaluator.evaluate('consumer.string()', [
       {
         import: 'consumer',
-        from: consumerRequire.resolve('consumer-zod'),
+        from: await evaluator.resolve(
+          'consumer-zod',
+          pathToFileURL(join(consumer, 'consumer.js')).href,
+        ),
       },
     ]);
     assert.equal(imported.schema.type, 'string');
   }
 
+  using evaluator = new ZodEvaluator({ conditions: [] });
   for (const schema of [
     'legacy.string()',
     'z.object({ name: legacy.string() })',
@@ -65,11 +70,8 @@ test('Zod consumers receive an explicit version contract and incompatible-schema
     'z.union([z.string(), legacy.number()])',
   ]) {
     await assert.rejects(
-      evalZod(schema, [
-        {
-          import: 'legacy',
-          from: require.resolve('zod/v3'),
-        },
+      evaluator.evaluate(schema, [
+        { import: 'legacy', from: import.meta.resolve('zod/v3') },
       ]),
       /@sdk-it\/core requires Zod 4 schemas.*migrate.*Zod 3/,
     );
