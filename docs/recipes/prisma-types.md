@@ -115,7 +115,6 @@ format. This example keeps `Decimal` as a string and maps Prisma's `JsonValue`
 to explicit recursive OpenAPI schemas:
 
 ```typescript
-import { defaultTypesMap } from '@sdk-it/core/deriver.js';
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
@@ -124,10 +123,9 @@ import { generate } from '@sdk-it/typescript';
 using project = openAnalysisProject('./tsconfig.json');
 const { paths, components } = await analyze(project, {
   responseAnalyzer,
-  typesMap: {
-    ...defaultTypesMap,
-    Decimal: 'string',
-    JsonValue: '#/components/schemas/JsonValue',
+  types: {
+    Decimal: { type: 'string' },
+    JsonValue: { $ref: '#/components/schemas/JsonValue' },
   },
   allowedNamedImports: ['$Enums', 'Prisma'],
 });
