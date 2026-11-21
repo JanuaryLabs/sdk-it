@@ -1,6 +1,6 @@
 # The analysis documents the responses a middleware sends itself
 
-Status: proposed (user, 2026-11-21: "Fix the analysis")
+Status: accepted (user, 2026-11-21: "Fix the analysis")
 
 ## Context
 

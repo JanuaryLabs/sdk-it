@@ -1,6 +1,6 @@
 # Operation and document transformers replace onOperation
 
-Status: proposed
+Status: accepted (user, 2026-11-21)
 
 ## Context
 
@@ -13,7 +13,7 @@ Status: proposed
 `transformers: { operation?: OperationTransformer[]; document?: DocumentTransformer[] }`:
 
 - An operation transformer gets `(operation, { method, path, document })`, runs after the analysis builds the operation, and returns nothing.
-- Document transformers run once on the merged document.
+- Document transformers run once on the finished document.
 - Both may be `async`.
 
 `onOperation` is deleted from `analyze()`.

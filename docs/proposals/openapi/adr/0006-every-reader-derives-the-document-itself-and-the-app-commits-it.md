@@ -1,6 +1,6 @@
 # Every reader derives the document itself, and the app commits it
 
-Status: proposed (spikes and user decisions of 2026-11-21, #5158)
+Status: accepted (spikes and user decisions of 2026-11-21, #5158)
 
 ## Context
 

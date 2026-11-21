@@ -41,14 +41,16 @@ const { document, sourceFiles } = await generateDocument(definition);
 
 ## Describe what the code cannot tell
 
-`document` is a base document. The analysis merges what it finds into it:
+`document` holds only what code cannot know:
 
-- `paths` come from the analysis only. A base document has no `paths`.
-- `components.schemas` and `components.responses` hold both. Writing the same key in the base and in the analysis is an error (`ComponentConflictError`).
-- `tags`: each tag an operation names gets a tag object. A tag object in the base keeps its fields (`description`, `x-*`).
-- Everything else is the base's: `openapi`, `info`, `servers`, `security`, `externalDocs`, `components.securitySchemes`.
+- `openapi` and `info`, both required; the package invents no title and no version
+- `servers`
+- `security`
+- `externalDocs`
+- `components.securitySchemes`
+- tag objects (`description`, `x-*`)
 
-`openapi` and `info` are required. The package invents no title and no version.
+Everything else comes from the analysis: the paths, every schema and every response. That includes what `validate()`, a middleware and the app's error handler send. A `BaseDocument` cannot hold `paths`, `components.schemas` or `components.responses`, so nothing written by hand competes with what the analysis finds. Each tag an operation names gets a tag object, with the fields of the base's tag object of that name. A fact the analysis still misses goes in a transformer, as code.
 
 ```ts
 document: {
@@ -59,10 +61,18 @@ document: {
   tags: [{ name: 'users', description: 'User management.' }],
   components: {
     securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } },
-    schemas: { ApiError: { type: 'object', properties: { message: { type: 'string' } } } },
   },
 },
 ```
+
+## What the analysis documents for each route
+
+| Response                                                                                   | Comes from                                                                                                                                                |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| what the handler returns (`c.json`, `output.ok`, streams)                                  | `@sdk-it/hono`'s response analyzer                                                                                                                        |
+| `validate()`'s 400 and 415                                                                 | `@sdk-it/hono`, one shared component each                                                                                                                 |
+| what a middleware the route passes sends itself (`c.json({ error }, 401)`)                 | the middleware's own returns ([ADR 0005](adr/0005-the-analysis-documents-the-responses-a-middleware-sends-itself.md))                                     |
+| what `app.onError` sends for each error the route can throw, and what `app.notFound` sends | the handler branch that narrows that error ([ADR 0008](adr/0008-the-analysis-documents-what-the-error-handler-sends-for-each-error-a-route-can-throw.md)) |
 
 ## Map a type to a schema
 
@@ -104,7 +114,7 @@ transformers: {
 },
 ```
 
-Operation transformers run once for each operation, in the order given, after the analysis has built it. Document transformers then run once, in the order given, on the merged document. A transformer changes its argument in place, may be `async`, and returns nothing.
+Operation transformers run once for each operation, in the order given, after the analysis has built it. Document transformers then run once, in the order given, on the finished document. A transformer changes its argument in place, may be `async`, and returns nothing.
 
 ## Prisma
 
@@ -142,8 +152,16 @@ export interface OpenApiDefinition {
   };
 }
 
-/** An OpenAPI 3.1 or 3.2 document without `paths`; `openapi` and `info` are required. */
-export type BaseDocument = Omit<OpenAPIObject, 'paths'>;
+/** What code cannot know about an OpenAPI 3.1 or 3.2 document. */
+export interface BaseDocument {
+  openapi: '3.1.0' | '3.2.0';
+  info: InfoObject;
+  servers?: ServerObject[];
+  security?: SecurityRequirementObject[];
+  externalDocs?: ExternalDocumentationObject;
+  tags?: TagObject[];
+  components?: { securitySchemes?: Record<string, SecuritySchemeObject> };
+}
 
 export interface MiddlewareSecurityRule {
   middleware: { import: string; from: URL };
@@ -165,11 +183,6 @@ export interface GeneratedDocument {
   sourceFiles: string[];
 }
 
-export class ComponentConflictError extends Error {
-  readonly section: 'schemas' | 'responses';
-  readonly key: string;
-}
-
 export class PrismaClientNotGeneratedError extends Error {
   readonly routeFile: string;
   readonly importName: string;
@@ -184,18 +197,17 @@ export class PrismaClientNotGeneratedError extends Error {
 |                                | the Prisma preset applies when a route file imports `Prisma` or `$Enums` by name                                                                          |
 |                                | `analyze(project, { responseAnalyzer, types, allowedNamedImports, middlewareSecurity })` from `@sdk-it/generic`, with `@sdk-it/hono`'s `responseAnalyzer` |
 |                                | each operation transformer runs on each operation                                                                                                         |
-|                                | the analysis is merged into `document`                                                                                                                    |
-|                                | each document transformer runs on the merged document                                                                                                     |
+|                                | the document is `document`'s fields, the analysis's `paths` and `components`, and a tag object for each tag an operation names (the base's fields kept)   |
+|                                | each document transformer runs on the document                                                                                                            |
 |                                | `sourceFiles` is the program's files outside `node_modules`, workspace packages read as source included                                                   |
 
 ## Errors
 
-| Error                                     | When                                                                       | The caller's next step                                              |
-| ----------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `PrismaClientNotGeneratedError`           | a route file imports `Prisma` or `$Enums`, and the client does not load    | run the Prisma client's generate target                             |
-| `ComponentConflictError`                  | the base document and the analysis both write `components.<section>.<key>` | rename one of them                                                  |
-| `UnresolvedTypeError` (`@sdk-it/core`)    | a response type does not resolve                                           | fix the type; the error names the route and the response's position |
-| `UnloadedImportError` (`@sdk-it/generic`) | another named import an `against` reads does not load                      | fix the import                                                      |
+| Error                                     | When                                                                    | The caller's next step                                              |
+| ----------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `PrismaClientNotGeneratedError`           | a route file imports `Prisma` or `$Enums`, and the client does not load | run the Prisma client's generate target                             |
+| `UnresolvedTypeError` (`@sdk-it/core`)    | a response type does not resolve                                        | fix the type; the error names the route and the response's position |
+| `UnloadedImportError` (`@sdk-it/generic`) | another named import an `against` reads does not load                   | fix the import                                                      |
 
 ## The same concepts in other systems
 

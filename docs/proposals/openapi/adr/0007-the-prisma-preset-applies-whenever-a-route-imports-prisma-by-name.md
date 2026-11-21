@@ -1,6 +1,6 @@
 # The Prisma preset applies whenever a route imports Prisma by name
 
-Status: proposed
+Status: accepted (user, 2026-11-21)
 
 ## Context
 

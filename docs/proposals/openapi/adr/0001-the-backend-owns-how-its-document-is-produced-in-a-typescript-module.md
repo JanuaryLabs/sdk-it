@@ -1,6 +1,6 @@
 # The backend owns how its document is produced, in a TypeScript module
 
-Status: proposed (user, 2026-11-21: "Backend TS module")
+Status: accepted (user, 2026-11-21: "Backend TS module")
 
 ## Context
 

@@ -1,6 +1,6 @@
 # Type mappings are JSON Schema objects added onto the defaults
 
-Status: proposed (user, 2026-11-21: "Schema objects, merged")
+Status: accepted (user, 2026-11-21: "Schema objects, merged")
 
 ## Context
 
