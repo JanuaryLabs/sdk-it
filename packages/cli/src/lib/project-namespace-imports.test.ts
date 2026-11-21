@@ -1,5 +1,6 @@
 import { test } from '@zukhruf/testing/node';
 import assert from 'node:assert/strict';
+import { mkdir, symlink } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -333,6 +334,110 @@ TypeScript reports:
 ${shown}/src/patients.route.ts(4,10): error TS2305: Module '"./db.ts"' has no exported member '$Enums'.
 ${shown}/src/db.ts(1,15): error TS2307: Cannot find module './generated/client.js' or its corresponding type declarations.
 Run the Prisma client's generate target (prisma generate) before sdk-it generate.`,
+  });
+});
+
+void test('a project route that imports $Enums from a referenced workspace package whose Prisma client is not generated fails, naming the import, the missing client and TypeScript errors', async () => {
+  // Arrange: Meddit's layout (#5143). The package's types entry is built, the
+  // tsconfig references the package, so TypeScript reads its source, and that
+  // source re-exports a client that was never generated.
+  await using workspace = await analysisWorkspace(
+    'project-prisma-referenced-',
+    {
+      'packages/db/package.json': JSON.stringify({
+        name: '@acme/db',
+        type: 'module',
+        exports: {
+          '.': { types: './dist/index.d.ts', import: './dist/index.js' },
+        },
+      }),
+      'packages/db/tsconfig.lib.json': JSON.stringify({
+        compilerOptions: {
+          composite: true,
+          emitDeclarationOnly: true,
+          allowImportingTsExtensions: true,
+          rewriteRelativeImportExtensions: true,
+          module: 'ESNext',
+          moduleResolution: 'bundler',
+          target: 'ESNext',
+          rootDir: 'src',
+          outDir: 'dist',
+          skipLibCheck: true,
+        },
+        include: ['src/**/*.ts'],
+      }),
+      'packages/db/src/index.ts': `export * from './prisma/client.ts';
+`,
+      'packages/db/dist/index.d.ts': `export * from './prisma/client.ts';
+`,
+      'packages/db/dist/index.js': `export * from './prisma/client.js';
+`,
+      'tsconfig.app.json': JSON.stringify({
+        compilerOptions: {
+          target: 'ESNext',
+          module: 'ESNext',
+          moduleResolution: 'bundler',
+          allowImportingTsExtensions: true,
+          noEmit: true,
+          skipLibCheck: true,
+        },
+        include: ['src/**/*.ts'],
+        references: [{ path: './packages/db/tsconfig.lib.json' }],
+      }),
+      'src/patients.route.ts': `import { Hono } from 'hono';
+import { z } from 'zod';
+import { validate } from '@sdk-it/hono/runtime';
+import { $Enums } from '@acme/db';
+
+export const app = new Hono();
+
+/** @openapi addPatient @tags patients */
+app.post('/patients', validate('application/json', (payload) => ({
+  sex: { select: payload.body.sex, against: z.enum($Enums.Sex) },
+})), (c) => c.json({ sex: c.var.input.sex }));
+`,
+    },
+  );
+  await mkdir(join(workspace.path, 'node_modules/@acme'), { recursive: true });
+  await symlink(
+    join(workspace.path, 'packages/db'),
+    join(workspace.path, 'node_modules/@acme/db'),
+  );
+
+  // Act
+  const generation = generateProject({
+    name: 'Patients',
+    packageName: '@acme/patients-client',
+    tsconfig: join(workspace.path, 'tsconfig.app.json'),
+    output: join(workspace.path, '.sdk-it'),
+  });
+
+  // Assert
+  const shown = relative(process.cwd(), workspace.path);
+  await assert.rejects(generation, (error: unknown) => {
+    assert.ok(Error.isError(error));
+    assert.ok(
+      error.message.startsWith(
+        `${workspace.path}/src/patients.route.ts imports $Enums from '@acme/db', which an against reads, but it does not load: `,
+      ),
+      error.message,
+    );
+    // TypeScript checks a referenced package's source in its own project, so
+    // the app's program reports only the import; Node's error names the
+    // client file that is missing and who imports it.
+    assert.ok(
+      error.message.includes(
+        `Cannot find module '${workspace.path}/packages/db/src/prisma/client.ts' imported from ${workspace.path}/packages/db/src/index.ts\nTypeScript reports:\n${shown}/src/patients.route.ts(4,10): error TS2305: Module '"@acme/db"' has no exported member '$Enums'.\n`,
+      ),
+      error.message,
+    );
+    assert.ok(
+      error.message.endsWith(
+        "\nRun the Prisma client's generate target (prisma generate) before sdk-it generate.",
+      ),
+      error.message,
+    );
+    return true;
   });
 });
 
