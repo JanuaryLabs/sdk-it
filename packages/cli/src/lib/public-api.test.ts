@@ -359,21 +359,6 @@ test('generateProject creates a client from a Hono TypeScript project', async ()
   assert.match(endpoint, /"GET \/books"/);
 });
 
-test("generateProject detects Hono when framework is explicitly 'auto'", async () => {
-  await using project = await createHonoWorkspace();
-  const { output, tsconfig } = project;
-  await generateProject({
-    name: 'Books',
-    packageName: '@acme/books-client',
-    tsconfig,
-    output,
-    framework: 'auto',
-  });
-
-  const endpoint = readFileSync(join(output, 'src', 'api', 'books.ts'), 'utf8');
-  assert.match(endpoint, /"GET \/books"/);
-});
-
 test('generated project client is directly importable by Node.js', async () => {
   await using project = await createHonoWorkspace();
   await using consumer = await new TemporaryFiles().directory(

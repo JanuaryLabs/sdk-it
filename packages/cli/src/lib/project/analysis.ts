@@ -1,8 +1,4 @@
-import {
-  isImportDeclaration,
-  isNamedImports,
-  isStringLiteral,
-} from '@typescript/native/ast/is';
+import { isImportDeclaration, isNamedImports } from '@typescript/native/ast/is';
 
 import { defaultTypesMap } from '@sdk-it/core/deriver.js';
 import {
@@ -20,13 +16,6 @@ const prismaBindings = ['$Enums', 'Prisma'];
 
 export async function analyzeProject(tsconfig: string, config: ProjectConfig) {
   using project = openAnalysisProject(tsconfig);
-  const framework = resolveFramework(project, config.framework);
-  if (framework === 'auto') {
-    throw new Error(
-      `Could not detect a supported framework from ${config.tsconfig}. Set framework to 'hono' to select it explicitly.`,
-    );
-  }
-
   const prisma = config.preset !== 'none' && importsPrisma(project);
   if (config.preset === 'prisma' && !prisma) {
     throw new Error(
@@ -72,31 +61,6 @@ export async function analyzeProject(tsconfig: string, config: ProjectConfig) {
     paths,
     components,
   };
-}
-
-function resolveFramework(
-  project: AnalysisProject,
-  configured: ProjectConfig['framework'],
-): 'hono' | 'auto' {
-  return configured === undefined || configured === 'auto'
-    ? detectFramework(project)
-    : configured;
-}
-
-function detectFramework(project: AnalysisProject): 'hono' | 'auto' {
-  for (const sourceFile of sourceFiles(project.program)) {
-    for (const statement of sourceFile.statements) {
-      if (
-        isImportDeclaration(statement) &&
-        isStringLiteral(statement.moduleSpecifier) &&
-        (statement.moduleSpecifier.text === 'hono' ||
-          statement.moduleSpecifier.text.startsWith('@sdk-it/hono'))
-      ) {
-        return 'hono';
-      }
-    }
-  }
-  return 'auto';
 }
 
 /** Whether a source file imports `Prisma` or `$Enums` by name. */

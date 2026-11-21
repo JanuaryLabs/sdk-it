@@ -116,11 +116,10 @@ await generateProject({
 
 `name`, `packageName` and `tsconfig` are required. The defaults are:
 
-| Option      | Default       |
-| ----------- | ------------- |
-| `output`    | `./.sdk-it`   |
-| `framework` | auto-detected |
-| `preset`    | `auto`        |
+| Option   | Default     |
+| -------- | ----------- |
+| `output` | `./.sdk-it` |
+| `preset` | `auto`      |
 
 ## Vite
 

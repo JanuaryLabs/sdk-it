@@ -18,7 +18,6 @@ export interface TypeScriptOptions extends BaseGeneratorOptions {
   packageName: string;
   useTsExtension?: boolean;
   formatter?: string;
-  framework?: string;
   install?: boolean;
   defaultFormatter?: boolean;
   readme?: boolean;

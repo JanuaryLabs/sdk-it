@@ -11,7 +11,6 @@ import { generatedPackageManifest } from './compiler.ts';
 export interface ProjectConfig {
   name: string;
   tsconfig: string;
-  framework?: 'auto' | 'hono';
   preset?: 'auto' | 'prisma' | 'none';
   output?: string;
   packageName: string;

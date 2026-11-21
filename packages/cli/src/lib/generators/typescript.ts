@@ -42,10 +42,6 @@ export default new Command('typescript')
   )
   .requiredOption('-n, --name <name>', 'Name of the generated client')
   .requiredOption('--package-name <name>', 'npm name of the generated package')
-  .option(
-    '-f, --framework <framework>',
-    'Framework that is integrating with the SDK',
-  )
   .option('--formatter <formatter>', 'Formatter to use for the generated code')
   .option(
     '--install',
