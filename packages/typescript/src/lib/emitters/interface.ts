@@ -1,24 +1,25 @@
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
+import { followRef, isEmpty, isRef, parseRef, resolveRef } from '@sdk-it/core';
 import {
-  type OpenAPIDocument,
-  followRef,
-  isEmpty,
-  isRef,
-  parseRef,
-  resolveRef,
-} from '@sdk-it/core';
-import { isInlinable, tupleOf } from '@sdk-it/spec';
+  type Annotations,
+  type IR,
+  annotationsOf,
+  isInlinable,
+  requiredOn,
+  tupleOf,
+} from '@sdk-it/spec';
 
 import type { ModelNamer } from '../model-name.ts';
 import type { References } from '../references.ts';
+import { jsdoc } from './jsdoc.ts';
 
 export class TypeScriptEmitter {
-  #spec: OpenAPIDocument;
+  #spec: IR;
   #modelName: ModelNamer;
   #refs: References;
 
-  constructor(spec: OpenAPIDocument, modelName: ModelNamer, refs: References) {
+  constructor(spec: IR, modelName: ModelNamer, refs: References) {
     this.#spec = spec;
     this.#modelName = modelName;
     this.#refs = refs;
@@ -30,10 +31,13 @@ export class TypeScriptEmitter {
   object(schema: SchemaObject, _required = false): string {
     const properties = schema.properties || {};
 
+    const required = requiredOn(schema, this.#spec, 'response');
     const propEntries = Object.entries(properties).map(([key, propSchema]) => {
-      const isRequired = (schema.required ?? []).includes(key);
+      const isRequired = required.includes(key);
       const tsType = this.handle(propSchema, isRequired);
-      return `${this.#stringifyKey(key)}${isRequired ? '' : '?'}: ${tsType}`;
+      const annotations = annotationsOf(propSchema, this.#spec);
+      const doc = jsdoc(docLines(annotations));
+      return `${doc ? `${doc}\n` : ''}${annotations.readOnly ? 'readonly ' : ''}${this.#stringifyKey(key)}${isRequired ? '' : '?'}: ${tsType}`;
     });
 
     if (schema.additionalProperties) {
@@ -45,7 +49,9 @@ export class TypeScriptEmitter {
       }
     }
 
-    return `${propEntries.length ? `{ ${propEntries.join('; ')} }` : 'unknown'}`;
+    return propEntries.length
+      ? `{\n${propEntries.map((entry) => `${entry};\n`).join('')}}`
+      : 'unknown';
   }
 
   #array(schema: SchemaObject, _required = false): string {
@@ -269,6 +275,23 @@ export class TypeScriptEmitter {
     // Single type
     return this.normal(types[0], schema, required);
   }
+}
+
+/** A property's documentation: its title and description, then a tag for each other annotation. */
+function docLines(annotations: Annotations): string[] {
+  return [
+    ...(annotations.title === undefined ? [] : [annotations.title]),
+    ...(annotations.description === undefined ? [] : [annotations.description]),
+    ...(annotations.deprecated ? ['@deprecated'] : []),
+    ...(Object.hasOwn(annotations, 'default')
+      ? [`@default ${JSON.stringify(annotations.default)}`]
+      : []),
+    ...annotations.examples.map(
+      (example) => `@example ${JSON.stringify(example)}`,
+    ),
+    ...(annotations.readOnly ? ['@readonly'] : []),
+    ...(annotations.writeOnly ? ['@writeonly'] : []),
+  ];
 }
 
 function appendOptional(type: string, isRequired?: boolean): string {

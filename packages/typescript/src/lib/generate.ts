@@ -37,6 +37,7 @@ import backend, {
   clientRuntimeTypeExports,
 } from './client.ts';
 import { TypeScriptEmitter } from './emitters/interface.ts';
+import { jsdoc } from './emitters/jsdoc.ts';
 import type { EmittedZod } from './emitters/zod.ts';
 import { indexFiles } from './folder-index.ts';
 import { generateCode, operationFragments } from './generator.ts';
@@ -522,7 +523,7 @@ function modelDeclarations(
       schemaName: name,
       inline: responseGroup !== undefined,
       typeName: modelName(name),
-      doc: schema.description ? `\n/** \n * ${schema.description}\n */\n` : '',
+      doc: schema.description ? `\n${jsdoc([schema.description])}\n` : '',
       type: typeContent,
       file: responseGroup
         ? join(folder, `${moduleFileName(responseGroup)}.ts`)

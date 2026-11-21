@@ -155,8 +155,9 @@ describe('TypeScriptEmitter union of string and string literals', () => {
       expected: "(string & {}) | 'Director'",
     });
     assert.deepStrictEqual(errors, []);
-    const row = text.split('\n').find((line) => line.includes('type Row ='));
-    assert.ok(row);
+    const start = text.indexOf('type Row =');
+    assert.notEqual(start, -1);
+    const row = text.slice(start, text.indexOf('\n};', start));
     assert.equal(row.split('(string & {})').length, 2, row);
   });
 
