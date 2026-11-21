@@ -26,3 +26,4 @@ export * from './lib/tag.js';
 export * from './lib/tuple.js';
 export * from './lib/types.js';
 export * from './lib/walk-schemas.js';
+export * from './lib/annotations.js';
