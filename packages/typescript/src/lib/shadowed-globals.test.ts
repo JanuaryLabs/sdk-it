@@ -51,7 +51,7 @@ const spec: OpenAPIObject = {
   },
 };
 
-void test('a spec schema named Date leaves the global Date to the inputs that use it: a date default parses to a Date and the SDK type-checks', async () => {
+void test('a spec schema named Date leaves the global Date to the inputs: a coerced date parses to a Date, its default is not inserted, and the SDK type-checks', async () => {
   await using workspace = await workspaceDirectory('shadowed-globals-');
   await generate(spec, {
     output: workspace.path,
@@ -64,9 +64,14 @@ void test('a spec schema named Date leaves the global Date to the inputs that us
     pathToFileURL(join(workspace.path, 'src/index.ts')).href
   );
 
-  const input = searchEventsSchema.parse({ on: { day: 2 } });
+  const input = searchEventsSchema.parse({
+    since: '2024-01-02T03:04:05.000Z',
+    on: { day: 2 },
+  });
+  const omitted = searchEventsSchema.parse({ on: { day: 2 } });
 
   assert.deepEqual(input.since, new Date('2024-01-02T03:04:05.000Z'));
+  assert.equal(Object.hasOwn(omitted, 'since'), false);
   assert.deepEqual(
     typecheck(join(workspace.path, 'tsconfig.json')).diagnostics,
     [],

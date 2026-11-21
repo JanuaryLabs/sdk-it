@@ -206,3 +206,54 @@ order.status;
   assert.doesNotMatch(status, /The status of any record\./);
   assert.match(status, /@default.*"active"/);
 });
+
+test('hovering a request input property shows its description and default', async () => {
+  const { text } = await renderModule(
+    {
+      openapi: '3.1.0',
+      info: { title: 'Test', version: '1.0.0' },
+      servers: [{ url: 'https://orders.test' }],
+      paths: {
+        '/orders': {
+          post: {
+            operationId: 'createOrder',
+            requestBody: {
+              required: true,
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      note: {
+                        type: 'string',
+                        description: 'A note for the courier.',
+                        default: 'none',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            responses: { '204': { description: 'Created' } },
+          },
+        },
+      },
+    },
+    { name: 'Client' },
+  );
+  const consumer = `import { client } from './sdk.ts';
+await client.request('POST /orders', { note: 'Ring twice' });
+`;
+  await using workspace = await analysisWorkspace('property-annotations-', {
+    'sdk.ts': text,
+    'consumer.ts': consumer,
+  });
+
+  const note = await hoverText(workspace.path, consumer, {
+    line: 1,
+    character: 40,
+  });
+
+  assert.match(note, /A note for the courier\./);
+  assert.match(note, /@default.*"none"/);
+});

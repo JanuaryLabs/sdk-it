@@ -1,21 +1,18 @@
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
+import { followRef, isEmpty, isRef, parseRef } from '@sdk-it/core';
 import {
-  type OpenAPIDocument,
-  followRef,
-  isEmpty,
-  isRef,
-  parseRef,
-} from '@sdk-it/core';
-import {
+  type IR,
+  annotationsOf,
   discriminatorOf,
   isInlinable,
-  isRecursiveRef,
+  requiredOn,
   tupleOf,
 } from '@sdk-it/spec';
 
 import type { ModelNamer } from '../model-name.ts';
 import type { References } from '../references.ts';
+import { annotationDoc } from './jsdoc.ts';
 
 /** Zod source and the shared schemas it names. */
 export interface EmittedZod {
@@ -31,7 +28,15 @@ type OnRefCallback = (ref: string, schema: EmittedZod) => void;
  */
 export class ZodEmitter {
   #generatedRefs = new Set<string>();
-  #spec: OpenAPIDocument;
+  /** The shared schemas whose body is being emitted, outermost first. */
+  #inProgress = new Set<string>();
+  /**
+   * For each body or object property being emitted, innermost last, the
+   * shared schemas in `#inProgress` it names: its const or its getter is read
+   * before their consts exist.
+   */
+  #backEdges: Set<string>[] = [];
+  #spec: IR;
   #modelName: ModelNamer;
   #refs: References;
   #onRef?: OnRefCallback;
@@ -39,7 +44,7 @@ export class ZodEmitter {
   #references: Set<string>[] = [];
 
   constructor(
-    spec: OpenAPIDocument,
+    spec: IR,
     modelName: ModelNamer,
     refs: References,
     onRef?: OnRefCallback,
@@ -53,10 +58,23 @@ export class ZodEmitter {
   #object(schema: SchemaObject): string {
     const properties = schema.properties || {};
 
-    // Convert each property
+    const required = requiredOn(schema, this.#spec, 'request');
     const propEntries = Object.entries(properties).map(([key, propSchema]) => {
-      const isRequired = (schema.required ?? []).includes(key);
-      return `'${key}': ${this.handle(propSchema, isRequired)}`;
+      const backEdges = new Set<string>();
+      this.#backEdges.push(backEdges);
+      let zod: string;
+      try {
+        zod = this.handle(propSchema, required.includes(key));
+      } finally {
+        this.#backEdges.pop();
+      }
+      const doc = annotationDoc(annotationsOf(propSchema, this.#spec));
+      // A getter reads a schema that reaches this object once it validates,
+      // and lets zod infer the recursive type with no annotation.
+      const entry = backEdges.size
+        ? `get '${key}'() { return ${zod}; }`
+        : `'${key}': ${zod}`;
+      return `${doc ? `${doc}\n` : ''}${entry}`;
     });
 
     let additionalProps = '';
@@ -71,7 +89,9 @@ export class ZodEmitter {
       }
     }
 
-    return `z.object({${propEntries.join(', ')}})${additionalProps}`;
+    // A JSDoc block right after `{` documents nothing, so each property starts a line.
+    const shape = propEntries.map((entry) => `\n${entry},`).join('');
+    return `z.object({${shape}${shape ? '\n' : ''}})${additionalProps}`;
   }
 
   #array(schema: SchemaObject, required = false): string {
@@ -92,11 +112,11 @@ export class ZodEmitter {
 
     // If items is a single schema => standard z.array(...)
     const itemsSchema = this.handle(items, true);
-    return `z.array(${itemsSchema})${arrayLimits(schema)}${this.#suffixes(JSON.stringify(schema.default), required, false)}`;
+    return `z.array(${itemsSchema})${arrayLimits(schema)}${appendOptional(required)}`;
   }
 
-  #suffixes = (defaultValue: unknown, required: boolean, nullable: boolean) => {
-    return `${nullable ? '.nullable()' : ''}${appendOptional(required)}${appendDefault(defaultValue)}`;
+  #suffixes = (required: boolean, nullable: boolean) => {
+    return `${nullable ? '.nullable()' : ''}${appendOptional(required)}`;
   };
 
   /**
@@ -110,24 +130,15 @@ export class ZodEmitter {
     nullable = false,
   ): string {
     switch (type) {
-      case 'string': {
-        const defaultVal =
-          (schema['x-zod-type'] === 'date' ||
-            schema['x-zod-type'] === 'coerce-date') &&
-          schema.default
-            ? `new ${this.#refs.global('Date')}(${JSON.stringify(schema.default)})`
-            : JSON.stringify(schema.default);
-        return `${this.string(schema)}${this.#suffixes(defaultVal, required, nullable)}`;
-      }
+      case 'string':
+        return `${this.string(schema)}${this.#suffixes(required, nullable)}`;
       case 'number':
-      case 'integer': {
-        const { base, defaultValue } = this.#number(schema);
-        return `${base}${this.#suffixes(defaultValue, required, nullable)}`;
-      }
+      case 'integer':
+        return `${this.#number(schema)}${this.#suffixes(required, nullable)}`;
       case 'boolean':
-        return `${schema['x-zod-type'] === 'coerce-boolean' ? 'z.union([z.boolean(), z.stringbool()])' : 'z.boolean()'}${this.#suffixes(schema.default, required, nullable)}`;
+        return `${schema['x-zod-type'] === 'coerce-boolean' ? 'z.union([z.boolean(), z.stringbool()])' : 'z.boolean()'}${this.#suffixes(required, nullable)}`;
       case 'object':
-        return `${this.#object(schema)}${this.#suffixes(JSON.stringify(schema.default), required, nullable)}`;
+        return `${this.#object(schema)}${this.#suffixes(required, nullable)}`;
       // required always
       case 'array':
         return this.#array(schema, required);
@@ -155,15 +166,28 @@ export class ZodEmitter {
 
     this.#references.at(-1)?.add(schemaName);
     if (this.#generatedRefs.has(schemaName)) {
+      if (this.#inProgress.has(schemaName)) {
+        this.#backEdges.at(-1)?.add(schemaName);
+      }
       return schemaName;
     }
     this.#generatedRefs.add(schemaName);
-    const body = this.emit(schema, required);
+    this.#inProgress.add(schemaName);
+    const backEdges = new Set<string>();
+    this.#backEdges.push(backEdges);
+    let body: EmittedZod;
+    try {
+      body = this.emit(schema, required);
+    } finally {
+      this.#backEdges.pop();
+      this.#inProgress.delete(schemaName);
+    }
     const modelType = this.#refs.model(schemaName);
-    // A schema that reaches itself is read only when it validates, and its
+    // A schema that reaches itself through no object property (an array, a
+    // record or a union of itself) is read only when it validates, and its
     // model type names what TypeScript cannot infer from its own initializer.
     this.#onRef?.(schemaName, {
-      zod: isRecursiveRef(this.#spec, $ref)
+      zod: backEdges.size
         ? `z.lazy((): z.ZodType<${modelType}, ${modelType}> => ${body.zod})`
         : body.zod,
       references: body.references,
@@ -393,7 +417,7 @@ export class ZodEmitter {
       base += `.multipleOf(${schema.multipleOf})`;
     }
 
-    return { base, defaultValue: schema.default };
+    return base;
   }
 
   handle(schema: SchemaObject | ReferenceObject, required: boolean): string {
@@ -421,17 +445,12 @@ export class ZodEmitter {
     }
 
     if (schema.const !== undefined) {
-      return `${constSchema(schema.const)}${this.#suffixes(JSON.stringify(schema.default), required, false)}`;
+      return `${constSchema(schema.const)}${appendOptional(required)}`;
     }
 
     // enum
     if (schema.enum && Array.isArray(schema.enum)) {
-      const defaultValue = schema.enum
-        .map((member) => JSON.stringify(member))
-        .includes(JSON.stringify(schema.default))
-        ? JSON.stringify(schema.default)
-        : undefined;
-      return `${this.enum(schema.enum)}${this.#suffixes(defaultValue, required, false)}`;
+      return `${this.enum(schema.enum)}${appendOptional(required)}`;
     }
 
     // 3.1 can have type: string or type: string[] (e.g. ["string","null"])
@@ -481,12 +500,6 @@ export class ZodEmitter {
 
 function appendOptional(isRequired?: boolean) {
   return isRequired ? '' : '.optional()';
-}
-
-function appendDefault(defaultValue?: any) {
-  return defaultValue !== undefined || typeof defaultValue !== 'undefined'
-    ? `.default(${defaultValue})`
-    : '';
 }
 
 /** JSON Schema's array length keywords, mapped as zod's own `z.fromJSONSchema` maps them. */

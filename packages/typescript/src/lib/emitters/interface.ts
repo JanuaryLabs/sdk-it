@@ -2,7 +2,6 @@ import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
 import { followRef, isEmpty, isRef, parseRef, resolveRef } from '@sdk-it/core';
 import {
-  type Annotations,
   type IR,
   annotationsOf,
   isInlinable,
@@ -12,7 +11,7 @@ import {
 
 import type { ModelNamer } from '../model-name.ts';
 import type { References } from '../references.ts';
-import { jsdoc } from './jsdoc.ts';
+import { annotationDoc } from './jsdoc.ts';
 
 export class TypeScriptEmitter {
   #spec: IR;
@@ -36,7 +35,7 @@ export class TypeScriptEmitter {
       const isRequired = required.includes(key);
       const tsType = this.handle(propSchema, isRequired);
       const annotations = annotationsOf(propSchema, this.#spec);
-      const doc = jsdoc(docLines(annotations));
+      const doc = annotationDoc(annotations);
       return `${doc ? `${doc}\n` : ''}${annotations.readOnly ? 'readonly ' : ''}${this.#stringifyKey(key)}${isRequired ? '' : '?'}: ${tsType}`;
     });
 
@@ -278,22 +277,6 @@ export class TypeScriptEmitter {
 }
 
 /** A property's documentation: its title and description, then a tag for each other annotation. */
-function docLines(annotations: Annotations): string[] {
-  return [
-    ...(annotations.title === undefined ? [] : [annotations.title]),
-    ...(annotations.description === undefined ? [] : [annotations.description]),
-    ...(annotations.deprecated ? ['@deprecated'] : []),
-    ...(Object.hasOwn(annotations, 'default')
-      ? [`@default ${JSON.stringify(annotations.default)}`]
-      : []),
-    ...annotations.examples.map(
-      (example) => `@example ${JSON.stringify(example)}`,
-    ),
-    ...(annotations.readOnly ? ['@readonly'] : []),
-    ...(annotations.writeOnly ? ['@writeonly'] : []),
-  ];
-}
-
 function appendOptional(type: string, isRequired?: boolean): string {
   return isRequired ? type : `${type} | undefined`;
 }

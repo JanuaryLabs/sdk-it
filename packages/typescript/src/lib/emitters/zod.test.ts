@@ -110,7 +110,7 @@ describe('ZodEmitter date handling', () => {
       assert.equal(row.safeParse({ value: '2024-01-01' }).success, false);
     });
 
-    test('with default', async () => {
+    test('with default stays required', async () => {
       const row = await rowInput({
         value: {
           type: 'string',
@@ -120,7 +120,7 @@ describe('ZodEmitter date handling', () => {
         required: true,
       });
 
-      assert.deepStrictEqual(row.parse({}), { value: '2024-01-01T00:00:00Z' });
+      assert.equal(row.safeParse({}).success, false);
       assert.equal(row.safeParse({ value: '2024-01-01' }).success, false);
     });
   });
@@ -156,7 +156,7 @@ describe('ZodEmitter date handling', () => {
       );
     });
 
-    test('with default wraps in new Date()', async () => {
+    test('with default inserts no value', async () => {
       const row = await rowInput({
         value: {
           type: 'string',
@@ -164,12 +164,10 @@ describe('ZodEmitter date handling', () => {
           'x-zod-type': 'date',
           default: '2024-01-01T00:00:00.000Z',
         },
-        required: true,
+        required: false,
       });
 
-      assert.deepStrictEqual(row.parse({}), {
-        value: new Date('2024-01-01T00:00:00.000Z'),
-      });
+      assert.deepStrictEqual(row.parse({}), {});
     });
   });
 
@@ -207,7 +205,7 @@ describe('ZodEmitter date handling', () => {
       });
     });
 
-    test('with default wraps in new Date()', async () => {
+    test('with default inserts no value', async () => {
       const row = await rowInput({
         value: {
           type: 'string',
@@ -215,12 +213,10 @@ describe('ZodEmitter date handling', () => {
           'x-zod-type': 'coerce-date',
           default: '2024-01-01T00:00:00.000Z',
         },
-        required: true,
+        required: false,
       });
 
-      assert.deepStrictEqual(row.parse({}), {
-        value: new Date('2024-01-01T00:00:00.000Z'),
-      });
+      assert.deepStrictEqual(row.parse({}), {});
     });
   });
 
@@ -257,13 +253,13 @@ describe('ZodEmitter date handling', () => {
       );
     });
 
-    test('with default stays as string', async () => {
+    test('with default inserts no value', async () => {
       const row = await rowInput({
         value: { type: 'string', format: 'date', default: '2024-01-01' },
-        required: true,
+        required: false,
       });
 
-      assert.deepStrictEqual(row.parse({}), { value: '2024-01-01' });
+      assert.deepStrictEqual(row.parse({}), {});
     });
   });
 
@@ -518,7 +514,7 @@ describe('ZodEmitter date handling', () => {
       assert.equal(row.safeParse({ value: '1.5' }).success, false);
     });
 
-    test('merged coerced integer keeps default and constraints', async () => {
+    test('merged coerced integer with a default stays required and keeps its constraints', async () => {
       const row = await rowInput({
         value: {
           type: 'integer',
@@ -529,7 +525,7 @@ describe('ZodEmitter date handling', () => {
         required: true,
       });
 
-      assert.deepStrictEqual(row.parse({}), { value: 1 });
+      assert.equal(row.safeParse({}).success, false);
       assert.deepStrictEqual(row.parse({ value: '3' }), { value: 3 });
       assert.equal(row.safeParse({ value: '-1' }).success, false);
       assert.equal(row.safeParse({ value: '1.5' }).success, false);
@@ -664,7 +660,7 @@ describe('ZodEmitter date handling', () => {
       assert.equal(row.safeParse({ value: 'maybe' }).success, false);
     });
 
-    test('coerce-boolean keeps default and optional', async () => {
+    test('coerce-boolean with a default stays optional and inserts no value', async () => {
       const row = await rowInput({
         value: {
           type: 'boolean',
@@ -674,7 +670,7 @@ describe('ZodEmitter date handling', () => {
         required: false,
       });
 
-      assert.deepStrictEqual(row.parse({}), { value: true });
+      assert.deepStrictEqual(row.parse({}), {});
       assert.deepStrictEqual(row.parse({ value: 'off' }), { value: false });
     });
   });

@@ -334,7 +334,10 @@ export { pages };
     },
   });
   const result = await store.request('GET /settings', { label: 'x' });
-  const marked = await store.request('POST /days', { day: { label: 'd' } });
+  const marked = await store.request('POST /days', {
+    since: '2026-01-01T00:00:00.000Z',
+    day: { label: 'd' },
+  });
 
   assert.equal(diagnostics.length, 1, JSON.stringify(diagnostics));
   assert.equal(diagnostics[0].file, join(workspace.path, 'wrong.ts'));
@@ -569,7 +572,7 @@ void test('the one module runs the client: the default instance targets the spec
   assert.deepEqual(missing.data, { reason: 'adopted' });
 });
 
-void test('the one module declares a recursive schema and a shared schema with a date default before the inputs that use them: a valid body is sent with its default, an invalid one rejects with ParseError', async () => {
+void test('the one module declares a recursive schema and a shared schema with a date default before the inputs that use them: a valid body is sent without the default, an invalid one rejects with ParseError', async () => {
   const spec: OpenAPIObject = {
     openapi: '3.1.0',
     info: { title: 'Trees', version: '1.0.0' },
@@ -652,7 +655,7 @@ void test('the one module declares a recursive schema and a shared schema with a
 
   assert.deepEqual(planted, {
     root: { name: 'oak', children: [{ name: 'acorn' }] },
-    window: { from: '2026-01-01T00:00:00.000Z' },
+    window: {},
   });
   await assert.rejects(
     trees.request('POST /trees', { root: { children: [] }, window: {} }),
