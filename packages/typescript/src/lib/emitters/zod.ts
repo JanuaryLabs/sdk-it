@@ -1,6 +1,7 @@
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
 import { followRef, isEmpty, isRef, parseRef } from '@sdk-it/core';
+import { zodStringFormat } from '@sdk-it/core/zod-string-format.js';
 import {
   type IR,
   annotationsOf,
@@ -324,7 +325,7 @@ export class ZodEmitter {
    * Handle a `string` schema with possible format keywords (JSON Schema).
    */
   string(schema: SchemaObject): string {
-    let base =
+    const base =
       schema['x-zod-type'] === 'coerce-string'
         ? 'z.coerce.string()'
         : 'z.string()';
@@ -338,76 +339,36 @@ export class ZodEmitter {
       // it throws ReferenceError where the global is missing and fails
       // instanceof for cross-realm/polyfill Blobs (see e62c4e1 and
       // docs/recipes/file-upload.md).
-      base = `z.custom<${this.#refs.global('Blob')}>()`;
-      return base;
+      return `z.custom<${this.#refs.global('Blob')}>()`;
     }
 
-    const coerced = schema['x-zod-type'] === 'coerce-string';
-    const limits = stringLimits(schema);
-    const withFormat = (format: string) =>
-      coerced ? `${base}.pipe(${format}${limits})` : `${format}${limits}`;
-
-    switch (schema.format) {
-      case 'date-time':
-      case 'datetime':
-        if (schema['x-zod-type'] === 'coerce-date') {
-          base = 'z.coerce.date()';
-        } else if (schema['x-zod-type'] === 'date') {
-          base = 'z.date()';
-        } else {
-          // RFC 3339 date-time allows numeric zone offsets, which
-          // z.iso.datetime() rejects by default.
-          base = withFormat('z.iso.datetime({ offset: true })');
-        }
-        break;
-      case 'date':
-        base = withFormat('z.iso.date()');
-        break;
-      case 'time':
-        // z.iso.time() rejects RFC 3339 zone suffixes, which JSON Schema's
-        // format: time allows.
-        base = withFormat(
-          'z.string().regex(/^([01]\\d|2[0-3]):[0-5]\\d(:[0-5]\\d(\\.\\d+)?)?(Z|[+-]([01]\\d|2[0-3]):[0-5]\\d)?$/)',
-        );
-        break;
-      case 'email':
-        base = withFormat('z.email()');
-        break;
-      case 'uuid':
-        // z.guid() preserves zod v3's looser .uuid() semantics; z.uuid()
-        // enforces RFC 9562 variant bits and rejects Microsoft-style GUIDs.
-        base = withFormat('z.guid()');
-        break;
-      case 'url':
-      case 'uri':
-        base = withFormat('z.url()');
-        break;
-      case 'ipv4':
-        base = withFormat('z.ipv4()');
-        break;
-      case 'ipv6':
-        base = withFormat('z.ipv6()');
-        break;
-      case 'cidrv4':
-        base = withFormat('z.cidrv4()');
-        break;
-      case 'cidrv6':
-        base = withFormat('z.cidrv6()');
-        break;
-      case 'phone':
-        base += `${limits} /* or add .regex(...) for phone formats */`;
-        break;
-      case 'byte':
-      case 'binary':
-        // Bare z.custom on purpose — see the contentEncoding branch above.
-        base = `z.custom<${this.#refs.global('Blob')}>()`;
-        break;
-      default:
-        base += limits;
-        break;
+    if (schema.format === 'byte' || schema.format === 'binary') {
+      // Bare z.custom on purpose — see the contentEncoding branch above.
+      return `z.custom<${this.#refs.global('Blob')}>()`;
+    }
+    const dateTime =
+      schema.format === 'date-time' || schema.format === 'datetime';
+    if (dateTime && schema['x-zod-type'] === 'coerce-date') {
+      return 'z.coerce.date()';
+    }
+    if (dateTime && schema['x-zod-type'] === 'date') {
+      return 'z.date()';
+    }
+    if (schema.format === 'phone') {
+      return `${base}${stringLimits(schema)} /* or add .regex(...) for phone formats */`;
     }
 
-    return base;
+    const format =
+      schema.format === undefined
+        ? undefined
+        : zodStringFormat(schema.format, schema.pattern);
+    if (!format) {
+      return `${base}${stringLimits(schema)}`;
+    }
+    const checked = `${format.code}${stringLimits({ ...schema, pattern: format.pattern })}`;
+    return schema['x-zod-type'] === 'coerce-string'
+      ? `${base}.pipe(${checked})`
+      : checked;
   }
 
   /**

@@ -353,19 +353,115 @@ describe('ZodEmitter date handling', () => {
   });
 
   describe('uuid format', () => {
-    test('emits z.guid() to keep v3 GUID semantics', async () => {
+    test('refuses a GUID outside RFC 9562 and accepts a version 4 UUID', async () => {
       const row = await rowInput({
         value: { type: 'string', format: 'uuid' },
         required: true,
       });
 
-      // Variant nibble 1 is outside RFC 9562, which z.uuid() refuses.
+      // Version 1 with variant nibble 1: a GUID, but not an RFC 9562 UUID.
+      assert.equal(
+        row.safeParse({ value: '12345678-1234-1234-1234-123456789abc' })
+          .success,
+        false,
+      );
+      assert.equal(
+        row.safeParse({ value: '550e8400-e29b-41d4-a716-446655440000' })
+          .success,
+        true,
+      );
+    });
+
+    test("accepts a GUID outside RFC 9562 when the pattern is z.guid()'s", async () => {
+      const row = await rowInput({
+        value: {
+          type: 'string',
+          format: 'uuid',
+          pattern:
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$',
+        },
+        required: true,
+      });
+
       assert.equal(
         row.safeParse({ value: '12345678-1234-1234-1234-123456789abc' })
           .success,
         true,
       );
       assert.equal(row.safeParse({ value: 'not-a-guid' }).success, false);
+    });
+  });
+
+  describe('a format with the pattern zod writes for it', () => {
+    test('reports one issue for a refused value, as the pattern restates the format', async () => {
+      const cases = [
+        {
+          format: 'uuid',
+          pattern:
+            '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$',
+        },
+        {
+          format: 'email',
+          pattern:
+            "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+        },
+        {
+          format: 'date',
+          pattern:
+            '^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$',
+        },
+        {
+          format: 'date-time',
+          pattern:
+            '^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$',
+        },
+      ];
+
+      for (const { format, pattern } of cases) {
+        const row = await rowInput({
+          value: { type: 'string', format, pattern },
+          required: true,
+        });
+
+        assert.deepEqual(
+          row
+            .safeParse({ value: 'nope' })
+            .error.issues.map((issue: { format: string }) => issue.format),
+          [format === 'date-time' ? 'datetime' : format],
+          format,
+        );
+      }
+    });
+
+    test("refuses a zone offset when the pattern is z.iso.datetime()'s", async () => {
+      const row = await rowInput({
+        value: {
+          type: 'string',
+          format: 'date-time',
+          pattern:
+            '^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$',
+        },
+        required: true,
+      });
+
+      assert.equal(
+        row.safeParse({ value: '2024-01-01T10:00:00Z' }).success,
+        true,
+      );
+      assert.equal(
+        row.safeParse({ value: '2024-01-01T10:00:00+02:00' }).success,
+        false,
+      );
+    });
+
+    test('keeps a pattern of its own, which refuses a value the format accepts', async () => {
+      const row = await rowInput({
+        value: { type: 'string', format: 'email', pattern: '@example\\.com$' },
+        required: true,
+      });
+
+      assert.equal(row.safeParse({ value: 'ada@example.com' }).success, true);
+      assert.equal(row.safeParse({ value: 'ada@other.com' }).success, false);
     });
   });
 
