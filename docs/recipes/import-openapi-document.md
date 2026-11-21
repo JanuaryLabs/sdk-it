@@ -75,7 +75,7 @@ A document that does not render fails the import with `<file>:<line>:<column>: <
 - In `tsc` and the editor, a change to a file that the document references through `$ref` does not re-type the import until the document itself changes.
 - In Vite, a document referenced over http(s) is read each time the module loads, and is not watched.
 - A large document is slow to re-type and to reload. On App Store Connect (1,300 operations, a 7.6 MB JSON document that renders a 3.5 MB module), an edit reaches the editor's diagnostics in about 2.5 to 5.5 s, `tsc` checks the project in about 9 s, and a Vite dev reload takes about 2 to 4 s (measured 2026-11-20).
-- Vite 8.3's dev server holds about 30 MB more after each server-side (`ssrLoadModule`) reload of that 3.5 MB module. A plain `.ts` file of the same size does the same, so the growth is Vite's. Restart the dev server after many edits to a large document.
+- `sdkIt.imports()` keeps the dev server's heap flat across reloads. Vite's SSR runner compiles each module from a string, and V8 keeps every such source in its eval cache, so each reload of a plain `.ts` file of the same size keeps about 30 MB more. The module that `sdkIt.imports()` serves ends with a tagged template, which V8 does not cache.
 
 ## Where it is proven
 

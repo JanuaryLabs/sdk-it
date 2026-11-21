@@ -77,7 +77,10 @@ async function loadDocument(this: Rolldown.PluginContext, id: string) {
   // A document with YAML errors can still render; it does not run until it is fixed.
   const [yamlError] = document.diagnostics;
   if (yamlError) return fail(yamlError);
-  return document.text;
+  // Vite's SSR runner compiles modules with `new AsyncFunction(code)`, and V8's
+  // eval cache keeps each such source, so every reload would leak a module. V8
+  // does not cache a source with a tagged template; a build drops this dead code.
+  return `${document.text}\nif (0) (() => {})\`\`;\n`;
 }
 
 /** The line (from 1) and column (from 0) of `index` in `text`, as Rollup reports a location. */
