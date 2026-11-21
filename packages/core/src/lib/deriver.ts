@@ -112,6 +112,23 @@ function isConstTypeReference(node: TypeNode): boolean {
   );
 }
 
+/**
+ * A response whose type the checker could not resolve, such as one read from a
+ * module that does not exist. Its schema would be any, so derivation stops.
+ */
+export class UnresolvedTypeError extends Error {
+  readonly operation: string | undefined;
+  readonly location: string | undefined;
+  constructor(operation: string | undefined, location: string | undefined) {
+    super(
+      `${operation ? `${operation}: ` : ''}the response${location ? ` at ${location}` : ''} has a type that does not resolve, so its schema would be any`,
+    );
+    this.name = 'UnresolvedTypeError';
+    this.operation = operation;
+    this.location = location;
+  }
+}
+
 export class TypeDeriver {
   public readonly collector: Collector = {};
   public readonly checker: Checker;
@@ -222,6 +239,9 @@ export class TypeDeriver {
         optional: false,
         [$types]: [this.serialize(indexType, widening)],
       };
+    }
+    if (type.isErrorType()) {
+      throw new UnresolvedTypeError(this.trace.operation, undefined);
     }
     if (type.flags & (TypeFlags.Any | TypeFlags.Unknown)) {
       return {
@@ -587,6 +607,21 @@ export class TypeDeriver {
   }
 
   serializeNode(node: Node): any {
+    try {
+      return this.serializeNodeType(node);
+    } catch (error) {
+      // The innermost node whose type does not resolve names the place.
+      if (error instanceof UnresolvedTypeError && !error.location) {
+        throw new UnresolvedTypeError(
+          error.operation,
+          nodeLocation(node) ?? this.trace.file,
+        );
+      }
+      throw error;
+    }
+  }
+
+  private serializeNodeType(node: Node): any {
     if (isObjectLiteralExpression(node)) {
       const symbolType = this.checker.getTypeAtLocation(node);
       const props: Record<string, any> = {};
