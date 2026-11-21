@@ -5,7 +5,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
-import { build, createServer } from 'vite';
+import { type Logger, build, createServer } from 'vite';
 
 import { workspaceDirectory } from '@sdk-it/testing';
 import sdkIt from '@sdk-it/vite';
@@ -234,4 +234,50 @@ test('a JSON document imported with the .openapi extension runs its SDK', async 
   const { getPet } = await server.ssrLoadModule('/main.ts');
 
   assert.deepEqual(await getPet('p1'), { name: 'Rex', path: '/pets/p1' });
+});
+
+test('a cold dev server pre-bundles the packages that the SDK of an imported document imports, and logs nothing', async () => {
+  await using app = await workspaceDirectory('vite-imports-');
+  await writeFile(
+    join(app.path, 'store.openapi.yaml'),
+    storeDocument('https://store.test'),
+  );
+  await writeFile(join(app.path, 'main.ts'), main);
+  await writeFile(
+    join(app.path, 'index.html'),
+    '<script type="module" src="/main.ts"></script>\n',
+  );
+  const logs: string[] = [];
+  const logger: Logger = {
+    hasWarned: false,
+    info: (message) => void logs.push(message),
+    warn: (message) => void logs.push(message),
+    warnOnce: (message) => void logs.push(message),
+    error: (message) => void logs.push(message),
+    clearScreen: () => undefined,
+    hasErrorLogged: () => false,
+  };
+  const created = await createServer({
+    configFile: false,
+    root: app.path,
+    // The default cache folder is in the nearest node_modules, which every test shares.
+    cacheDir: join(app.path, '.vite'),
+    customLogger: logger,
+    server: { middlewareMode: true, ws: false },
+    plugins: [sdkIt.imports()],
+  });
+  await using server = Object.assign(created, {
+    [Symbol.asyncDispose]: () => created.close(),
+  });
+
+  const optimizer = server.environments.client.depsOptimizer;
+  await optimizer?.scanProcessing;
+
+  assert.deepEqual(
+    {
+      logs,
+      scanned: Object.keys(optimizer?.metadata.discovered ?? {}).toSorted(),
+    },
+    { logs: [], scanned: ['fast-content-type-parse', 'zod'] },
+  );
 });

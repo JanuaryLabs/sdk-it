@@ -8,6 +8,8 @@ Generate a TypeScript SDK during Vite development and builds.
 npm install --save-dev @sdk-it/vite @sdk-it/spec @sdk-it/typescript
 ```
 
+The plugin needs Vite 8.
+
 ## Import an OpenAPI document
 
 `sdkIt.imports()` serves an imported OpenAPI document as its SDK, with no SDK on disk:

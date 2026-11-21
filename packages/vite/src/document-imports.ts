@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { type Plugin, normalizePath } from 'vite';
+import { type Plugin, type Rolldown, normalizePath } from 'vite';
 
 import {
   type DocumentDiagnostic,
@@ -24,6 +24,17 @@ export class DocumentImports {
     return {
       name: 'sdk-it:imports',
       enforce: 'pre',
+      // Vite's dependency scan bundles the app with Rolldown, which calls this
+      // plugin's resolveId but not its load, and reads the module from disk.
+      // A plugin in optimizeDeps.rolldownOptions.plugins loads it there, so
+      // the scan follows the SDK to the packages it imports.
+      configEnvironment: () => ({
+        optimizeDeps: {
+          rolldownOptions: {
+            plugins: [{ name: 'sdk-it:imports:scan', load: loadDocument }],
+          },
+        },
+      }),
       async resolveId(source, importer, options) {
         if (!isDocument(source)) return null;
         const resolved = await this.resolve(source, importer, {
@@ -32,26 +43,7 @@ export class DocumentImports {
         });
         return resolved && !resolved.external ? `${resolved.id}.ts` : null;
       },
-      async load(id) {
-        const file = id.slice(0, -'.ts'.length);
-        if (!id.endsWith('.ts') || !isDocument(file)) return null;
-        const content = await readFile(file, 'utf8');
-        const document = await renderDocument(file, content);
-        for (const uri of document.documents) {
-          if (uri.startsWith('file:')) this.addWatchFile(fileURLToPath(uri));
-        }
-        const fail = (problem: DocumentDiagnostic) =>
-          this.error({
-            message: problem.message,
-            id: file,
-            loc: { file, ...position(content, problem.range.start) },
-          });
-        if (document.kind === 'failed') return fail(document.diagnostics[0]);
-        // A document with YAML errors can still render; it does not run until it is fixed.
-        const [yamlError] = document.diagnostics;
-        if (yamlError) return fail(yamlError);
-        return document.text;
-      },
+      load: loadDocument,
       // A change to a file the document references reloads the module through
       // addWatchFile, but the module's id is not the document's own path, so
       // Vite does not tie a change of the document itself to it.
@@ -64,6 +56,28 @@ export class DocumentImports {
       },
     };
   }
+}
+
+/** Renders the document of the module id `<document>.ts` as its SDK module. */
+async function loadDocument(this: Rolldown.PluginContext, id: string) {
+  const file = id.slice(0, -'.ts'.length);
+  if (!id.endsWith('.ts') || !isDocument(file)) return null;
+  const content = await readFile(file, 'utf8');
+  const document = await renderDocument(file, content);
+  for (const uri of document.documents) {
+    if (uri.startsWith('file:')) this.addWatchFile(fileURLToPath(uri));
+  }
+  const fail = (problem: DocumentDiagnostic) =>
+    this.error({
+      message: problem.message,
+      id: file,
+      loc: { file, ...position(content, problem.range.start) },
+    });
+  if (document.kind === 'failed') return fail(document.diagnostics[0]);
+  // A document with YAML errors can still render; it does not run until it is fixed.
+  const [yamlError] = document.diagnostics;
+  if (yamlError) return fail(yamlError);
+  return document.text;
 }
 
 /** The line (from 1) and column (from 0) of `index` in `text`, as Rollup reports a location. */
