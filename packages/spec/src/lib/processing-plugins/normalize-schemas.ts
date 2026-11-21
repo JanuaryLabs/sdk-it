@@ -201,17 +201,14 @@ function normalizeSchemaObjects(
         );
         const [only] = otherTypes;
         const droppedNull = otherTypes.length !== schema[kind].length;
-        // A $ref cannot carry null, so a nullable $ref keeps its union.
-        if (otherTypes.length === 1 && !(droppedNull && isRef(only))) {
-          Object.assign(schema, only);
+        const collapsed =
+          only !== undefined && otherTypes.length === 1
+            ? collapse(only, droppedNull)
+            : undefined;
+        if (collapsed) {
+          // Cleared first: the branch may be a union of the same kind.
           delete schema[kind];
-          if (droppedNull && notRef(only)) {
-            const types = coerceTypes(only, false);
-            if (types.length) {
-              const typesWithNull: SchemaObjectType[] = [...types, 'null'];
-              schema.type = uniq(typesWithNull);
-            }
-          }
+          Object.assign(schema, collapsed);
           continue;
         }
 
@@ -221,6 +218,27 @@ function normalizeSchemaObjects(
       }
     }
   }
+}
+
+/**
+ * What a union of one branch means, with the union's null folded into the
+ * branch's type; undefined when null cannot fold in. A $ref, a union (its
+ * type was removed when it was normalized) and an untyped branch (a const, an
+ * empty schema) have no type to say "or null", so a union of that branch and
+ * null stays a union.
+ */
+function collapse(
+  branch: SchemaObject | ReferenceObject,
+  droppedNull: boolean,
+): SchemaObject | ReferenceObject | undefined {
+  if (!droppedNull) {
+    return branch;
+  }
+  if (isRef(branch) || coerceTypes(branch).length === 0) {
+    return undefined;
+  }
+  const types: SchemaObjectType[] = [...coerceTypes(branch, false), 'null'];
+  return { ...branch, type: uniq(types) };
 }
 
 // allOf is a conjunction, so a value must carry every part's required
