@@ -885,6 +885,62 @@ function memberName(node: Expression): string | undefined {
 }
 
 /**
+ * What the app's not-found handler (`app.notFound(handler)`) sends, read like a
+ * route handler; undefined when the program registers none. A route that
+ * returns `c.notFound()` sends it (Hono's Context.notFound calls the handler).
+ */
+function notFoundResponses(
+  program: AnalysisProject['program'],
+  checker: Checker,
+  respond: (
+    handler: FunctionWithBody,
+    token: string,
+    node: Node,
+  ) => ResponseItem[],
+): ResponseItem[] | undefined {
+  const handlers: FunctionWithBody[] = [];
+  const find = (node: Node): void => {
+    if (
+      isCall(node) &&
+      isPropertyAccessExpression(node.expression) &&
+      node.expression.name.text === 'notFound' &&
+      node.arguments.length === 1
+    ) {
+      const [handler] = node.arguments;
+      if (handler && isFunctionWithBody(handler)) {
+        handlers.push(handler);
+      }
+    }
+    node.forEachChild(find);
+  };
+  for (const sourceFile of sourceFiles(program)) {
+    find(sourceFile);
+  }
+  if (handlers.length === 0) {
+    return undefined;
+  }
+  return handlers.flatMap((handler) =>
+    returnTokens(handler, checker).flatMap(({ token, node }) =>
+      respond(handler, token, node),
+    ),
+  );
+}
+
+/** Whether `node`, a value `handler` returns, is `c.notFound()` on the handler's own context. */
+function returnsNotFound(handler: FunctionWithBody, node: Node): boolean {
+  const [context] = handler.parameters;
+  return (
+    context !== undefined &&
+    isCall(node) &&
+    node.arguments.length === 0 &&
+    isPropertyAccessExpression(node.expression) &&
+    node.expression.name.text === 'notFound' &&
+    isIdentifier(node.expression.expression) &&
+    node.expression.expression.text === context.name.getText()
+  );
+}
+
+/**
  * The function a middleware name refers to: a function declaration, or a
  * variable initialized with a function, through any import alias.
  */
@@ -964,30 +1020,40 @@ export async function analyze(
     matched: new Set(),
   };
 
+  const respond = (
+    handler: FunctionWithBody,
+    token: string,
+    node: Node,
+  ): ResponseItem[] => {
+    const responseAnalyzer = config.responseAnalyzer;
+    if (typeof responseAnalyzer !== 'function') {
+      const naunce = responseAnalyzer[token];
+      if (naunce) {
+        return naunce(handler, typeDeriver, node);
+      }
+      // A thrown value that no analyzer claims is not a documented response.
+      if (token.startsWith('throw.')) {
+        return [];
+      }
+      const fallback = responseAnalyzer['default'];
+      if (!fallback) {
+        throw new Error(`No response analyzer for token ${token}`);
+      }
+      return fallback(handler, typeDeriver, node);
+    }
+    return responseAnalyzer(handler, typeDeriver);
+  };
+  const notFound = notFoundResponses(project.program, typeChecker, respond);
+
   for (const sourceFile of sourceFiles(project.program)) {
     logger(`Visiting ${sourceFile.fileName}`);
     try {
       visit(
         sourceFile,
-        (handler, token, node) => {
-          const responseAnalyzer = config.responseAnalyzer;
-          if (typeof responseAnalyzer !== 'function') {
-            const naunce = responseAnalyzer[token];
-            if (naunce) {
-              return naunce(handler, typeDeriver, node);
-            }
-            // A thrown value that no analyzer claims is not a documented response.
-            if (token.startsWith('throw.')) {
-              return [];
-            }
-            const fallback = responseAnalyzer['default'];
-            if (!fallback) {
-              throw new Error(`No response analyzer for token ${token}`);
-            }
-            return fallback(handler, typeDeriver, node);
-          }
-          return responseAnalyzer(handler, typeDeriver);
-        },
+        (handler, token, node) =>
+          notFound && returnsNotFound(handler, node)
+            ? notFound.map((item) => ({ ...item }))
+            : respond(handler, token, node),
         paths,
         typeChecker,
         typeDeriver,
