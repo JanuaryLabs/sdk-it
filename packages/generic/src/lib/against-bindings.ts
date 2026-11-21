@@ -3,6 +3,7 @@ import {
   type Identifier,
   type ImportDeclaration,
   type Node,
+  type SourceFile,
   SyntaxKind,
 } from '@typescript/native/ast';
 import {
@@ -64,6 +65,11 @@ export class AgainstBindings {
       imported: string;
       /** The module specifier as the route file writes it. */
       from: string;
+      /**
+       * The file the program reads for that module, when TypeScript resolves
+       * it: a referenced project's source in place of its built declarations.
+       */
+      module: SourceFile | undefined;
     }
   >();
 
@@ -114,6 +120,7 @@ export class AgainstBindings {
         declaration,
         imported: imported.label,
         from: declaration.moduleSpecifier.text,
+        module: module && isSourceFile(module) ? module : undefined,
       });
       return true;
     };
@@ -196,6 +203,7 @@ export class AgainstBindings {
       declaration,
       imported,
       from,
+      module,
     } of this.#read.values()) {
       try {
         await evaluator.load([
@@ -210,7 +218,7 @@ export class AgainstBindings {
       } catch (error) {
         const fileName = declaration.getSourceFile().fileName;
         throw new UnloadedImportError(
-          `${fileName} imports ${imported} from '${from}', which an against reads, but it does not load: ${(Error.isError(error) ? error.message : String(error)).split('\n')[0]}${typeScriptReports(program, declaration)}`,
+          `${fileName} imports ${imported} from '${from}', which an against reads, but it does not load: ${(Error.isError(error) ? error.message : String(error)).split('\n')[0]}${typeScriptReports(program, declaration, module)}`,
           binding,
           error,
         );
@@ -221,20 +229,15 @@ export class AgainstBindings {
 
 /**
  * TypeScript's errors for an import that does not load: those on the import
- * itself, and each module the imported file cannot find (as a generated
- * client that a package re-exports).
+ * itself, and each module the imported module's file cannot find (as a
+ * generated client that a package re-exports).
  */
 function typeScriptReports(
   program: AnalysisProgram,
   declaration: ImportDeclaration,
+  module: SourceFile | undefined,
 ): string {
   const fileName = declaration.getSourceFile().fileName;
-  const resolved = isStringLiteral(declaration.moduleSpecifier)
-    ? program.getResolvedModuleFromModuleSpecifier(
-        declaration.moduleSpecifier,
-        fileName,
-      )?.resolvedFileName
-    : undefined;
   const diagnostics = [
     ...program
       .getSemanticDiagnostics(fileName)
@@ -242,9 +245,9 @@ function typeScriptReports(
         (diagnostic) =>
           diagnostic.pos < declaration.end && diagnostic.end > declaration.pos,
       ),
-    ...(resolved
+    ...(module
       ? program
-          .getSemanticDiagnostics(resolved)
+          .getSemanticDiagnostics(module.fileName)
           .filter((diagnostic) => diagnostic.code === 2307)
       : []),
   ];
