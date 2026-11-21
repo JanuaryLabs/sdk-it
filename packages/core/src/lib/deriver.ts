@@ -1,4 +1,5 @@
 import {
+  type CallExpression,
   type Expression,
   type Node,
   NodeFlags,
@@ -39,6 +40,7 @@ import {
 } from '@typescript/native/ast/is';
 import {
   type Checker,
+  ElementFlags,
   IndexKind,
   ObjectFlags,
   SymbolFlags,
@@ -181,6 +183,114 @@ export class TypeDeriver {
       type.getCallSignatures().length > 0 ||
       type.getConstructSignatures().length > 0
     );
+  }
+
+  /**
+   * Whether a type names a type parameter, as the type of `this.field` does in
+   * the body of a generic class: such a type is the declaration's, and only
+   * an instantiation of it says what the value is.
+   */
+  private mentionsTypeVariable(type: Type, seen = new Set<number>()): boolean {
+    if (seen.has(type.id)) {
+      return false;
+    }
+    seen.add(type.id);
+    if (type.flags & (TypeFlags.InstantiableNonPrimitive | TypeFlags.Index)) {
+      return true;
+    }
+    if (type.isUnionType() || type.isIntersectionType()) {
+      return type
+        .getTypes()
+        .some((member) => this.mentionsTypeVariable(member, seen));
+    }
+    if (!type.isObjectType()) {
+      return false;
+    }
+    const typeArguments = [
+      ...(type.getAliasTypeArguments() ?? []),
+      ...(type.isTypeReference() ? this.checker.getTypeArguments(type) : []),
+    ];
+    if (typeArguments.length > 0) {
+      return typeArguments.some((argument) =>
+        this.mentionsTypeVariable(argument, seen),
+      );
+    }
+    return (
+      (type.objectFlags & ObjectFlags.Anonymous) !== 0 &&
+      this.checker
+        .getPropertiesOfType(type)
+        .some((property) =>
+          this.mentionsTypeVariable(
+            this.checker.getTypeOfSymbol(property),
+            seen,
+          ),
+        )
+    );
+  }
+
+  /**
+   * Whether a tuple may be a const assertion's list of values, whose literals
+   * then collapse to their base types. A const assertion lists each element
+   * and has no alias, so a tuple with an alias, a rest or an optional element
+   * is a declared type, and its literals stay, as in NonEmpty<'a' | 'b'>.
+   */
+  private listsConstValues(type: Type): boolean {
+    return (
+      type.isTupleType() &&
+      !type.getAliasSymbol() &&
+      type
+        .getTarget()
+        .elementFlags.every((flags) => (flags & ElementFlags.Required) !== 0)
+    );
+  }
+
+  /**
+   * A method called on a union receiver, such as `reading.toJSON()` on
+   * `Recommendation | NoRecommendation`, returns what the member it runs on
+   * returns. The checker reduces those returns to a common supertype, which
+   * drops each member's own fields, so each member's return is read instead.
+   * An undefined or null member, which only an optional call (`?.`) allows,
+   * returns nothing. Only a method with one signature and no type parameters
+   * returns the same whatever the arguments; for any other, the checker's
+   * resolution of the call stands.
+   */
+  private serializeUnionReceiverCall(node: CallExpression): unknown {
+    if (!isPropertyAccessExpression(node.expression)) {
+      return undefined;
+    }
+    const receiver = this.checker.getTypeAtLocation(node.expression.expression);
+    if (!receiver.isUnionType()) {
+      return undefined;
+    }
+    let optional = false;
+    const returns = new Map<number, Type>();
+    for (const member of receiver.getTypes()) {
+      if (member.flags & (TypeFlags.Undefined | TypeFlags.Null)) {
+        optional = true;
+        continue;
+      }
+      const method = this.checker.getPropertyOfType(
+        member,
+        node.expression.name.text,
+      );
+      const signatures = method
+        ? this.checker.getTypeOfSymbol(method).getCallSignatures()
+        : [];
+      const signature = signatures.length === 1 ? signatures[0] : undefined;
+      if (!signature || signature.getTypeParameters().length > 0) {
+        return undefined;
+      }
+      const returned = this.checker.getReturnTypeOfSignature(signature);
+      returns.set(returned.id, returned);
+    }
+    return {
+      [deriveSymbol]: true,
+      kind: 'union',
+      optional,
+      [$types]: [...returns.values()].map((returned) =>
+        this.serializeType(returned),
+      ),
+    };
   }
 
   private warn(message: string, node?: Node) {
@@ -429,7 +539,7 @@ export class TypeDeriver {
         };
       }
       const itemWidening: LiteralWidening =
-        widening === 'all' || this.checker.isTupleType(type) ? 'all' : 'values';
+        widening === 'all' || this.listsConstValues(type) ? 'all' : 'values';
       return {
         kind: 'array',
         optional: false,
@@ -494,21 +604,21 @@ export class TypeDeriver {
           const shorthand = prop.declarations
             .find(isShorthandPropertyAssignment.Handle)
             ?.resolve();
-          const shorthandType = shorthand
-            ? this.typeOfShorthand(shorthand)
-            : undefined;
-          // get literal properties values if any
+          // A value's own type keeps its literals. One written in a generic
+          // body names type parameters, so the property's instantiated type
+          // stands in for it.
+          let valueType: Type | undefined;
           if (propAssingment) {
+            valueType = this.typeOfExpression(propAssingment.initializer);
+          } else if (shorthand) {
+            valueType = this.typeOfShorthand(shorthand);
+          }
+          if (valueType && !this.mentionsTypeVariable(valueType)) {
             serializedProps[prop.name] = this.serializeValue(
-              this.typeOfExpression(propAssingment.initializer),
-              this.isConstAsserted(propAssingment.initializer)
+              valueType,
+              propAssingment && this.isConstAsserted(propAssingment.initializer)
                 ? 'none'
                 : widening,
-            );
-          } else if (shorthandType) {
-            serializedProps[prop.name] = this.serializeValue(
-              shorthandType,
-              widening,
             );
           } else {
             const propType = this.checker.getTypeOfSymbol(prop);
@@ -767,9 +877,14 @@ export class TypeDeriver {
       const type = this.typeOfExpression(node);
       return this.serializeType(type);
     }
+    if (isCallExpression(node)) {
+      return (
+        this.serializeUnionReceiverCall(node) ??
+        this.serializeType(this.checker.getTypeAtLocation(node))
+      );
+    }
     if (
       isAwaitExpression(node) ||
-      isCallExpression(node) ||
       isNewExpression(node) ||
       isAsExpression(node)
     ) {
