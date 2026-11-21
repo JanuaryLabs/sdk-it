@@ -20,6 +20,29 @@ export const importBans = {
   patterns: [typescriptSubpaths, zodSubpaths],
 };
 
+// no-restricted-imports reads only import and export declarations.
+const syntaxBans = [
+  {
+    selector: `ImportExpression > ${zodSubpathLiteral}.source`,
+    message: zodSubpathMessage,
+  },
+  {
+    selector: `CallExpression[callee.name='require'] > ${zodSubpathLiteral}.arguments`,
+    message: zodSubpathMessage,
+  },
+  {
+    // z.instanceof(Blob) reads the Blob global when the schema is built:
+    // it throws where Blob is missing, and a Blob from another realm or
+    // a polyfill fails instanceof (e62c4e1, docs/recipes/file-upload.md).
+    selector:
+      "CallExpression[callee.object.name='z'][callee.property.name='instanceof'] > Identifier.arguments[name='Blob']",
+    message:
+      'Use z.custom<Blob>() for a binary field. z.instanceof(Blob) needs the Blob global at run time and rejects a Blob from another realm.',
+  },
+];
+const commonJsMessage =
+  'Shipped code resolves and loads modules as ES modules: import.meta.resolve, or ZodEvaluator.resolve for a module an analyzed project imports (it resolves with the project customConditions). sdk-it has no CommonJS path.';
+
 export const sharedConfig = [
   ...nx.configs['flat/base'],
   ...nx.configs['flat/typescript'],
@@ -84,24 +107,36 @@ export const sharedConfig = [
     rules: {
       'no-restricted-imports': ['error', importBans],
       // no-restricted-imports reads only import and export declarations.
-      'no-restricted-syntax': [
+      'no-restricted-syntax': ['error', ...syntaxBans],
+    },
+  },
+  {
+    // Shipped code has no CommonJS resolution or loading. This entry restates
+    // the bans, because a later config replaces the rules' options.
+    files: ['packages/*/src/**/*.{ts,tsx,mts,cts,js,mjs,cjs}'],
+    ignores: ['**/*.test.*'],
+    rules: {
+      'no-restricted-imports': [
         'error',
         {
-          selector: `ImportExpression > ${zodSubpathLiteral}.source`,
-          message: zodSubpathMessage,
+          paths: [
+            ...importBans.paths,
+            ...['node:module', 'module'].map((name) => ({
+              name,
+              importNames: ['createRequire'],
+              message: commonJsMessage,
+            })),
+          ],
+          patterns: importBans.patterns,
         },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        ...syntaxBans,
         {
-          selector: `CallExpression[callee.name='require'] > ${zodSubpathLiteral}.arguments`,
-          message: zodSubpathMessage,
-        },
-        {
-          // z.instanceof(Blob) reads the Blob global when the schema is built:
-          // it throws where Blob is missing, and a Blob from another realm or
-          // a polyfill fails instanceof (e62c4e1, docs/recipes/file-upload.md).
           selector:
-            "CallExpression[callee.object.name='z'][callee.property.name='instanceof'] > Identifier.arguments[name='Blob']",
-          message:
-            'Use z.custom<Blob>() for a binary field. z.instanceof(Blob) needs the Blob global at run time and rejects a Blob from another realm.',
+            "MemberExpression[object.name='require'][property.name='resolve']",
+          message: commonJsMessage,
         },
       ],
     },
