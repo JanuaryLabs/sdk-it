@@ -148,7 +148,7 @@ sdkIt.project({
 
 ## Prisma preset
 
-SDK-IT detects imports of `Prisma` or `$Enums` and applies Prisma type mappings. This includes custom generated-client module paths.
+SDK-IT detects imports of `Prisma` or `$Enums`, lets an `against` read them, and applies Prisma type mappings. This includes custom generated-client module paths. See [Prisma types](./prisma-types.md).
 
 Force Prisma support when the project must use it:
 

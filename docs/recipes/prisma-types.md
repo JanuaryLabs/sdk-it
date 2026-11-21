@@ -17,8 +17,9 @@ The default `auto` preset scans the TypeScript project for named imports of
 `Prisma` or `$Enums`, including imports from a custom generated-client path or
 a workspace package that re-exports the client. For each one, SDK-IT:
 
-- makes the imported binding available to the route's validators, so an
-  `against` reads Prisma's enums, the single source of truth for their values;
+- lets the route's validators read the imported binding, so an `against`
+  reads Prisma's enums, the single source of truth for their values (the
+  analyzer passes `allowedNamedImports: ['$Enums', 'Prisma']`);
 - maps `Decimal` to `string` so high-precision values are not sent as lossy
   JavaScript numbers.
 
@@ -36,12 +37,14 @@ app.post(
 );
 ```
 
-SDK-IT loads each binding before it evaluates any validator. When the client
-is not generated, generation fails, naming the route file, the import and the
-cause, with TypeScript's error for the missing module:
+SDK-IT resolves each binding an `against` reads from its route file, as
+Node.js resolves an ES module import with the tsconfig's `customConditions`,
+and loads it before it evaluates any validator. When the client is not
+generated, generation fails, naming the route file, the import and the cause,
+with TypeScript's error for the missing module:
 
 ```text
-src/patients.route.ts imports $Enums from '@acme/db', which an against may read, but it does not load: Cannot find module '…/generated/prisma/client.js' …
+src/patients.route.ts imports $Enums from '@acme/db', which an against reads, but it does not load: Cannot find module '…/generated/prisma/client.js' …
 TypeScript reports:
 …: error TS2307: Cannot find module './generated/prisma/client.js' or its corresponding type declarations.
 Run the Prisma client's generate target (prisma generate) before sdk-it generate.
@@ -112,16 +115,11 @@ format. This example keeps `Decimal` as a string and maps Prisma's `JsonValue`
 to explicit recursive OpenAPI schemas:
 
 ```typescript
-import { createRequire } from 'node:module';
-
 import { defaultTypesMap } from '@sdk-it/core/deriver.js';
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
 import { generate } from '@sdk-it/typescript';
-
-const require = createRequire(import.meta.url);
-const prismaClient = require.resolve('@prisma/client');
 
 using project = openAnalysisProject('./tsconfig.json');
 const { paths, components } = await analyze(project, {
@@ -131,18 +129,7 @@ const { paths, components } = await analyze(project, {
     Decimal: 'string',
     JsonValue: '#/components/schemas/JsonValue',
   },
-  imports: [
-    {
-      import: 'Prisma',
-      from: prismaClient,
-      property: 'Prisma',
-    },
-    {
-      import: '$Enums',
-      from: prismaClient,
-      property: '$Enums',
-    },
-  ],
+  allowedNamedImports: ['$Enums', 'Prisma'],
 });
 
 const spec: Parameters<typeof generate>[0] = {
@@ -189,12 +176,12 @@ await generate(spec, {
 });
 ```
 
-For a custom Prisma output, resolve its module instead:
+The route imports `$Enums` and `Prisma` from `@prisma/client` or from a custom
+output, and `analyze` resolves that import from the route file. An alias such
+as `import { Prisma as DbPrisma }` is allowed: `allowedNamedImports` names the
+export, not the local name.
 
-```typescript
-const prismaClient = require.resolve('./generated/prisma/client.ts');
-```
-
-The `import` name must match the local identifier used by route validators. If
-a route imports `Prisma as DbPrisma`, inject `DbPrisma` with
-`property: 'Prisma'`.
+A workspace package that re-exports the client and that the tsconfig reads
+from source through `customConditions` is loaded from source too. Its files
+import each other by their `.ts` extension, because Node.js does not map a
+`.js` specifier to a `.ts` file.

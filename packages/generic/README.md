@@ -188,11 +188,19 @@ app.post(
 );
 ```
 
-Then inject that namespace when analyzing the project:
+`analyze` resolves the namespace from the route file, as Node.js resolves an
+ES module import, with the tsconfig's `customConditions`, and loads it before
+it evaluates any validator. A namespace that does not load fails analysis,
+naming the route file and the import, with TypeScript's errors for it. Node.js
+loads the module: a TypeScript source imports another `.ts` file by its `.ts`
+extension, because Node.js does not map a `.js` specifier to a `.ts` file.
+
+An `against` reads only `z`, the `import * as <name>` namespaces of its route
+file, its own callback parameters and JavaScript globals. A named import is
+refused unless `allowedNamedImports` names its export, as the CLI's Prisma
+preset does for `$Enums` and `Prisma`:
 
 ```typescript
-import { fileURLToPath } from 'node:url';
-
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
@@ -200,17 +208,9 @@ import { responseAnalyzer } from '@sdk-it/hono';
 using project = openAnalysisProject('./tsconfig.json');
 const { paths, components } = await analyze(project, {
   responseAnalyzer,
-  imports: [
-    {
-      import: 'schemas',
-      from: fileURLToPath(new URL('./src/schemas.ts', import.meta.url)),
-    },
-  ],
+  allowedNamedImports: ['$Enums', 'Prisma'],
 });
 ```
-
-The injected file must be loadable by the Node.js process running the
-analyzer.
 
 ## Name recursive schemas
 
