@@ -1806,7 +1806,7 @@ describe('zod v3 → v4 migration characterization: primitives', () => {
       requestBodyField(
         bodySource('z.nativeEnum(MyEnum)', 'enum MyEnum { A = 1, B = 2 }'),
       ),
-      /MyEnum is not defined/,
+      /against reads MyEnum, which is neither z nor a namespace it is given/,
     );
   });
 
@@ -2117,7 +2117,7 @@ app.post('/x', validate((p) => ({
       analyze(project, {
         responseAnalyzer: responseAnalyzer,
       }),
-      /nodeSchema is not defined/,
+      /against reads nodeSchema, which is neither z nor a namespace it is given/,
     );
   });
 });

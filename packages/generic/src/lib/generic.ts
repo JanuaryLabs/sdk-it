@@ -1,6 +1,7 @@
 import {
   type CallExpression,
   type Expression,
+  type Identifier,
   type LeftHandSideExpression,
   type Node,
   NodeFlags,
@@ -33,9 +34,11 @@ import {
   isParenthesizedExpression,
   isPropertyAccessExpression,
   isPropertyAssignment,
+  isQualifiedName,
   isReturnStatement,
   isSatisfiesExpression,
   isSetAccessorDeclaration,
+  isShorthandPropertyAssignment,
   isSourceFile,
   isSpreadElement,
   isStringLiteral,
@@ -49,6 +52,7 @@ import {
   type Checker,
   SymbolFlags,
   type Symbol as TsSymbol,
+  formatDiagnostics,
 } from '@typescript/native/sync';
 import { realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -72,8 +76,13 @@ import {
   isSemanticSource,
   toSchema,
 } from '@sdk-it/core';
-import { TypeDeriver, nodeLocation } from '@sdk-it/core/deriver.js';
 import {
+  TypeDeriver,
+  UnresolvedTypeError,
+  nodeLocation,
+} from '@sdk-it/core/deriver.js';
+import {
+  type AnalysisProgram,
   type AnalysisProject,
   isCallExpression,
   sourceFiles,
@@ -609,6 +618,7 @@ function visit(
   paths: Paths,
   typeChecker: Checker,
   typeDeriver: TypeDeriver,
+  configured: ReadonlySet<string>,
   security?: SecurityAnalysis,
 ) {
   if (!isCall(node) || node.arguments.length < 2) {
@@ -768,7 +778,12 @@ function visit(
         ? contentType.text
         : undefined
       : undefined,
-    toSelectors(props, typeChecker, sourceFile.fileName),
+    toSelectors(
+      props,
+      typeChecker,
+      `${method.toUpperCase()} ${path}`,
+      configured,
+    ),
     responses,
     sourceFile.fileName,
     {
@@ -781,7 +796,15 @@ function visit(
 
   function moveOn() {
     node.forEachChild((node) =>
-      visit(node, responseAnalyzer, paths, typeChecker, typeDeriver, security),
+      visit(
+        node,
+        responseAnalyzer,
+        paths,
+        typeChecker,
+        typeDeriver,
+        configured,
+        security,
+      ),
     );
   }
 }
@@ -789,7 +812,8 @@ function visit(
 function toSelectors(
   props: PropertyAssignment[],
   typeChecker: Checker,
-  fileName: string,
+  operation: string,
+  configured: ReadonlySet<string>,
 ) {
   const selectors: Selector[] = [];
   for (const prop of props) {
@@ -817,7 +841,11 @@ function toSelectors(
     }
     const selector = toSelector(select.initializer, {
       against: against.initializer.getText(),
-      imports: namespaceImports(against.initializer, typeChecker, fileName),
+      imports: namespaceImports(against.initializer, typeChecker, {
+        operation,
+        input: name,
+        configured,
+      }),
     });
     if (!selector) {
       console.warn(
@@ -862,47 +890,103 @@ function toSelector(
   return { kind: 'field', source: owner.name.text, name, ...validation };
 }
 
+const againstRule =
+  'An against may read only z and the namespaces it is given: import * as <name> in its route file (such as inputs.*) or the imports passed to analyze(). Write the schema inline.';
+
 /**
  * The `import * as <name>` namespaces of its own file that an `against`
  * expression reads, each as the file TypeScript resolved, or, for a module
  * that only ships declarations, as Node resolves it from that file. `z` stays
- * out: evalZod binds it to zod itself.
+ * out: evalZod binds it to zod itself. Any other binding of the user's modules
+ * is refused, since evalZod evaluates the expression text alone.
  */
 function namespaceImports(
   expression: Expression,
   typeChecker: Checker,
-  fileName: string,
+  context: AgainstContext,
 ): InjectImport[] {
+  const fileName = expression.getSourceFile().fileName;
   const imports = new Map<string, InjectImport>();
+  const isOwnDeclaration = (declaration: Node) =>
+    declaration.getSourceFile().fileName === fileName &&
+    declaration.pos >= expression.pos &&
+    declaration.end <= expression.end;
+  const check = (node: Identifier, symbol: TsSymbol | undefined): void => {
+    if (
+      node.text === 'z' ||
+      context.configured.has(node.text) ||
+      imports.has(node.text)
+    ) {
+      return;
+    }
+    const declarations: Node[] | undefined = symbol?.declarations.flatMap(
+      (handle) => handle.resolve() ?? [],
+    );
+    const namespaceImport = declarations?.find(
+      (declaration) =>
+        isNamespaceImport(declaration) &&
+        declaration.getSourceFile().fileName === fileName,
+    );
+    const importDeclaration = namespaceImport?.parent.parent;
+    if (
+      importDeclaration &&
+      isImportDeclaration(importDeclaration) &&
+      isStringLiteral(importDeclaration.moduleSpecifier)
+    ) {
+      const specifier = importDeclaration.moduleSpecifier;
+      const module = typeChecker
+        .getSymbolAtLocation(specifier)
+        ?.valueDeclaration?.resolve();
+      imports.set(node.text, {
+        import: node.text,
+        from:
+          module && isSourceFile(module) && !module.isDeclarationFile
+            ? module.fileName
+            : createRequire(fileName).resolve(specifier.text),
+      });
+      return;
+    }
+    const isGlobal =
+      symbol !== undefined &&
+      !(symbol.flags & SymbolFlags.Alias) &&
+      declarations?.every(
+        (declaration) => declaration.getSourceFile().isDeclarationFile,
+      );
+    if (isGlobal || declarations?.every(isOwnDeclaration)) {
+      return;
+    }
+    throw new Error(
+      `${context.operation} input ${context.input}: against reads ${node.text}, which is neither z nor a namespace it is given. ${againstRule}\n  at ${nodeLocation(node) ?? fileName}`,
+    );
+  };
   const collect = (node: Node): void => {
-    if (isIdentifier(node) && node.text !== 'z' && !imports.has(node.text)) {
-      const namespaceImport = typeChecker
-        .getSymbolAtLocation(node)
-        ?.declarations.find(isNamespaceImport.Handle)
-        ?.resolve();
-      const importDeclaration = namespaceImport?.parent.parent;
-      if (
-        importDeclaration &&
-        isImportDeclaration(importDeclaration) &&
-        isStringLiteral(importDeclaration.moduleSpecifier)
-      ) {
-        const specifier = importDeclaration.moduleSpecifier;
-        const module = typeChecker
-          .getSymbolAtLocation(specifier)
-          ?.valueDeclaration?.resolve();
-        imports.set(node.text, {
-          import: node.text,
-          from:
-            module && isSourceFile(module) && !module.isDeclarationFile
-              ? module.fileName
-              : createRequire(fileName).resolve(specifier.text),
-        });
-      }
+    if (isPropertyAccessExpression(node)) {
+      collect(node.expression);
+      return;
+    }
+    if (isQualifiedName(node)) {
+      collect(node.left);
+      return;
+    }
+    if (isShorthandPropertyAssignment(node) && isIdentifier(node.name)) {
+      check(node.name, typeChecker.getShorthandAssignmentValueSymbol(node));
+      return;
+    }
+    if (isIdentifier(node)) {
+      check(node, typeChecker.getSymbolAtLocation(node));
+      return;
     }
     node.forEachChild(collect);
   };
   collect(expression);
   return [...imports.values()];
+}
+
+interface AgainstContext {
+  operation: string;
+  input: string;
+  /** The names of the imports analyze() is given. */
+  configured: ReadonlySet<string>;
 }
 
 function memberName(node: Expression): string | undefined {
@@ -938,6 +1022,7 @@ export async function analyze(
     imports: config.imports ?? [],
     onOperation: config.onOperation,
   });
+  const configured = new Set(config.imports?.map((item) => item.import));
   const security: SecurityAnalysis | undefined = config.middlewareSecurity && {
     rules: config.middlewareSecurity,
     matched: new Set(),
@@ -945,32 +1030,43 @@ export async function analyze(
 
   for (const sourceFile of sourceFiles(project.program)) {
     logger(`Visiting ${sourceFile.fileName}`);
-    visit(
-      sourceFile,
-      (handler, token, node) => {
-        const responseAnalyzer = config.responseAnalyzer;
-        if (typeof responseAnalyzer !== 'function') {
-          const naunce = responseAnalyzer[token];
-          if (naunce) {
-            return naunce(handler, typeDeriver, node);
+    try {
+      visit(
+        sourceFile,
+        (handler, token, node) => {
+          const responseAnalyzer = config.responseAnalyzer;
+          if (typeof responseAnalyzer !== 'function') {
+            const naunce = responseAnalyzer[token];
+            if (naunce) {
+              return naunce(handler, typeDeriver, node);
+            }
+            // A thrown value that no analyzer claims is not a documented response.
+            if (token.startsWith('throw.')) {
+              return [];
+            }
+            const fallback = responseAnalyzer['default'];
+            if (!fallback) {
+              throw new Error(`No response analyzer for token ${token}`);
+            }
+            return fallback(handler, typeDeriver, node);
           }
-          // A thrown value that no analyzer claims is not a documented response.
-          if (token.startsWith('throw.')) {
-            return [];
-          }
-          const fallback = responseAnalyzer['default'];
-          if (!fallback) {
-            throw new Error(`No response analyzer for token ${token}`);
-          }
-          return fallback(handler, typeDeriver, node);
-        }
-        return responseAnalyzer(handler, typeDeriver);
-      },
-      paths,
-      typeChecker,
-      typeDeriver,
-      security,
-    );
+          return responseAnalyzer(handler, typeDeriver);
+        },
+        paths,
+        typeChecker,
+        typeDeriver,
+        configured,
+        security,
+      );
+    } catch (error) {
+      if (!(error instanceof UnresolvedTypeError)) {
+        throw error;
+      }
+      throw new Error(
+        `${error.message}. TypeScript reports:\n${formatDiagnostics(unresolvedReferences(project.program), project.program)}`,
+        { cause: error },
+      );
+    }
   }
 
   for (const rule of security?.rules ?? []) {
@@ -998,6 +1094,25 @@ export async function analyze(
     tags: paths.getTags(),
     components,
   };
+}
+
+/** TypeScript's diagnostics for a module, export or name that does not resolve. */
+const unresolvedReferenceCodes = new Set([
+  2304, // Cannot find name
+  2305, // Module has no exported member
+  2307, // Cannot find module
+  2503, // Cannot find namespace
+  2552, // Cannot find name, did you mean
+  2614, // Module has no exported member, did you mean a default import
+  2694, // Namespace has no exported member
+  2724, // Module has no exported member, did you mean
+  2792, // Cannot find module, did you mean to set moduleResolution
+]);
+
+function unresolvedReferences(program: AnalysisProgram) {
+  return program
+    .getSemanticDiagnostics()
+    .filter((diagnostic) => unresolvedReferenceCodes.has(diagnostic.code));
 }
 
 export type Serialized = ReturnType<typeof analyze>;
