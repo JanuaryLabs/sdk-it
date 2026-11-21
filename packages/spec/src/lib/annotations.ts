@@ -1,8 +1,6 @@
 import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 
-import { isRef, resolveRef, tapRef } from '@sdk-it/core';
-
-import type { IR } from './types.js';
+import { type OpenAPIDocument, isRef, resolveRef, tapRef } from '@sdk-it/core';
 
 type Schema = SchemaObject | ReferenceObject;
 
@@ -18,7 +16,7 @@ export interface Annotations {
 }
 
 /** The schema, then each schema its `$ref` chain reaches, nearest first. */
-function layersOf(schema: Schema, spec: IR): SchemaObject[] {
+function layersOf(schema: Schema, spec: OpenAPIDocument): SchemaObject[] {
   const layers: SchemaObject[] = [];
   const followed = new Set<string>();
   let layer: Schema = schema;
@@ -43,7 +41,10 @@ function layersOf(schema: Schema, spec: IR): SchemaObject[] {
  * occurrence is (Validation §9.3, §9.4), and `examples` collects every occurrence
  * (§9.5), reading OpenAPI's deprecated `example` as one example.
  */
-export function annotationsOf(schema: Schema, spec: IR): Annotations {
+export function annotationsOf(
+  schema: Schema,
+  spec: OpenAPIDocument,
+): Annotations {
   const layers = layersOf(schema, spec);
   const nearest = (keyword: 'title' | 'description' | 'default') =>
     layers.find((layer) => Object.hasOwn(layer, keyword));
@@ -67,7 +68,7 @@ export function annotationsOf(schema: Schema, spec: IR): Annotations {
 /** The object's `required` names that a request (no readOnly) or a response (no writeOnly) must carry. */
 export function requiredOn(
   schema: Schema,
-  spec: IR,
+  spec: OpenAPIDocument,
   side: 'request' | 'response',
 ): string[] {
   const object = resolveRef<SchemaObject>(spec, schema);
