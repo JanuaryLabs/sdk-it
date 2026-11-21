@@ -531,15 +531,13 @@ describe('schemaToZod — v3→v4 characterization (enums)', () => {
     );
   });
 
-  test('enum with default and required=true materializes default on undefined', () => {
+  test('a required enum with a default refuses undefined: a client never inserts a default', () => {
     const schema = schemaToZod(
       { type: 'string', enum: ['asc', 'desc'], default: 'asc' },
       ir,
       { required: true },
     );
-    const r = schema.safeParse(undefined);
-    assert.equal(r.success, true);
-    assert.equal(r.data, 'asc');
+    assert.equal(schema.safeParse(undefined).success, false);
   });
 });
 
@@ -561,34 +559,28 @@ describe('schemaToZod — v3→v4 characterization (nullable)', () => {
     assert.equal(schema.safeParse(42).success, false);
   });
 
-  test('default: null treats string as nullable', () => {
+  test('a string with default: null refuses null: a default never changes what validates', () => {
     const schema = schemaToZod({ type: 'string', default: null }, ir, {
       required: true,
     });
-    assert.equal(schema.safeParse(null).success, true);
+    assert.equal(schema.safeParse(null).success, false);
     assert.equal(schema.safeParse('x').success, true);
   });
 });
 
-describe('schemaToZod — v3→v4 characterization (default + optional semantics)', () => {
-  test('non-enum default + required=false materializes default (.optional().default() order)', () => {
+describe('schemaToZod — a default documents the receiver, a client never inserts it', () => {
+  test('an optional string with a default leaves undefined undefined', () => {
     const schema = schemaToZod({ type: 'string', default: 'fallback' }, ir);
     const r = schema.safeParse(undefined);
     assert.equal(r.success, true);
-    assert.equal(
-      r.data,
-      'fallback',
-      'For plain types, wrapper builds .optional().default() — default fires on undefined in v3 and v4 alike.',
-    );
+    assert.equal(r.data, undefined);
   });
 
-  test('default + required=true: parsing undefined yields the default', () => {
+  test('a required string with a default refuses undefined', () => {
     const schema = schemaToZod({ type: 'string', default: 'fallback' }, ir, {
       required: true,
     });
-    const r = schema.safeParse(undefined);
-    assert.equal(r.success, true);
-    assert.equal(r.data, 'fallback');
+    assert.equal(schema.safeParse(undefined).success, false);
   });
 
   test('default + required=false: explicit value still validates', () => {
@@ -598,24 +590,20 @@ describe('schemaToZod — v3→v4 characterization (default + optional semantics
     assert.equal(r.data, 'explicit');
   });
 
-  test('number default with required=true materializes', () => {
+  test('a required number with a default refuses undefined', () => {
     const schema = schemaToZod({ type: 'number', default: 7 }, ir, {
       required: true,
     });
-    const r = schema.safeParse(undefined);
-    assert.equal(r.success, true);
-    assert.equal(r.data, 7);
+    assert.equal(schema.safeParse(undefined).success, false);
   });
 
-  test('int64 default applies as a plain number', () => {
+  test('a required int64 with a default refuses undefined', () => {
     const schema = schemaToZod(
       { type: 'integer', format: 'int64', default: 42 },
       ir,
       { required: true },
     );
-    const r = schema.safeParse(undefined);
-    assert.equal(r.success, true);
-    assert.equal(r.data, 42);
+    assert.equal(schema.safeParse(undefined).success, false);
   });
 });
 
@@ -688,7 +676,7 @@ describe('schemaToZod — v3→v4 characterization (arrays)', () => {
     assert.equal(schema.safeParse('not-an-array').success, false);
   });
 
-  test('array default applies when required=true and input is undefined', () => {
+  test('a required array with a default refuses undefined', () => {
     const schema = schemaToZod(
       {
         type: 'array',
@@ -698,9 +686,7 @@ describe('schemaToZod — v3→v4 characterization (arrays)', () => {
       ir,
       { required: true },
     );
-    const r = schema.safeParse(undefined);
-    assert.equal(r.success, true);
-    assert.deepEqual(r.data, ['x']);
+    assert.equal(schema.safeParse(undefined).success, false);
   });
 
   test('array without items accepts any element', () => {

@@ -2,7 +2,13 @@ import type { ReferenceObject, SchemaObject } from 'openapi3-ts/oas31';
 import { type ZodType, z } from 'zod';
 
 import { type OpenAPIDocument, followRef, isEmpty, isRef } from '@sdk-it/core';
-import { discriminatorOf, isRecursiveRef, tupleOf } from '@sdk-it/spec';
+import {
+  annotationsOf,
+  discriminatorOf,
+  isRecursiveRef,
+  requiredOn,
+  tupleOf,
+} from '@sdk-it/spec';
 
 // z.iso.time() rejects RFC 3339 zone suffixes ('10:30:00Z', '10:30:00+02:00'),
 // which JSON Schema's format: time allows. Accept both local and
@@ -46,7 +52,7 @@ export class RuntimeZodConverter {
 
   #object(schema: SchemaObject): ZodType {
     const properties = schema.properties || {};
-    const required = schema.required || [];
+    const required = requiredOn(schema, this.#spec, 'request');
 
     // Convert each property
     const shape: Record<string, ZodType> = {};
@@ -87,10 +93,9 @@ export class RuntimeZodConverter {
     }
 
     const { items } = schema;
-    const array = z
+    return z
       .array(items ? this.handle(items, true) : z.unknown())
       .check(...arrayLimits(schema));
-    return schema.default === undefined ? array : array.default(schema.default);
   }
 
   /** One deferred schema per recursive component, shared by every reference to it. */
@@ -329,23 +334,12 @@ export class RuntimeZodConverter {
         break;
     }
 
-    // Apply nullable to the base type before optional/default wrapping.
     if (nullable) {
       base = base.nullable();
     }
 
     if (!required) {
       base = base.optional();
-    }
-
-    if (schema.default !== undefined) {
-      const defaultValue =
-        (schema['x-zod-type'] === 'date' ||
-          schema['x-zod-type'] === 'coerce-date') &&
-        schema.default
-          ? new Date(schema.default)
-          : schema.default;
-      base = base.default(defaultValue);
     }
 
     return base;
@@ -358,10 +352,7 @@ export class RuntimeZodConverter {
       if (!required) {
         result = result.optional();
       }
-      if (schema.description) {
-        result = result.describe(schema.description);
-      }
-      return result;
+      return this.#annotate(result, schema);
     }
 
     let result: ZodType;
@@ -398,9 +389,6 @@ export class RuntimeZodConverter {
       }
     } else if (schema.const !== undefined) {
       result = constSchema(schema.const);
-      if (schema.default !== undefined && required) {
-        result = result.default(schema.default);
-      }
       if (!required) {
         result = result.optional();
       }
@@ -409,19 +397,6 @@ export class RuntimeZodConverter {
     // enum
     else if (schema.enum && Array.isArray(schema.enum)) {
       result = this.enum(schema.type, schema.enum);
-
-      // Apply default if it exists and is in the enum. Only for required
-      // schemas: the optional wrapper below must keep shadowing the default
-      // (zod v3 semantics), while zod v4 would surface it through .optional().
-      // The enum schema itself decides membership, by JSON value.
-      if (
-        schema.default !== undefined &&
-        result.safeParse(schema.default).success &&
-        required
-      ) {
-        result = result.default(schema.default);
-      }
-
       if (!required) {
         result = result.optional();
       }
@@ -435,8 +410,6 @@ export class RuntimeZodConverter {
 
       // Backward compatibility with OpenAPI 3.0 nullable
       if ('nullable' in schema && schema.nullable) {
-        types.push('null');
-      } else if (schema.default === null) {
         types.push('null');
       }
 
@@ -463,11 +436,32 @@ export class RuntimeZodConverter {
       }
     }
 
-    if (schema.description) {
-      result = result.describe(schema.description);
-    }
+    return this.#annotate(result, schema);
+  }
 
-    return result;
+  /**
+   * The schema's annotations as zod metadata, which agent tool schemas carry.
+   * A client never inserts a `default`: it documents what the receiver does
+   * when the value is absent.
+   */
+  #annotate(result: ZodType, schema: SchemaObject | ReferenceObject): ZodType {
+    const annotations = annotationsOf(schema, this.#spec);
+    const meta = {
+      ...(annotations.title !== undefined && { title: annotations.title }),
+      ...(annotations.description !== undefined && {
+        description: annotations.description,
+      }),
+      ...(Object.hasOwn(annotations, 'default') && {
+        default: annotations.default,
+      }),
+      ...(annotations.deprecated && { deprecated: true }),
+      ...(annotations.readOnly && { readOnly: true }),
+      ...(annotations.writeOnly && { writeOnly: true }),
+      ...(annotations.examples.length > 0 && {
+        examples: annotations.examples,
+      }),
+    };
+    return Object.keys(meta).length === 0 ? result : result.meta(meta);
   }
 }
 

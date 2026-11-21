@@ -93,17 +93,20 @@ async function clientOf(dir: { path: string }, document: object) {
   });
 }
 
-test('a required const with a declared default equal to it is filled when absent', async () => {
+test('a required const with a declared default is refused when absent, not filled', async () => {
   await using dir = await new TemporaryFiles().directory('rpc-const-default-');
   const client = await clientOf(
     dir,
     answers({ type: 'string', const: 'none', default: 'none' }, ['answer']),
   );
 
-  await assert.doesNotReject(client.request('POST /answers', {}));
+  await assert.rejects(
+    client.request('POST /answers', {}),
+    parseErrorFor('answer'),
+  );
 });
 
-test('a required object const with a declared default is filled when absent', async () => {
+test('a required object const with a declared default is refused when absent, not filled', async () => {
   await using dir = await new TemporaryFiles().directory(
     'rpc-const-object-default-',
   );
@@ -112,7 +115,10 @@ test('a required object const with a declared default is filled when absent', as
     answers({ const: { x: 1 }, default: { x: 1 } }, ['answer']),
   );
 
-  await assert.doesNotReject(client.request('POST /answers', {}));
+  await assert.rejects(
+    client.request('POST /answers', {}),
+    parseErrorFor('answer'),
+  );
 });
 
 test('a const false property refuses true and accepts false', async () => {

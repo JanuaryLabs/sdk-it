@@ -63,7 +63,7 @@ test('an enum with object and array members accepts each member and refuses any 
   }
 });
 
-test('a required enum with an object default equal to a member is filled when absent', async () => {
+test('a required enum with an object default equal to a member is refused when absent, not filled', async () => {
   await using dir = await new TemporaryFiles().directory(
     'rpc-enum-json-default-',
   );
@@ -75,5 +75,8 @@ test('a required enum with an object default equal to a member is filled when ab
     }),
   );
 
-  await assert.doesNotReject(client.request('POST /shapes', {}));
+  await assert.rejects(
+    client.request('POST /shapes', {}),
+    parseErrorFor('shape'),
+  );
 });

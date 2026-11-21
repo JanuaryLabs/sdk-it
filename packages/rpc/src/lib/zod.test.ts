@@ -31,7 +31,7 @@ describe('RuntimeZodConverter', () => {
     assert.equal(result.data, true);
   });
 
-  test('coerce-number preserves integer constraints and defaults', () => {
+  test('coerce-number preserves integer constraints, and a default does not fill an absent value', () => {
     const schema = converter.handle(
       {
         type: 'integer',
@@ -46,9 +46,7 @@ describe('RuntimeZodConverter', () => {
     assert.equal(parsedString.success, true);
     assert.equal(parsedString.data, 5);
 
-    const parsedUndefined = schema.safeParse(undefined);
-    assert.equal(parsedUndefined.success, true);
-    assert.equal(parsedUndefined.data, 1);
+    assert.equal(schema.safeParse(undefined).success, false);
 
     assert.equal(schema.safeParse('5.2').success, false);
   });
@@ -269,13 +267,13 @@ describe('RuntimeZodConverter array limits', () => {
     assert.deepEqual(schema.parse([1]), [1]);
   });
 
-  test('an array with a default keeps its length limits', () => {
+  test('a required array with a default is not filled when absent and keeps its length limits', () => {
     const schema = converter.handle(
       { type: 'array', items: { type: 'string' }, minItems: 1, default: ['x'] },
       true,
     );
 
-    assert.deepEqual(schema.parse(undefined), ['x']);
+    assert.equal(schema.safeParse(undefined).success, false);
     assert.equal(schema.safeParse([]).success, false);
   });
 });
