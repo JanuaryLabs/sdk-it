@@ -309,6 +309,18 @@ export function defaultResponseAnalyzer(
     return [];
   }
   const [argument, statusCode, headers] = returned.arguments;
+  if (method.name.text === 'notFound' && returned.arguments.length === 0) {
+    // An app with no app.notFound handler answers c.notFound() with Hono's own:
+    // c.text('404 Not Found', 404) (hono/dist/hono-base.js notFoundHandler).
+    return [
+      {
+        headers: [],
+        contentType: 'text/plain',
+        statusCode: '404',
+        schema: { type: 'string' },
+      },
+    ];
+  }
   if (method.name.text === 'redirect') {
     // Hono's c.redirect(location, status = 302) sets Location and sends no body.
     return [
