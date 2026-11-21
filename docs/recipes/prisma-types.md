@@ -5,7 +5,8 @@ generated types. Use that preset before maintaining type mappings by hand.
 
 ## Use the project preset
 
-Generate the Prisma client before SDK-IT:
+Generate the Prisma client before SDK-IT. In an Nx or other task graph, the
+`sdk-it generate` target depends on the Prisma client's generate target:
 
 ```bash
 npx prisma generate
@@ -13,10 +14,11 @@ npx @sdk-it/cli generate
 ```
 
 The default `auto` preset scans the TypeScript project for named imports of
-`Prisma` or `$Enums`, including imports from a custom generated-client path. If
-the import resolves, SDK-IT:
+`Prisma` or `$Enums`, including imports from a custom generated-client path or
+a workspace package that re-exports the client. For each one, SDK-IT:
 
-- makes the imported Prisma namespaces available while evaluating validators;
+- makes the imported binding available to the route's validators, so an
+  `against` reads Prisma's enums, the single source of truth for their values;
 - maps `Decimal` to `string` so high-precision values are not sent as lossy
   JavaScript numbers.
 
@@ -24,7 +26,31 @@ The route must import the bindings it uses:
 
 ```typescript
 import { $Enums, Prisma } from '@prisma/client';
+
+app.post(
+  '/patients',
+  validate('application/json', (payload) => ({
+    sex: { select: payload.body.sex, against: z.enum($Enums.Sex) },
+  })),
+  (c) => c.json({ sex: c.var.input.sex }),
+);
 ```
+
+SDK-IT loads each binding before it evaluates any validator. When the client
+is not generated, generation fails, naming the route file, the import and the
+cause, with TypeScript's error for the missing module:
+
+```text
+src/patients.route.ts imports $Enums from '@acme/db', which an against may read, but it does not load: Cannot find module '…/generated/prisma/client.js' …
+TypeScript reports:
+…: error TS2307: Cannot find module './generated/prisma/client.js' or its corresponding type declarations.
+Run the Prisma client's generate target (prisma generate) before sdk-it generate.
+```
+
+Any other named import in an `against` fails analysis: write the schema inline
+or import it as a namespace (`import * as inputs`). A response typed by a
+client that was not generated fails generation, naming the module TypeScript
+cannot find.
 
 `auto` is the default, but it can be written explicitly in
 `sdk-it.config.ts`:
@@ -51,7 +77,7 @@ export default defineConfig({
 });
 ```
 
-This mode fails generation if SDK-IT cannot resolve a Prisma client import.
+This mode fails generation if no route file imports `Prisma` or `$Enums`.
 Use `none` only when the project intentionally owns all Prisma mappings:
 
 ```typescript
