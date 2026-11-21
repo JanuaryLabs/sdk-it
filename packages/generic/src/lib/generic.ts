@@ -688,42 +688,22 @@ function visit(
   // slice(1, -1) to skip first (path) and last (handler) arguments
   // and skip the validate middleware - it's handled separately
   for (const arg of node.arguments.slice(1, -1)) {
+    // A middleware passed by reference: `app.get(path, signedIn, …)`.
+    if (isIdentifier(arg)) {
+      const declaration = middlewareFunction(arg, typeChecker);
+      if (declaration) {
+        middlewareDeclarations.push({ node: declaration, name: arg.text });
+      }
+      continue;
+    }
     if (isCall(arg)) {
-      // Try to resolve the factory function declaration
+      // A middleware factory: `app.get(path, authenticate(), …)`.
       if (isIdentifier(arg.expression)) {
-        const middlewareFnName = arg.expression.text;
-        let symbol = typeChecker.getSymbolAtLocation(arg.expression);
-
-        // If symbol has alias, resolve to the actual symbol
-        if (symbol && symbol.flags & SymbolFlags.Alias) {
-          symbol = typeChecker.getAliasedSymbol(symbol);
-        }
-
-        const allDeclarations = [
-          symbol?.valueDeclaration,
-          ...(symbol?.declarations ?? []),
-        ]
-          .map((handle) => handle?.resolve())
-          .filter((declaration) => declaration !== undefined);
-
-        let declaration = allDeclarations.find(isFunctionWithBody);
-
-        // If not found, check for variable declarations with function initializers
-        if (!declaration) {
-          for (const decl of allDeclarations) {
-            if (isVariableDeclaration(decl) && decl.initializer) {
-              if (isFunctionWithBody(decl.initializer)) {
-                declaration = decl.initializer;
-                break;
-              }
-            }
-          }
-        }
-
+        const declaration = middlewareFunction(arg.expression, typeChecker);
         if (declaration) {
           middlewareDeclarations.push({
             node: declaration,
-            name: middlewareFnName,
+            name: arg.expression.text,
           });
         }
       }
@@ -900,6 +880,40 @@ function memberName(node: Expression): string | undefined {
     isStringLiteralLikeNode(node.argumentExpression)
   ) {
     return node.argumentExpression.text;
+  }
+  return undefined;
+}
+
+/**
+ * The function a middleware name refers to: a function declaration, or a
+ * variable initialized with a function, through any import alias.
+ */
+function middlewareFunction(
+  name: Identifier,
+  checker: Checker,
+): FunctionWithBody | undefined {
+  let symbol = checker.getSymbolAtLocation(name);
+  if (symbol && symbol.flags & SymbolFlags.Alias) {
+    symbol = checker.getAliasedSymbol(symbol);
+  }
+  const declarations = [
+    symbol?.valueDeclaration,
+    ...(symbol?.declarations ?? []),
+  ]
+    .map((handle) => handle?.resolve())
+    .filter((declaration) => declaration !== undefined);
+  const declared = declarations.find(isFunctionWithBody);
+  if (declared) {
+    return declared;
+  }
+  for (const declaration of declarations) {
+    if (
+      isVariableDeclaration(declaration) &&
+      declaration.initializer &&
+      isFunctionWithBody(declaration.initializer)
+    ) {
+      return declaration.initializer;
+    }
   }
   return undefined;
 }

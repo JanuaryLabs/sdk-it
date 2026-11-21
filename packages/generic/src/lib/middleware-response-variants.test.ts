@@ -268,3 +268,84 @@ app.post('/items', validate('application/json', (payload) => ({
     assert.deepStrictEqual(documentedCause.detail.enum, [cause.detail]);
   }
 });
+
+test('a middleware passed by reference documents the response it returns on every route it guards', async () => {
+  const { paths, components } =
+    await documented(`import { Hono, type MiddlewareHandler } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+export const signedIn: MiddlewareHandler = async (c, next) => {
+  if (!c.req.header('authorization')) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  await next();
+};
+/** @openapi getSettings */
+app.get('/settings', signedIn, validate(() => ({})), (c) => c.json({ theme: 'dark' }));
+`);
+
+  assert.deepStrictEqual(paths['/settings'].get.responses['401'], {
+    description: 'Response for 401',
+    content: {
+      'application/json': {
+        schema: { $ref: '#/components/schemas/signedIn401_application_json' },
+      },
+    },
+  });
+  assert.deepStrictEqual(
+    components.schemas.signedIn401_application_json.properties.error,
+    { type: 'string', enum: ['Unauthorized'] },
+  );
+});
+
+test('a middleware passed by reference that throws documents the thrown response', async () => {
+  const { paths } =
+    await documented(`import { Hono, type MiddlewareHandler } from 'hono';
+import { HTTPException } from 'hono/http-exception';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+const signedIn: MiddlewareHandler = async (c, next) => {
+  if (!c.req.header('authorization')) {
+    throw new HTTPException(401, { message: 'Missing token' });
+  }
+  await next();
+};
+/** @openapi getSettings */
+app.get('/settings', signedIn, validate(() => ({})), (c) => c.json({ theme: 'dark' }));
+`);
+
+  assert.ok(paths['/settings'].get.responses['401']);
+});
+
+test('a middleware imported from another file and passed by reference documents its response', async () => {
+  await using workspace = await analysisWorkspace('middleware-by-reference-', {
+    'session.ts': `import type { MiddlewareHandler } from 'hono';
+export const signedIn: MiddlewareHandler = async (c, next) => {
+  if (!c.req.header('authorization')) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  await next();
+};
+`,
+    'route.ts': `import { Hono } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { signedIn } from './session.ts';
+export const app = new Hono();
+/** @openapi getSettings */
+app.get('/settings', signedIn, validate(() => ({})), (c) => c.json({ theme: 'dark' }));
+`,
+  });
+  using project = openAnalysisProject(workspace.tsconfig);
+  const { paths } = JSON.parse(
+    JSON.stringify(await analyze(project, { responseAnalyzer })),
+  );
+
+  assert.deepStrictEqual(paths['/settings'].get.responses['401'], {
+    description: 'Response for 401',
+    content: {
+      'application/json': {
+        schema: { $ref: '#/components/schemas/signedIn401_application_json' },
+      },
+    },
+  });
+});
