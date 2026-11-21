@@ -663,6 +663,161 @@ void test('the one module declares a recursive schema and a shared schema with a
   );
 });
 
+void test('the one module declares an array component after the recursive object it holds: it imports, sends a valid Forest and rejects an invalid one with ParseError', async () => {
+  const spec: OpenAPIObject = {
+    openapi: '3.1.0',
+    info: { title: 'Woods', version: '1.0.0' },
+    components: {
+      schemas: {
+        Forest: { type: 'array', items: { $ref: '#/components/schemas/Tree' } },
+        Tree: {
+          type: 'object',
+          required: ['name'],
+          properties: {
+            name: { type: 'string' },
+            children: { $ref: '#/components/schemas/Forest' },
+          },
+        },
+      },
+    },
+    paths: {
+      '/forests': {
+        post: {
+          operationId: 'plantForest',
+          tags: ['forests'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['forest'],
+                  properties: {
+                    forest: { $ref: '#/components/schemas/Forest' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'OK',
+              content: {
+                'application/json': {
+                  schema: { type: 'object', additionalProperties: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+  const { text } = await renderModule(spec, { name: 'Woods' });
+  await using workspace = await analysisWorkspace('one-module-forest-', {
+    'woods.ts': text,
+  });
+
+  const { createWoods } = await import(
+    pathToFileURL(join(workspace.path, 'woods.ts')).href
+  );
+  const woods = createWoods({
+    baseUrl: 'https://woods.test',
+    fetch: async (request: Request) => Response.json(await request.json()),
+  });
+  const planted = await woods.request('POST /forests', {
+    forest: [{ name: 'oak', children: [{ name: 'acorn' }] }],
+  });
+
+  assert.deepEqual(planted, {
+    forest: [{ name: 'oak', children: [{ name: 'acorn' }] }],
+  });
+  await assert.rejects(
+    woods.request('POST /forests', { forest: [{ children: [] }] }),
+    parseErrorFor('forest'),
+  );
+});
+
+void test('the one module declares a chain of three components, each after the one it holds, when the document names them in reverse order: it imports, sends a valid Apple and rejects an invalid one with ParseError', async () => {
+  const spec: OpenAPIObject = {
+    openapi: '3.1.0',
+    info: { title: 'Fruit', version: '1.0.0' },
+    components: {
+      schemas: {
+        Apple: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/Banana' },
+        },
+        Banana: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/Cherry' },
+        },
+        Cherry: {
+          type: 'object',
+          required: ['name'],
+          properties: {
+            name: { type: 'string' },
+            seeds: { $ref: '#/components/schemas/Apple' },
+          },
+        },
+      },
+    },
+    paths: {
+      '/apples': {
+        post: {
+          operationId: 'pickApple',
+          tags: ['apples'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['apple'],
+                  properties: { apple: { $ref: '#/components/schemas/Apple' } },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'OK',
+              content: {
+                'application/json': {
+                  schema: { type: 'object', additionalProperties: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+  const { text } = await renderModule(spec, { name: 'Fruit' });
+  await using workspace = await analysisWorkspace('one-module-chain-', {
+    'fruit.ts': text,
+  });
+
+  const { createFruit } = await import(
+    pathToFileURL(join(workspace.path, 'fruit.ts')).href
+  );
+  const fruit = createFruit({
+    baseUrl: 'https://fruit.test',
+    fetch: async (request: Request) => Response.json(await request.json()),
+  });
+  const picked = await fruit.request('POST /apples', {
+    apple: [[{ name: 'pip', seeds: [[{ name: 'seed' }]] }]],
+  });
+
+  assert.deepEqual(picked, {
+    apple: [[{ name: 'pip', seeds: [[{ name: 'seed' }]] }]],
+  });
+  await assert.rejects(
+    fruit.request('POST /apples', { apple: [[{ seeds: [] }]] }),
+    parseErrorFor('apple'),
+  );
+});
+
 void test('without a name collision the one module keeps the runtime names, so a type error names the Page type', async () => {
   const { text } = await renderModule(
     petsSpec({ servers: ['https://pets.test'], secured: false }),

@@ -42,6 +42,11 @@ export class ZodEmitter {
   #onRef?: OnRefCallback;
   /** The shared schemas each schema being emitted references, innermost last. */
   #references: Set<string>[] = [];
+  /**
+   * Inlined components met while a shared schema is being emitted: their
+   * consts read schemas that are declared only once `#inProgress` empties.
+   */
+  #waiting: [string, EmittedZod][] = [];
 
   constructor(
     spec: IR,
@@ -160,7 +165,11 @@ export class ZodEmitter {
       for (const name of inlined.references) {
         this.#references.at(-1)?.add(name);
       }
-      this.#onRef?.(schemaName, inlined);
+      if (this.#inProgress.size) {
+        this.#waiting.push([schemaName, inlined]);
+      } else {
+        this.#onRef?.(schemaName, inlined);
+      }
       return inlined.zod;
     }
 
@@ -192,6 +201,11 @@ export class ZodEmitter {
         : body.zod,
       references: body.references,
     });
+    if (!this.#inProgress.size) {
+      for (const [name, inlined] of this.#waiting.splice(0)) {
+        this.#onRef?.(name, inlined);
+      }
+    }
 
     return schemaName;
   }
