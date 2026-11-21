@@ -7,7 +7,7 @@ import { responseAnalyzer } from '@sdk-it/hono';
 import { analysisWorkspace } from '@sdk-it/testing';
 
 const rule =
-  'An against may read only z and the namespaces it is given: import * as <name> in its route file (such as inputs.*) or the imports passed to analyze(). Write the schema inline.';
+  'An against may read only z, the import * as <name> namespaces of its route file (such as inputs.*) and the named imports analyze() allows (allowedNamedImports). Write the schema inline.';
 
 void test('an against that reads a named import fails analysis, naming the route, the input, the identifier and the rule', async () => {
   // Arrange
@@ -92,9 +92,83 @@ app.post('/events', validate('application/json', (payload) => ({
   assert.ok(body && 'content' in body);
   const schema = body.content['application/json']?.schema;
   assert.ok(schema && 'properties' in schema);
-  assert.deepStrictEqual(schema.properties, {
-    day: { type: 'string', format: 'date' },
+  const { day, ...rest } = schema.properties ?? {};
+  assert.partialDeepStrictEqual(day, { type: 'string', format: 'date' });
+  assert.deepStrictEqual(rest, {
     size: { type: 'number', maximum: Number.MAX_SAFE_INTEGER },
     title: { type: 'string', 'x-zod-type': 'coerce-string' },
+  });
+});
+
+void test('an against reads a named import, under its local name, whose export allowedNamedImports names', async () => {
+  // Arrange
+  await using workspace = await analysisWorkspace('against-allowed-named-', {
+    'status.ts': `export const Status = { draft: 'draft', published: 'published' } as const;
+`,
+    'route.ts': `import { Hono } from 'hono';
+import { z } from 'zod';
+import { validate } from '@sdk-it/hono/runtime';
+import { Status as PostStatus } from './status.ts';
+
+export const app = new Hono();
+
+/** @openapi addPost */
+app.post('/posts', validate('application/json', (payload) => ({
+  status: { select: payload.body.status, against: z.enum(PostStatus) },
+})), (c) => c.json({ ok: true }));
+`,
+  });
+  using project = openAnalysisProject(workspace.tsconfig);
+
+  // Act
+  const { paths } = await analyze(project, {
+    responseAnalyzer,
+    allowedNamedImports: ['Status'],
+  });
+
+  // Assert
+  const body = paths['/posts']?.post?.requestBody;
+  assert.ok(body && 'content' in body);
+  const schema = body.content['application/json']?.schema;
+  assert.ok(schema && 'properties' in schema);
+  assert.deepStrictEqual(schema.properties?.['status'], {
+    type: 'string',
+    enum: ['draft', 'published'],
+  });
+});
+
+void test('a namespace an against reads that does not load fails analysis with UnloadedImportError, naming the route file and the import', async () => {
+  // Arrange
+  await using workspace = await analysisWorkspace('against-unloaded-', {
+    'node_modules/typed-only/package.json': JSON.stringify({
+      name: 'typed-only',
+      type: 'module',
+      exports: { '.': { types: './index.d.ts', import: './index.js' } },
+    }),
+    'node_modules/typed-only/index.d.ts': `import { z } from 'zod';
+export declare const slug: z.ZodString;
+`,
+    'route.ts': `import { Hono } from 'hono';
+import { z } from 'zod';
+import { validate } from '@sdk-it/hono/runtime';
+import * as typed from 'typed-only';
+
+export const app = new Hono();
+
+/** @openapi addPost */
+app.post('/posts', validate('application/json', (payload) => ({
+  slug: { select: payload.body.slug, against: typed.slug },
+})), (c) => c.json({ ok: true }));
+`,
+  });
+  using project = openAnalysisProject(workspace.tsconfig);
+
+  // Act
+  const analysis = analyze(project, { responseAnalyzer });
+
+  // Assert
+  await assert.rejects(analysis, {
+    name: 'UnloadedImportError',
+    message: `${workspace.path}/route.ts imports * as typed from 'typed-only', which an against reads, but it does not load: Cannot find module '${workspace.path}/node_modules/typed-only/index.js'`,
   });
 });

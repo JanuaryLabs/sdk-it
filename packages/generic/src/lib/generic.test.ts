@@ -790,14 +790,11 @@ app.post('/events', validate((payload) => ({
     const props = body.properties;
     assert.ok(props, 'Should have properties');
 
-    // z.string().datetime() => { type: "string", format: "date-time" }
-    assert.deepStrictEqual(props.scheduledAt, {
+    assert.partialDeepStrictEqual(props.scheduledAt, {
       type: 'string',
       format: 'date-time',
     });
-
-    // z.string().date() => { type: "string", format: "date" }
-    assert.deepStrictEqual(props.dateOnly, {
+    assert.partialDeepStrictEqual(props.dateOnly, {
       type: 'string',
       format: 'date',
     });
@@ -929,7 +926,7 @@ app.get('/events', validate((payload) => ({
     const since = params.find((p) => p.name === 'since');
     assert.ok(since, 'Should have since parameter');
     assert.equal(since.required, false);
-    assert.deepStrictEqual(since.schema, {
+    assert.partialDeepStrictEqual(since.schema, {
       type: 'string',
       format: 'date-time',
     });
@@ -937,7 +934,7 @@ app.get('/events', validate((payload) => ({
     const before = params.find((p) => p.name === 'before');
     assert.ok(before, 'Should have before parameter');
     assert.equal(before.required, true);
-    assert.deepStrictEqual(before.schema, {
+    assert.partialDeepStrictEqual(before.schema, {
       type: 'string',
       format: 'date',
     });
@@ -1356,17 +1353,8 @@ app.get('/users/:userId', validate((payload) => ({
 `,
     });
 
-    const inputsPath = join(workspace.path, 'inputs.ts');
     using project = openAnalysisProject(workspace.tsconfig);
-    const result = await analyze(project, {
-      responseAnalyzer: responseAnalyzer,
-      imports: [
-        {
-          import: 'inputs',
-          from: inputsPath,
-        },
-      ],
-    });
+    const result = await analyze(project, { responseAnalyzer });
 
     // Check getUsers parameters
     const getUsers = result.paths['/users']?.get;
@@ -1663,18 +1651,20 @@ app.post('/x', validate((p) => ({
 describe('zod v3 → v4 migration characterization: string formats', () => {
   it('z.string().email() emits format=email', async () => {
     const { field } = await requestBodyField(bodySource('z.string().email()'));
-    assert.deepStrictEqual(field, {
+    assert.partialDeepStrictEqual(field, {
       type: 'string',
       format: 'email',
     });
+    assert.equal(typeof field.pattern, 'string');
   });
 
   it('z.string().uuid() emits format=uuid', async () => {
     const { field } = await requestBodyField(bodySource('z.string().uuid()'));
-    assert.deepStrictEqual(field, {
+    assert.partialDeepStrictEqual(field, {
       type: 'string',
       format: 'uuid',
     });
+    assert.equal(typeof field.pattern, 'string');
   });
 
   it('z.string().url() emits format=uri', async () => {
@@ -1689,38 +1679,38 @@ describe('zod v3 → v4 migration characterization: string formats', () => {
     const { field } = await requestBodyField(
       bodySource('z.string().datetime()'),
     );
-    assert.deepStrictEqual(field, {
+    assert.partialDeepStrictEqual(field, {
       type: 'string',
       format: 'date-time',
     });
+    assert.equal(typeof field.pattern, 'string');
   });
 
   it('z.string().date() emits format=date', async () => {
     const { field } = await requestBodyField(bodySource('z.string().date()'));
-    assert.deepStrictEqual(field, {
+    assert.partialDeepStrictEqual(field, {
       type: 'string',
       format: 'date',
     });
+    assert.equal(typeof field.pattern, 'string');
   });
 
-  it('z.string().ip({ version: "v4" }) emits format=ipv4', async () => {
-    const { field } = await requestBodyField(
-      bodySource(`z.string().ip({ version: 'v4' })`),
-    );
-    assert.deepStrictEqual(field, {
+  it('z.ipv4() emits format=ipv4', async () => {
+    const { field } = await requestBodyField(bodySource('z.ipv4()'));
+    assert.partialDeepStrictEqual(field, {
       type: 'string',
       format: 'ipv4',
     });
+    assert.equal(typeof field.pattern, 'string');
   });
 
-  it('z.string().ip({ version: "v6" }) emits format=ipv6', async () => {
-    const { field } = await requestBodyField(
-      bodySource(`z.string().ip({ version: 'v6' })`),
-    );
-    assert.deepStrictEqual(field, {
+  it('z.ipv6() emits format=ipv6', async () => {
+    const { field } = await requestBodyField(bodySource('z.ipv6()'));
+    assert.partialDeepStrictEqual(field, {
       type: 'string',
       format: 'ipv6',
     });
+    assert.equal(typeof field.pattern, 'string');
   });
 
   it('z.string().min(n).max(n) emits minLength/maxLength', async () => {
@@ -1810,11 +1800,11 @@ describe('zod v3 → v4 migration characterization: primitives', () => {
     );
   });
 
-  it('against expression with TS-only syntax (as const) fails to evaluate', async () => {
-    await assert.rejects(
-      requestBodyField(bodySource('z.nativeEnum({ A: 1, B: 2 } as const)')),
-      /missing \) after argument list/,
+  it('against expression with TS-only syntax (as const) evaluates without its types', async () => {
+    const { field } = await requestBodyField(
+      bodySource('z.nativeEnum({ A: 1, B: 2 } as const)'),
     );
+    assert.deepStrictEqual(field, { type: 'number', enum: [1, 2] });
   });
 });
 
@@ -1827,7 +1817,7 @@ describe('zod v3 → v4 migration characterization: collections', () => {
     });
   });
 
-  it('z.tuple([...]) emits a closed array with positional items', async () => {
+  it('z.tuple([...]) emits a closed array with JSON Schema 2020-12 prefixItems', async () => {
     const { field } = await requestBodyField(
       bodySource('z.tuple([z.string(), z.number()])'),
     );
@@ -1835,8 +1825,20 @@ describe('zod v3 → v4 migration characterization: collections', () => {
       type: 'array',
       minItems: 2,
       maxItems: 2,
-      items: [{ type: 'string' }, { type: 'number' }],
-      additionalItems: false,
+      prefixItems: [{ type: 'string' }, { type: 'number' }],
+      items: false,
+    });
+  });
+
+  it('z.tuple([...], rest) emits prefixItems with the rest as items', async () => {
+    const { field } = await requestBodyField(
+      bodySource('z.tuple([z.string()], z.number())'),
+    );
+    assert.deepStrictEqual(field, {
+      type: 'array',
+      minItems: 1,
+      prefixItems: [{ type: 'string' }],
+      items: { type: 'number' },
     });
   });
 
@@ -1846,6 +1848,7 @@ describe('zod v3 → v4 migration characterization: collections', () => {
     );
     assert.deepStrictEqual(field, {
       type: 'object',
+      propertyNames: { type: 'string' },
       additionalProperties: { type: 'number' },
     });
   });
@@ -1902,11 +1905,9 @@ describe('zod v3 → v4 migration characterization: collections', () => {
             y: { type: 'number' },
           },
           required: ['x', 'y'],
-          additionalProperties: false,
         },
       },
       required: ['inner'],
-      additionalProperties: false,
     });
   });
 });
@@ -2086,7 +2087,6 @@ describe('zod v3 → v4 migration characterization: recursive (z.lazy)', () => {
       type: 'object',
       properties: { value: { type: 'string' } },
       required: ['value'],
-      additionalProperties: false,
     });
   });
 

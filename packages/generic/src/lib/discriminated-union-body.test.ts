@@ -48,7 +48,6 @@ test('a discriminated union body property is documented as oneOf with its discri
         type: 'object',
         properties: { answer: { type: 'string', const: 'none' } },
         required: ['answer'],
-        additionalProperties: false,
       },
       {
         type: 'object',
@@ -57,13 +56,11 @@ test('a discriminated union body property is documented as oneOf with its discri
           entries: { type: 'array', items: { type: 'string' }, minItems: 1 },
         },
         required: ['answer', 'entries'],
-        additionalProperties: false,
       },
       {
         type: 'object',
         properties: { answer: { type: 'string', const: 'skip' } },
         required: ['answer'],
-        additionalProperties: false,
       },
     ],
     discriminator: { propertyName: 'answer' },

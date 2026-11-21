@@ -43,20 +43,11 @@ function refs(value: unknown): string[] {
   return [];
 }
 
-/** Analyzes the app in `files`; each name in `modules` is a `<name>.ts` module of schemas the routes reference as `<name>.x`. */
-async function analyzeFiles(
-  files: Record<string, string>,
-  modules: string[] = [],
-) {
+/** Analyzes the app in `files`. */
+async function analyzeFiles(files: Record<string, string>) {
   await using dir = await analysisWorkspace('recursive-zod-', files);
   using project = openAnalysisProject(dir.tsconfig);
-  return await analyze(project, {
-    responseAnalyzer,
-    imports: modules.map((name) => ({
-      import: name,
-      from: join(dir.path, `${name}.ts`),
-    })),
-  });
+  return await analyze(project, { responseAnalyzer });
 }
 
 test('a named z.json() inside a record becomes a JSON component, and the generated client accepts nested JSON and rejects a value JSON cannot carry', async () => {
@@ -140,9 +131,8 @@ app.post('/shortcuts', validate((payload) => ({
 });
 
 test('a named recursive object becomes a component whose recursive field points at it', async () => {
-  const spec = await analyzeFiles(
-    {
-      'inputs.ts': `import { z } from 'zod';
+  const spec = await analyzeFiles({
+    'inputs.ts': `import { z } from 'zod';
 export const leaf = z.object({
   label: z.string(),
   get next() {
@@ -150,10 +140,8 @@ export const leaf = z.object({
   },
 }).meta({ id: 'Leaf' });
 `,
-      'route.ts': route('inputs.leaf', `import * as inputs from './inputs';`),
-    },
-    ['inputs'],
-  );
+    'route.ts': route('inputs.leaf', `import * as inputs from './inputs';`),
+  });
 
   const leaf = spec.components.schemas?.Leaf;
   assert.ok(leaf && !('$ref' in leaf));

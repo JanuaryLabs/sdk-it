@@ -55,7 +55,6 @@ import {
   formatDiagnostics,
 } from '@typescript/native/sync';
 import { realpathSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { debuglog } from 'node:util';
 import type { SecurityRequirementObject } from 'openapi3-ts/oas31';
@@ -63,7 +62,6 @@ import { camelcase } from 'stringcase';
 
 import {
   type FunctionWithBody,
-  type InjectImport,
   type NaunceResponseAnalyzer,
   type OnOperation,
   type OpenAPIComponentsObject,
@@ -72,6 +70,7 @@ import {
   type ResponseAnalyzerFn,
   type ResponseItem,
   type Selector,
+  ZodEvaluator,
   isHttpMethod,
   isSemanticSource,
   toSchema,
@@ -87,6 +86,8 @@ import {
   isCallExpression,
   sourceFiles,
 } from '@sdk-it/core/program.js';
+
+import { AgainstBindings } from './against-bindings.ts';
 
 export interface MiddlewareSecurityRule {
   middleware: {
@@ -618,7 +619,7 @@ function visit(
   paths: Paths,
   typeChecker: Checker,
   typeDeriver: TypeDeriver,
-  configured: ReadonlySet<string>,
+  bindings: AgainstBindings,
   security?: SecurityAnalysis,
 ) {
   if (!isCall(node) || node.arguments.length < 2) {
@@ -743,6 +744,12 @@ function visit(
     selector.body.expression.properties.filter(isPropertyAssignment);
 
   const sourceFile = node.getSourceFile();
+  const selectors = toSelectors(
+    props,
+    typeChecker,
+    `${method.toUpperCase()} ${path}`,
+    bindings,
+  );
 
   typeDeriver.setTrace({
     file: sourceFile.fileName,
@@ -778,12 +785,7 @@ function visit(
         ? contentType.text
         : undefined
       : undefined,
-    toSelectors(
-      props,
-      typeChecker,
-      `${method.toUpperCase()} ${path}`,
-      configured,
-    ),
+    selectors,
     responses,
     sourceFile.fileName,
     {
@@ -802,7 +804,7 @@ function visit(
         paths,
         typeChecker,
         typeDeriver,
-        configured,
+        bindings,
         security,
       ),
     );
@@ -813,7 +815,7 @@ function toSelectors(
   props: PropertyAssignment[],
   typeChecker: Checker,
   operation: string,
-  configured: ReadonlySet<string>,
+  bindings: AgainstBindings,
 ) {
   const selectors: Selector[] = [];
   for (const prop of props) {
@@ -841,10 +843,9 @@ function toSelectors(
     }
     const selector = toSelector(select.initializer, {
       against: against.initializer.getText(),
-      imports: namespaceImports(against.initializer, typeChecker, {
+      imports: bindings.of(against.initializer, typeChecker, {
         operation,
         input: name,
-        configured,
       }),
     });
     if (!selector) {
@@ -890,105 +891,6 @@ function toSelector(
   return { kind: 'field', source: owner.name.text, name, ...validation };
 }
 
-const againstRule =
-  'An against may read only z and the namespaces it is given: import * as <name> in its route file (such as inputs.*) or the imports passed to analyze(). Write the schema inline.';
-
-/**
- * The `import * as <name>` namespaces of its own file that an `against`
- * expression reads, each as the file TypeScript resolved, or, for a module
- * that only ships declarations, as Node resolves it from that file. `z` stays
- * out: evalZod binds it to zod itself. Any other binding of the user's modules
- * is refused, since evalZod evaluates the expression text alone.
- */
-function namespaceImports(
-  expression: Expression,
-  typeChecker: Checker,
-  context: AgainstContext,
-): InjectImport[] {
-  const fileName = expression.getSourceFile().fileName;
-  const imports = new Map<string, InjectImport>();
-  const isOwnDeclaration = (declaration: Node) =>
-    declaration.getSourceFile().fileName === fileName &&
-    declaration.pos >= expression.pos &&
-    declaration.end <= expression.end;
-  const check = (node: Identifier, symbol: TsSymbol | undefined): void => {
-    if (
-      node.text === 'z' ||
-      context.configured.has(node.text) ||
-      imports.has(node.text)
-    ) {
-      return;
-    }
-    const declarations: Node[] | undefined = symbol?.declarations.flatMap(
-      (handle) => handle.resolve() ?? [],
-    );
-    const namespaceImport = declarations?.find(
-      (declaration) =>
-        isNamespaceImport(declaration) &&
-        declaration.getSourceFile().fileName === fileName,
-    );
-    const importDeclaration = namespaceImport?.parent.parent;
-    if (
-      importDeclaration &&
-      isImportDeclaration(importDeclaration) &&
-      isStringLiteral(importDeclaration.moduleSpecifier)
-    ) {
-      const specifier = importDeclaration.moduleSpecifier;
-      const module = typeChecker
-        .getSymbolAtLocation(specifier)
-        ?.valueDeclaration?.resolve();
-      imports.set(node.text, {
-        import: node.text,
-        from:
-          module && isSourceFile(module) && !module.isDeclarationFile
-            ? module.fileName
-            : createRequire(fileName).resolve(specifier.text),
-      });
-      return;
-    }
-    const isGlobal =
-      symbol !== undefined &&
-      !(symbol.flags & SymbolFlags.Alias) &&
-      declarations?.every(
-        (declaration) => declaration.getSourceFile().isDeclarationFile,
-      );
-    if (isGlobal || declarations?.every(isOwnDeclaration)) {
-      return;
-    }
-    throw new Error(
-      `${context.operation} input ${context.input}: against reads ${node.text}, which is neither z nor a namespace it is given. ${againstRule}\n  at ${nodeLocation(node) ?? fileName}`,
-    );
-  };
-  const collect = (node: Node): void => {
-    if (isPropertyAccessExpression(node)) {
-      collect(node.expression);
-      return;
-    }
-    if (isQualifiedName(node)) {
-      collect(node.left);
-      return;
-    }
-    if (isShorthandPropertyAssignment(node) && isIdentifier(node.name)) {
-      check(node.name, typeChecker.getShorthandAssignmentValueSymbol(node));
-      return;
-    }
-    if (isIdentifier(node)) {
-      check(node, typeChecker.getSymbolAtLocation(node));
-      return;
-    }
-    node.forEachChild(collect);
-  };
-  collect(expression);
-  return [...imports.values()];
-}
-
-interface AgainstContext {
-  operation: string;
-  input: string;
-  /** The names of the imports analyze() is given. */
-  configured: ReadonlySet<string>;
-}
-
 function memberName(node: Expression): string | undefined {
   if (isPropertyAccessExpression(node)) {
     return node.name.text;
@@ -1006,9 +908,11 @@ export async function analyze(
   project: AnalysisProject,
   config: {
     /**
-     * Additional code to inject before resolving zod schemas
+     * The exports an `against` may read through a named import of its route
+     * file, such as Prisma's `$Enums` and `Prisma`. Any other named import is
+     * refused.
      */
-    imports?: InjectImport[];
+    allowedNamedImports?: readonly string[];
     typesMap?: Record<string, string>;
     responseAnalyzer: ResponseAnalyzerFn | NaunceResponseAnalyzer;
     onOperation?: OnOperation;
@@ -1018,11 +922,11 @@ export async function analyze(
 ) {
   const typeChecker = project.checker;
   const typeDeriver = new TypeDeriver(typeChecker, config.typesMap);
-  const paths = new Paths({
-    imports: config.imports ?? [],
-    onOperation: config.onOperation,
+  using evaluator = new ZodEvaluator({
+    conditions: project.program.getCompilerOptions().customConditions ?? [],
   });
-  const configured = new Set(config.imports?.map((item) => item.import));
+  const paths = new Paths({ evaluator, onOperation: config.onOperation });
+  const bindings = new AgainstBindings(config.allowedNamedImports ?? []);
   const security: SecurityAnalysis | undefined = config.middlewareSecurity && {
     rules: config.middlewareSecurity,
     matched: new Set(),
@@ -1055,13 +959,16 @@ export async function analyze(
         paths,
         typeChecker,
         typeDeriver,
-        configured,
+        bindings,
         security,
       );
     } catch (error) {
       if (!(error instanceof UnresolvedTypeError)) {
         throw error;
       }
+      // A binding that does not load, such as a client that is not generated,
+      // is the cause a response type that does not resolve often shares.
+      await bindings.load(evaluator, project.program);
       throw new Error(
         `${error.message}. TypeScript reports:\n${formatDiagnostics(unresolvedReferences(project.program), project.program)}`,
         { cause: error },
@@ -1077,6 +984,7 @@ export async function analyze(
     }
   }
 
+  await bindings.load(evaluator, project.program);
   const pathsObject = await paths.getPaths();
   const components: OpenAPIComponentsObject = {
     schemas: {

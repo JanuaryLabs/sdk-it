@@ -79,10 +79,7 @@ app.post('/sources/:sourceId/links', validate('application/json', (payload) => (
   });
 
   using project = openAnalysisProject(workspace.tsconfig);
-  const { paths, components } = await analyze(project, {
-    responseAnalyzer,
-    imports: [{ import: 'schemas', from: join(workspace.path, 'schemas.ts') }],
-  });
+  const { paths, components } = await analyze(project, { responseAnalyzer });
   const output = join(workspace.path, 'client');
   await generate(
     {
