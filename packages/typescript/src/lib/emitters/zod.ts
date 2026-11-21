@@ -7,7 +7,12 @@ import {
   isRef,
   parseRef,
 } from '@sdk-it/core';
-import { discriminatorOf, isInlinable, isRecursiveRef } from '@sdk-it/spec';
+import {
+  discriminatorOf,
+  isInlinable,
+  isRecursiveRef,
+  tupleOf,
+} from '@sdk-it/spec';
 
 import type { ModelNamer } from '../model-name.ts';
 import type { References } from '../references.ts';
@@ -70,26 +75,19 @@ export class ZodEmitter {
   }
 
   #array(schema: SchemaObject, required = false): string {
+    const tuple = tupleOf(schema);
+    if (tuple) {
+      const elements = tuple.elements.map(
+        ({ schema: element, required: elementRequired }) =>
+          this.handle(element, elementRequired),
+      );
+      const rest = tuple.rest ? `, ${this.handle(tuple.rest, true)}` : '';
+      return `z.tuple([${elements.join(', ')}]${rest})${appendOptional(required)}`;
+    }
+
     const { items } = schema;
     if (!items) {
       return `z.array(z.unknown())${arrayLimits(schema)}${appendOptional(required)}`;
-    }
-
-    // If items is an array => tuple
-    if (Array.isArray(items)) {
-      // Build a Zod tuple
-      const tupleItems = items.map((sub) => this.handle(sub, true));
-      const base = `z.tuple([${tupleItems.join(', ')}])`;
-      // // If we have additionalItems: false => that’s a fixed length
-      // // If additionalItems is a schema => rest(...)
-      // if (schema.additionalItems) {
-      //   if (typeof schema.additionalItems === 'object') {
-      //     const restSchema = jsonSchemaToZod(spec, schema.additionalItems, true);
-      //     base += `.rest(${restSchema})`;
-      //   }
-      //   // If `additionalItems: false`, no rest is allowed => do nothing
-      // }
-      return `${base}${appendOptional(required)}`;
     }
 
     // If items is a single schema => standard z.array(...)

@@ -8,7 +8,7 @@ import {
   parseRef,
   resolveRef,
 } from '@sdk-it/core';
-import { isInlinable } from '@sdk-it/spec';
+import { isInlinable, tupleOf } from '@sdk-it/spec';
 
 import type { ModelNamer } from '../model-name.ts';
 import type { References } from '../references.ts';
@@ -48,20 +48,24 @@ export class TypeScriptEmitter {
     return `${propEntries.length ? `{ ${propEntries.join('; ')} }` : 'unknown'}`;
   }
 
-  /**
-   * Handle arrays (items could be a single schema or a tuple)
-   */
   #array(schema: SchemaObject, _required = false): string {
+    const tuple = tupleOf(schema);
+    if (tuple) {
+      const elements = tuple.elements.map(({ schema: element, required }) =>
+        required
+          ? this.handle(element, true)
+          : `(${this.handle(element, true)})?`,
+      );
+      if (tuple.rest) {
+        elements.push(`...(${this.handle(tuple.rest, true)})[]`);
+      }
+      return `[${elements.join(', ')}]`;
+    }
+
     const { items } = schema;
     if (!items) {
       // No items => any[]
       return 'any[]';
-    }
-
-    // If items is an array => tuple
-    if (Array.isArray(items)) {
-      const tupleItems = items.map((sub) => this.handle(sub, true));
-      return `[${tupleItems.join(', ')}]`;
     }
 
     // If items is a single schema => standard array
