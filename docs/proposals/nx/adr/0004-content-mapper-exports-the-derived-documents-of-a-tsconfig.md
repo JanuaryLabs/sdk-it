@@ -1,28 +1,44 @@
-# The content mapper exports the derived documents of a tsconfig
+# The content mapper exports DerivedDocument, a document derived from a definition
 
 Status: proposed (#5158)
 
 ## Context
 
-`@sdk-it/content-mapper` owns what a `derived` entry means: `DerivedDocuments` resolves each document and its definition module from a tsconfig's directory and derives the document (`derived-documents.ts`), and `derived-declaration.ts` reads the option. Both are internal. The generator must derive the same bytes as the readers, so it must use the same code, not a copy.
+`@sdk-it/content-mapper` owns what a `derived` entry means. Its internal `DerivedDocuments` mixes four jobs: the declaration (a tsconfig's document-to-definition map), the derivation (import the definition, `generateDocument`, serialize), a cache of each document's last state for the TypeScript server's `transform`, and today the writing. The generator must derive the same bytes as the readers, so it must call the same code, but it needs neither the cache nor the writing.
 
 ## Decision
 
-`@sdk-it/content-mapper` exports `DerivedDocuments`, with a static `DerivedDocuments.declaredBy(tsconfig)` that reads that tsconfig's `derived` entry (undefined when it has none). `documents` lists each document's path; `refresh(document)` derives it and returns `{ kind: 'document', text, watched }` or `{ kind: 'failed', message, watched }`, writing nothing.
+The package exports one value class for one document and the derivation it yields:
 
 ```ts
-import { DerivedDocuments } from '@sdk-it/content-mapper';
-
-const derived = await DerivedDocuments.declaredBy(
-  '/repo/apps/web/tsconfig.app.json',
-);
-for (const document of derived?.documents ?? []) {
-  const state = await derived.refresh(document);
-  // state.kind === 'document': state.text is the bytes to commit
+export class DerivedDocument {
+  readonly path: string; // the committed document
+  readonly definition: string; // the backend's definition module
+  static declaredBy(tsconfig: string): Promise<DerivedDocument[]>;
+  static at(path: string): Promise<DerivedDocument | undefined>;
+  derive(): Promise<Derivation>;
 }
+
+export type Derivation =
+  | {
+      readonly kind: 'derived';
+      readonly text: string;
+      readonly sources: readonly string[];
+    }
+  | {
+      readonly kind: 'failed';
+      readonly message: string;
+      readonly sources: readonly string[];
+    };
 ```
+
+- `declaredBy(tsconfig)`: each document that tsconfig's `contentMappers[].options.derived` declares.
+- `at(path)`: the declaration that names `path`, from the first `tsconfig*.json` that declares it, up to the package root (what Vite and Node use).
+- `derive()`: the document as the backend produces it now, serialized once for every caller; `sources` are the definition module and every file the analysis read. It writes nothing.
+
+The TypeScript server keeps its own map of each document's last `Derivation` for `transform`. The internal `DerivedDocuments` class and `derivedDocumentsOf` go.
 
 ## Consequences
 
-- One serialization for readers and writer: the committed bytes are what `tsc` and Vite derive.
-- The content mapper's public API grows by one class; its readers keep using it internally.
+- The committed bytes are, by construction, what `tsc` and Vite derive.
+- Each caller takes only what it needs: the generator `declaredBy` and `derive`, `renderImport` `at` and `derive`, the server `declaredBy` and its own cache.

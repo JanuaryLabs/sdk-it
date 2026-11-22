@@ -8,7 +8,7 @@ Status: proposed (#5158)
 
 ## Decision
 
-Readers derive the document in memory and write nothing. The `derived-documents` Nx sync generator is the only writer: `nx sync` writes each stale document, a pre-commit hook that runs `nx sync` stages it into the commit that changed the backend, and `nx sync:check` fails a push that holds a stale one.
+Readers derive the document in memory and write nothing. The `openapi-sync` Nx sync generator is the only writer: `nx sync` writes each stale document, a pre-commit hook that runs `nx sync` stages it into the commit that changed the backend, and `nx sync:check` fails a push that holds a stale one.
 
 ## Consequences
 

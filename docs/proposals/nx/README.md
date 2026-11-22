@@ -2,7 +2,7 @@
 
 # @sdk-it/nx
 
-Keeps each committed derived OpenAPI document of an Nx workspace in step with the backend it is derived from. It ships one Nx sync generator, `derived-documents`. `nx sync` writes every stale document, and `nx sync:check` fails when one is stale.
+Keeps each committed derived OpenAPI document of an Nx workspace in step with the backend it is derived from. It ships one Nx sync generator, `openapi-sync`. `nx sync` writes every stale document, and `nx sync:check` fails when one is stale.
 
 A derived document is the file an app imports to get its backend's client: `import { createBackend } from '#backend'`, where `#backend` is `src/backend.openapi`, and the app's tsconfig names the backend's definition module (`contentMappers[].options.derived`, see [`@sdk-it/content-mapper`](../../../packages/content-mapper/README.md)). TypeScript needs the file to exist before it resolves the import, so the document is committed. The readers (the content mapper in `tsc` and the editor, `sdkIt.imports()` in Vite, the Node hook) derive it from the backend in memory each time and never write it. This generator is its only writer.
 
@@ -11,7 +11,7 @@ A derived document is the file an app imports to get its backend's client: `impo
 ```jsonc
 // nx.json
 {
-  "sync": { "globalGenerators": ["@sdk-it/nx:derived-documents"] },
+  "sync": { "globalGenerators": ["@sdk-it/nx:openapi-sync"] },
 }
 ```
 
@@ -47,12 +47,12 @@ Searched "nx sync generator openapi", "nx plugin openapi sync", "openapi documen
 
 ## Who uses what
 
-- `@sdk-it/nx` depends on `@nx/devkit` (the tree, `createProjectGraphAsync`) and on `@sdk-it/content-mapper` (`DerivedDocuments`).
-- `@sdk-it/content-mapper` exports `DerivedDocuments`, and its readers stop writing ([ADR 0001](./adr/0001-the-sync-generator-is-the-only-writer-of-a-derived-document.md), [ADR 0004](./adr/0004-content-mapper-exports-the-derived-documents-of-a-tsconfig.md)).
+- `@sdk-it/nx` depends on `@nx/devkit` (the tree, `createProjectGraphAsync`) and on `@sdk-it/content-mapper` (`DerivedDocument`).
+- `@sdk-it/content-mapper` exports `DerivedDocument`, and its readers stop writing ([ADR 0001](./adr/0001-the-sync-generator-is-the-only-writer-of-a-derived-document.md), [ADR 0004](./adr/0004-content-mapper-exports-the-derived-documents-of-a-tsconfig.md)).
 - First consumers: meddit (`apps/web/src/backend.openapi`) and deepagents (`apps/evals-web-runner/frontend/src/evals.openapi`).
 
 ## Now, later, never
 
-| Now                                    | Later                                                                                                           | Never                                                                       |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| the `derived-documents` sync generator | a generator that sets up a derived document in an app (the tsconfig entry, `openapi.ts`, the `#backend` import) | a CLI command or an executor that writes documents; formatting the document |
+| Now                               | Later                                                                                                           | Never                                                                       |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| the `openapi-sync` sync generator | a generator that sets up a derived document in an app (the tsconfig entry, `openapi.ts`, the `#backend` import) | a CLI command or an executor that writes documents; formatting the document |
