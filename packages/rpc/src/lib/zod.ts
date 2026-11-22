@@ -6,6 +6,7 @@ import { zodStringFormat } from '@sdk-it/core/zod-string-format.js';
 import {
   annotationsOf,
   discriminatorOf,
+  isNullSchema,
   isRecursiveRef,
   requiredOn,
   tupleOf,
@@ -140,7 +141,7 @@ export class RuntimeZodConverter {
   #union(schema: SchemaObject, kind: 'anyOf' | 'oneOf'): ZodType {
     const all = schema[kind] ?? [];
     const branches = all
-      .filter((sub) => !this.#isNull(sub))
+      .filter((sub) => !isNullSchema(this.#spec, sub))
       .map((sub) => this.handle(sub, true));
     if (branches.length === 0) {
       return z.null();
@@ -164,15 +165,6 @@ export class RuntimeZodConverter {
     // oneOf is exclusive-or per JSON Schema; z.xor rejects values matching
     // more than one branch, unlike z.union's anyOf semantics.
     return kind === 'oneOf' ? z.xor(branches) : z.union(branches);
-  }
-
-  #isNull(schema: SchemaObject | ReferenceObject): boolean {
-    return (
-      (isRef(schema)
-        ? followRef<SchemaObject>(this.#spec, schema.$ref)
-        : schema
-      ).type === 'null'
-    );
   }
 
   /**
