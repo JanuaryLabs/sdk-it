@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/readme",
-  "version": "0.51.8",
+  "version": "0.51.9",
   "repository": {
     "type": "git",
     "url": "https://github.com/JanuaryLabs/sdk-it",
@@ -31,8 +31,8 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.51.8",
-    "@sdk-it/spec": "0.51.8",
+    "@sdk-it/core": "0.51.9",
+    "@sdk-it/spec": "0.51.9",
     "openapi3-ts": "4.6.2"
   }
 }
