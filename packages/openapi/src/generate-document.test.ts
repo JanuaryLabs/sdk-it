@@ -15,13 +15,19 @@ import { validate } from '@sdk-it/hono/runtime';
 
 export const app = new Hono();
 
+interface Book {
+  id: string;
+  title: string;
+}
+declare const shelf: Book[];
+
 /** @openapi listBooks @tags books */
 app.get(
   '/books',
   validate((payload) => ({
     author: { select: payload.query.author, against: z.string().optional() },
   })),
-  (c) => c.json([{ id: 'book-1', title: 'Type Systems' }]),
+  (c) => c.json(shelf),
 );
 
 /** @openapi listAuthors @tags authors */
@@ -63,7 +69,10 @@ test('the document is the base fields, the paths and schemas the analysis finds,
     '/authors',
     '/books',
   ]);
-  assert.ok(document.components?.schemas, 'the analysis schemas are present');
+  assert.deepStrictEqual(
+    Object.keys(document.components?.schemas ?? {}).sort(),
+    ['Book', 'validate400_application_json', 'validate415_application_json'],
+  );
   assert.deepStrictEqual(document.tags, [
     { name: 'books', description: 'The catalogue.' },
     { name: 'authors' },
@@ -95,7 +104,10 @@ test('operation transformers run on every operation in the order given, then doc
               (item) => item.get?.summary ?? '',
             ),
           );
-          finished.info.description = 'Generated from the backend.';
+          finished.info.description = 'Generated';
+        },
+        (finished) => {
+          finished.info.description = `${finished.info.description} from the backend.`;
         },
       ],
     },
@@ -193,6 +205,13 @@ app.get(
 
 test('the source files are the files of the backend the analysis read, and none under node_modules', async () => {
   await using workspace = await analysisWorkspace('openapi-sources-', {
+    'node_modules/local-titles/package.json': JSON.stringify({
+      name: 'local-titles',
+      type: 'module',
+      exports: './index.ts',
+    }),
+    'node_modules/local-titles/index.ts': `export const title = 'Type Systems';\n`,
+    'src/titles.ts': `import { title } from 'local-titles';\nexport const titles = [title];\n`,
     'src/app.ts': books,
   });
 
