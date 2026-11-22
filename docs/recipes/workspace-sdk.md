@@ -129,13 +129,18 @@ npm install --save-dev @sdk-it/cli
 // scripts/generate-sdk.ts
 import { generateProject } from '@sdk-it/cli';
 
+import openapi from '../apps/backend/openapi.ts';
+
 await generateProject({
+  openapi,
   name: 'MyApi',
-  tsconfig: './apps/backend/tsconfig.json',
   output: './.sdk-it',
   packageName: '@my-api/sdk',
 });
 ```
+
+`openapi` is the backend's definition from `@sdk-it/openapi`
+(`apps/backend/openapi.ts`: `defineOpenApi({ tsconfig: new URL('./tsconfig.json', import.meta.url), document })`).
 
 `generateProject` currently supports Hono backends. It generates and compiles an
 importable workspace package. See
@@ -149,9 +154,11 @@ Generate a compiled client with a registry package name:
 ```typescript
 import { generateProject } from '@sdk-it/cli';
 
+import openapi from './apps/backend/openapi.ts';
+
 await generateProject({
+  openapi,
   name: 'Acme',
-  tsconfig: './apps/backend/tsconfig.json',
   output: './generated-sdk',
   packageName: '@acme/api-client',
 });

@@ -25,25 +25,43 @@ npx @sdk-it/cli init --name Backend --project ./apps/backend/tsconfig.json
 
 The initializer:
 
-- Creates `apps/backend/sdk-it.config.ts` beside the backend tsconfig.
+- Creates `apps/backend/openapi.ts`, the backend's OpenAPI definition (`@sdk-it/openapi`), and `apps/backend/sdk-it.config.ts`, beside the backend tsconfig.
 - Creates the tracked `apps/backend/.sdk-it/package.json` workspace stub.
 - Ignores the generated workspace except for that stub.
 - Registers the explicit `apps/backend/.sdk-it` workspace path.
 - Preserves existing ignore and workspace entries.
 
-If the workspace package is named `@acme/platform`, the generated config is:
+If the workspace package is named `@acme/platform`, the initializer writes:
 
 ```ts
+// apps/backend/openapi.ts
+import { defineOpenApi } from '@sdk-it/openapi';
+
+export default defineOpenApi({
+  tsconfig: new URL('./tsconfig.json', import.meta.url),
+  document: {
+    openapi: '3.1.0',
+    info: { title: 'Backend', version: '1.0.0' },
+  },
+});
+```
+
+```ts
+// apps/backend/sdk-it.config.ts
 import { defineConfig } from '@sdk-it/cli';
 
+import openapi from './openapi.ts';
+
 export default defineConfig({
+  openapi,
   name: 'Backend',
-  tsconfig: './tsconfig.json',
   packageName: '@acme/backend-client',
 });
 ```
 
-`name` and `packageName` are required. `name` names the generated exports:
+`openapi.ts` says how the backend's document is produced: what its code cannot tell (`info`, servers, security schemes, tag descriptions), type mappings, middleware security and transformers. See [`@sdk-it/openapi`](../../packages/openapi/README.md). The same definition serves a client package, an app that imports the backend's document as a module, and any script.
+
+`openapi`, `name` and `packageName` are required. `name` names the generated exports:
 `name: 'Backend'` exports `createBackend`. The initializer writes the `--name`
 value. It refuses a name that does not become a TypeScript identifier, such as
 `2024Api`.
@@ -107,19 +125,16 @@ The CLI package also exposes the generation API without starting the command-lin
 ```ts
 import { generateProject } from '@sdk-it/cli';
 
+import openapi from './apps/backend/openapi.ts';
+
 await generateProject({
+  openapi,
   name: 'Backend',
   packageName: '@acme/backend-client',
-  tsconfig: './apps/backend/tsconfig.json',
 });
 ```
 
-`name`, `packageName` and `tsconfig` are required. The defaults are:
-
-| Option   | Default     |
-| -------- | ----------- |
-| `output` | `./.sdk-it` |
-| `preset` | `auto`      |
+`openapi`, `name` and `packageName` are required. `output` defaults to `./.sdk-it` beside the config.
 
 ## Vite
 
@@ -147,29 +162,7 @@ sdkIt.project({
 
 ## Prisma preset
 
-SDK-IT detects imports of `Prisma` or `$Enums`, lets an `against` read them, and applies Prisma type mappings. This includes custom generated-client module paths. See [Prisma types](./prisma-types.md).
-
-Force Prisma support when the project must use it:
-
-```ts
-export default defineConfig({
-  name: 'Backend',
-  tsconfig: './tsconfig.json',
-  packageName: '@acme/backend-client',
-  preset: 'prisma',
-});
-```
-
-Forced mode fails when SDK-IT cannot find a Prisma client import. Disable detection when the project handles Prisma types itself:
-
-```ts
-export default defineConfig({
-  name: 'Backend',
-  tsconfig: './tsconfig.json',
-  packageName: '@acme/backend-client',
-  preset: 'none',
-});
-```
+When a route file imports `Prisma` or `$Enums` by name, `@sdk-it/openapi` lets an `against` read them and maps `Decimal` to a string. This includes custom generated-client module paths. A client that is not generated fails with `PrismaClientNotGeneratedError`, which says to run Prisma generate. There is no option to turn the preset on or off. See [Prisma types](./prisma-types.md).
 
 ## Fresh clones and CI
 

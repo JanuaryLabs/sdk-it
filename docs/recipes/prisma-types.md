@@ -1,7 +1,7 @@
 # Prisma types
 
-SDK-IT's project generator detects Prisma and configures the analyzer for its
-generated types. Use that preset before maintaining type mappings by hand.
+`@sdk-it/openapi` detects Prisma and configures the analyzer for its generated
+types. Use that preset before maintaining type mappings by hand.
 
 ## Use the project preset
 
@@ -13,7 +13,7 @@ npx prisma generate
 npx @sdk-it/cli generate
 ```
 
-The default `auto` preset scans the TypeScript project for named imports of
+The preset applies whenever the TypeScript project has a named import of
 `Prisma` or `$Enums`, including imports from a custom generated-client path or
 a workspace package that re-exports the client. For each one, SDK-IT:
 
@@ -47,7 +47,7 @@ with TypeScript's error for the missing module:
 src/patients.route.ts imports $Enums from '@acme/db', which an against reads, but it does not load: Cannot find module '…/generated/prisma/client.js' …
 TypeScript reports:
 …: error TS2307: Cannot find module './generated/prisma/client.js' or its corresponding type declarations.
-Run the Prisma client's generate target (prisma generate) before sdk-it generate.
+Run the Prisma client's generate target (prisma generate).
 ```
 
 Any other named import in an `against` fails analysis: write the schema inline
@@ -55,53 +55,15 @@ or import it as a namespace (`import * as inputs`). A response typed by a
 client that was not generated fails generation, naming the module TypeScript
 cannot find.
 
-`auto` is the default, but it can be written explicitly in
-`sdk-it.config.ts`:
+There is no option to turn the preset on or off: an `against` that reads `$Enums` needs it, and a backend without such an import is unaffected. A client that does not load fails with `PrismaClientNotGeneratedError`, whose `routeFile` and `importName` name the route and the import. Other named imports an `against` may read go in the definition's `allowedNamedImports`, such as a second client imported under another name:
 
 ```typescript
-import { defineConfig } from '@sdk-it/cli';
+import { defineOpenApi } from '@sdk-it/openapi';
 
-export default defineConfig({
-  name: 'Backend',
-  packageName: '@acme/backend-client',
-  tsconfig: './apps/backend/tsconfig.json',
-  preset: 'auto',
-});
-```
-
-Use `prisma` when Prisma support is required:
-
-```typescript
-export default defineConfig({
-  name: 'Backend',
-  packageName: '@acme/backend-client',
-  tsconfig: './apps/backend/tsconfig.json',
-  preset: 'prisma',
-});
-```
-
-This mode fails generation if no route file imports `Prisma` or `$Enums`.
-Use `none` only when the project intentionally owns all Prisma mappings:
-
-```typescript
-export default defineConfig({
-  name: 'Backend',
-  packageName: '@acme/backend-client',
-  tsconfig: './apps/backend/tsconfig.json',
-  preset: 'none',
-});
-```
-
-The same option is available through the programmatic API:
-
-```typescript
-import { generateProject } from '@sdk-it/cli';
-
-await generateProject({
-  name: 'Backend',
-  packageName: '@acme/backend-client',
-  tsconfig: './apps/backend/tsconfig.json',
-  preset: 'prisma',
+export default defineOpenApi({
+  tsconfig: new URL('./tsconfig.json', import.meta.url),
+  document: { openapi: '3.1.0', info: { title: 'Backend', version: '1.0.0' } },
+  allowedNamedImports: ['CentralPrisma'],
 });
 ```
 
