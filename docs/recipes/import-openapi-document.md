@@ -48,7 +48,7 @@ npx tsc --runExternalCode
 
 In a project that `tsc --build` checks, such as one where Nx infers the `typecheck` target, pass `--runExternalCode` to that command too, and list the document in `include` (for example `"src/**/*.openapi"`): a `composite` project refuses an import of a file it does not list (TS6307). The module type-checks under the DOM lib and under Node's types alone (`lib: ["esnext"]` with `@types/node`).
 
-In the editor, the TypeScript 7.1 language server runs content mappers when its initialization options set `runExternalCode`. Go to definition on the client, a model or an endpoint key lands where the document declares it. A document that does not render is reported in the document itself, at its line and column (see the diagnostics in [`@sdk-it/content-mapper`](../../packages/content-mapper/README.md#diagnostics)).
+In the editor, the TypeScript 7.1 language server runs content mappers when its initialization options set `runExternalCode`. VS Code's built-in TypeScript server cannot, so an import of a document is TS2307 there. Install the TypeScript (Native Preview) extension (`TypeScriptTeam.native-preview`), which turns `runExternalCode` on through `js/ts.contentMappers.enabled` (its default), and point it at the workspace's TypeScript 7.1 in `.vscode/settings.json`: `"js/ts.experimental.useTsgo": true` and `"js/ts.tsdk.path": "node_modules/@typescript/native"` (the folder of the TypeScript 7.1 package, here the npm alias `@typescript/native`). Go to definition on the client, a model or an endpoint key lands where the document declares it. A document that does not render is reported in the document itself, at its line and column (see the diagnostics in [`@sdk-it/content-mapper`](../../packages/content-mapper/README.md#diagnostics)).
 
 ## Run it with Vite
 
@@ -107,6 +107,8 @@ import { createBackend } from './backend.openapi';
 
 export const api = createBackend({ baseUrl: '/' });
 ```
+
+To import the document without a relative path, give it a package.json subpath import: `"imports": { "#backend": "./src/backend.openapi" }` in the app's package.json, then `import { createBackend } from '#backend'`. TypeScript, Node and `sdkIt.imports()` all resolve it to the document.
 
 Every reader generates the document from the backend's code and rewrites `src/backend.openapi` when it changed: the content mapper in `tsc` and the editor, `sdkIt.imports()` in Vite, and `@sdk-it/content-mapper/register` in Node. Vite and Node find the declaration from the tsconfig*.json files between the document and its package root. A save in the backend re-types the import and reloads the dev module.
 
