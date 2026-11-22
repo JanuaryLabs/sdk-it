@@ -434,4 +434,161 @@ app.get('/links', validate(() => ({})), (c) => {
       enum: ['x'],
     });
   });
+
+  test('an instantiation whose type arguments spell a long name gets a bounded name, and the client generates and type-checks', async () => {
+    const fields = Array.from(
+      { length: 14 },
+      (_, index) => `field${index}OfTheRow: string;`,
+    ).join(' ');
+    await using workspace = await analysisWorkspace('generic-interface-', {
+      'route.ts': `import { Hono } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+
+interface Page<T, M> {
+  items: T[];
+  meta: M;
+}
+
+export const app = new Hono();
+
+declare function load(): Page<
+  { ${fields} },
+  { cursorForTheNextPageOfResults: string; totalNumberOfMatchingRows: number }
+>;
+
+/** @openapi listRows */
+app.get('/rows', validate(() => ({})), (c) => {
+  return c.json(load());
+});
+`,
+    });
+    using project = openAnalysisProject(workspace.tsconfig);
+    const spec = await analyze(project, { responseAnalyzer });
+    const schemas = spec.components.schemas ?? {};
+    const body: any =
+      spec.paths['/rows']?.get?.responses?.['200']?.content?.[
+        'application/json'
+      ]?.schema;
+    const name = body.$ref.replace('#/components/schemas/', '');
+    const component: any = schemas[name];
+    const output = join(workspace.path, 'client');
+    await generate(
+      {
+        openapi: '3.1.0',
+        info: { title: 'Rows', version: '1.0.0' },
+        paths: spec.paths,
+        components: spec.components,
+      },
+      {
+        output,
+        name: 'Rows',
+        packageName: '@acme/rows',
+        readme: false,
+        mode: 'full',
+      },
+    );
+    const configPath = join(output, 'tsconfig.json');
+    const config = JSON.parse(await readFile(configPath, 'utf8'));
+    config.compilerOptions.strict = true;
+    await writeFile(configPath, JSON.stringify(config));
+    const consumerPath = join(output, 'src', 'consumer.ts');
+    await writeFile(
+      consumerPath,
+      `import { createRows } from './index.ts';
+const client = createRows({ baseUrl: 'https://example.test' });
+const page = await client.request('GET /rows', {});
+const first: string | undefined = page.items[0]?.field13OfTheRow;
+const cursor: string = page.meta.cursorForTheNextPageOfResults;
+// @ts-expect-error totalNumberOfMatchingRows is a number, never a string.
+const wrong: string = page.meta.totalNumberOfMatchingRows;
+void [first, cursor, wrong];
+`,
+    );
+
+    const { files, diagnostics } = typecheck(configPath);
+
+    assert.ok(name.length <= 64, `${name} has ${name.length} characters`);
+    assert.match(
+      name,
+      /^Page_field0OfTheRow_string_field1OfTheRow_string_[0-9a-f]{8}$/,
+    );
+    assert.deepStrictEqual(
+      Object.keys(component.properties.items.items.properties).length,
+      14,
+    );
+    assert.deepStrictEqual(component.properties.meta.properties, {
+      cursorForTheNextPageOfResults: { type: 'string' },
+      totalNumberOfMatchingRows: { type: 'number' },
+    });
+    assert.ok(files.includes(consumerPath));
+    assert.deepStrictEqual(diagnostics, []);
+  });
+
+  test('two instantiations whose long names differ only past the bound are distinct components, named the same whichever a route meets first', async () => {
+    const fields = (field10: string) =>
+      Array.from(
+        { length: 14 },
+        (_, index) =>
+          `field${index}OfTheRow: ${index === 10 ? field10 : 'string'};`,
+      ).join(' ');
+    const route = (
+      first: string,
+      second: string,
+    ) => `import { Hono } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+
+interface Page<T> {
+  items: T[];
+}
+
+export const app = new Hono();
+
+declare function load(): { a: Page<{ ${first} }>; b: Page<{ ${second} }> };
+
+/** @openapi listRows */
+app.get('/rows', validate(() => ({})), (c) => {
+  return c.json(load());
+});
+`;
+    await using workspace = await analysisWorkspace('generic-interface-', {
+      'route.ts': route(fields('string'), fields('number')),
+    });
+    await using again = await analysisWorkspace('generic-interface-', {
+      'route.ts': route(fields('number'), fields('string')),
+    });
+    using project = openAnalysisProject(workspace.tsconfig);
+    using projectAgain = openAnalysisProject(again.tsconfig);
+    const spec = await analyze(project, { responseAnalyzer });
+    const specAgain = await analyze(projectAgain, { responseAnalyzer });
+    const schemas = spec.components.schemas ?? {};
+    const body: any =
+      spec.paths['/rows']?.get?.responses?.['200']?.content?.[
+        'application/json'
+      ]?.schema;
+    const bodyAgain: any =
+      specAgain.paths['/rows']?.get?.responses?.['200']?.content?.[
+        'application/json'
+      ]?.schema;
+    const component = (ref: string): any =>
+      schemas[ref.replace('#/components/schemas/', '')];
+    const a = body.properties.a.$ref;
+    const b = body.properties.b.$ref;
+
+    assert.notStrictEqual(a, b);
+    for (const ref of [a, b]) {
+      const name = ref.replace('#/components/schemas/', '');
+      assert.ok(name.length <= 64, `${name} has ${name.length} characters`);
+    }
+    assert.deepStrictEqual(
+      component(a).properties.items.items.properties.field10OfTheRow,
+      { type: 'string' },
+    );
+    assert.deepStrictEqual(
+      component(b).properties.items.items.properties.field10OfTheRow,
+      { type: 'number' },
+    );
+    assert.strictEqual(bodyAgain.properties.b.$ref, a);
+    assert.strictEqual(bodyAgain.properties.a.$ref, b);
+    assert.deepStrictEqual(specAgain.components, spec.components);
+  });
 });

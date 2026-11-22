@@ -39,6 +39,7 @@ import {
   isVariableDeclarationList,
 } from '@typescript/native/ast/is';
 import {
+  CheckFlags,
   type Checker,
   ElementFlags,
   IndexKind,
@@ -49,12 +50,16 @@ import {
   TypeFlags,
   TypeFormatFlags,
 } from '@typescript/native/sync';
+import { hash } from 'node:crypto';
 import type { SchemaObject } from 'openapi3-ts/oas31';
 
 import { $types, deriveSymbol } from './derived-type.js';
 import { sortObjectKeys } from './utils.js';
 
 type Collector = Record<string, any>;
+
+/** The length past which a component name is cut and hashed, so a generator's file name for it fits a file system's limit. */
+const maxComponentNameLength = 64;
 
 /**
  * How literal values met while serializing collapse to their base type.
@@ -312,8 +317,11 @@ export class TypeDeriver {
    * its own members, so each one is its own component: one whose type arguments
    * are all its type parameters' defaults keeps the interface's name, as
    * UIMessage does, and any other is named after its type arguments, so
-   * Box<'x'> is Box_x. A name that another type holds takes the first free
-   * numeric suffix.
+   * Box<'x'> is Box_x. A name past maxComponentNameLength is cut at a word and
+   * ends with a hash of the instantiation's full spelling, so it stays a
+   * usable file name and two instantiations that share the cut text keep
+   * their own names whichever a route meets first. A name that another type
+   * holds takes the first free numeric suffix.
    */
   private componentNameOf(type: Type, name: string): string {
     if (!type.isTypeReference()) {
@@ -332,17 +340,26 @@ export class TypeDeriver {
       (argument, index) =>
         typeParameters[index]?.getDefault()?.id === argument.id,
     );
-    const base = defaulted
-      ? name
-      : [
-          name,
-          ...typeArguments.map((argument) =>
-            this.checker.typeToString(argument),
+    let base = name;
+    if (!defaulted) {
+      const spelling = [
+        name,
+        ...typeArguments.map((argument) =>
+          this.checker.typeToString(
+            argument,
+            undefined,
+            TypeFormatFlags.NoTruncation,
           ),
-        ]
-          .join('_')
-          .replace(/[^A-Za-z0-9]+/g, '_')
-          .replace(/^_+|_+$/g, '');
+        ),
+      ].join('_');
+      base = spelling.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+      if (base.length > maxComponentNameLength) {
+        const digest = hash('sha256', spelling).slice(0, 8);
+        const room = maxComponentNameLength - digest.length - 1;
+        const cut = base.lastIndexOf('_', room);
+        base = `${base.slice(0, cut > 0 ? cut : room)}_${digest}`;
+      }
+    }
     const taken = new Set([
       ...Object.keys(this.collector),
       ...this.instantiationNames.values(),
@@ -598,10 +615,16 @@ export class TypeDeriver {
       if (properties.length > 0) {
         const serializedProps: Record<string, any> = {};
         for (const prop of properties) {
-          const propAssingment = prop.declarations
+          // A mapped type's property, such as z.infer's, carries its source
+          // property's declarations, whose initializers hold the source's
+          // values (a z.object() shape's ZodOptional), so only its type
+          // describes it.
+          const declarations =
+            prop.checkFlags & CheckFlags.Mapped ? [] : prop.declarations;
+          const propAssingment = declarations
             .find(isPropertyAssignment.Handle)
             ?.resolve();
-          const shorthand = prop.declarations
+          const shorthand = declarations
             .find(isShorthandPropertyAssignment.Handle)
             ?.resolve();
           // A value's own type keeps its literals. One written in a generic
