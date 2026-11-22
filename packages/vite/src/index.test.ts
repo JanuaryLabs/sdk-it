@@ -417,11 +417,15 @@ app.get(
       'sdk-it.config.ts',
       `
 import { defineConfig } from '@sdk-it/cli';
+import { defineOpenApi } from '@sdk-it/openapi';
 
 export default defineConfig({
+  openapi: defineOpenApi({
+    tsconfig: new URL('./backend/tsconfig.json', import.meta.url),
+    document: { openapi: '3.1.0', info: { title: 'Example', version: '1.0.0' } },
+  }),
   name: 'Example',
   packageName: '@acme/example-client',
-  tsconfig: './backend/tsconfig.json',
 });
 `,
     );
@@ -449,11 +453,15 @@ export default defineConfig({
       'config/project.ts',
       `
 import { defineConfig } from '@sdk-it/cli';
+import { defineOpenApi } from '@sdk-it/openapi';
 
 export default defineConfig({
+  openapi: defineOpenApi({
+    tsconfig: new URL('../backend/tsconfig.json', import.meta.url),
+    document: { openapi: '3.1.0', info: { title: 'Example', version: '1.0.0' } },
+  }),
   name: 'Example',
   packageName: '@acme/example-client',
-  tsconfig: '../backend/tsconfig.json',
   output: '../explicit-sdk',
 });
 `,
