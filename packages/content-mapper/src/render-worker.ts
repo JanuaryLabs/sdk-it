@@ -1,6 +1,6 @@
 import { type MessagePort, workerData } from 'node:worker_threads';
 
-import { renderDocument } from './render-document.js';
+import { renderImport } from './render-document.js';
 
 const { signal, port }: { signal: Int32Array; port: MessagePort } = workerData;
 
@@ -12,7 +12,7 @@ async function answer({
   content: string;
 }) {
   try {
-    port.postMessage({ rendered: await renderDocument(fileName, content) });
+    port.postMessage({ rendered: await renderImport(fileName, content) });
   } catch (error) {
     port.postMessage({
       error: Error.isError(error) ? error.message : String(error),

@@ -5,6 +5,7 @@ import { type Document, parseDocument } from 'yaml';
 import { Documents, SpecLoader, UnresolvedReferenceError } from '@sdk-it/spec';
 import { renderModule } from '@sdk-it/typescript';
 
+import { derivedDocumentsOf } from './derived-declaration.js';
 import { type Range, locate } from './locate.js';
 
 export type { Range } from './locate.js';
@@ -161,4 +162,38 @@ function diagnostic(
 
 function reason(error: unknown) {
   return Error.isError(error) ? error.message : String(error);
+}
+
+/**
+ * What an import of `fileName` renders to. A document that a tsconfig derives
+ * from a backend (`contentMappers[].options.derived`) is generated from the
+ * backend first, its committed file rewritten when it changed, and its
+ * `documents` include every file the analysis read, so a host that watches
+ * them reloads on a backend edit; any other document renders as written.
+ */
+export async function renderImport(
+  fileName: string,
+  content: string,
+): Promise<RenderedDocument> {
+  const derived = await derivedDocumentsOf(fileName);
+  if (!derived) {
+    return renderDocument(fileName, content);
+  }
+  const state = await derived.refresh(fileName);
+  const watched = state.watched.map((file) => pathToFileURL(file).href);
+  if (state.kind === 'failed') {
+    return {
+      kind: 'failed',
+      documents: watched,
+      diagnostics: [
+        {
+          code: DiagnosticCode.Analysis,
+          message: state.message,
+          range: fileStart,
+        },
+      ],
+    };
+  }
+  const rendered = await renderDocument(fileName, state.text);
+  return { ...rendered, documents: [...rendered.documents, ...watched] };
 }

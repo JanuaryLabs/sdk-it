@@ -144,3 +144,33 @@ app.get('/books', validate(() => ({})), (c) => c.json(missing));
   assert.notEqual(result.exitCode, 0);
   assert.match(result.stdout, /backend\.openapi.*error sdk-it4/);
 });
+
+test("node --import @sdk-it/content-mapper/register runs a derived document's client, generated from the backend", async () => {
+  await using workspace = await workspaceDirectory('derived-register-');
+  await writeWorkspace(workspace.path, usesBooks);
+  await writeFile(
+    join(workspace.path, 'web/src/run.ts'),
+    `import { createBackend } from './backend.openapi';
+
+const backend = createBackend({
+  baseUrl: 'https://library.test',
+  fetch: async (request: Request) =>
+    Response.json({ path: new URL(request.url).pathname }),
+});
+console.log(JSON.stringify(await backend.request('GET /books', {})));
+`,
+  );
+
+  const result = await runNode([
+    '--import',
+    '@sdk-it/content-mapper/register',
+    join(workspace.path, 'web/src/run.ts'),
+  ]);
+
+  assert.equal(result.exitCode, 0, result.stderr);
+  assert.deepStrictEqual(JSON.parse(result.stdout), { path: '/books' });
+  const document = JSON.parse(
+    await readFile(join(workspace.path, 'web/src/backend.openapi'), 'utf8'),
+  );
+  assert.deepStrictEqual(Object.keys(document.paths), ['/books']);
+});
