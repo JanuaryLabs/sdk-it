@@ -281,3 +281,100 @@ test('a cold dev server pre-bundles the packages that the SDK of an imported doc
     { logs: [], scanned: ['fast-content-type-parse', 'zod'] },
   );
 });
+
+/** A backend with its openapi.ts and an app whose tsconfig derives backend.openapi from it. */
+async function derivedWorkspace(root: string, path: string) {
+  const files: Record<string, string> = {
+    'backend/tsconfig.json': JSON.stringify({
+      compilerOptions: {
+        module: 'esnext',
+        moduleResolution: 'bundler',
+        strict: true,
+        skipLibCheck: true,
+        noEmit: true,
+      },
+      include: ['src/**/*.ts'],
+    }),
+    'backend/src/app.ts': backendRoute(path),
+    'backend/openapi.ts': `import { defineOpenApi } from '@sdk-it/openapi';
+
+export default defineOpenApi({
+  tsconfig: new URL('./tsconfig.json', import.meta.url),
+  document: { openapi: '3.1.0', info: { title: 'Library', version: '1.0.0' } },
+});
+`,
+    'web/tsconfig.json': JSON.stringify({
+      compilerOptions: { module: 'nodenext', strict: true, noEmit: true },
+      contentMappers: [
+        {
+          package: '@sdk-it/content-mapper',
+          extensions: ['.openapi'],
+          options: { derived: { 'backend.openapi': '../backend/openapi.ts' } },
+        },
+      ],
+      include: ['*.ts', 'backend.openapi'],
+    }),
+    'web/backend.openapi': '{}\n',
+    'web/main.ts': `import { createBackend } from './backend.openapi';
+
+const backend = createBackend({
+  baseUrl: 'https://library.test',
+  fetch: async (request: Request) =>
+    Response.json({ path: new URL(request.url).pathname }),
+});
+export const call = (endpoint: string) =>
+  backend.request(endpoint as 'GET /books', {});
+`,
+  };
+  for (const [file, content] of Object.entries(files)) {
+    await mkdir(dirname(join(root, file)), { recursive: true });
+    await writeFile(join(root, file), content);
+  }
+}
+
+function backendRoute(path: string) {
+  return `import { Hono } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+
+export const app = new Hono();
+
+/** @openapi listBooks */
+app.get('${path}', validate(() => ({})), (c) => c.json([{ id: 'b1' }]));
+`;
+}
+
+test("the dev server runs a derived document's client, generated from the backend its tsconfig names", async () => {
+  await using app = await workspaceDirectory('vite-derived-');
+  await derivedWorkspace(app.path, '/books');
+  await using server = await devServer(join(app.path, 'web'));
+
+  const { call } = await server.ssrLoadModule('/main.ts');
+
+  assert.deepEqual(await call('GET /books'), { path: '/books' });
+});
+
+test(
+  'the dev server reloads a derived document when a backend file changes',
+  { timeout: 60_000 },
+  async (t) => {
+    await using app = await workspaceDirectory('vite-derived-reload-');
+    await derivedWorkspace(app.path, '/books');
+    await using server = await devServer(join(app.path, 'web'));
+    const { call } = await server.ssrLoadModule('/main.ts');
+    await assert.rejects(call('GET /novels'));
+
+    await waitFor(
+      async () => {
+        // Vite watches a file added through addWatchFile after load returns,
+        // so each attempt writes again.
+        await writeFile(
+          join(app.path, 'backend/src/app.ts'),
+          backendRoute('/novels'),
+        );
+        const { call } = await server.ssrLoadModule('/main.ts');
+        assert.deepEqual(await call('GET /novels'), { path: '/novels' });
+      },
+      { signal: t.signal },
+    );
+  },
+);

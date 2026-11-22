@@ -2,10 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { type Plugin, type Rolldown, normalizePath } from 'vite';
 
-import {
-  type DocumentDiagnostic,
-  renderDocument,
-} from '@sdk-it/content-mapper';
+import { type DocumentDiagnostic, renderImport } from '@sdk-it/content-mapper';
 
 /** The extensions an imported OpenAPI document ends with: YAML, and JSON under a name TypeScript accepts for a mapped file. */
 const extensions = ['.openapi.yaml', '.openapi'];
@@ -63,7 +60,7 @@ async function loadDocument(this: Rolldown.PluginContext, id: string) {
   const file = id.slice(0, -'.ts'.length);
   if (!id.endsWith('.ts') || !isDocument(file)) return null;
   const content = await readFile(file, 'utf8');
-  const document = await renderDocument(file, content);
+  const document = await renderImport(file, content);
   for (const uri of document.documents) {
     if (uri.startsWith('file:')) this.addWatchFile(fileURLToPath(uri));
   }
