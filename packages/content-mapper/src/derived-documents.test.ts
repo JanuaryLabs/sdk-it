@@ -75,7 +75,7 @@ export default defineOpenApi({
       include: ['src/main.ts', 'src/backend.openapi'],
     }),
     'web/src/main.ts': main,
-    // The app commits its derived document; a reader rewrites it.
+    // The app commits its derived document; no reader writes it.
     'web/src/backend.openapi': '{}\n',
   };
   for (const [file, content] of Object.entries(files)) {
