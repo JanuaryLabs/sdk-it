@@ -4,6 +4,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
 import { DerivedDocuments } from './derived-documents.js';
+import { isRecord } from './is-record.js';
 
 /**
  * The derived documents of the tsconfig that declares `document` derived
@@ -69,8 +70,4 @@ function derivedOption(config: unknown): Record<string, string> | undefined {
     }
   }
   return undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

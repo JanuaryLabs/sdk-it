@@ -174,3 +174,88 @@ console.log(JSON.stringify(await backend.request('GET /books', {})));
   );
   assert.deepStrictEqual(Object.keys(document.paths), ['/books']);
 });
+
+/** Makes the workspace an Nx workspace whose backend is the project `backend` (project.json) of the package `@library/backend`. */
+async function writeNxWorkspace(root: string, web: Record<string, string>) {
+  const files: Record<string, string> = {
+    'nx.json': '{}\n',
+    'backend/project.json': JSON.stringify({ name: 'backend' }),
+    'backend/package.json': JSON.stringify({ name: '@library/backend' }),
+    'web/package.json': JSON.stringify({ name: '@library/web' }),
+    ...web,
+  };
+  for (const [file, content] of Object.entries(files)) {
+    await writeFile(join(root, file), content);
+  }
+}
+
+test("an app in an Nx workspace with no edge to its backend's project is diagnostic sdk-it5 at the tsconfig's derived option, naming the project", async () => {
+  await using workspace = await workspaceDirectory('derived-nx-no-edge-');
+  await writeWorkspace(workspace.path, usesBooks);
+  await writeNxWorkspace(workspace.path, {});
+
+  const result = await tsc(join(workspace.path, 'web'));
+
+  assert.notEqual(result.exitCode, 0);
+  assert.match(
+    result.stdout,
+    /tsconfig\.json.*error sdk-it5: .*"backend".*implicitDependencies/,
+  );
+});
+
+test("an app that names its backend's project in implicitDependencies has no Nx edge diagnostic", async () => {
+  await using workspace = await workspaceDirectory('derived-nx-implicit-');
+  await writeWorkspace(workspace.path, usesBooks);
+  await writeNxWorkspace(workspace.path, {
+    'web/project.json': JSON.stringify({ implicitDependencies: ['backend'] }),
+  });
+
+  const result = await tsc(join(workspace.path, 'web'));
+
+  assert.equal(result.exitCode, 0, result.stdout + result.stderr);
+});
+
+test("an app that depends on its backend's package has no Nx edge diagnostic", async () => {
+  await using workspace = await workspaceDirectory('derived-nx-package-');
+  await writeWorkspace(workspace.path, usesBooks);
+  await writeNxWorkspace(workspace.path, {
+    'web/package.json': JSON.stringify({
+      name: '@library/web',
+      devDependencies: { '@library/backend': '*' },
+    }),
+  });
+
+  const result = await tsc(join(workspace.path, 'web'));
+
+  assert.equal(result.exitCode, 0, result.stdout + result.stderr);
+});
+
+test("an app whose implicitDependencies hold a glob has no Nx edge diagnostic, since Nx's matching may name the backend", async () => {
+  await using workspace = await workspaceDirectory('derived-nx-glob-');
+  await writeWorkspace(workspace.path, usesBooks);
+  await writeNxWorkspace(workspace.path, {
+    'web/project.json': JSON.stringify({ implicitDependencies: ['back*'] }),
+  });
+
+  const result = await tsc(join(workspace.path, 'web'));
+
+  assert.equal(result.exitCode, 0, result.stdout + result.stderr);
+});
+
+test("a backend with no project.json is named by its package.json's nx.name before its package name", async () => {
+  await using workspace = await workspaceDirectory('derived-nx-name-');
+  await writeWorkspace(workspace.path, usesBooks);
+  await writeFile(join(workspace.path, 'nx.json'), '{}\n');
+  await writeFile(
+    join(workspace.path, 'backend/package.json'),
+    JSON.stringify({ name: '@library/backend', nx: { name: 'api' } }),
+  );
+  await writeFile(
+    join(workspace.path, 'web/package.json'),
+    JSON.stringify({ name: '@library/web' }),
+  );
+
+  const result = await tsc(join(workspace.path, 'web'));
+
+  assert.match(result.stdout, /error sdk-it5: .*"api"/);
+});

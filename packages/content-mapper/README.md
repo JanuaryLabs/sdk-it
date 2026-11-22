@@ -74,7 +74,7 @@ Mappings are for navigation only: definition, type definition, references, hover
 
 ## Diagnostics
 
-Each diagnostic is in the document, with the source `sdk-it`, as `error sdk-it<code>`.
+Each diagnostic has the source `sdk-it` and reads `error sdk-it<code>`. Codes 1 to 4 are in the document, and code 5 is in the app's tsconfig.
 
 | code | when                                                                                                                        | where                                                                                   |
 | ---- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -82,6 +82,7 @@ Each diagnostic is in the document, with the source `sdk-it`, as `error sdk-it<c
 | 2    | a `$ref` does not resolve, or a document it names cannot be read                                                            | the `$ref` value when the reference is in this document, else the start of the document |
 | 3    | the SDK cannot be rendered: the file name is not an identifier, a spec name clashes, a security requirement names no scheme | the start of the document                                                               |
 | 4    | a derived document's backend does not analyze (its definition does not load, or `generateDocument` throws)                  | the start of the document                                                               |
+| 5    | in an Nx workspace, the app's project has no edge to the project of a derived document's backend                            | the document's entry in the tsconfig's `derived` option                                 |
 
 YAML that still parses into a document keeps rendering while you type, with its YAML errors. When a step fails, the module is `export {};`, so each importer sees the missing names until the document is fixed; when the YAML has errors, only they are reported, since the later failure follows from them. `tsc` reports no semantic error of any file while a mapped document has a diagnostic, so the missing names show in the editor, which checks each file on its own.
 

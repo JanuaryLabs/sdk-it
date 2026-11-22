@@ -20,6 +20,8 @@ export const DiagnosticCode = {
   Render: 3,
   /** A derived document's backend does not analyze. */
   Analysis: 4,
+  /** In an Nx workspace, the app's project has no edge to the project of a derived document's backend. */
+  NxEdge: 5,
 } as const;
 
 type Code = (typeof DiagnosticCode)[keyof typeof DiagnosticCode];
