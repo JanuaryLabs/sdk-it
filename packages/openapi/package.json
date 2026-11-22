@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/openapi",
-  "version": "0.51.6",
+  "version": "0.51.7",
   "type": "module",
   "repository": {
     "type": "git",
@@ -25,9 +25,9 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.51.6",
-    "@sdk-it/generic": "0.51.6",
-    "@sdk-it/hono": "0.51.6",
+    "@sdk-it/core": "0.51.7",
+    "@sdk-it/generic": "0.51.7",
+    "@sdk-it/hono": "0.51.7",
     "@typescript/native": "npm:typescript@7.1.0-beta",
     "openapi3-ts": "^4.6.2"
   },
