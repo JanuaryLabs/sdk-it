@@ -1,6 +1,5 @@
-import { resolve } from 'node:path';
+import { generateDocument } from '@sdk-it/openapi';
 
-import { analyzeProject } from './project/analysis.ts';
 import type { ProjectConfig } from './project/config.ts';
 import { writeProjectClient } from './project/output.ts';
 
@@ -17,7 +16,6 @@ export type {
 } from './project/config.ts';
 
 export async function generateProject(config: ProjectConfig): Promise<void> {
-  const tsconfig = resolve(config.tsconfig);
-  const openapi = await analyzeProject(tsconfig, config);
-  await writeProjectClient(openapi, config);
+  const { document } = await generateDocument(config.openapi);
+  await writeProjectClient(document, config);
 }

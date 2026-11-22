@@ -2,20 +2,17 @@ import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import type { OpenAPISecuritySchemeObject } from '@sdk-it/core';
-import type { MiddlewareSecurityRule } from '@sdk-it/generic';
+import type { OpenApiDefinition } from '@sdk-it/openapi';
 import { clientName } from '@sdk-it/typescript';
 
 import { generatedPackageManifest } from './compiler.ts';
 
 export interface ProjectConfig {
+  /** How the backend's document is produced: the default export of its openapi.ts. */
+  openapi: OpenApiDefinition;
   name: string;
-  tsconfig: string;
-  preset?: 'auto' | 'prisma' | 'none';
   output?: string;
   packageName: string;
-  securitySchemes?: Record<string, OpenAPISecuritySchemeObject>;
-  middlewareSecurity?: readonly MiddlewareSecurityRule[];
 }
 
 export interface ResolvedProjectConfig extends ProjectConfig {
@@ -54,9 +51,9 @@ export async function loadProjectConfig(
     : await findProjectConfig(cwd);
   const loaded = await import(pathToFileURL(configPath).href);
   const config: ProjectConfig | undefined = loaded.default;
-  if (!config || typeof config.tsconfig !== 'string') {
+  if (!config) {
     throw new Error(
-      `Expected ${configPath} to default export an SDK-IT config with a tsconfig path.`,
+      `Expected ${configPath} to default export an SDK-IT config.`,
     );
   }
   if (typeof config.name !== 'string') {
@@ -70,23 +67,15 @@ export async function loadProjectConfig(
       `Expected ${configPath} to set \`packageName\`, the npm name of the generated client package (packageName: '@acme/books-client').`,
     );
   }
+  if (!(config.openapi?.tsconfig instanceof URL)) {
+    throw new Error(
+      `Expected ${configPath} to set \`openapi\`, the backend's OpenAPI definition (the default export of its openapi.ts: defineOpenApi({ tsconfig: new URL('./tsconfig.json', import.meta.url), document })).`,
+    );
+  }
 
-  const directory = dirname(configPath);
   return {
     ...config,
-    tsconfig: resolve(directory, config.tsconfig),
-    output: resolve(directory, config.output ?? '.sdk-it'),
-    ...(config.middlewareSecurity
-      ? {
-          middlewareSecurity: config.middlewareSecurity.map((rule) => ({
-            ...rule,
-            middleware: {
-              ...rule.middleware,
-              from: resolve(directory, rule.middleware.from),
-            },
-          })),
-        }
-      : {}),
+    output: resolve(dirname(configPath), config.output ?? '.sdk-it'),
   };
 }
 
@@ -99,6 +88,7 @@ export async function initializeProject(
   await validateTsconfig(tsconfigPath);
   const projectDirectory = dirname(tsconfigPath);
   const configPath = join(projectDirectory, 'sdk-it.config.ts');
+  const definitionPath = join(projectDirectory, 'openapi.ts');
   const { directory: workspaceDirectory, manifest } =
     await findWorkspace(projectDirectory);
   const packageName = generatedPackageName(
@@ -113,15 +103,36 @@ export async function initializeProject(
   const relativeTsconfig = tsconfig.startsWith('.')
     ? tsconfig
     : `./${tsconfig}`;
+  const definitionSource = `import { defineOpenApi } from '@sdk-it/openapi';
+
+export default defineOpenApi({
+  tsconfig: new URL('${relativeTsconfig}', import.meta.url),
+  document: {
+    openapi: '3.1.0',
+    info: { title: ${quoted(options.name)}, version: '1.0.0' },
+  },
+});
+`;
   const configSource = `import { defineConfig } from '@sdk-it/cli';
 
+import openapi from './openapi.ts';
+
 export default defineConfig({
+  openapi,
   name: ${quoted(options.name)},
-  tsconfig: '${relativeTsconfig}',
   packageName: '${packageName}',
 });
 `;
 
+  const existingDefinition = await readOptionalFile(definitionPath);
+  if (
+    existingDefinition !== undefined &&
+    existingDefinition !== definitionSource
+  ) {
+    throw new Error(
+      `${definitionPath} already exists with different settings. Review it before replacing the file.`,
+    );
+  }
   const existingConfig = await readOptionalFile(configPath);
   if (existingConfig !== undefined && existingConfig !== configSource) {
     throw new Error(
@@ -163,6 +174,9 @@ export default defineConfig({
     );
   }
 
+  if (existingDefinition === undefined) {
+    await writeFile(definitionPath, definitionSource);
+  }
   if (existingConfig === undefined) {
     await writeFile(configPath, configSource);
   }

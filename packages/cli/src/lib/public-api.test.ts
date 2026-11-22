@@ -17,6 +17,7 @@ import { pathToFileURL } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
 
 import { generateProject, initializeProject } from '@sdk-it/cli';
+import type { OpenApiDefinition } from '@sdk-it/openapi';
 import { workspaceDirectory } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
@@ -180,6 +181,14 @@ test('sdk-it generate typescript refuses a --name that does not become a TypeScr
   assert.match(result.stderr, /"2024 api"/);
   assert.equal(existsSync(output), false);
 });
+
+/** The backend's OpenAPI definition for a test project's tsconfig. */
+function definitionOf(tsconfig: string): OpenApiDefinition {
+  return {
+    tsconfig: pathToFileURL(tsconfig),
+    document: { openapi: '3.1.0', info: { title: 'API', version: '1.0.0' } },
+  };
+}
 
 async function createHonoWorkspace() {
   await using pending = new AsyncDisposableStack();
@@ -351,7 +360,7 @@ test('generateProject creates a client from a Hono TypeScript project', async ()
   await generateProject({
     name: 'Books',
     packageName: '@acme/books-client',
-    tsconfig,
+    openapi: definitionOf(tsconfig),
     output,
   });
 
@@ -377,7 +386,7 @@ test('generated project client is directly importable by Node.js', async () => {
   await generateProject({
     name: 'Books',
     packageName: '@acme/books-client',
-    tsconfig: project.tsconfig,
+    openapi: definitionOf(project.tsconfig),
     output,
   });
 
@@ -409,53 +418,67 @@ test('generated project client is directly importable by Node.js', async () => {
   assert.equal(result.stdout.trim(), 'function');
 });
 
-test('loadProjectConfig finds a typed config and resolves its paths', async () => {
+test('loadProjectConfig finds a typed config above the working directory and resolves its output beside it', async () => {
   await using project = await createHonoWorkspace();
   const { path: workspace } = project;
   writeFileSync(
     join(workspace, 'sdk-it.config.ts'),
     `
 import { defineConfig } from '@sdk-it/cli';
+import { defineOpenApi } from '@sdk-it/openapi';
 
 export default defineConfig({
+  openapi: defineOpenApi({
+    tsconfig: new URL('./tsconfig.json', import.meta.url),
+    document: { openapi: '3.1.0', info: { title: 'Books', version: '1.0.0' } },
+  }),
   name: 'Books',
   packageName: '@acme/books-client',
-  tsconfig: './tsconfig.json',
-  securitySchemes: {
-    bearer: { type: 'http', scheme: 'bearer' },
-  },
-  middlewareSecurity: [{
-    middleware: { import: 'authenticate', from: './src/auth.ts' },
-    security: [{ bearer: [] }],
-  }],
 });
 `,
   );
 
   const cli = await import('@sdk-it/cli');
-  assert.equal(typeof cli.loadProjectConfig, 'function');
-
   const config = await cli.loadProjectConfig({
     cwd: join(workspace, 'src'),
   });
-  assert.deepEqual(config, {
-    name: 'Books',
-    packageName: '@acme/books-client',
-    tsconfig: join(workspace, 'tsconfig.json'),
-    output: join(workspace, '.sdk-it'),
-    securitySchemes: {
-      bearer: { type: 'http', scheme: 'bearer' },
-    },
-    middlewareSecurity: [
-      {
-        middleware: {
-          import: 'authenticate',
-          from: join(workspace, 'src/auth.ts'),
-        },
-        security: [{ bearer: [] }],
-      },
-    ],
+
+  assert.equal(
+    config.openapi.tsconfig.href,
+    pathToFileURL(join(workspace, 'tsconfig.json')).href,
+  );
+  assert.deepEqual(config.openapi.document, {
+    openapi: '3.1.0',
+    info: { title: 'Books', version: '1.0.0' },
   });
+  assert.equal(config.name, 'Books');
+  assert.equal(config.packageName, '@acme/books-client');
+  assert.equal(config.output, join(workspace, '.sdk-it'));
+});
+
+test("loadProjectConfig rejects a config without the backend's OpenAPI definition, naming it", async () => {
+  await using project = await createHonoWorkspace();
+  const { path: workspace } = project;
+  const configPath = join(workspace, 'sdk-it.config.ts');
+  writeFileSync(
+    configPath,
+    `
+export default { name: 'Books', packageName: '@acme/books-client', tsconfig: './tsconfig.json' };
+`,
+  );
+
+  const cli = await import('@sdk-it/cli');
+  await assert.rejects(
+    cli.loadProjectConfig({ cwd: workspace }),
+    (error: unknown) => {
+      assert.ok(Error.isError(error));
+      assert.ok(
+        error.message.startsWith(`Expected ${configPath} to set \`openapi\``),
+        error.message,
+      );
+      return true;
+    },
+  );
 });
 
 test('loadProjectConfig rejects a config without a client name', async () => {
@@ -465,7 +488,7 @@ test('loadProjectConfig rejects a config without a client name', async () => {
   writeFileSync(
     configPath,
     `
-export default { tsconfig: './tsconfig.json' };
+export default {};
 `,
   );
 
@@ -485,7 +508,7 @@ test('loadProjectConfig rejects a config without a package name', async () => {
   writeFileSync(
     configPath,
     `
-export default { name: 'Books', tsconfig: './tsconfig.json' };
+export default { name: 'Books' };
 `,
   );
 
@@ -507,7 +530,6 @@ test('loadProjectConfig rejects a client name that does not become a TypeScript 
 export default {
   name: '2024 api',
   packageName: '@acme/books-client',
-  tsconfig: './tsconfig.json',
 };
 `,
   );
@@ -526,11 +548,15 @@ test('sdk-it generate uses the project config through the CLI', async () => {
     join(workspace, 'sdk-it.config.ts'),
     `
 import { defineConfig } from '@sdk-it/cli';
+import { defineOpenApi } from '@sdk-it/openapi';
 
 export default defineConfig({
+  openapi: defineOpenApi({
+    tsconfig: new URL('./tsconfig.json', import.meta.url),
+    document: { openapi: '3.1.0', info: { title: 'Books', version: '1.0.0' } },
+  }),
   name: 'Books',
   packageName: '@acme/books-client',
-  tsconfig: './tsconfig.json',
 });
 `,
   );
@@ -551,11 +577,15 @@ test('sdk-it generate accepts an explicit TypeScript config path', async () => {
     join(workspace, 'backend-client.config.ts'),
     `
 import { defineConfig } from '@sdk-it/cli';
+import { defineOpenApi } from '@sdk-it/openapi';
 
 export default defineConfig({
+  openapi: defineOpenApi({
+    tsconfig: new URL('./tsconfig.json', import.meta.url),
+    document: { openapi: '3.1.0', info: { title: 'Books', version: '1.0.0' } },
+  }),
   name: 'Books',
   packageName: '@acme/books-client',
-  tsconfig: './tsconfig.json',
   output: './generated-client',
 });
 `,
@@ -650,10 +680,25 @@ app.get(
     readFileSync(join(project, 'sdk-it.config.ts'), 'utf8'),
     `import { defineConfig } from '@sdk-it/cli';
 
+import openapi from './openapi.ts';
+
 export default defineConfig({
+  openapi,
   name: 'Api',
-  tsconfig: './tsconfig.app.json',
   packageName: '@acme/api-client',
+});
+`,
+  );
+  assert.equal(
+    readFileSync(join(project, 'openapi.ts'), 'utf8'),
+    `import { defineOpenApi } from '@sdk-it/openapi';
+
+export default defineOpenApi({
+  tsconfig: new URL('./tsconfig.app.json', import.meta.url),
+  document: {
+    openapi: '3.1.0',
+    info: { title: 'Api', version: '1.0.0' },
+  },
 });
 `,
   );
@@ -807,9 +852,11 @@ test('initializeProject names the client package of a root project after an unsc
     readFileSync(join(project.path, 'sdk-it.config.ts'), 'utf8'),
     `import { defineConfig } from '@sdk-it/cli';
 
+import openapi from './openapi.ts';
+
 export default defineConfig({
+  openapi,
   name: 'Books',
-  tsconfig: './tsconfig.json',
   packageName: 'api-client',
 });
 `,
@@ -846,7 +893,7 @@ test('generateProject detects a custom Prisma client and maps Decimal to string'
   await generateProject({
     name: 'Books',
     packageName: '@acme/books-client',
-    tsconfig,
+    openapi: definitionOf(tsconfig),
     output,
   });
 
@@ -855,62 +902,6 @@ test('generateProject detects a custom Prisma client and maps Decimal to string'
     'utf8',
   );
   assert.match(generatedOutput, /'price': string/);
-});
-
-test("generateProject applies preset: 'prisma' when the client resolves", async () => {
-  await using project = await createPrismaHonoWorkspace();
-  const { output, tsconfig } = project;
-  await generateProject({
-    name: 'Books',
-    packageName: '@acme/books-client',
-    tsconfig,
-    output,
-    preset: 'prisma',
-  });
-
-  const generatedOutput = readFileSync(
-    join(output, 'src', 'outputs', 'list-books.ts'),
-    'utf8',
-  );
-  assert.match(generatedOutput, /'price': string/);
-});
-
-test("generateProject skips Prisma detection with preset: 'none'", async () => {
-  await using project = await createPrismaHonoWorkspace({
-    enumSchema: false,
-  });
-  const { output, tsconfig } = project;
-  await generateProject({
-    name: 'Books',
-    packageName: '@acme/books-client',
-    tsconfig,
-    output,
-    preset: 'none',
-  });
-
-  const generatedOutput = readFileSync(
-    join(output, 'src', 'outputs', 'list-books.ts'),
-    'utf8',
-  );
-  assert.match(generatedOutput, /'price': models\.Decimal/);
-});
-
-test("generateProject rejects preset: 'prisma' when Prisma cannot be resolved", async () => {
-  await using project = await createHonoWorkspace();
-  const { output, tsconfig } = project;
-
-  await assert.rejects(
-    generateProject({
-      name: 'Books',
-      packageName: '@acme/books-client',
-      tsconfig,
-      output,
-      preset: 'prisma',
-    }),
-    new Error(
-      `Prisma preset was requested, but no Prisma client import was found in ${tsconfig}. Run prisma generate or set preset to 'none'.`,
-    ),
-  );
 });
 
 test('initializeProject preserves repository settings and is idempotent', async () => {
@@ -945,9 +936,11 @@ test('initializeProject preserves repository settings and is idempotent', async 
     readFileSync(join(workspace, 'sdk-it.config.ts'), 'utf8'),
     `import { defineConfig } from '@sdk-it/cli';
 
+import openapi from './openapi.ts';
+
 export default defineConfig({
+  openapi,
   name: 'Books',
-  tsconfig: './tsconfig.json',
   packageName: '@acme/api-client',
 });
 `,
@@ -998,7 +991,7 @@ test('generateProject does not rewrite an unchanged client package', async () =>
   await generateProject({
     name: 'Books',
     packageName: '@acme/books-client',
-    tsconfig,
+    openapi: definitionOf(tsconfig),
     output,
   });
   const manifest = join(output, 'package.json');
@@ -1008,7 +1001,7 @@ test('generateProject does not rewrite an unchanged client package', async () =>
   await generateProject({
     name: 'Books',
     packageName: '@acme/books-client',
-    tsconfig,
+    openapi: definitionOf(tsconfig),
     output,
   });
 
@@ -1019,7 +1012,7 @@ test('generateProject does not rewrite an unchanged client package', async () =>
   await generateProject({
     name: 'Books',
     packageName: '@acme/books-client',
-    tsconfig,
+    openapi: definitionOf(tsconfig),
     output,
   });
   assert.equal(existsSync(runtimeEntry), true);
@@ -1030,7 +1023,7 @@ test('generateProject synchronizes generated package metadata on regeneration', 
   const { output, tsconfig } = project;
   await generateProject({
     name: 'Books',
-    tsconfig,
+    openapi: definitionOf(tsconfig),
     output,
     packageName: '@example/first-client',
   });
@@ -1042,7 +1035,7 @@ test('generateProject synchronizes generated package metadata on regeneration', 
 
   await generateProject({
     name: 'Books',
-    tsconfig,
+    openapi: definitionOf(tsconfig),
     output,
     packageName: '@example/second-client',
   });
@@ -1058,14 +1051,14 @@ test('generateProject regenerates the client when its name changes', async () =>
   await generateProject({
     name: 'Books',
     packageName: '@acme/books-client',
-    tsconfig,
+    openapi: definitionOf(tsconfig),
     output,
   });
 
   await generateProject({
     name: 'Library',
     packageName: '@acme/books-client',
-    tsconfig,
+    openapi: definitionOf(tsconfig),
     output,
   });
 
@@ -1087,7 +1080,7 @@ test('generateProject rejects a generated client that does not compile and does 
     generateProject({
       name: 'Books',
       packageName: '@acme/books-client',
-      tsconfig,
+      openapi: definitionOf(tsconfig),
       output,
     }),
     (error: Error) => {
@@ -1115,11 +1108,15 @@ test('sdk-it generate exits non-zero when the generated client does not compile'
     join(workspace, 'sdk-it.config.ts'),
     `
 import { defineConfig } from '@sdk-it/cli';
+import { defineOpenApi } from '@sdk-it/openapi';
 
 export default defineConfig({
+  openapi: defineOpenApi({
+    tsconfig: new URL('./tsconfig.json', import.meta.url),
+    document: { openapi: '3.1.0', info: { title: 'Books', version: '1.0.0' } },
+  }),
   name: 'Books',
   packageName: '@acme/books-client',
-  tsconfig: './tsconfig.json',
   output: ${JSON.stringify(output)},
 });
 `,

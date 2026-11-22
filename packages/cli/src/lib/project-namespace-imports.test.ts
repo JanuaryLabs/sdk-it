@@ -5,7 +5,16 @@ import { join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { generateProject } from '@sdk-it/cli';
+import type { OpenApiDefinition } from '@sdk-it/openapi';
 import { analysisWorkspace, parseErrorFor } from '@sdk-it/testing';
+
+/** The backend's OpenAPI definition for a test project's tsconfig. */
+function definitionOf(tsconfig: string): OpenApiDefinition {
+  return {
+    tsconfig: pathToFileURL(tsconfig),
+    document: { openapi: '3.1.0', info: { title: 'API', version: '1.0.0' } },
+  };
+}
 
 void test('a namespace that only a handler uses is not loaded while the project is analyzed', async () => {
   // Arrange
@@ -32,7 +41,7 @@ app.post('/greetings', validate('application/json', (payload) => ({
   await generateProject({
     name: 'Greetings',
     packageName: '@acme/greetings-client',
-    tsconfig: workspace.tsconfig,
+    openapi: definitionOf(workspace.tsconfig),
     output,
   });
 
@@ -73,7 +82,7 @@ app.post('/profiles', validate('application/json', (payload) => ({
   await generateProject({
     name: 'Profiles',
     packageName: '@acme/profiles-client',
-    tsconfig: workspace.tsconfig,
+    openapi: definitionOf(workspace.tsconfig),
     output,
   });
 
@@ -121,7 +130,7 @@ app.post('/notes', validate('application/json', (payload) => ({
   await generateProject({
     name: 'Notes',
     packageName: '@acme/notes-client',
-    tsconfig: workspace.tsconfig,
+    openapi: definitionOf(workspace.tsconfig),
     output,
   });
 
@@ -168,7 +177,7 @@ app.post('/sites', validate('application/json', (payload) => ({
   await generateProject({
     name: 'Sites',
     packageName: '@acme/sites-client',
-    tsconfig: workspace.tsconfig,
+    openapi: definitionOf(workspace.tsconfig),
     output,
   });
 
@@ -221,7 +230,7 @@ app.post('/countries', validate('application/json', (payload) => ({
   await generateProject({
     name: 'Places',
     packageName: '@acme/places-client',
-    tsconfig: workspace.tsconfig,
+    openapi: definitionOf(workspace.tsconfig),
     output,
   });
 
@@ -278,7 +287,7 @@ app.post('/patients', validate('application/json', (payload) => ({
   await generateProject({
     name: 'Patients',
     packageName: '@acme/patients-client',
-    tsconfig: workspace.tsconfig,
+    openapi: definitionOf(workspace.tsconfig),
     output,
   });
 
@@ -322,7 +331,7 @@ app.post('/patients', validate('application/json', (payload) => ({
   const generation = generateProject({
     name: 'Patients',
     packageName: '@acme/patients-client',
-    tsconfig: workspace.tsconfig,
+    openapi: definitionOf(workspace.tsconfig),
     output: join(workspace.path, '.sdk-it'),
   });
 
@@ -333,7 +342,7 @@ app.post('/patients', validate('application/json', (payload) => ({
 TypeScript reports:
 ${shown}/src/patients.route.ts(4,10): error TS2305: Module '"./db.ts"' has no exported member '$Enums'.
 ${shown}/src/db.ts(1,15): error TS2307: Cannot find module './generated/client.js' or its corresponding type declarations.
-Run the Prisma client's generate target (prisma generate) before sdk-it generate.`,
+Run the Prisma client's generate target (prisma generate).`,
   });
 });
 
@@ -408,7 +417,7 @@ app.post('/patients', validate('application/json', (payload) => ({
   const generation = generateProject({
     name: 'Patients',
     packageName: '@acme/patients-client',
-    tsconfig: join(workspace.path, 'tsconfig.app.json'),
+    openapi: definitionOf(join(workspace.path, 'tsconfig.app.json')),
     output: join(workspace.path, '.sdk-it'),
   });
 
@@ -433,7 +442,7 @@ app.post('/patients', validate('application/json', (payload) => ({
     );
     assert.ok(
       error.message.endsWith(
-        "\nRun the Prisma client's generate target (prisma generate) before sdk-it generate.",
+        "\nRun the Prisma client's generate target (prisma generate).",
       ),
       error.message,
     );
@@ -462,7 +471,7 @@ app.post('/patients', validate('application/json', (payload) => ({
   const generation = generateProject({
     name: 'Patients',
     packageName: '@acme/patients-client',
-    tsconfig: workspace.tsconfig,
+    openapi: definitionOf(workspace.tsconfig),
     output: join(workspace.path, '.sdk-it'),
   });
 
@@ -472,7 +481,7 @@ app.post('/patients', validate('application/json', (payload) => ({
     message: `${workspace.path}/src/patients.route.ts imports $Enums from './generated/client.js', which an against reads, but it does not load: Cannot find module '${workspace.path}/src/generated/client.js'
 TypeScript reports:
 ${shown}/src/patients.route.ts(4,24): error TS2307: Cannot find module './generated/client.js' or its corresponding type declarations.
-Run the Prisma client's generate target (prisma generate) before sdk-it generate.`,
+Run the Prisma client's generate target (prisma generate).`,
   });
 });
 
@@ -499,7 +508,7 @@ app.post('/patients', validate('application/json', (payload) => ({
   const generation = generateProject({
     name: 'Patients',
     packageName: '@acme/patients-client',
-    tsconfig: workspace.tsconfig,
+    openapi: definitionOf(workspace.tsconfig),
     output: join(workspace.path, '.sdk-it'),
   });
 

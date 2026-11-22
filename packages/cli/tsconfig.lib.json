@@ -21,10 +21,7 @@
       "path": "../testing/tsconfig.lib.json"
     },
     {
-      "path": "../generic/tsconfig.lib.json"
-    },
-    {
-      "path": "../hono/tsconfig.lib.json"
+      "path": "../openapi/tsconfig.lib.json"
     },
     {
       "path": "../spec/tsconfig.lib.json"
