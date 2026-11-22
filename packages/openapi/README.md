@@ -229,9 +229,10 @@ Node 26 has no built-in that produces an OpenAPI document. The `@stdlib` scope h
 
 ## Who uses what
 
-| Consumer                                         | Uses                                                                                                            |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `@sdk-it/cli`                                    | `generateDocument`; `defineConfig({ openapi, name, packageName })` takes an `OpenApiDefinition`                 |
-| `@sdk-it/content-mapper`                         | `generateDocument` for a derived document: it watches `sourceFiles`, renders the client and writes the document |
-| `@sdk-it/vite` `sdkIt.imports()`                 | the same, through content-mapper's `DerivedDocument`                                                            |
-| 15 hand-written `openapi.ts` scripts in 13 repos | replaced by an `openapi.ts` that calls `defineOpenApi`; one migration backlog item per repo                     |
+| Consumer                                         | Uses                                                                                                                                   |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `@sdk-it/cli`                                    | `generateDocument`; `defineConfig({ openapi, name, packageName })` takes an `OpenApiDefinition`                                        |
+| `@sdk-it/content-mapper`                         | `generateDocument` for a derived document, through `DerivedDocument`: it watches `sourceFiles` and renders the client, writing nothing |
+| `@sdk-it/nx` `openapi-sync`                      | the same `DerivedDocument`: the only writer of a committed derived document                                                            |
+| `@sdk-it/vite` `sdkIt.imports()`                 | the same, through content-mapper's `DerivedDocument`                                                                                   |
+| 15 hand-written `openapi.ts` scripts in 13 repos | replaced by an `openapi.ts` that calls `defineOpenApi`; one migration backlog item per repo                                            |
