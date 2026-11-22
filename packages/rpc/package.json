@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/rpc",
-  "version": "0.51.9",
+  "version": "0.51.10",
   "repository": {
     "type": "git",
     "url": "https://github.com/JanuaryLabs/sdk-it",
@@ -31,9 +31,9 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.51.9",
-    "@sdk-it/runtime": "0.51.9",
-    "@sdk-it/spec": "0.51.9",
+    "@sdk-it/core": "0.51.10",
+    "@sdk-it/runtime": "0.51.10",
+    "@sdk-it/spec": "0.51.10",
     "ai": "^7.0.162",
     "openapi3-ts": "4.6.2",
     "zod": "^4.6.7"

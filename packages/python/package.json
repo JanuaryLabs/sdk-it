@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/python",
-  "version": "0.51.9",
+  "version": "0.51.10",
   "repository": {
     "type": "git",
     "url": "https://github.com/JanuaryLabs/sdk-it",
@@ -37,9 +37,9 @@
   ],
   "dependencies": {
     "openapi3-ts": "4.6.2",
-    "@sdk-it/core": "0.51.9",
+    "@sdk-it/core": "0.51.10",
     "stringcase": "^4.3.1",
-    "@sdk-it/spec": "0.51.9"
+    "@sdk-it/spec": "0.51.10"
   },
   "devDependencies": {
     "@zukhruf/fs": "^0.8.33"
