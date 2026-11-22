@@ -22,3 +22,5 @@ Measured in the spikes:
 - The editor stalls about 0.6 s per backend save for meddit, while TypeScript holds requests during `openProject`. The user accepted this.
 - Analyses are byte-deterministic, so readers writing at once write the same bytes.
 - The document is reviewed as an API diff in each PR.
+
+Measured while building it (2026-11-22): TypeScript 7.1 resolves the import before the content mapper's `openProject` runs, so a document that does not exist on disk is TS2307 for `tsc` and the editor; the mapper cannot create it in time. The committed document is therefore required, not only a convenience: a fresh checkout has it, and any reader rewrites it from the backend.
