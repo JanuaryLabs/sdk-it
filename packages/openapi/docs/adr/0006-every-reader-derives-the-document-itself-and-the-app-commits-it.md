@@ -12,7 +12,7 @@ Every reader (the content mapper in tsc and in the editor, `sdkIt.imports()`, th
 
 The app's tsconfig names the definition (`contentMappers[].options.derived`). Each reader calls `generateDocument`, renders the client from the result, watches `sourceFiles`, and rewrites the committed document when its bytes differ, through a temp file and a rename. Vite and Node find the declaration by walking up from the document to the tsconfig that names it.
 
-The mapper declares `dynamicConfig`: `openProject` returns the source files as `watchedFiles` and a hash of the documents as `configIdentity`. It reports an option diagnostic when the app does not depend on the backend's package. That dependency is the Nx edge that keeps the app's cached targets current.
+The mapper declares `dynamicConfig`: `openProject` returns the source files as `watchedFiles` and a hash of the documents as `configIdentity`. In an Nx workspace, it reports an option diagnostic (`sdk-it5`) when the app's project has no edge to the backend's project. That edge keeps the app's cached targets and `nx affected` current. The app imports none of the backend's code, so the edge is an `implicitDependencies` entry. A dependency on the backend's package is an edge too, but it makes `@nx/dependency-checks` demand the backend's packages in a bundled app (meddit, 2026-11-22).
 
 ## Consequences
 
