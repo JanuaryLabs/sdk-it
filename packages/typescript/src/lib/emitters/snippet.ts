@@ -115,11 +115,37 @@ export class SnippetEmitter {
       value = schema.maximum;
     }
 
-    if (
-      typeof schema.multipleOf === 'number' &&
-      value % schema.multipleOf !== 0
-    ) {
-      value = Math.floor(value / schema.multipleOf) * schema.multipleOf;
+    const step = schema.multipleOf;
+    if (typeof step === 'number' && step > 0) {
+      // Counted in steps, since 0.7 / 0.001 is 699.9999999999999 and
+      // 700 * 0.001 is 0.7000000000000001: a quotient within rounding of a
+      // whole number is that number, and a multiple prints at the step's
+      // decimal places.
+      const [mantissa = '', exponent = '0'] = String(step).split('e');
+      const decimals = Math.max(
+        0,
+        (mantissa.split('.')[1]?.length ?? 0) - Number(exponent),
+      );
+      const steps = (bound: number) => {
+        const quotient = bound / step;
+        const whole = Math.round(quotient);
+        return Math.abs(quotient - whole) < 1e-9 ? whole : quotient;
+      };
+      const multiple = (count: number) =>
+        Number((count * step).toFixed(decimals));
+      let count = Math.ceil(steps(value));
+      if (
+        typeof schema.exclusiveMaximum === 'number' &&
+        multiple(count) >= schema.exclusiveMaximum
+      ) {
+        count = Math.ceil(steps(schema.exclusiveMaximum)) - 1;
+      } else if (
+        typeof schema.maximum === 'number' &&
+        multiple(count) > schema.maximum
+      ) {
+        count = Math.floor(steps(schema.maximum));
+      }
+      value = multiple(count);
     }
 
     return schema.type === 'integer' ? Math.floor(value) : value;

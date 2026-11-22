@@ -553,3 +553,102 @@ test('the README request snippet gives an optional const property its value', as
 
   assert.match(usage, /^ {2}"flag": false,$/m);
 });
+
+test("the README request example sends numbers that are multiples of their schema's multipleOf, within its bounds", async () => {
+  await using workspace = await workspaceDirectory('readme-multiple-of-');
+  await generate(
+    {
+      openapi: '3.1.0',
+      info: { title: 'Doses', version: '1.0.0' },
+      servers: [{ url: 'https://api.example.com' }],
+      paths: {
+        '/doses': {
+          post: {
+            operationId: 'recordDose',
+            requestBody: {
+              required: true,
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    required: [
+                      'dose',
+                      'ratio',
+                      'tablets',
+                      'cap',
+                      'boxes',
+                      'strength',
+                    ],
+                    properties: {
+                      dose: { type: 'number', minimum: 0.7, multipleOf: 0.001 },
+                      ratio: {
+                        type: 'number',
+                        exclusiveMinimum: 0,
+                        multipleOf: 0.001,
+                      },
+                      tablets: { type: 'integer', minimum: 3, multipleOf: 5 },
+                      cap: { type: 'number', maximum: 0.95, multipleOf: 0.1 },
+                      boxes: {
+                        type: 'integer',
+                        exclusiveMaximum: 10,
+                        multipleOf: 4,
+                      },
+                      strength: {
+                        type: 'number',
+                        exclusiveMaximum: 4.2,
+                        multipleOf: 1.4,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            responses: {
+              '201': {
+                description: 'The dose as recorded',
+                content: { 'application/json': { schema: { type: 'object' } } },
+              },
+            },
+          },
+        },
+      },
+    },
+    {
+      output: workspace.path,
+      name: 'Doses',
+      packageName: '@acme/doses',
+      readme: true,
+      mode: 'full',
+    },
+  );
+  const readme = await readFile(join(workspace.path, 'README.md'), 'utf8');
+  const [request] = readme.match(
+    /^const result = await doses\.request\('POST \/doses', [\s\S]*?\);$/m,
+  ) ?? [''];
+  const script = join(workspace.path, 'src', 'record-dose.ts');
+  await writeFile(
+    script,
+    `import { createDoses } from './index.ts';
+const doses = createDoses({
+  baseUrl: 'https://api.example.com',
+  fetch: async (request) => Response.json(await request.json(), { status: 201 }),
+});
+${request}
+console.log(JSON.stringify(result));
+`,
+  );
+
+  const { exitCode, stdout, stderr } = await runNode([script]);
+
+  // The client validates the body with zod's own multipleOf and bounds
+  // before it calls fetch, so a zero exit means it accepted the example.
+  assert.equal(exitCode, 0, stderr);
+  assert.deepStrictEqual(JSON.parse(stdout), {
+    dose: 0.7,
+    ratio: 1,
+    tablets: 5,
+    cap: 0.9,
+    boxes: 8,
+    strength: 2.8,
+  });
+});
