@@ -397,3 +397,54 @@ test("a document's module loads by its own URL, which a module from Vitest's fil
     path: '/pets/p1',
   });
 });
+
+test('the dev server runs the SDK of a document imported through a package.json subpath import (#store)', async () => {
+  await using pets = await petServer('Rex');
+  await using app = await workspaceDirectory('vite-imports-subpath-');
+  await writeFile(
+    join(app.path, 'package.json'),
+    JSON.stringify({
+      name: 'app',
+      type: 'module',
+      imports: { '#store': './store.openapi.yaml' },
+    }),
+  );
+  await writeFile(
+    join(app.path, 'store.openapi.yaml'),
+    storeDocument(pets.origin),
+  );
+  await writeFile(
+    join(app.path, 'main.ts'),
+    main.replace("'./store.openapi.yaml'", "'#store'"),
+  );
+  await using server = await devServer(app.path);
+
+  const { getPet } = await server.ssrLoadModule('/main.ts');
+
+  assert.deepEqual(await getPet('p1'), { name: 'Rex', path: '/pets/p1' });
+});
+
+test('a subpath import of a module that is not a document loads that module unchanged', async () => {
+  await using app = await workspaceDirectory('vite-imports-subpath-module-');
+  await writeFile(
+    join(app.path, 'package.json'),
+    JSON.stringify({
+      name: 'app',
+      type: 'module',
+      imports: { '#greeting': './greeting.ts' },
+    }),
+  );
+  await writeFile(
+    join(app.path, 'greeting.ts'),
+    "export const greeting: string = 'hello';\n",
+  );
+  await writeFile(
+    join(app.path, 'main.ts'),
+    "export { greeting } from '#greeting';\n",
+  );
+  await using server = await devServer(app.path);
+
+  const { greeting } = await server.ssrLoadModule('/main.ts');
+
+  assert.equal(greeting, 'hello');
+});

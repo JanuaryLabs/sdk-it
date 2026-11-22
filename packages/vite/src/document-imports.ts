@@ -46,12 +46,17 @@ export class DocumentImports {
       }),
       async resolveId(source, importer, options) {
         const document = documentOf(source);
-        if (document === undefined) return null;
-        const resolved = await this.resolve(document, importer, {
+        // A package.json subpath import (`#store`) names the document by its
+        // alias, so only its resolution shows that it is a document.
+        const subpath = document === undefined && source.startsWith('#');
+        if (document === undefined && !subpath) return null;
+        const resolved = await this.resolve(document ?? source, importer, {
           ...options,
           skipSelf: true,
         });
-        return resolved && !resolved.external ? `${resolved.id}.ts` : null;
+        if (!resolved || resolved.external) return null;
+        if (subpath && !isDocument(resolved.id)) return resolved;
+        return `${resolved.id}.ts`;
       },
       load: loadDocument,
       // A change to a file the document references reloads the module through
