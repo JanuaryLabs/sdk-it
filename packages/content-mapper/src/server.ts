@@ -2,7 +2,7 @@ import { hash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { type OptionDiagnostic, runContentMapper } from 'ts-content-mapper';
 
-import { DerivedDocuments } from './derived-documents.js';
+import { type Derivation, declaredIn } from './derived-document.js';
 import { nxEdge } from './nx-edge.js';
 import { DiagnosticCode } from './render-document.js';
 import { transform } from './transform.js';
@@ -12,16 +12,22 @@ interface Options {
   derived?: Record<string, string>;
 }
 
-runContentMapper<Options, DerivedDocuments>({
+/** Each derived document of the project, as its last derivation left it. */
+type Derivations = ReadonlyMap<string, Derivation>;
+
+runContentMapper<Options, Derivations>({
   diagnosticSource: 'sdk-it',
-  // Each derived document is generated from its backend before TypeScript
-  // reads it; an edit to a file the analysis read opens the project again.
+  // Each derived document is derived from its backend when the project opens,
+  // in memory: the committed file is never written. An edit to a file the
+  // analysis read opens the project again.
   openProject: async ({ configFileName, options }) => {
     const directory = dirname(configFileName);
     const derived = options?.derived ?? {};
-    const project = new DerivedDocuments(directory, derived);
-    await project.refreshAll();
-    const states = project.documents.map((document) => project.state(document));
+    const project = new Map<string, Derivation>();
+    for (const document of declaredIn(directory, derived)) {
+      project.set(document.path, await document.derive());
+    }
+    const states = [...project.values()];
     const optionDiagnostics: OptionDiagnostic[] = [];
     const edgeFiles: string[] = [];
     for (const [document, definition] of Object.entries(derived)) {
@@ -38,16 +44,13 @@ runContentMapper<Options, DerivedDocuments>({
     return {
       project,
       watchedFiles: [
-        ...new Set([
-          ...states.flatMap((state) => state?.watched ?? []),
-          ...edgeFiles,
-        ]),
+        ...new Set([...states.flatMap((state) => state.sources), ...edgeFiles]),
       ],
       configIdentity: hash(
         'sha256',
         JSON.stringify([
           states.map((state) =>
-            state?.kind === 'document' ? state.text : state?.message,
+            state.kind === 'derived' ? state.text : state.message,
           ),
           optionDiagnostics.map((diagnostic) => diagnostic.messageText),
         ]),
@@ -56,7 +59,7 @@ runContentMapper<Options, DerivedDocuments>({
     };
   },
   transform: ({ fileName, content }, context) => {
-    const state = context.project.state(fileName);
+    const state = context.project.get(fileName);
     if (state?.kind === 'failed') {
       return {
         text: 'export {};\n',
@@ -73,8 +76,9 @@ runContentMapper<Options, DerivedDocuments>({
     }
     return transform(
       fileName,
-      state?.kind === 'document' ? state.text : content,
+      content,
       context.positionEncoding,
+      state?.kind === 'derived' ? state.text : content,
     );
   },
 });

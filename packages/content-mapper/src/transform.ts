@@ -7,7 +7,7 @@ import {
   stringIndexToPosition,
 } from 'ts-content-mapper';
 
-import { type DocumentDiagnostic, renderDocument } from './render-document.js';
+import { type DocumentDiagnostic, renderLocatedIn } from './render-document.js';
 
 const navigation =
   SpanMapFeature.Definition |
@@ -20,13 +20,16 @@ const navigation =
  * The content mapper's answer for the OpenAPI document `content`, the text of
  * `fileName`: its SDK module with each name mapped to the document, or an
  * empty module, and the document's diagnostics, in the negotiated encoding.
+ * A derived document renders from `derived`, what its backend produces now,
+ * and maps into `content`, the bytes the committed file holds.
  */
 export async function transform(
   fileName: string,
   content: string,
   encoding: PositionEncoding,
+  derived: string = content,
 ): Promise<TransformResult> {
-  const rendered = await renderDocument(fileName, content);
+  const rendered = await renderLocatedIn(fileName, derived, content);
   const diagnostics = rendered.diagnostics.map((diagnostic) =>
     encode(content, encoding, diagnostic),
   );

@@ -5,7 +5,7 @@ import { type Document, parseDocument } from 'yaml';
 import { Documents, SpecLoader, UnresolvedReferenceError } from '@sdk-it/spec';
 import { renderModule } from '@sdk-it/typescript';
 
-import { derivedDocumentsOf } from './derived-declaration.js';
+import { DerivedDocument } from './derived-document.js';
 import { type Range, locate } from './locate.js';
 
 export type { Range } from './locate.js';
@@ -75,7 +75,23 @@ export async function renderDocument(
   fileName: string,
   content: string,
 ): Promise<RenderedDocument> {
+  return renderLocatedIn(fileName, content, content);
+}
+
+/**
+ * Renders the document `content`, with each mapping at its place in
+ * `located`. A derived document renders from what its backend produces now,
+ * while TypeScript maps into the bytes the committed file holds, which differ
+ * when it is stale: a name the committed copy does not declare gets no
+ * mapping, rather than one past its end.
+ */
+export async function renderLocatedIn(
+  fileName: string,
+  content: string,
+  located: string,
+): Promise<RenderedDocument> {
   const document = parseDocument(content);
+  const locations = located === content ? document : parseDocument(located);
   const yamlErrors = document.errors.map((error) =>
     diagnostic(content, DiagnosticCode.Yaml, error.message, {
       start: error.pos[0],
@@ -117,7 +133,7 @@ export async function renderDocument(
   let cursor = 0;
   for (const span of module.spans.toSorted((a, b) => a.start - b.start)) {
     const original =
-      span.start >= cursor ? locate(document, span.location) : undefined;
+      span.start >= cursor ? locate(locations, span.location) : undefined;
     if (original) {
       mappings.push({
         generated: { start: span.start, end: span.end },
@@ -169,7 +185,7 @@ function reason(error: unknown) {
 /**
  * What an import of `fileName` renders to. A document that a tsconfig derives
  * from a backend (`contentMappers[].options.derived`) is generated from the
- * backend first, its committed file rewritten when it changed, and its
+ * backend first, in memory (the committed file is never written), and its
  * `documents` include every file the analysis read, so a host that watches
  * them reloads on a backend edit; any other document renders as written.
  */
@@ -177,12 +193,12 @@ export async function renderImport(
   fileName: string,
   content: string,
 ): Promise<RenderedDocument> {
-  const derived = await derivedDocumentsOf(fileName);
+  const derived = await DerivedDocument.at(fileName);
   if (!derived) {
     return renderDocument(fileName, content);
   }
-  const state = await derived.refresh(fileName);
-  const watched = state.watched.map((file) => pathToFileURL(file).href);
+  const state = await derived.derive();
+  const watched = state.sources.map((file) => pathToFileURL(file).href);
   if (state.kind === 'failed') {
     return {
       kind: 'failed',
