@@ -62,7 +62,8 @@
           "@sdk-it/rpc",
           "@sdk-it/runtime",
           "@sdk-it/content-mapper",
-          "@sdk-it/openapi"
+          "@sdk-it/openapi",
+          "@sdk-it/nx"
         ]
       },
       "cache": true,

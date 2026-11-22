@@ -52,6 +52,9 @@
       "path": "./packages/openapi"
     },
     {
+      "path": "./packages/nx"
+    },
+    {
       "path": "./packages/testing"
     }
   ]

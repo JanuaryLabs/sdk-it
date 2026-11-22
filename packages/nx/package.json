@@ -1,0 +1,35 @@
+{
+  "name": "@sdk-it/nx",
+  "version": "0.51.10",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JanuaryLabs/sdk-it",
+    "directory": "packages/nx"
+  },
+  "homepage": "https://github.com/JanuaryLabs/sdk-it/tree/main/packages/nx#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "generators": "./generators.json",
+  "exports": {
+    "./package.json": "./package.json",
+    "./generators.json": "./generators.json"
+  },
+  "files": [
+    "dist",
+    "generators.json",
+    "schema.json",
+    "!**/*.tsbuildinfo",
+    "!**/*.test.*"
+  ],
+  "dependencies": {
+    "@sdk-it/content-mapper": "0.51.10"
+  },
+  "peerDependencies": {
+    "@nx/devkit": ">=23.0.0"
+  },
+  "devDependencies": {
+    "@sdk-it/testing": "*"
+  }
+}

@@ -1,6 +1,6 @@
 # A backend that does not analyze fails the sync
 
-Status: proposed (#5158)
+Status: accepted (user, 2026-11-22, #5158)
 
 ## Context
 

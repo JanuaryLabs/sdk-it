@@ -1,6 +1,6 @@
 # The sync generator is the only writer of a derived document
 
-Status: proposed (#5158)
+Status: accepted (user, 2026-11-22, #5158)
 
 ## Context
 

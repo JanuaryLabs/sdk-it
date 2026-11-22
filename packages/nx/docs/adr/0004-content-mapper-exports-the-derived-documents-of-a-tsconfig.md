@@ -1,6 +1,6 @@
 # The content mapper exports DerivedDocument, a document derived from a definition
 
-Status: proposed (#5158)
+Status: accepted (user, 2026-11-22, #5158)
 
 ## Context
 

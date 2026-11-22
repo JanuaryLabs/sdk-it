@@ -1,6 +1,6 @@
 # It is a global sync generator, so no task waits for an analysis
 
-Status: proposed (#5158)
+Status: accepted (user, 2026-11-22, #5158)
 
 ## Context
 
@@ -14,4 +14,4 @@ The workspace registers `@sdk-it/nx:openapi-sync` in `sync.globalGenerators`, no
 
 - `nx run` never pays for an analysis, and never stops because a document is stale.
 - The document is fresh where it matters: at commit (the hook's `nx sync`) and in CI (`nx sync:check`).
-- With the Nx daemon on, Nx also runs global generators in the background after each project-graph recompute (`daemon/server/sync-generators.js:97-117`). Whether that costs enough to need a memo (skip the analysis when no file it read changed) is measured after the first build, not assumed.
+- With the Nx daemon on, Nx also runs global generators in the background after each project-graph recompute (`daemon/server/sync-generators.js:69-117`, registered at `daemon/server/server.js:477`). Every save runs one: in a one-route workspace, 85-94 ms per save after a first run of 253 ms, with the daemon's memory flat (214 to 227 MB over three saves; measured 2026-11-22 on Nx 24.0.3). On meddit's backend that is one 0.56-0.76 s analysis per save. The run writes nothing (the daemon keeps its changes in memory until `nx sync` asks for them) and blocks no command. The commit hook (`NX_DAEMON=false`) and CI (no daemon) always derive afresh. So the generator keeps no memo. A memo keyed by the files an analysis read would miss a change outside them, such as a dependency in `node_modules`, and answer "fresh" for a stale document.

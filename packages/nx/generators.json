@@ -1,0 +1,10 @@
+{
+  "generators": {
+    "openapi-sync": {
+      "factory": "./dist/index.js",
+      "schema": "./schema.json",
+      "description": "Writes each committed derived OpenAPI document that a tsconfig's contentMappers[].options.derived declares, from its backend",
+      "hidden": true
+    }
+  }
+}
