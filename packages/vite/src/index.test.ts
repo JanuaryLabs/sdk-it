@@ -34,6 +34,7 @@ function serveWith(plugin: Plugin, root: string) {
   return createServer({
     configFile: false,
     root,
+    cacheDir: join(root, '.vite'),
     logLevel: 'silent',
     plugins: [plugin],
   });
@@ -282,6 +283,7 @@ app.get(
     const server = await createServer({
       configFile: false,
       root,
+      cacheDir: join(root, '.vite'),
       logLevel: 'silent',
       server: { middlewareMode: true },
       plugins: [plugin],

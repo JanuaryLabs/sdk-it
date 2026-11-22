@@ -86,6 +86,7 @@ test(
     const created = await createServer({
       configFile: false,
       root: app.path,
+      cacheDir: join(app.path, '.vite'),
       logLevel: 'silent',
       appType: 'custom',
       server: { middlewareMode: true, ws: false },

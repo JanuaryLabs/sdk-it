@@ -98,6 +98,7 @@ test('the dev server logs a failed regeneration with its error to stderr', async
   const server = await createServer({
     configFile: false,
     root: app,
+    cacheDir: join(app, '.vite'),
     logLevel: 'silent',
     server: { middlewareMode: true },
     plugins: [

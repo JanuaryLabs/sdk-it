@@ -50,6 +50,7 @@ async function devServer(root: string) {
   const server = await createServer({
     configFile: false,
     root,
+    cacheDir: join(root, '.vite'),
     logLevel: 'silent',
     appType: 'custom',
     server: { middlewareMode: true, ws: false },
