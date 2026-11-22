@@ -1,7 +1,7 @@
 import { waitFor } from '@zukhruf/testing/async';
 import { HttpServer } from '@zukhruf/testing/http';
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
@@ -344,7 +344,7 @@ app.get('${path}', validate(() => ({})), (c) => c.json([{ id: 'b1' }]));
 `;
 }
 
-test("the dev server runs a derived document's client, generated from the backend its tsconfig names", async () => {
+test("the dev server runs a derived document's client, generated from the backend its tsconfig names, and leaves the committed document as committed", async () => {
   await using app = await workspaceDirectory('vite-derived-');
   await derivedWorkspace(app.path, '/books');
   await using server = await devServer(join(app.path, 'web'));
@@ -352,6 +352,11 @@ test("the dev server runs a derived document's client, generated from the backen
   const { call } = await server.ssrLoadModule('/main.ts');
 
   assert.deepEqual(await call('GET /books'), { path: '/books' });
+  assert.equal(
+    await readFile(join(app.path, 'web/backend.openapi'), 'utf8'),
+    '{}\n',
+    'A reader derives the document in memory and writes nothing',
+  );
 });
 
 test(
