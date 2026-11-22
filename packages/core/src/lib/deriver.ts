@@ -71,8 +71,20 @@ const maxComponentNameLength = 64;
  */
 type LiteralWidening = 'none' | 'values' | 'all';
 
+/** JSON.stringify writes a Set or a Map as {}, whatever it holds. */
+const emptyObject: SchemaObject = {
+  type: 'object',
+  properties: {},
+  required: [],
+  additionalProperties: false,
+};
+
 /** The JSON Schema each of these types stands for, under any mappings a caller adds. */
 const defaultTypes: Readonly<Record<string, SchemaObject>> = {
+  Set: emptyObject,
+  ReadonlySet: emptyObject,
+  Map: emptyObject,
+  ReadonlyMap: emptyObject,
   Readable: {},
   ReadableStream: {},
   DateConstructor: { type: 'string' },
@@ -188,6 +200,15 @@ export class TypeDeriver {
       type.getCallSignatures().length > 0 ||
       type.getConstructSignatures().length > 0
     );
+  }
+
+  /**
+   * A member keyed by a symbol, such as [Symbol.toStringTag], which
+   * JSON.stringify skips. TypeScript names it __@<name>@<id>, and escapes a
+   * string key that starts with __ to ___, so the prefix is exact.
+   */
+  private keyedBySymbol(property: TsSymbol): boolean {
+    return property.escapedName.startsWith('__@');
   }
 
   /**
@@ -590,7 +611,10 @@ export class TypeDeriver {
         const properties: Record<string, unknown> = {};
         for (const property of this.checker.getPropertiesOfType(type)) {
           const propertyType = this.checker.getTypeOfSymbol(property);
-          if (!this.hasNoJsonForm(propertyType)) {
+          if (
+            !this.keyedBySymbol(property) &&
+            !this.hasNoJsonForm(propertyType)
+          ) {
             properties[property.name] = this.serializeType(propertyType);
           }
         }
@@ -610,7 +634,9 @@ export class TypeDeriver {
       const properties = this.checker
         .getPropertiesOfType(type)
         .filter(
-          (prop) => !this.hasNoJsonForm(this.checker.getTypeOfSymbol(prop)),
+          (prop) =>
+            !this.keyedBySymbol(prop) &&
+            !this.hasNoJsonForm(this.checker.getTypeOfSymbol(prop)),
         );
       if (properties.length > 0) {
         const serializedProps: Record<string, any> = {};
@@ -842,7 +868,11 @@ export class TypeDeriver {
       }
 
       for (const symbol of symbolType.getProperties()) {
-        if (!Object.hasOwn(props, symbol.name) && !dropped.has(symbol.name)) {
+        if (
+          !this.keyedBySymbol(symbol) &&
+          !Object.hasOwn(props, symbol.name) &&
+          !dropped.has(symbol.name)
+        ) {
           const type = this.checker.getTypeOfSymbol(symbol);
           if (!this.hasNoJsonForm(type)) {
             props[symbol.name] = this.serializeType(type);

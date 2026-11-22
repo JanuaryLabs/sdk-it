@@ -696,6 +696,105 @@ export {};
     );
   });
 
+  test('a Set or a Map is sent as {}, as JSON.stringify writes it, so it documents an object with no properties', async () => {
+    const emptyObject = {
+      type: 'object',
+      properties: {},
+      required: [],
+      additionalProperties: false,
+    };
+    const { paths, components } = await analyzeWorkspace({
+      'index.ts': `
+const app = { get: (..._args: unknown[]) => undefined };
+const output = { json: (value: unknown) => value };
+const validate = (selector: unknown) => selector;
+declare function load(): {
+  tags: Set<string>;
+  counts: Map<string, number>;
+  seen: ReadonlySet<string>;
+  index: ReadonlyMap<string, number>;
+};
+app.get('/x', validate(() => ({})), () => {
+  return output.json(load());
+});
+export {};
+`,
+    });
+
+    assert.deepStrictEqual(
+      paths['/x'].get.responses,
+      jsonResponse({
+        type: 'object',
+        properties: {
+          counts: emptyObject,
+          index: emptyObject,
+          seen: emptyObject,
+          tags: emptyObject,
+        },
+        required: ['counts', 'index', 'seen', 'tags'],
+        additionalProperties: false,
+      }),
+    );
+    assert.deepStrictEqual(components.schemas ?? {}, {});
+  });
+
+  test('a member keyed by a symbol has no JSON form, so a response documents only its string-keyed members', async () => {
+    const { paths, components } = await analyzeWorkspace({
+      'index.ts': `
+const app = { get: (..._args: unknown[]) => undefined };
+const output = { json: (value: unknown) => value };
+const validate = (selector: unknown) => selector;
+interface Tagged {
+  [Symbol.toStringTag]: string;
+  __typename: 'Tagged';
+  name: string;
+}
+declare function tagged(): Tagged;
+declare function inline(): { [Symbol.toStringTag]: string; name: string };
+app.get('/x', validate(() => ({})), () => {
+  return output.json({ tagged: tagged(), inline: inline() });
+});
+app.get('/y', validate(() => ({})), () => {
+  return output.json({
+    name: 'n',
+    get [Symbol.toStringTag]() {
+      return 'Literal';
+    },
+  });
+});
+export {};
+`,
+    });
+
+    const body =
+      paths['/x'].get.responses['200'].content['application/json'].schema;
+    const named = {
+      type: 'object',
+      properties: { name: { type: 'string' } },
+      required: ['name'],
+      additionalProperties: false,
+    };
+    assert.deepStrictEqual(components.schemas?.Tagged, {
+      type: 'object',
+      properties: {
+        __typename: { type: 'string', enum: ['Tagged'] },
+        name: { type: 'string' },
+      },
+      required: ['__typename', 'name'],
+      additionalProperties: false,
+    });
+    assert.deepStrictEqual(body.properties.inline, named);
+    assert.deepStrictEqual(
+      paths['/y'].get.responses,
+      jsonResponse({
+        type: 'object',
+        properties: { name: { type: 'string', enum: ['n'] } },
+        required: ['name'],
+        additionalProperties: false,
+      }),
+    );
+  });
+
   test('an expression the deriver has no branch for, such as !flag, documents the type the checker gives it', async () => {
     const { paths } = await analyzeWorkspace({
       'index.ts': `
