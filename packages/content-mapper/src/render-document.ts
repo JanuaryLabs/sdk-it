@@ -17,6 +17,8 @@ export const DiagnosticCode = {
   Load: 2,
   /** The SDK cannot be rendered from the spec. */
   Render: 3,
+  /** A derived document's backend does not analyze. */
+  Analysis: 4,
 } as const;
 
 type Code = (typeof DiagnosticCode)[keyof typeof DiagnosticCode];

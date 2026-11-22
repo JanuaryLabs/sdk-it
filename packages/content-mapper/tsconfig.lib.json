@@ -12,6 +12,9 @@
   "exclude": ["src/**/*.test.ts"],
   "references": [
     {
+      "path": "../openapi/tsconfig.lib.json"
+    },
+    {
       "path": "../spec/tsconfig.lib.json"
     },
     {
