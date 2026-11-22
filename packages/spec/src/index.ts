@@ -14,6 +14,7 @@ export * from './lib/documents/errors.js';
 export * from './lib/loaders/load-spec.js';
 export * from './lib/loaders/spec-loader.js';
 export * from './lib/metadata.js';
+export * from './lib/null-schema.js';
 export * from './lib/operation-input.js';
 export * from './lib/options.js';
 export * from './lib/processing-plugins/index.js';

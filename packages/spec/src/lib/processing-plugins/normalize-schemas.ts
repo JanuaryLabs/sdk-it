@@ -12,6 +12,7 @@ import { findVarients } from '../find-polymorphic-varients.js';
 import { formatName } from '../format-name.js';
 import { isPrimitiveSchema } from '../is-primitive-schema.js';
 import { coerceTypes } from '../is.js';
+import { isNullSchema } from '../null-schema.js';
 import type { IRPlugin } from '../processing.js';
 import type { IR } from '../types.js';
 
@@ -237,7 +238,7 @@ function normalizeSchemaObjects(
           );
         }
         const otherTypes = schema[kind].filter(
-          (item) => resolveRef<SchemaObject>(spec, item).type !== 'null',
+          (item) => !isNullSchema(spec, item),
         );
         const [only] = otherTypes;
         const droppedNull = otherTypes.length !== schema[kind].length;
