@@ -7,7 +7,7 @@ import {
   operationInputs,
 } from '@sdk-it/spec';
 
-import { type EmittedZod, ZodEmitter } from './emitters/zod.ts';
+import { type SharedZod, ZodEmitter } from './emitters/zod.ts';
 import { groupIdentifier } from './group-identifier.ts';
 import { inputSchemaName } from './input-schema-name.ts';
 import type { ModelNamer } from './model-name.ts';
@@ -32,7 +32,7 @@ export function operationFragments(config: {
   /** How endpoint entries name what they use. */
   endpointRefs: References;
 }) {
-  const commonZod = new Map<string, EmittedZod>();
+  const commonZod = new Map<string, SharedZod>();
   const zodDeserialzer = new ZodEmitter(
     config.spec,
     config.modelName,

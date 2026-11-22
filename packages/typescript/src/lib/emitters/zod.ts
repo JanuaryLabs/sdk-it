@@ -13,6 +13,7 @@ import {
 
 import type { ModelNamer } from '../model-name.ts';
 import type { References } from '../references.ts';
+import { TypeScriptEmitter } from './interface.ts';
 import { annotationDoc } from './jsdoc.ts';
 
 /** Zod source and the shared schemas it names. */
@@ -22,7 +23,12 @@ export interface EmittedZod {
   references: ReadonlySet<string>;
 }
 
-type OnRefCallback = (ref: string, schema: EmittedZod) => void;
+/** A shared schema's zod source, after the TypeScript types it names. */
+export interface SharedZod extends EmittedZod {
+  types: readonly string[];
+}
+
+type OnRefCallback = (ref: string, schema: SharedZod) => void;
 
 /**
  * Convert an OpenAPI (JSON Schema style) object into a Zod schema string,
@@ -47,7 +53,7 @@ export class ZodEmitter {
    * Inlined components met while a shared schema is being emitted: their
    * consts read schemas that are declared only once `#inProgress` empties.
    */
-  #waiting: [string, EmittedZod][] = [];
+  #waiting: [string, SharedZod][] = [];
 
   constructor(
     spec: IR,
@@ -167,9 +173,9 @@ export class ZodEmitter {
         this.#references.at(-1)?.add(name);
       }
       if (this.#inProgress.size) {
-        this.#waiting.push([schemaName, inlined]);
+        this.#waiting.push([schemaName, { ...inlined, types: [] }]);
       } else {
-        this.#onRef?.(schemaName, inlined);
+        this.#onRef?.(schemaName, { ...inlined, types: [] });
       }
       return inlined.zod;
     }
@@ -192,16 +198,21 @@ export class ZodEmitter {
       this.#backEdges.pop();
       this.#inProgress.delete(schemaName);
     }
-    const modelType = this.#refs.model(schemaName);
-    // A schema that reaches itself through no object property (an array, a
-    // record or a union of itself) is read only when it validates, and its
-    // model type names what TypeScript cannot infer from its own initializer.
-    this.#onRef?.(schemaName, {
-      zod: backEdges.size
-        ? `z.lazy((): z.ZodType<${modelType}, ${modelType}> => ${body.zod})`
-        : body.zod,
-      references: body.references,
-    });
+    if (backEdges.size) {
+      // A schema that reaches itself through no object property (an array, a
+      // record or a union of itself) is read only when it validates, and
+      // TypeScript cannot infer its type from its own initializer, so it is
+      // annotated with its request side, the side zod infers for every input.
+      const output = this.#requestType(schemaName, schema, required, 'output');
+      const input = this.#requestType(schemaName, schema, required, 'input');
+      this.#onRef?.(schemaName, {
+        zod: `z.lazy((): z.ZodType<${output.name}, ${input.name}> => ${body.zod})`,
+        references: body.references,
+        types: [output.declaration, input.declaration],
+      });
+    } else {
+      this.#onRef?.(schemaName, { ...body, types: [] });
+    }
     if (!this.#inProgress.size) {
       for (const [name, inlined] of this.#waiting.splice(0)) {
         this.#onRef?.(name, inlined);
@@ -209,6 +220,30 @@ export class ZodEmitter {
     }
 
     return schemaName;
+  }
+
+  /**
+   * The request-side type of the shared schema `schemaName`: it names itself,
+   * and reads each other shared schema's type from its zod const.
+   */
+  #requestType(
+    schemaName: string,
+    schema: SchemaObject,
+    required: boolean,
+    side: 'input' | 'output',
+  ) {
+    const name = `${schemaName}$${side === 'input' ? 'Input' : 'Output'}`;
+    const type = new TypeScriptEmitter(
+      this.#spec,
+      this.#modelName,
+      {
+        ...this.#refs,
+        model: (typeName) =>
+          typeName === schemaName ? name : `z.${side}<typeof ${typeName}>`,
+      },
+      'request',
+    ).handle(schema, required);
+    return { name, declaration: `type ${name} = ${type};` };
   }
 
   /** `schema` as zod source, with the shared schemas that source references. */

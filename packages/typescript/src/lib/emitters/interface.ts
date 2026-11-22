@@ -17,11 +17,18 @@ export class TypeScriptEmitter {
   #spec: IR;
   #modelName: ModelNamer;
   #refs: References;
+  #side: 'request' | 'response';
 
-  constructor(spec: IR, modelName: ModelNamer, refs: References) {
+  constructor(
+    spec: IR,
+    modelName: ModelNamer,
+    refs: References,
+    side: 'request' | 'response',
+  ) {
     this.#spec = spec;
     this.#modelName = modelName;
     this.#refs = refs;
+    this.#side = side;
   }
   #stringifyKey = (value: string): string => {
     return `'${value}'`;
@@ -30,7 +37,7 @@ export class TypeScriptEmitter {
   object(schema: SchemaObject, _required = false): string {
     const properties = schema.properties || {};
 
-    const required = requiredOn(schema, this.#spec, 'response');
+    const required = requiredOn(schema, this.#spec, this.#side);
     const propEntries = Object.entries(properties).map(([key, propSchema]) => {
       const isRequired = required.includes(key);
       const tsType = this.handle(propSchema, isRequired);

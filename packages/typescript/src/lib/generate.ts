@@ -38,7 +38,7 @@ import backend, {
 } from './client.ts';
 import { TypeScriptEmitter } from './emitters/interface.ts';
 import { jsdoc } from './emitters/jsdoc.ts';
-import type { EmittedZod } from './emitters/zod.ts';
+import type { SharedZod } from './emitters/zod.ts';
 import { indexFiles } from './folder-index.ts';
 import { generateCode, operationFragments } from './generator.ts';
 import { type MakeImportFn } from './import-utilities.ts';
@@ -513,10 +513,12 @@ function modelDeclarations(
     } else if (body === 'stream') {
       typeContent = refs.global('ReadableStream');
     } else {
-      typeContent = new TypeScriptEmitter(spec, modelName, refs).handle(
-        schema,
-        true,
-      );
+      typeContent = new TypeScriptEmitter(
+        spec,
+        modelName,
+        refs,
+        'response',
+      ).handle(schema, true);
     }
 
     models.push({
@@ -536,7 +538,7 @@ function modelDeclarations(
 
 function toInputs(
   operationsSet: Record<string, Operation[]>,
-  commonZod: Map<string, EmittedZod>,
+  commonZod: Map<string, SharedZod>,
   makeImport: MakeImportFn,
 ) {
   const schemaNames = new Set(commonZod.keys());
@@ -564,17 +566,12 @@ function toInputs(
 
   const schemas = commonZod
     .entries()
-    .reduce<string[][]>((acc, [name, { zod, references }]) => {
+    .reduce<string[][]>((acc, [name, { zod, references, types }]) => {
       const output = [`import { z } from 'zod';`];
       const content = inputGlobals(
-        `export const ${name} = ${zod};`,
+        [...types, `export const ${name} = ${zod};`].join('\n'),
         schemaNames,
       );
-      if (content.includes('z.ZodType<models.')) {
-        output.push(
-          `import type * as models from '${makeImport('../../models/index')}';`,
-        );
-      }
       for (const reference of references) {
         if (reference !== name) {
           output.push(
