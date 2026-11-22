@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/typescript",
-  "version": "0.51.7",
+  "version": "0.51.8",
   "repository": {
     "type": "git",
     "url": "https://github.com/JanuaryLabs/sdk-it",
@@ -31,15 +31,15 @@
     "!**/*.test.*"
   ],
   "dependencies": {
-    "@sdk-it/core": "0.51.7",
+    "@sdk-it/core": "0.51.8",
     "openapi3-ts": "^4.6.2",
     "stringcase": "^4.3.1",
     "npm-run-path": "6.0.0",
-    "@sdk-it/spec": "0.51.7",
-    "@sdk-it/readme": "0.51.7"
+    "@sdk-it/spec": "0.51.8",
+    "@sdk-it/readme": "0.51.8"
   },
   "devDependencies": {
-    "@sdk-it/runtime": "0.51.7",
+    "@sdk-it/runtime": "0.51.8",
     "@sdk-it/testing": "*",
     "@zukhruf/fs": "^0.8.33",
     "vscode-jsonrpc": "^10.0.1"

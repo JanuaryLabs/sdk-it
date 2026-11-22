@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/dart",
-  "version": "0.51.7",
+  "version": "0.51.8",
   "repository": {
     "type": "git",
     "url": "https://github.com/JanuaryLabs/sdk-it",
@@ -32,8 +32,8 @@
   ],
   "dependencies": {
     "openapi3-ts": "4.6.2",
-    "@sdk-it/core": "0.51.7",
-    "@sdk-it/spec": "0.51.7",
+    "@sdk-it/core": "0.51.8",
+    "@sdk-it/spec": "0.51.8",
     "stringcase": "^4.3.1",
     "yaml": "^2.7.0"
   },

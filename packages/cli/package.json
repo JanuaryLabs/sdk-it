@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/cli",
-  "version": "0.51.7",
+  "version": "0.51.8",
   "repository": {
     "type": "git",
     "url": "https://github.com/JanuaryLabs/sdk-it",
@@ -32,17 +32,17 @@
   ],
   "dependencies": {
     "@typescript/native": "npm:typescript@7.1.0-beta",
-    "@sdk-it/typescript": "0.51.7",
-    "@sdk-it/dart": "0.51.7",
-    "@sdk-it/spec": "0.51.7",
+    "@sdk-it/typescript": "0.51.8",
+    "@sdk-it/dart": "0.51.8",
+    "@sdk-it/spec": "0.51.8",
     "commander": "^13.1.0",
-    "@sdk-it/core": "0.51.7",
-    "@sdk-it/openapi": "0.51.7",
+    "@sdk-it/core": "0.51.8",
+    "@sdk-it/openapi": "0.51.8",
     "libnpmpublish": "^11.0.0",
     "openapi3-ts": "4.6.2",
     "registry-auth-token": "^5.1.0",
-    "@sdk-it/python": "0.51.7",
-    "@sdk-it/readme": "0.51.7",
+    "@sdk-it/python": "0.51.8",
+    "@sdk-it/readme": "0.51.8",
     "zod": "^4.6.7",
     "@zukhruf/fs": "^0.8.33"
   },
