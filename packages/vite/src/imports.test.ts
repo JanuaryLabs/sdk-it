@@ -379,3 +379,21 @@ test(
     );
   },
 );
+
+test("a document's module loads by its own URL, which a module from Vitest's file system cache imports without resolving the document first", async () => {
+  await using pets = await petServer('Rex');
+  await using app = await workspaceDirectory('vite-imports-url-');
+  await mkdir(join(app.path, 'src'));
+  await writeFile(
+    join(app.path, 'src/store.openapi.yaml'),
+    storeDocument(pets.origin),
+  );
+  await using server = await devServer(app.path);
+
+  const { store } = await server.ssrLoadModule('/src/store.openapi.yaml.ts');
+
+  assert.deepEqual(await store.request('GET /pets/{petId}', { petId: 'p1' }), {
+    name: 'Rex',
+    path: '/pets/p1',
+  });
+});

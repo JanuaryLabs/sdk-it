@@ -11,6 +11,18 @@ const isDocument = (path: string) =>
   extensions.some((extension) => path.endsWith(extension));
 
 /**
+ * The document that an import names, or that a module's URL names: Vite
+ * rewrites an import of the document to its module's URL
+ * (`/src/store.openapi.yaml.ts`), and a module that Vitest's file system
+ * cache restores requests that URL without resolving the document first.
+ */
+function documentOf(source: string): string | undefined {
+  if (isDocument(source)) return source;
+  const document = source.slice(0, -'.ts'.length);
+  return source.endsWith('.ts') && isDocument(document) ? document : undefined;
+}
+
+/**
  * Serves an imported OpenAPI document as its SDK module, rendered by
  * `@sdk-it/content-mapper` as the TypeScript content mapper renders it:
  * `import { store } from './store.openapi.yaml'`. The module's id is the
@@ -33,8 +45,9 @@ export class DocumentImports {
         },
       }),
       async resolveId(source, importer, options) {
-        if (!isDocument(source)) return null;
-        const resolved = await this.resolve(source, importer, {
+        const document = documentOf(source);
+        if (document === undefined) return null;
+        const resolved = await this.resolve(document, importer, {
           ...options,
           skipSelf: true,
         });
