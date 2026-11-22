@@ -69,6 +69,52 @@ node --import @sdk-it/content-mapper/register main.ts
 
 A document that does not render fails the import with `<file>:<line>:<column>: <message>`.
 
+## Import your own backend
+
+When the backend is in the same repository, the app imports the backend's document without a generation step. The backend's `openapi.ts` says how its document is produced ([`@sdk-it/openapi`](../../packages/openapi/README.md)):
+
+```ts
+// apps/backend/openapi.ts
+import { defineOpenApi } from '@sdk-it/openapi';
+
+export default defineOpenApi({
+  tsconfig: new URL('./tsconfig.app.json', import.meta.url),
+  document: { openapi: '3.1.0', info: { title: 'Backend', version: '1.0.0' } },
+});
+```
+
+The app's tsconfig names it as the source of a document the app imports:
+
+```jsonc
+// apps/web/tsconfig.app.json
+{
+  "contentMappers": [
+    {
+      "package": "@sdk-it/content-mapper",
+      "extensions": [".openapi"],
+      "options": {
+        "derived": { "src/backend.openapi": "../backend/openapi.ts" },
+      },
+    },
+  ],
+  "include": ["src/**/*.ts", "src/**/*.openapi"],
+}
+```
+
+```ts
+// apps/web/src/api.ts
+import { createBackend } from './backend.openapi';
+
+export const api = createBackend({ baseUrl: '/' });
+```
+
+Every reader generates the document from the backend's code and rewrites `src/backend.openapi` when it changed: the content mapper in `tsc` and the editor, `sdkIt.imports()` in Vite, and `@sdk-it/content-mapper/register` in Node. Vite and Node find the declaration from the tsconfig*.json files between the document and its package root. A save in the backend re-types the import and reloads the dev module.
+
+- **Commit the document.** TypeScript resolves the import before the content mapper runs, so a missing document is TS2307 that the mapper cannot prevent. The committed document also shows each API change in review.
+- **Depend on the backend package** (`"@acme/backend": "*"` in the app's devDependencies). Nx makes a project edge only from imports and package.json dependencies, so without it the app's cached `typecheck`, `build` and `test` do not see a backend change.
+- A backend that does not analyze is diagnostic `sdk-it4` on the document.
+- The editor waits for the analysis on each backend save (about 0.6 s for a backend of 18 operations).
+
 ## Limits
 
 - The module holds every operation of the document, so a bundle ships the whole endpoint table.

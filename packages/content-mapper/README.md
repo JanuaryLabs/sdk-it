@@ -81,8 +81,13 @@ Each diagnostic is in the document, with the source `sdk-it`, as `error sdk-it<c
 | 1    | the YAML does not parse                                                                                                     | the range the YAML parser reports, kept inside the text                                 |
 | 2    | a `$ref` does not resolve, or a document it names cannot be read                                                            | the `$ref` value when the reference is in this document, else the start of the document |
 | 3    | the SDK cannot be rendered: the file name is not an identifier, a spec name clashes, a security requirement names no scheme | the start of the document                                                               |
+| 4    | a derived document's backend does not analyze (its definition does not load, or `generateDocument` throws)                  | the start of the document                                                               |
 
 YAML that still parses into a document keeps rendering while you type, with its YAML errors. When a step fails, the module is `export {};`, so each importer sees the missing names until the document is fixed; when the YAML has errors, only they are reported, since the later failure follows from them. `tsc` reports no semantic error of any file while a mapped document has a diagnostic, so the missing names show in the editor, which checks each file on its own.
+
+## Derived documents
+
+A tsconfig's `contentMappers[].options.derived` maps a document to a backend's `@sdk-it/openapi` definition module (`{ "src/backend.openapi": "../backend/openapi.ts" }`). The mapper declares `dynamicConfig`: `openProject` generates each derived document from its backend, rewrites the committed file when its bytes differ, and returns every file the analysis read as `watchedFiles`, so an edit to one opens the project again and re-types the import. `renderImport(fileName, content)` does the same for a host with no tsconfig of its own (Vite, Node): it finds the declaring tsconfig from the document's folder up to its package root. See [Import your own backend](../../docs/recipes/import-openapi-document.md#import-your-own-backend).
 
 ## Other content mappers
 
