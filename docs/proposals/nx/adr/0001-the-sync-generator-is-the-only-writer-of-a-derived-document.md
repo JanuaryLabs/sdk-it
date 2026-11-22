@@ -15,3 +15,4 @@ Readers derive the document in memory and write nothing. The `openapi-sync` Nx s
 - A typecheck, an editor session or a dev server never dirties the tree.
 - A stale committed document cannot reach main through a hook-checked commit, and CI reports one that bypassed the hook.
 - `@sdk-it/openapi` ADR 0006's "rewrites the committed document" is replaced by this decision.
+- TypeScript maps each generated name into the bytes of the committed file (go to definition, diagnostics), and those bytes differ from the derivation while the file is stale. The content mapper renders from the derivation and locates each name in the committed bytes: a name the committed copy declares keeps its definition, and a name it does not declare yet has none until `nx sync` writes it. Before, a reader's rewrite hid this: mapping into the derivation's offsets against a stale file is a transform TypeScript rejects (TS18069). (Found in the build, 2026-11-22.)
