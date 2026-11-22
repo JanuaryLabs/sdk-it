@@ -1,5 +1,3 @@
-> **Design for review.** The words of `@sdk-it/openapi` (backlog #5158).
-
 # Glossary
 
 **Analysis.** What `@sdk-it/generic`'s `analyze()` finds in a backend's program: the paths, each operation's inputs and responses, and the components those use.

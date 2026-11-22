@@ -49,6 +49,9 @@
       "path": "./packages/content-mapper"
     },
     {
+      "path": "./packages/openapi"
+    },
+    {
       "path": "./packages/testing"
     }
   ]

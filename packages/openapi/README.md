@@ -1,5 +1,3 @@
-> **Design for review.** This is the API of `@sdk-it/openapi` on paper. No code exists yet. Each decision has an ADR in [adr/](adr/); the words are in [CONTEXT.md](CONTEXT.md). Backlog #5158.
-
 # @sdk-it/openapi
 
 Produces the OpenAPI document of a TypeScript backend from its code. `@sdk-it/spec` loads a document; this package writes one.
@@ -50,7 +48,7 @@ const { document, sourceFiles } = await generateDocument(definition);
 - `components.securitySchemes`
 - tag objects (`description`, `x-*`)
 
-Everything else comes from the analysis: the paths, every schema and every response. That includes what `validate()`, a middleware and the app's error handler send. A `BaseDocument` cannot hold `paths`, `components.schemas` or `components.responses`, so nothing written by hand competes with what the analysis finds. Each tag an operation names gets a tag object, with the fields of the base's tag object of that name. A fact the analysis still misses goes in a transformer, as code.
+Everything else comes from the analysis: the paths, every schema and every response. That includes what `validate()`, a middleware and the app's notFound handler send. What `app.onError` sends for each thrown error is the next analysis fact ([ADR 0008](docs/adr/0008-the-analysis-documents-what-the-error-handler-sends-for-each-error-a-route-can-throw.md)); until it lands, write it with a transformer. A `BaseDocument` cannot hold `paths`, `components.schemas` or `components.responses`, so nothing written by hand competes with what the analysis finds. Each tag an operation names gets a tag object, with the fields of the base's tag object of that name. A fact the analysis still misses goes in a transformer, as code.
 
 ```ts
 document: {
@@ -67,12 +65,12 @@ document: {
 
 ## What the analysis documents for each route
 
-| Response                                                                                   | Comes from                                                                                                                                                |
-| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| what the handler returns (`c.json`, `output.ok`, streams)                                  | `@sdk-it/hono`'s response analyzer                                                                                                                        |
-| `validate()`'s 400 and 415                                                                 | `@sdk-it/hono`, one shared component each                                                                                                                 |
-| what a middleware the route passes sends itself (`c.json({ error }, 401)`)                 | the middleware's own returns ([ADR 0005](adr/0005-the-analysis-documents-the-responses-a-middleware-sends-itself.md))                                     |
-| what `app.onError` sends for each error the route can throw, and what `app.notFound` sends | the handler branch that narrows that error ([ADR 0008](adr/0008-the-analysis-documents-what-the-error-handler-sends-for-each-error-a-route-can-throw.md)) |
+| Response                                                                   | Comes from                                                                                                                                                            |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| what the handler returns (`c.json`, `output.ok`, streams)                  | `@sdk-it/hono`'s response analyzer                                                                                                                                    |
+| `validate()`'s 400 and 415                                                 | `@sdk-it/hono`, one shared component each                                                                                                                             |
+| what a middleware the route passes sends itself (`c.json({ error }, 401)`) | the middleware's own returns ([ADR 0005](docs/adr/0005-the-analysis-documents-the-responses-a-middleware-sends-itself.md))                                            |
+| what `app.notFound` sends, on a route that returns `c.notFound()`          | the app's notFound handler, or Hono's default 404 ([ADR 0008](docs/adr/0008-the-analysis-documents-what-the-error-handler-sends-for-each-error-a-route-can-throw.md)) |
 
 ## Map a type to a schema
 
@@ -114,7 +112,7 @@ transformers: {
 },
 ```
 
-Operation transformers run once for each operation, in the order given, after the analysis has built it. Document transformers then run once, in the order given, on the finished document. A transformer changes its argument in place, may be `async`, and returns nothing.
+Operation transformers run once for each operation, in the order given, on the document the analysis and the base put together. Document transformers then run once, in the order given, on the finished document. A transformer changes its argument in place, may be `async`, and returns nothing.
 
 ## Prisma
 

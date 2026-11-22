@@ -61,7 +61,8 @@
           "@sdk-it/hono",
           "@sdk-it/rpc",
           "@sdk-it/runtime",
-          "@sdk-it/content-mapper"
+          "@sdk-it/content-mapper",
+          "@sdk-it/openapi"
         ]
       },
       "cache": true,

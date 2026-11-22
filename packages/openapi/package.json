@@ -1,0 +1,37 @@
+{
+  "name": "@sdk-it/openapi",
+  "version": "0.51.3",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JanuaryLabs/sdk-it",
+    "directory": "packages/openapi"
+  },
+  "homepage": "https://github.com/JanuaryLabs/sdk-it/tree/main/packages/openapi#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!**/*.tsbuildinfo",
+    "!**/*.test.*"
+  ],
+  "dependencies": {
+    "@sdk-it/core": "0.51.3",
+    "@sdk-it/generic": "0.51.3",
+    "@sdk-it/hono": "0.51.3",
+    "@typescript/native": "npm:typescript@7.1.0-beta",
+    "openapi3-ts": "^4.6.2"
+  },
+  "devDependencies": {
+    "@sdk-it/testing": "*"
+  }
+}
