@@ -7,6 +7,7 @@ import {
   annotationsOf,
   discriminatorOf,
   isInlinable,
+  isNullSchema,
   requiredOn,
   tupleOf,
 } from '@sdk-it/spec';
@@ -291,7 +292,7 @@ export class ZodEmitter {
   #union(schema: SchemaObject, kind: 'anyOf' | 'oneOf', required: boolean) {
     const all = schema[kind] ?? [];
     const branches = all
-      .filter((sub) => !this.#isNull(sub))
+      .filter((sub) => !isNullSchema(this.#spec, sub))
       .map((sub) => this.handle(sub, true));
     if (branches.length === 0) {
       return `z.null()${appendOptional(required)}`;
@@ -313,15 +314,6 @@ export class ZodEmitter {
     return kind === 'oneOf'
       ? `z.xor([${branches.join(', ')}])`
       : `z.union([${branches.join(', ')}])`;
-  }
-
-  #isNull(schema: SchemaObject | ReferenceObject) {
-    return (
-      (isRef(schema)
-        ? followRef<SchemaObject>(this.#spec, schema.$ref)
-        : schema
-      ).type === 'null'
-    );
   }
 
   /**
