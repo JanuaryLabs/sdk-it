@@ -1,6 +1,6 @@
 {
   "name": "@sdk-it/vite",
-  "version": "0.51.5",
+  "version": "0.51.6",
   "repository": {
     "type": "git",
     "url": "https://github.com/JanuaryLabs/sdk-it",
@@ -36,15 +36,15 @@
     "!**/*.test.*"
   ],
   "devDependencies": {
-    "@sdk-it/core": "0.51.5",
+    "@sdk-it/core": "0.51.6",
     "@sdk-it/testing": "*",
     "@zukhruf/fs": "^0.8.33"
   },
   "peerDependencies": {
-    "@sdk-it/cli": "0.51.5",
-    "@sdk-it/content-mapper": "0.51.5",
-    "@sdk-it/spec": "0.51.5",
-    "@sdk-it/typescript": "0.51.5",
+    "@sdk-it/cli": "0.51.6",
+    "@sdk-it/content-mapper": "0.51.6",
+    "@sdk-it/spec": "0.51.6",
+    "@sdk-it/typescript": "0.51.6",
     "openapi3-ts": "4.6.2",
     "vite": "^8.0.0"
   },
