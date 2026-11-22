@@ -1,67 +1,68 @@
 name: Release
 
-# Releases what the conventional commits on main ask for, once CI is green for
-# that commit: nx release version versions, commits, tags and pushes, then
-# nx-release-publish publishes, so nothing reaches npm unless main has the
-# release commit and tag. A version already on npm is skipped. A push with
-# nothing to release changes nothing. The release commit and tag are pushed with
-# GITHUB_TOKEN, which starts no further workflow run.
+# Releases each push to main and does not wait for CI (Ezz, 2026-11-22: "I want
+# the path where release reach npm asap"; zukhruf's root ADRs 0007 and 0008).
+# nx-release-version writes the versions into the runner's checkout only: it
+# commits, tags and pushes nothing. release-tag then makes release/<version>
+# on the pushed commit through the GitHub API, and nx-release-publish publishes
+# what was built from it. So nothing reaches npm without its tag, a version
+# already on npm is skipped, and a push with nothing to release changes nothing.
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
+  push:
     branches: [main]
 
 # A release is never cancelled: one stopped between the tag and the publish
-# would leave a version that no later run releases. Every run waits its turn;
-# a run whose commit main moved past then stops at the tested-commit step.
+# would leave a version unpublished. The pushes that arrive during a release
+# wait as one pending run, and a newer push replaces it, so the newest push
+# releases every commit since the last release.
 concurrency:
   group: release
   cancel-in-progress: false
-  queue: max
 
 jobs:
   release:
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     permissions:
+      # release-tag creates refs/tags/release/<version> through the API.
       contents: write
       id-token: write
     # The release restores the npm cache but never writes one.
     cache-mode: read
     steps:
-      # The release job pushes the release commit and tag with these credentials.
-      - name: Checkout
+      # The tags come with the history: Nx counts the commits since the newest
+      # release tag that the pushed commit holds. The job pushes nothing, so the
+      # checkout keeps no credentials.
+      - name: Checkout the pushed commit
         uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 0
-
-      - name: Release only the commit that CI tested
-        id: tested
-        uses: JanuaryLabs/zukhruf/.github/actions/tested-commit@main
+          persist-credentials: false
 
       - name: Set up the workspace
-        if: steps.tested.outputs.current == 'true'
         uses: JanuaryLabs/zukhruf/.github/actions/setup-workspace@main
         with:
           registry-url: https://registry.npmjs.org/
 
       - name: Verify npm authentication
-        if: steps.tested.outputs.current == 'true'
         run: npm whoami
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
 
-      - name: Version
-        if: steps.tested.outputs.current == 'true'
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          npx nx release version
+      # The preVersionCommand of the release block in nx.json builds the
+      # tag:npm:public packages.
+      - name: Version the pushed commit
+        id: version
+        uses: JanuaryLabs/zukhruf/.github/actions/nx-release-version@main
+
+      - name: Tag the pushed commit
+        if: steps.version.outputs.version != '' && steps.version.outputs.tagged == 'false'
+        uses: JanuaryLabs/zukhruf/.github/actions/release-tag@main
+        with:
+          version: ${{ steps.version.outputs.version }}
 
       - name: Publish
-        if: steps.tested.outputs.current == 'true'
+        if: steps.version.outputs.version != ''
         uses: JanuaryLabs/zukhruf/.github/actions/nx-release-publish@main
         with:
           token: ${{ secrets.NPM_ACCESS_TOKEN }}

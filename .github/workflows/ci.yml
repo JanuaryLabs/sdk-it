@@ -41,8 +41,12 @@ jobs:
       - name: Set up the workspace
         uses: JanuaryLabs/zukhruf/.github/actions/setup-workspace@main
 
+      # The release tags each push, also one that CI has not checked yet, so a
+      # release tag is no base: the base is the last green run only.
       - name: Find what changed
         uses: JanuaryLabs/zukhruf/.github/actions/affected-range@main
+        with:
+          tested-tags: ''
 
       # The checks of the whole tree run beside the affected targets. None of
       # them runs an Nx build task.
