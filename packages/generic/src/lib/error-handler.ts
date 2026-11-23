@@ -27,9 +27,10 @@ import {
   type ThrowSite,
   ThrownBinding,
   type ThrownErrorReader,
-  type ThrownMembers,
   classChain,
 } from '@sdk-it/core/thrown.js';
+
+import { ConstructorMembers } from './constructor-members.ts';
 
 export interface ReturnedToken {
   token: string;
@@ -49,8 +50,9 @@ export type Respond = (
 ) => ResponseItem[];
 
 /**
- * The error a route throws, with the members the first reader that knows its
- * construction or factory call reads, or no members when none does.
+ * The error a route throws, with the members its construction gives it
+ * (ConstructorMembers, over the analyzer's readers), or no members when
+ * nothing reads it.
  */
 export function throwSite(
   thrown: NewExpression | CallExpression,
@@ -60,20 +62,10 @@ export function throwSite(
   const type = checker.getTypeAtLocation(thrown);
   const chain = classChain(type, checker);
   const [errorClass] = chain;
-  let members: ThrownMembers | undefined;
-  for (const reader of readers) {
-    if (isNewExpression(thrown)) {
-      members =
-        errorClass && 'construct' in reader
-          ? reader.construct(thrown, errorClass, checker)
-          : undefined;
-    } else if ('call' in reader) {
-      members = reader.call(thrown, checker);
-    }
-    if (members) {
-      break;
-    }
-  }
+  const constructed = new ConstructorMembers(readers);
+  const members = isNewExpression(thrown)
+    ? errorClass && constructed.construct(thrown, errorClass, checker)
+    : constructed.call(thrown, checker);
   return { thrown, type, chain, members: members ?? new Map() };
 }
 

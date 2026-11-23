@@ -10,9 +10,10 @@ import { responseAnalyzer } from '@sdk-it/hono';
 import { analysisWorkspace } from '@sdk-it/testing';
 
 /** Analyzes `route.ts` and returns the document as consumers write it to openapi.json. */
-async function documented(route: string) {
+async function documented(route: string, files: Record<string, string> = {}) {
   await using workspace = await analysisWorkspace('error-handler-responses-', {
     'route.ts': route,
+    ...files,
   });
   using project = openAnalysisProject(workspace.tsconfig);
   const { paths, components } = await analyze(project, { responseAnalyzer });
@@ -1033,3 +1034,541 @@ app.get('/pay', validate(() => ({})), () => {
     },
   });
 });
+
+const clinicalRefusals = `import { Hono } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+type RefusalCode = 'patient_not_found' | 'reading_out_of_range' | 'already_booked';
+const refusalMessage: Record<RefusalCode, string> = {
+  patient_not_found: 'This patient does not exist.',
+  reading_out_of_range: 'The reading is out of range.',
+  already_booked: 'The slot is already booked.',
+};
+const refusalStatus = {
+  patient_not_found: 404,
+  reading_out_of_range: 400,
+  already_booked: 409,
+} as const satisfies Record<RefusalCode, 400 | 404 | 409>;
+class ClinicalRefusal extends Error {
+  readonly code: RefusalCode;
+  constructor(code: RefusalCode, options?: ErrorOptions) {
+    super(refusalMessage[code], options);
+    this.code = code;
+  }
+}
+class ReadingRefused extends ClinicalRefusal {
+  constructor(readonly problems: string[]) {
+    super('reading_out_of_range');
+  }
+}
+/** @openapi getPatient */
+app.get('/patients', validate(() => ({})), (c) => {
+  if (Math.random() > 0.5) {
+    throw new ClinicalRefusal('patient_not_found');
+  }
+  return c.json({ id: 'p1' });
+});
+/** @openapi recordReading */
+app.post('/readings', validate(() => ({})), (c) => {
+  if (Math.random() > 0.5) {
+    throw new ReadingRefused(['systolic above 300']);
+  }
+  return c.json({ id: 'r1' }, 201);
+});
+app.onError((error, c) => {
+  if (error instanceof ClinicalRefusal) {
+    BODY
+  }
+  return c.json({ error: 'internal' }, 500);
+});
+`;
+
+test("an error class whose constructor assigns its code from a parameter documents each throw at the status its code reads from an as-const table, through a subclass's super call", async () => {
+  const document = await documented(
+    clinicalRefusals.replace(
+      'BODY',
+      'return c.json({ error: error.message }, refusalStatus[error.code]);',
+    ),
+  );
+
+  const patient = document.paths['/patients'].get.responses;
+  const reading = document.paths['/readings'].post.responses;
+  assert.ok(bodyOf(patient, '404'), "getPatient's ClinicalRefusal is a 404");
+  assert.deepStrictEqual(
+    [patient['400'], patient['409']],
+    [undefined, undefined],
+    'getPatient throws no other refusal code',
+  );
+  assert.ok(
+    bodyOf(reading, '400'),
+    "recordReading's ReadingRefused passes reading_out_of_range to super, a 400",
+  );
+  assert.deepStrictEqual(
+    [reading['404'], reading['409']],
+    [undefined, undefined],
+    'recordReading throws no other refusal code',
+  );
+});
+
+test("an error class's code that its constructor assigns from a parameter documents as each throw site's const, one app.onError body per throw, with a guarded spread's property only for the subclass", async () => {
+  const document = await documented(
+    clinicalRefusals.replace(
+      'BODY',
+      `return c.json(
+      {
+        error: error.message,
+        cause: {
+          code: error.code,
+          ...((error instanceof ReadingRefused) && { problems: error.problems }),
+        },
+      },
+      422,
+    );`,
+    ),
+  );
+
+  const causeOf = (responses: any) => {
+    const body = resolvedBody(document, responses, '422');
+    assert.equal(body.oneOf, undefined, 'each route throws one refusal code');
+    return body.properties.cause;
+  };
+  const patient = causeOf(document.paths['/patients'].get.responses);
+  const reading = causeOf(document.paths['/readings'].post.responses);
+  assert.deepStrictEqual(patient.properties.code, {
+    type: 'string',
+    enum: ['patient_not_found'],
+  });
+  assert.equal(patient.properties.problems, undefined);
+  assert.deepStrictEqual(reading.properties.code, {
+    type: 'string',
+    enum: ['reading_out_of_range'],
+  });
+  assert.ok(
+    reading.properties.problems,
+    "ReadingRefused's problems parameter property is in its cause",
+  );
+});
+
+test("a parameter property documents the argument its throw gives, a missing argument its parameter's initializer, and a mutable field its initializer's literal", async () => {
+  const document = await documented(`import { Hono } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+class QuotaError extends Error {
+  kind = 'quota/exceeded';
+  constructor(
+    readonly plan: 'free' | 'pro',
+    readonly retryAfter = 60,
+  ) {
+    super('Quota exceeded');
+  }
+}
+/** @openapi getQuota */
+app.get('/quota', validate(() => ({})), (c) => {
+  if (Math.random() > 0.5) {
+    throw new QuotaError('free');
+  }
+  return c.json({ left: 1 });
+});
+app.onError((error, c) => {
+  if (error instanceof QuotaError) {
+    return c.json(
+      { kind: error.kind, plan: error.plan, retryAfter: error.retryAfter },
+      429,
+    );
+  }
+  return c.json({ error: 'internal' }, 500);
+});
+`);
+
+  const body = resolvedBody(
+    document,
+    document.paths['/quota'].get.responses,
+    '429',
+  );
+  assert.equal(body.oneOf, undefined, 'the route throws the free plan alone');
+  assert.deepStrictEqual(body.properties.plan, {
+    type: 'string',
+    enum: ['free'],
+  });
+  assert.deepStrictEqual(body.properties.retryAfter, {
+    type: 'number',
+    enum: [60],
+  });
+  assert.deepStrictEqual(body.properties.kind, {
+    type: 'string',
+    enum: ['quota/exceeded'],
+  });
+});
+
+test('an error class in another module that copies its status and code from an options object documents the throw at that status with its code and message as consts', async () => {
+  const document = await documented(
+    `import { Hono } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { LlmError } from './errors.ts';
+export const app = new Hono();
+/** @openapi listProviderModels */
+app.get('/providers/models', validate(() => ({})), (c) => {
+  if (Math.random() > 0.5) {
+    throw new LlmError({
+      code: 'llm/unavailable',
+      message: 'The provider did not answer',
+      httpStatus: 502,
+    });
+  }
+  return c.json({ models: ['a'] });
+});
+app.onError((error, c) => {
+  if (error instanceof LlmError) {
+    return c.json(
+      { error: error.message, cause: { code: error.code } },
+      error.httpStatus,
+    );
+  }
+  return c.json({ error: 'internal' }, 500);
+});
+`,
+    {
+      'errors.ts': `export class LlmError extends Error {
+  readonly code: string;
+  readonly httpStatus: 400 | 502;
+  constructor(options: { code: string; message: string; httpStatus: 400 | 502 }) {
+    super(options.message);
+    this.code = options.code;
+    this.httpStatus = options.httpStatus;
+  }
+}
+`,
+    },
+  );
+
+  const responses = document.paths['/providers/models'].get.responses;
+  assert.equal(responses['400'], undefined, 'the throw gives 502, not 400');
+  const body = resolvedBody(document, responses, '502');
+  assert.deepStrictEqual(body.properties.error, {
+    type: 'string',
+    enum: ['The provider did not answer'],
+  });
+  assert.deepStrictEqual(body.properties.cause.properties.code, {
+    type: 'string',
+    enum: ['llm/unavailable'],
+  });
+});
+
+test("a thrown call to a function that returns an HTTPException documents Hono's default at the status the call passes", async () => {
+  const { sent, responses } = await sentAndDocumented(
+    `import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+function refusal(status: ContentfulStatusCode, message = 'Already booked') {
+  return new HTTPException(status, { message });
+}
+/** @openapi getBooking */
+app.get('/booking', validate(() => ({})), () => {
+  throw refusal(409);
+});
+`,
+    '/booking',
+  );
+
+  assert.deepStrictEqual(sent, {
+    status: 409,
+    mediaType: 'text/plain',
+    body: 'Already booked',
+  });
+  assert.deepStrictEqual(responses['409'].content, {
+    'text/plain': { schema: { type: 'string', enum: ['Already booked'] } },
+  });
+});
+
+for (const [shape, declaration, construction] of [
+  [
+    'with no constructor of its own',
+    'class Conflict extends HTTPException {}',
+    "new Conflict(409, { message: 'b1' })",
+  ],
+  [
+    'whose constructor passes a status to super',
+    'class Conflict extends HTTPException {\n  constructor(id: string) {\n    super(409, { message: id });\n  }\n}',
+    "new Conflict('b1')",
+  ],
+]) {
+  test(`a thrown subclass of HTTPException ${shape} documents Hono's default at the status its construction gives HTTPException`, async () => {
+    const { sent, responses } = await sentAndDocumented(
+      `import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+${declaration}
+/** @openapi getBooking */
+app.get('/booking', validate(() => ({})), () => {
+  throw ${construction};
+});
+`,
+      '/booking',
+    );
+
+    assert.deepStrictEqual(sent, {
+      status: 409,
+      mediaType: 'text/plain',
+      body: 'b1',
+    });
+    assert.deepStrictEqual(responses['409'].content, {
+      'text/plain': { schema: { type: 'string', enum: ['b1'] } },
+    });
+  });
+}
+
+test("an HTTPException thrown with no message documents Hono's default body as the empty text it sends", async () => {
+  const { sent, responses } = await sentAndDocumented(
+    `import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+/** @openapi getItem */
+app.get('/item', validate(() => ({})), () => {
+  throw new HTTPException(404);
+});
+`,
+    '/item',
+  );
+
+  assert.deepStrictEqual(sent, {
+    status: 404,
+    mediaType: 'text/plain',
+    body: '',
+  });
+  assert.deepStrictEqual(responses['404'].content, {
+    'text/plain': { schema: { type: 'string', enum: [''] } },
+  });
+});
+
+const refusalsWithLocalCause = (
+  declaration: 'const' | 'let',
+) => `import { Hono } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono<{
+  Variables: { log?: { warn(message: string, fields: object): void } };
+}>();
+type RefusalCode = 'patient_not_found' | 'reading_refused' | 'intake_refused' | 'already_booked';
+const refusalMessage: Record<RefusalCode, string> = {
+  patient_not_found: 'This patient does not exist.',
+  reading_refused: 'The reading is refused.',
+  intake_refused: 'The intake is refused.',
+  already_booked: 'The slot is already booked.',
+};
+const refusalStatus = {
+  patient_not_found: 404,
+  reading_refused: 400,
+  intake_refused: 400,
+  already_booked: 409,
+} as const satisfies Record<RefusalCode, 400 | 404 | 409>;
+class ClinicalRefusal extends Error {
+  readonly code: RefusalCode;
+  constructor(code: RefusalCode, options?: ErrorOptions) {
+    super(refusalMessage[code], options);
+    this.name = 'ClinicalRefusal';
+    this.code = code;
+  }
+}
+class ReadingRefused extends ClinicalRefusal {
+  readonly problems: string[];
+  constructor(problems: string[]) {
+    super('reading_refused');
+    this.name = 'ReadingRefused';
+    this.problems = problems;
+  }
+}
+class IntakeRefused extends ClinicalRefusal {
+  readonly problems: { at: string; refusal: RefusalCode }[];
+  constructor(problems: { at: string; refusal: RefusalCode }[], options?: ErrorOptions) {
+    super('intake_refused', options);
+    this.name = 'IntakeRefused';
+    this.problems = problems;
+  }
+}
+/** @openapi getPatient */
+app.get('/patients', validate(() => ({})), (c) => {
+  if (Math.random() > 0.5) {
+    throw new ClinicalRefusal('patient_not_found');
+  }
+  return c.json({ id: 'p1' });
+});
+/** @openapi recordReading */
+app.post('/readings', validate(() => ({})), (c) => {
+  if (Math.random() > 0.5) {
+    throw new ReadingRefused(['systolic above 300']);
+  }
+  return c.json({ id: 'r1' }, 201);
+});
+app.onError((error, c) => {
+  if (error instanceof ClinicalRefusal) {
+    ${declaration} cause = {
+      code: error.code,
+      detail: error.message,
+      ...((error instanceof ReadingRefused ||
+        error instanceof IntakeRefused) && { problems: error.problems }),
+    };
+    c.get('log')?.warn(error.message, { cause });
+    return c.json({ error: error.message, cause }, refusalStatus[error.code]);
+  }
+  return c.json({ error: 'internal' }, 500);
+});
+`;
+
+test("a const that app.onError's branch declares from the error is documented per throw site, so a refusal's cause has its own code and only a subclass that carries problems documents them", async () => {
+  const document = await documented(refusalsWithLocalCause('const'));
+
+  const patient = document.paths['/patients'].get.responses;
+  const reading = document.paths['/readings'].post.responses;
+  assert.deepStrictEqual(
+    [patient['400'], patient['409'], reading['404'], reading['409']],
+    [undefined, undefined, undefined, undefined],
+    'each route documents the one status its refusal code reads',
+  );
+  const patientBody = resolvedBody(document, patient, '404');
+  const readingBody = resolvedBody(document, reading, '400');
+  assert.equal(patientBody.oneOf, undefined, 'getPatient throws one code');
+  assert.equal(readingBody.oneOf, undefined, 'recordReading throws one code');
+  const patientCause = patientBody.properties.cause;
+  const readingCause = readingBody.properties.cause;
+  assert.deepStrictEqual(patientCause.properties.code, {
+    type: 'string',
+    enum: ['patient_not_found'],
+  });
+  assert.deepStrictEqual(readingCause.properties.code, {
+    type: 'string',
+    enum: ['reading_refused'],
+  });
+  assert.deepStrictEqual(
+    patientCause.properties.detail,
+    { type: 'string' },
+    'the message is refusalMessage[code], a Record of strings',
+  );
+  assert.equal(
+    patientCause.properties.problems,
+    undefined,
+    'a plain ClinicalRefusal never sends problems',
+  );
+  assert.deepStrictEqual(patientCause.required.toSorted(), ['code', 'detail']);
+  assert.deepStrictEqual(readingCause.properties.problems, {
+    type: 'array',
+    items: { type: 'string' },
+  });
+  assert.deepStrictEqual(readingCause.required.toSorted(), [
+    'code',
+    'detail',
+    'problems',
+  ]);
+});
+
+test("a let that app.onError's branch declares from the error is documented by its type, since a let can be reassigned before it is sent", async () => {
+  const document = await documented(refusalsWithLocalCause('let'));
+
+  const patient = document.paths['/patients'].get.responses;
+  const patientCause = resolvedBody(document, patient, '404').properties.cause;
+  assert.deepStrictEqual(
+    patientCause.properties.code,
+    {
+      anyOf: [
+        { type: 'string', enum: ['already_booked'] },
+        { type: 'string', enum: ['intake_refused'] },
+        { type: 'string', enum: ['patient_not_found'] },
+        { type: 'string', enum: ['reading_refused'] },
+      ],
+    },
+    "the let's code is every RefusalCode",
+  );
+  assert.ok(
+    patientCause.properties.problems,
+    "the let's type has the problems its spread may add",
+  );
+});
+
+const refusalOf = (body: string) => `import { Hono } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+class Refusal extends Error {
+  readonly code: 'slot_taken' | 'slot_closed';
+  constructor(code: 'slot_taken' | 'slot_closed') {
+    super('The slot is refused.');
+    this.code = code;
+  }
+}
+/** @openapi bookSlot */
+app.post('/slots', validate(() => ({})), (c) => {
+  if (Math.random() > 0.5) {
+    throw new Refusal(Math.random() > 0.5 ? 'slot_taken' : 'slot_closed');
+  }
+  return c.json({ id: 's1' }, 201);
+});
+app.onError((error, c) => {
+  if (error instanceof Refusal) {
+    ${body}
+  }
+  return c.json({ error: 'internal' }, 500);
+});
+`;
+
+test('a code that app.onError reads only through a const that another const names documents one body for each code the throw may give, as the same read written in place does', async () => {
+  const document = await documented(
+    refusalOf(`const code = error.code;
+    const cause = { code };
+    return c.json({ cause }, 409);`),
+  );
+
+  const body = bodyOf(document.paths['/slots'].post.responses, '409');
+  assert.deepStrictEqual(
+    body.oneOf.map((branch: any) => branch.properties.cause.properties.code),
+    [
+      { type: 'string', enum: ['slot_closed'] },
+      { type: 'string', enum: ['slot_taken'] },
+    ],
+  );
+});
+
+test("a const that app.onError's branch declares from the error and names inside its own initializer documents one body for each code, its own name read by its type", async () => {
+  const document = await documented(
+    refusalOf(`const cause = { retry: () => cause, code: error.code };
+    return c.json({ cause }, 409);`),
+  );
+
+  const body = bodyOf(document.paths['/slots'].post.responses, '409');
+  assert.deepStrictEqual(
+    body.oneOf.map((branch: any) => branch.properties.cause),
+    ['slot_closed', 'slot_taken'].map((code) => ({
+      type: 'object',
+      properties: { code: { type: 'string', enum: [code] } },
+      required: ['code'],
+      additionalProperties: false,
+    })),
+    'the function has no JSON form, so retry is left out',
+  );
+});
+
+for (const [form, body, causeOf] of [
+  [
+    'as a property value',
+    'return c.json({ cause: cause }, 409);',
+    (branch: any) => branch.properties.cause,
+  ],
+  ['as the whole body', 'return c.json(cause, 409);', (branch: any) => branch],
+  ['as a spread', 'return c.json({ ...cause }, 409);', (branch: any) => branch],
+] as const) {
+  test(`a const that app.onError's branch declares from the error and sends ${form} documents one body for each code the throw may give`, async () => {
+    const document = await documented(
+      refusalOf(`const cause = { code: error.code };
+    ${body}`),
+    );
+
+    const sent = bodyOf(document.paths['/slots'].post.responses, '409');
+    assert.deepStrictEqual(
+      sent.oneOf.map((branch: any) => causeOf(branch).properties.code),
+      [
+        { type: 'string', enum: ['slot_closed'] },
+        { type: 'string', enum: ['slot_taken'] },
+      ],
+    );
+  });
+}

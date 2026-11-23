@@ -852,6 +852,10 @@ export class TypeDeriver {
   }
 
   private serializeBound(node: Node, binding: ThrownBinding): any {
+    const local = binding.localConst(node);
+    if (local) {
+      return this.serializeNode(local.initializer, local.binding);
+    }
     const name = binding.memberRead(node);
     if (name !== undefined) {
       const member = binding.member(name);
@@ -897,6 +901,10 @@ export class TypeDeriver {
       return { type: this.typeOfExpression(initializer) };
     }
     const expression = skipParentheses(initializer);
+    const local = binding.localConst(expression);
+    if (local) {
+      return this.propertyValue(local.initializer, local.binding);
+    }
     const name = binding.memberRead(expression);
     if (name !== undefined) {
       const member = binding.member(name);
@@ -943,6 +951,10 @@ export class TypeDeriver {
     binding: ThrownBinding,
   ): { props: Record<string, unknown>; dropped: string[] } | undefined {
     const spread = skipParentheses(expression);
+    const local = binding.localConst(spread);
+    if (local) {
+      return this.boundSpread(local.initializer, local.binding);
+    }
     if (isObjectLiteralExpression(spread)) {
       return {
         props: this.serializeObjectLiteral(spread, binding),
@@ -1002,9 +1014,17 @@ export class TypeDeriver {
           this.propertyValue(prop.initializer, binding),
         );
       } else if (isShorthandPropertyAssignment(prop)) {
-        const type = this.typeOfShorthand(prop);
-        if (type) {
-          assign(prop.name.getText(), { type });
+        const local = binding?.localConst(prop);
+        if (local) {
+          assign(
+            prop.name.getText(),
+            this.propertyValue(local.initializer, local.binding),
+          );
+        } else {
+          const type = this.typeOfShorthand(prop);
+          if (type) {
+            assign(prop.name.getText(), { type });
+          }
         }
       } else if (prop.kind === SyntaxKind.SpreadAssignment) {
         const bound = binding?.readsError(prop.expression)

@@ -1,15 +1,17 @@
-import type { Expression, NewExpression } from '@typescript/native/ast';
+import type { Expression } from '@typescript/native/ast';
 import {
   isIdentifier,
   isObjectLiteralExpression,
   isPropertyAssignment,
   isShorthandPropertyAssignment,
+  isSpreadAssignment,
 } from '@typescript/native/ast/is';
 import type { Symbol as TsSymbol } from '@typescript/native/sync';
 
 import { skipParentheses } from '@sdk-it/core/deriver.js';
 import type {
   ConstructedErrorReader,
+  Construction,
   ThrownMember,
   ThrownMembers,
 } from '@sdk-it/core/thrown.js';
@@ -19,13 +21,13 @@ const optionMembers = new Set(['message', 'cause', 'res']);
 
 /**
  * The members Hono's HTTPException takes from its construction,
- * `new HTTPException(status = 500, { message, cause, res })`
+ * `new HTTPException(status = 500, { message = '', cause, res })`
  * (hono/dist/http-exception.js). Hono ships only its declaration, which has no
  * constructor body to read, so this reader holds that knowledge.
  */
 export class HTTPExceptionMembers implements ConstructedErrorReader {
   construct(
-    construction: NewExpression,
+    construction: Construction,
     errorClass: TsSymbol,
   ): ThrownMembers | undefined {
     if (!isHTTPException(errorClass)) {
@@ -52,6 +54,14 @@ export class HTTPExceptionMembers implements ConstructedErrorReader {
       }
     };
     const literal = options && skipParentheses(options);
+    if (
+      !literal ||
+      (isObjectLiteralExpression(literal) &&
+        !literal.properties.some(isSpreadAssignment))
+    ) {
+      // Error's message is '' when `options?.message` is undefined; a property below replaces it.
+      members.set('message', { kind: 'literal', value: '' });
+    }
     if (literal && isObjectLiteralExpression(literal)) {
       for (const property of literal.properties) {
         if (isPropertyAssignment(property)) {

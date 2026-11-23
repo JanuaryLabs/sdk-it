@@ -4,15 +4,23 @@ import {
   type Expression,
   type NewExpression,
   type Node,
+  NodeFlags,
   type ParameterDeclaration,
+  type SuperExpression,
   SyntaxKind,
+  type VariableDeclaration,
 } from '@typescript/native/ast';
 import {
   isBinaryExpression,
+  isCallExpression,
   isConditionalExpression,
   isIdentifier,
   isPrefixUnaryExpression,
   isPropertyAccessExpression,
+  isShorthandPropertyAssignment,
+  isSuperExpression,
+  isVariableDeclaration,
+  isVariableDeclarationList,
 } from '@typescript/native/ast/is';
 import {
   type Checker,
@@ -61,10 +69,22 @@ export function literalOf(value: ThrownValue): string | number | undefined {
 /** Each member a thrown error carries, by name. */
 export type ThrownMembers = ReadonlyMap<string, ThrownMember>;
 
+/** A subclass constructor's `super(...)`, which constructs its base class. */
+export type SuperCall = CallExpression & {
+  readonly expression: SuperExpression;
+};
+
+export function isSuperCall(node: Node): node is SuperCall {
+  return isCallExpression(node) && isSuperExpression(node.expression);
+}
+
+/** The arguments a class is constructed with: `new X(...)`, or the `super(...)` of a class that extends it. */
+export type Construction = NewExpression | SuperCall;
+
 /** Reads the members an error class gets from its construction, such as `new HTTPException(409, { message })`. */
 export interface ConstructedErrorReader {
   construct(
-    construction: NewExpression,
+    construction: Construction,
     errorClass: TsSymbol,
     checker: Checker,
   ): ThrownMembers | undefined;
@@ -210,6 +230,8 @@ export class ThrownBinding {
   readonly #members: ThrownMembers;
   readonly #narrowing: Narrowing;
   readonly #checker: Checker;
+  /** The handler-local consts whose initializer this binding is reading, so a const met again inside its own initializer is read by its type. */
+  #expanding: ReadonlySet<VariableDeclaration> = new Set();
 
   constructor(
     error: ParameterDeclaration,
@@ -253,19 +275,87 @@ export class ThrownBinding {
     return this.#members.get(name);
   }
 
-  /** Whether `node` reads the error parameter anywhere in it. */
+  /** Whether `node` reads the error parameter anywhere in it, also through a handler-local const it names. */
   readsError(node: Node): boolean {
+    return this.#readsError(node, this.#expanding);
+  }
+
+  #readsError(
+    node: Node,
+    expanding: ReadonlySet<VariableDeclaration>,
+  ): boolean {
     if (
       isIdentifier(node) &&
       this.#checker.getSymbolAtLocation(node)?.id === this.#error.id
     ) {
       return true;
     }
+    const local = this.#localDeclaration(node);
+    if (local) {
+      return (
+        !expanding.has(local.declaration) &&
+        this.#readsError(
+          local.initializer,
+          new Set(expanding).add(local.declaration),
+        )
+      );
+    }
     let found = false;
     node.forEachChild((child) => {
-      found ||= this.readsError(child);
+      found ||= this.#readsError(child, expanding);
     });
     return found;
+  }
+
+  /**
+   * What a name sends when it (`cause`, or the shorthand `{ cause }`) is a
+   * `const` that the handler declares from the error, as
+   * `const cause = { code: error.code }`: its initializer, read with this
+   * binding. Only code inside the handler can name its error parameter, so a
+   * const whose initializer reads it is the handler's own. A `let` or `var`
+   * can be reassigned before it is sent, and a destructured name is no
+   * initializer of its own, so those read by their type, as does a const met
+   * again inside its own initializer.
+   */
+  localConst(
+    node: Node,
+  ): { initializer: Expression; binding: ThrownBinding } | undefined {
+    const local = this.#localDeclaration(node);
+    if (
+      !local ||
+      this.#expanding.has(local.declaration) ||
+      !this.readsError(local.initializer)
+    ) {
+      return undefined;
+    }
+    return {
+      initializer: local.initializer,
+      binding: this.#with(
+        this.#members,
+        new Set(this.#expanding).add(local.declaration),
+      ),
+    };
+  }
+
+  #localDeclaration(
+    node: Node,
+  ): { declaration: VariableDeclaration; initializer: Expression } | undefined {
+    const symbol = isShorthandPropertyAssignment(node)
+      ? this.#checker.getShorthandAssignmentValueSymbol(node)
+      : isIdentifier(node)
+        ? this.#checker.getSymbolAtLocation(node)
+        : undefined;
+    const declaration = symbol?.valueDeclaration?.resolve();
+    if (
+      !declaration ||
+      !isVariableDeclaration(declaration) ||
+      !declaration.initializer ||
+      !isVariableDeclarationList(declaration.parent) ||
+      !(declaration.parent.flags & NodeFlags.Const)
+    ) {
+      return undefined;
+    }
+    return { declaration, initializer: declaration.initializer };
   }
 
   /** What a member read gives: its bound expression's type, its bound type or literal, else its own type at the read. */
@@ -292,7 +382,8 @@ export class ThrownBinding {
    * the response's `body` and `status` may hold: a member whose type is a
    * union of literals is bound to each literal in turn, so a status
    * `table[error.code]` or `error.code === 'x' ? 404 : 400` reads one key per
-   * binding. Reads in a branch the site does not take are left out. A member
+   * binding, and members bound to one expression take its literals together.
+   * Reads in a branch the site does not take are left out. A member
    * that the status sends as its value (`error.status`) never distributes: a
    * status is one literal the site gives, not each value its type allows.
    */
@@ -310,8 +401,24 @@ export class ThrownBinding {
         reads.delete(sent);
       }
     }
-    let bindings: ThrownBinding[] = [this];
+    // Members bound to one expression, as `super(code)` binds message and
+    // code, are one value at run time, so they take each literal together.
+    const together = new Map<
+      Node | string,
+      { names: string[]; read: Expression }
+    >();
     for (const [name, read] of reads) {
+      const member = this.member(name);
+      const key = member?.kind === 'expression' ? member.expression : name;
+      const group = together.get(key);
+      if (group) {
+        group.names.push(name);
+      } else {
+        together.set(key, { names: [name], read });
+      }
+    }
+    let bindings: ThrownBinding[] = [this];
+    for (const { names, read } of together.values()) {
       const value = this.valueOfRead(read);
       const literals =
         value.kind === 'type' && value.type.isUnionType()
@@ -325,22 +432,33 @@ export class ThrownBinding {
       }
       bindings = bindings.flatMap((binding) =>
         literals.map((literal) =>
-          binding.#bind(name, { kind: 'type', type: literal }),
+          binding.#bind(names, { kind: 'type', type: literal }),
         ),
       );
     }
     return bindings;
   }
 
-  #bind(name: string, member: ThrownMember): ThrownBinding {
+  #bind(names: readonly string[], member: ThrownMember): ThrownBinding {
     const members = new Map(this.#members);
-    members.set(name, member);
-    return new ThrownBinding(
+    for (const name of names) {
+      members.set(name, member);
+    }
+    return this.#with(members, this.#expanding);
+  }
+
+  #with(
+    members: ThrownMembers,
+    expanding: ReadonlySet<VariableDeclaration>,
+  ): ThrownBinding {
+    const binding = new ThrownBinding(
       this.#parameter,
       this.site,
       this.#checker,
       members,
     );
+    binding.#expanding = expanding;
+    return binding;
   }
 
   /** The members `expression` may be, through parentheses and each branch of a conditional the site takes. */
@@ -382,6 +500,11 @@ export class ThrownBinding {
         this.#collectReads(taken ? node.whenTrue : node.whenFalse, reads);
         return;
       }
+    }
+    const local = this.localConst(node);
+    if (local) {
+      local.binding.#collectReads(local.initializer, reads);
+      return;
     }
     const name = this.memberRead(node);
     if (name !== undefined && isPropertyAccessExpression(node)) {
