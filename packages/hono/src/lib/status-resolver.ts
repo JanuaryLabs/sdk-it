@@ -14,7 +14,11 @@ import {
 
 import type { FunctionWithBody } from '@sdk-it/core';
 import { nodeLocation, skipParentheses } from '@sdk-it/core/deriver.js';
-import type { ThrownBinding } from '@sdk-it/core/thrown.js';
+import {
+  type ThrownBinding,
+  type ThrownValue,
+  literalOf,
+} from '@sdk-it/core/thrown.js';
 
 /**
  * The status an error handler sends for one throw site. A documented status is
@@ -39,74 +43,95 @@ export class StatusResolver {
   }
 
   resolve(status: Expression): string {
-    const type = this.#typeOf(status);
-    if (type?.isNumberLiteralType()) {
-      return String(type.value);
+    const value = this.#valueOf(status);
+    const literal = value && literalOf(value);
+    if (typeof literal === 'number') {
+      return String(literal);
     }
     throw new Error(
-      `app.onError at ${nodeLocation(this.#handler)} sends the error thrown at ${nodeLocation(this.#binding.site.thrown)} with the status ${status.getText()}, whose type is ${this.#text(type)}, not one number literal, so its response cannot be documented. ${this.#fix(status)}`,
+      `app.onError at ${nodeLocation(this.#handler)} sends the error thrown at ${nodeLocation(this.#binding.site.thrown)} with the status ${status.getText()}, whose type is ${this.#text(value)}, not one number literal, so its response cannot be documented. ${this.#fix(status)}`,
     );
   }
 
-  #text(type: Type | undefined): string {
-    return type
-      ? this.#checker.typeToString(
-          type,
+  #text(value: ThrownValue | undefined): string {
+    if (!value) {
+      return 'unknown';
+    }
+    switch (value.kind) {
+      case 'literal':
+        return JSON.stringify(value.value);
+      case 'type':
+        return this.#checker.typeToString(
+          value.type,
           undefined,
           TypeFormatFlags.NoTruncation,
-        )
-      : 'unknown';
+        );
+    }
   }
 
-  #typeOf(status: Expression): Type | undefined {
+  #valueOf(status: Expression): ThrownValue | undefined {
     const expression = skipParentheses(status);
     if (isNumericLiteral(expression)) {
-      return this.#checker.getTypeAtLocation(expression);
+      return this.#typed(this.#checker.getTypeAtLocation(expression));
     }
     if (this.#binding.memberRead(expression) !== undefined) {
-      return this.#binding.typeOfRead(expression);
+      return this.#binding.valueOfRead(expression);
     }
     if (isConditionalExpression(expression)) {
       const taken = this.#binding.decide(expression.condition);
       if (taken !== undefined) {
-        return this.#typeOf(taken ? expression.whenTrue : expression.whenFalse);
-      }
-    }
-    if (isElementAccessExpression(expression)) {
-      const key = this.#typeOf(expression.argumentExpression);
-      if (key?.isStringLiteralType() || key?.isNumberLiteralType()) {
-        return this.#checker.getTypeOfPropertyOfType(
-          this.#checker.getTypeAtLocation(expression.expression),
-          String(key.value),
+        return this.#valueOf(
+          taken ? expression.whenTrue : expression.whenFalse,
         );
       }
     }
-    return this.#checker.getTypeAtLocation(expression);
+    if (isElementAccessExpression(expression)) {
+      const key = this.#keyOf(expression.argumentExpression);
+      if (key !== undefined) {
+        return this.#typed(
+          this.#checker.getTypeOfPropertyOfType(
+            this.#checker.getTypeAtLocation(expression.expression),
+            String(key),
+          ),
+        );
+      }
+    }
+    return this.#typed(this.#checker.getTypeAtLocation(expression));
+  }
+
+  #keyOf(key: Expression): string | number | undefined {
+    const value = this.#valueOf(key);
+    return value && literalOf(value);
+  }
+
+  #typed(type: Type | undefined): ThrownValue | undefined {
+    return type && { kind: 'type', type };
   }
 
   #fix(status: Expression): string {
     const name = this.#binding.memberRead(status);
-    if (
-      name !== undefined &&
-      this.#binding.member(name)?.kind === 'expression'
-    ) {
+    const member = name === undefined ? undefined : this.#binding.member(name);
+    if (member?.kind === 'expression') {
       return `Pass a number literal as the status where the error is constructed, at ${nodeLocation(this.#binding.site.thrown)}.`;
+    }
+    if (name !== undefined && !member) {
+      return `The error thrown at ${nodeLocation(this.#binding.site.thrown)} gives ${name} no value the analysis reads, so ${status.getText()} is only its declared type. Give the error a number literal ${name} where it is defined or thrown.`;
     }
     if (!isElementAccessExpression(status)) {
       return 'Send a number literal, or a value whose type is one number literal.';
     }
     const table = status.expression;
-    const key = this.#typeOf(status.argumentExpression);
-    if (!key?.isStringLiteralType() && !key?.isNumberLiteralType()) {
-      return `The key ${status.argumentExpression.getText()} has the type ${this.#text(key)}, not one literal, so ${table.getText()} gives no single status. Key it by a member of the error whose type is a union of literals, or send a number literal.`;
+    const key = this.#keyOf(status.argumentExpression);
+    if (key === undefined) {
+      return `The key ${status.argumentExpression.getText()} has the type ${this.#text(this.#valueOf(status.argumentExpression))}, not one literal, so ${table.getText()} gives no single status. Key it by a member of the error whose type is a union of literals, or send a number literal.`;
     }
     if (
       !this.#checker.getTypeOfPropertyOfType(
         this.#checker.getTypeAtLocation(table),
-        String(key.value),
+        String(key),
       )
     ) {
-      return `${table.getText()} has no status for the key ${JSON.stringify(key.value)}.`;
+      return `${table.getText()} has no status for the key ${JSON.stringify(key)}.`;
     }
     const declaration = isIdentifier(table)
       ? this.#checker.getSymbolAtLocation(table)?.valueDeclaration?.resolve()

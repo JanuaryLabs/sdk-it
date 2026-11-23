@@ -40,6 +40,7 @@ import type { TypeDeriver } from '@sdk-it/core/deriver.js';
 import type { ThrownBinding } from '@sdk-it/core/thrown.js';
 
 import { getConstantValue } from './constant-value.js';
+import { EvlogErrorMembers } from './evlog.js';
 import { HTTPExceptionMembers } from './http-exception-members.js';
 import { StatusResolver } from './status-resolver.js';
 
@@ -459,7 +460,7 @@ export const responseAnalyzer = {
   streamSSE,
   'new.Response': newResponse,
   'throw.new.HTTPException': httpException,
-  [thrownErrorReaders]: [new HTTPExceptionMembers()],
+  [thrownErrorReaders]: [new HTTPExceptionMembers(), new EvlogErrorMembers()],
 } satisfies NaunceResponseAnalyzer;
 
 export default responseAnalyzer;

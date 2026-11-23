@@ -5,11 +5,7 @@ import {
   isPropertyAssignment,
   isShorthandPropertyAssignment,
 } from '@typescript/native/ast/is';
-import type {
-  Checker,
-  Symbol as TsSymbol,
-  Type,
-} from '@typescript/native/sync';
+import type { Symbol as TsSymbol } from '@typescript/native/sync';
 
 import { skipParentheses } from '@sdk-it/core/deriver.js';
 import type {
@@ -31,7 +27,6 @@ export class HTTPExceptionMembers implements ConstructedErrorReader {
   construct(
     construction: NewExpression,
     errorClass: TsSymbol,
-    checker: Checker,
   ): ThrownMembers | undefined {
     if (!isHTTPException(errorClass)) {
       return undefined;
@@ -45,10 +40,7 @@ export class HTTPExceptionMembers implements ConstructedErrorReader {
         scope: construction,
       });
     } else {
-      const defaulted = defaultStatus(construction, checker);
-      if (defaulted) {
-        members.set('status', { kind: 'type', type: defaulted });
-      }
+      members.set('status', { kind: 'literal', value: 500 });
     }
     const read = (name: string, expression: Expression) => {
       if (optionMembers.has(name)) {
@@ -84,17 +76,5 @@ function isHTTPException(errorClass: TsSymbol): boolean {
         handle.resolve()?.getSourceFile().fileName ?? '',
       ),
     )
-  );
-}
-
-/** The 500 of `status = 500`, as a member of the status parameter's declared type. */
-function defaultStatus(
-  construction: NewExpression,
-  checker: Checker,
-): Type | undefined {
-  const declared = checker.getContextualTypeForArgumentAtIndex(construction, 0);
-  const statuses = declared?.isUnionType() ? declared.getTypes() : [];
-  return statuses.find(
-    (status) => status.isNumberLiteralType() && status.value === 500,
   );
 }
