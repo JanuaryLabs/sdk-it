@@ -293,9 +293,47 @@ try {
 }
 ```
 
-## Document evlog error catalogs
+## Document thrown errors
 
-A route can throw an [evlog](https://www.npmjs.com/package/evlog) catalog error instead of an `HTTPException`:
+A route documents what the app's `app.onError` sends for each error it can throw. The analysis takes the branch that narrows the thrown class (`if (error instanceof X)`, or a concise conditional), else the fallthrough, and binds each `error.<member>` the branch reads to the throw site:
+
+```typescript
+app.onError((error, c) => {
+  if (error instanceof HTTPException) {
+    return c.json({ error: error.message, cause: error.cause }, error.status);
+  }
+  return c.json({ error: 'internal' }, 500);
+});
+
+// in a handler
+throw new HTTPException(400, {
+  message: 'Google authorization belongs to another app',
+  cause: { code: 'google/invalid-grant' },
+});
+```
+
+The route documents a 400 whose `error` is the throw's message and whose `cause.code` is the const `google/invalid-grant`. A member the analysis cannot follow to the throw site is documented by its declared type. A `throw` inside `app.onError` documents nothing.
+
+Each status is one number literal for each throw site. A status read from a table needs a table whose properties are literals:
+
+```typescript
+const statusOf = {
+  not_found: 404,
+  conflict: 409,
+} as const satisfies Record<Code, 404 | 409>;
+
+return c.json({ code: error.code }, statusOf[error.code]);
+```
+
+Each code the throw site can produce gets its own status. Any other status fails the analysis, naming the throw site, the handler and the fix.
+
+An app with no `app.onError` documents Hono's default handler: an `HTTPException` is its message as `text/plain` at its status, and any other error is 500 `text/plain` `Internal Server Error`.
+
+The analysis reads what a throw carries from its construction: `HTTPException`'s status and its `message`, `cause` and `res` options, and the constructor of an error class the program reads as source. A program registers one `app.onError`; a second fails the analysis.
+
+### evlog error catalogs
+
+A route can throw an [evlog](https://www.npmjs.com/package/evlog) catalog error:
 
 ```typescript
 import { defineErrorCatalog } from 'evlog';
@@ -308,42 +346,15 @@ export const billingErrors = defineErrorCatalog('billing', {
 throw billingErrors.PAYMENT_DECLINED();
 ```
 
-If your error handler returns the error as it is (`c.json(error, error.status)`), add `evlogErrors` to the analyzers. Each catalog throw is then documented at its status, with evlog's JSON body and the literal `code`:
+`responseAnalyzer` reads each catalog throw with no preset: its `code`, and its `status`, `message`, `why`, `fix` and `link` from the call's options or else the catalog entry. An entry with no status is evlog's 500. The throw is documented as the app's `app.onError` sends it:
 
 ```typescript
-import { responseAnalyzer } from '@sdk-it/hono';
-import { evlogErrors } from '@sdk-it/hono/evlog';
-
-const { paths, components } = await analyze(project, {
-  responseAnalyzer: { ...responseAnalyzer, ...evlogErrors },
+app.onError((error, c) => {
+  if (error instanceof EvlogError) {
+    return c.json({ error: error.message, code: error.code }, error.status);
+  }
+  throw error;
 });
 ```
 
-If your error handler writes a different body, write your own `throw.call.EvlogError` analyzer. `catalogError` gives the entry's `code`, `status`, `message`, `why`, `fix` and `link`, and `schema` is the OpenAPI schema of your body:
-
-```typescript
-import { catalogError } from '@sdk-it/hono/evlog';
-
-const myErrors = {
-  'throw.call.EvlogError': (handler, deriver, node) => {
-    const error = catalogError(deriver, node);
-    if (!error) return [];
-    return [
-      {
-        statusCode: String(error.status),
-        contentType: 'application/json',
-        headers: [],
-        schema: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-            code: { type: 'string', enum: [error.code] },
-          },
-        },
-      },
-    ];
-  },
-};
-```
-
-A thrown call that no analyzer claims is not documented.
+The route documents a 402 whose `error` is `Card declined` and whose `code` is the entry's code. With no `app.onError`, a catalog throw is Hono's default 500 `text/plain`, since an `EvlogError` has no `getResponse`.
