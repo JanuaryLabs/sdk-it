@@ -108,6 +108,40 @@ app.onError((error, c) => {
   );
 });
 
+test("an HTTPException thrown with no status documents app.onError's branch for it at Hono's default 500", async () => {
+  // hono/dist/http-exception.js: constructor(status = 500, options).
+  const { paths } = await documented(`import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+/** @openapi getMonitor */
+app.get('/monitors/:id', validate(() => ({})), (c) => {
+  if (!c.req.param('id').startsWith('m_')) {
+    throw new HTTPException();
+  }
+  return c.json({ id: c.req.param('id') });
+});
+app.onError((error, c) => {
+  if (error instanceof HTTPException) {
+    return c.json({ error: { code: 'http' }, status: error.status }, error.status);
+  }
+  return c.json({ error: { code: 'internal' } }, 500);
+});
+`);
+
+  const body = bodyOf(paths['/monitors/{id}'].get.responses, '500');
+  assert.deepStrictEqual(
+    body?.properties?.error?.properties?.code,
+    { type: 'string', enum: ['http'] },
+    "the status-less HTTPException takes the HTTPException branch at Hono's 500, not the fallthrough",
+  );
+  assert.deepStrictEqual(
+    body?.properties?.status,
+    { type: 'number', enum: [500] },
+    'a body that sends the default status documents it as the literal 500',
+  );
+});
+
 test("a thrown error that no app.onError branch narrows documents the handler's fallthrough response", async () => {
   const { paths } = await documented(`import { Hono } from 'hono';
 import { validate } from '@sdk-it/hono/runtime';
@@ -790,3 +824,78 @@ app.onError(handlers.handleError);
     );
   });
 }
+
+test("validate()'s 400 and 415 document the body app.onError sends for each HTTPException validate() throws, with that throw's message as a const", async () => {
+  // validate() throws HTTPException (validator.ts:160, 180, 221, 263-272, 290, 306, 316) and
+  // never responds itself, so the app's onError writes the 400 and 415 bodies.
+  const document = await documented(`import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
+import { z } from 'zod';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+app.onError((error, c) => {
+  if (error instanceof HTTPException) {
+    return c.json({ problem: error.message }, error.status);
+  }
+  return c.json({ problem: 'internal' }, 500);
+});
+/** @openapi createItem */
+app.post('/items', validate('application/json', (payload) => ({
+  name: { select: payload.body.name, against: z.string() },
+})), (c) => c.json({ ok: true }));
+`);
+
+  const responses = document.paths['/items'].post.responses;
+  for (const [status, messages] of [
+    ['400', ['Invalid JSON body', 'Invalid request body', 'Validation failed']],
+    ['415', ['Unsupported Media Type']],
+  ] as const) {
+    assert.deepStrictEqual(bodyOf(responses, status), {
+      $ref: `#/components/schemas/validate${status}_application_json`,
+    });
+    const bodies = bodiesOf(document, responses, status);
+    assert.deepStrictEqual(
+      bodies.map((body) => Object.keys(body.properties)),
+      bodies.map(() => ['problem']),
+      `each ${status} is the body app.onError sends`,
+    );
+    assert.deepStrictEqual(
+      bodies.flatMap((body) => body.properties.problem.enum).sort(),
+      messages,
+      `each ${status} body carries the message of the throw it answers`,
+    );
+  }
+});
+
+test("an evlog catalog throw documents app.onError's EvlogError branch at the catalog entry's status, not evlog's own JSON", async () => {
+  const document = await documented(`import { Hono } from 'hono';
+import { defineErrorCatalog, EvlogError } from 'evlog';
+import { validate } from '@sdk-it/hono/runtime';
+const billingErrors = defineErrorCatalog('billing', {
+  PAYMENT_DECLINED: { status: 402, message: 'Card declined', why: 'The issuer refused the charge' },
+});
+export const app = new Hono();
+/** @openapi pay */
+app.post('/pay', validate(() => ({})), (c) => {
+  if (Math.random() > 0.5) {
+    throw billingErrors.PAYMENT_DECLINED();
+  }
+  return c.json({ ok: true });
+});
+app.onError((error, c) => {
+  if (error instanceof EvlogError) {
+    return c.json({ error: { code: error.code, message: error.message } }, error.status);
+  }
+  return c.json({ error: { code: 'internal', message: 'Internal Server Error' } }, 500);
+});
+`);
+
+  const responses = document.paths['/pay'].post.responses;
+  const body = resolvedBody(document, responses, '402');
+  assert.ok(body, 'the 402 the catalog entry gives is documented');
+  assert.deepStrictEqual(Object.keys(body.properties), ['error']);
+  assert.deepStrictEqual(body.properties.error.properties, {
+    code: { enum: ['billing.PAYMENT_DECLINED'], type: 'string' },
+    message: { enum: ['Card declined'], type: 'string' },
+  });
+});

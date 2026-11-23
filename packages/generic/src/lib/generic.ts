@@ -1202,13 +1202,15 @@ export async function analyze(
     try {
       visit(
         sourceFile,
-        (scope, token, node) =>
-          errorHandler && isNewExpression(node) && token.startsWith('throw.')
-            ? errorHandler.responsesFor(
-                throwSite(node, typeChecker, readers),
-                dispatch,
-              )
-            : dispatch(scope, token, node),
+        (scope, token, node) => {
+          const site =
+            errorHandler && token.startsWith('throw.')
+              ? throwSite(node, typeChecker, readers)
+              : undefined;
+          return errorHandler && site
+            ? errorHandler.responsesFor(site, dispatch)
+            : dispatch(scope, token, node);
+        },
         paths,
         typeChecker,
         typeDeriver,

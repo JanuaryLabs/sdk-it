@@ -1,15 +1,16 @@
 import type {
   Expression,
-  NewExpression,
   Node,
   ParameterDeclaration,
   Statement,
 } from '@typescript/native/ast';
 import {
   isBlock,
+  isCallExpression,
   isConditionalExpression,
   isIdentifier,
   isIfStatement,
+  isNewExpression,
   isReturnStatement,
   isThrowStatement,
 } from '@typescript/native/ast/is';
@@ -46,24 +47,38 @@ export type Respond = (
   node: Node,
 ) => ResponseItem[];
 
-/** The error a route throws by constructing it, with the members the readers know it carries. */
+/**
+ * The error a route throws, with the members the readers know it carries: a
+ * construction always, with no members when no reader knows its class, and a
+ * factory call only when a reader reads it, such as an evlog catalog entry.
+ */
 export function throwSite(
-  thrown: NewExpression,
+  thrown: Node,
   checker: Checker,
   readers: readonly ThrownErrorReader[],
-): ThrowSite {
+): ThrowSite | undefined {
+  if (!isNewExpression(thrown) && !isCallExpression(thrown)) {
+    return undefined;
+  }
   const type = checker.getTypeAtLocation(thrown);
   const chain = classChain(type, checker);
   const [errorClass] = chain;
   let members: ThrownMembers | undefined;
   for (const reader of readers) {
-    members =
-      errorClass && 'construct' in reader
-        ? reader.construct(thrown, errorClass, checker)
-        : undefined;
+    if (isNewExpression(thrown)) {
+      members =
+        errorClass && 'construct' in reader
+          ? reader.construct(thrown, errorClass, checker)
+          : undefined;
+    } else if ('call' in reader) {
+      members = reader.call(thrown, checker);
+    }
     if (members) {
       break;
     }
+  }
+  if (!members && isCallExpression(thrown)) {
+    return undefined;
   }
   return { thrown, type, chain, members: members ?? new Map() };
 }

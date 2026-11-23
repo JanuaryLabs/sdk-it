@@ -11,11 +11,9 @@ import {
   isSchemaObject,
 } from 'openapi3-ts/oas31';
 
-import type { NaunceResponseAnalyzer } from '@sdk-it/core';
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
 import { responseAnalyzer } from '@sdk-it/hono';
-import { catalogError, evlogErrors } from '@sdk-it/hono/evlog';
 import { analysisWorkspace, typecheck } from '@sdk-it/testing';
 import { generate } from '@sdk-it/typescript';
 
@@ -32,10 +30,33 @@ export const billingErrors = defineErrorCatalog('billing', {
     status: 429,
     message: (params: { limit: number }) => \`Limit \${params.limit} reached\`,
   },
-  UNKNOWN: { message: 'Something failed' },
+  UNKNOWN: { status: 500, message: 'Something failed' },
 });
 `;
 
+/** An app.onError that sends evlog's own JSON for an EvlogError, as `JSON.stringify` writes it. */
+const sendsEvlogJson = `app.onError((error) => {
+  if (error instanceof EvlogError) {
+    return new Response(JSON.stringify(error), {
+      status: error.status,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+  throw error;
+});`;
+
+/** An app.onError that sends the app's own body for an EvlogError. */
+const sendsOwnBody = `app.onError((error, c) => {
+  if (error instanceof EvlogError) {
+    return c.json(
+      { error: error.message, cause: { code: error.code, detail: error.why } },
+      error.status,
+    );
+  }
+  throw error;
+});`;
+
+/** The billing app, with `onError` registered after the app, or no error handler when it is empty. */
 function route(onError: string) {
   return `import { Hono } from 'hono';
 import { z } from 'zod';
@@ -48,15 +69,7 @@ function plainError() {
 }
 
 export const app = new Hono();
-app.onError((error, c) => {
-  if (error instanceof EvlogError) {
-    return new Response(JSON.stringify(${onError}), {
-      status: error.status,
-      headers: { 'content-type': 'application/json' },
-    });
-  }
-  throw error;
-});
+${onError}
 
 /** @openapi pay */
 app.post('/pay', validate((payload) => ({
@@ -77,10 +90,10 @@ app.post('/pay', validate((payload) => ({
 `;
 }
 
-function workspace(onError: string) {
+function workspace(onError: string, catalogSource = catalog) {
   return analysisWorkspace('evlog-', {
     'route.ts': route(onError),
-    'catalog.ts': catalog,
+    'catalog.ts': catalogSource,
   });
 }
 
@@ -100,65 +113,91 @@ function jsonSchema(
   return schema;
 }
 
-void test("evlogErrors documents each catalog throw at its status with evlog's wire shape", async () => {
-  await using dir = await workspace('error');
+void test('each catalog throw documents the response app.onError sends at the status its catalog entry gives, or the one its call overrides, with no preset', async () => {
+  await using dir = await workspace(sendsEvlogJson);
   const { app }: { app: Hono } = await import(
     pathToFileURL(join(dir.path, 'route.ts')).href
   );
-  const wire: Record<
-    string,
-    { status: number; body: Record<string, unknown> }
-  > = {};
-  for (const mode of ['declined', 'quota', 'unknown', 'override']) {
+  const statuses: number[] = [];
+  for (const mode of ['declined', 'quota', 'unknown', 'override', 'alias']) {
     const response = await app.request(`/pay?mode=${mode}`, { method: 'POST' });
-    wire[mode] = { status: response.status, body: await response.json() };
+    statuses.push(response.status);
   }
+  assert.deepEqual(statuses, [402, 429, 500, 409, 429]);
+
+  using project = openAnalysisProject(dir.tsconfig);
+  const spec = await analyze(project, { responseAnalyzer });
+  const responses = spec.paths['/pay']?.post?.responses;
+
   assert.deepEqual(
-    Object.values(wire).map(({ status }) => status),
-    [402, 429, 500, 409],
+    Object.keys(responses ?? {}).sort(),
+    ['200', '402', '409', '429', '500'],
+    "each status the wire sends, and no 400 or 415: app.onError re-throws validate()'s HTTPException, so Hono sends none",
   );
-  assert.deepEqual(wire.declined.body, {
-    name: 'EvlogError',
-    message: 'Card declined',
-    status: 402,
-    data: {
+  for (const status of ['402', '409', '429', '500']) {
+    jsonSchema(responses, status);
+  }
+});
+
+void test("app.onError's own body for a catalog throw documents each entry's code, message and why as consts, with no hand-written analyzer", async () => {
+  await using dir = await workspace(sendsOwnBody);
+  const { app }: { app: Hono } = await import(
+    pathToFileURL(join(dir.path, 'route.ts')).href
+  );
+  const response = await app.request('/pay?mode=declined', { method: 'POST' });
+  assert.equal(response.status, 402);
+  assert.deepEqual(await response.json(), {
+    error: 'Card declined',
+    cause: {
       code: 'billing.PAYMENT_DECLINED',
-      why: 'The issuer refused the charge',
-      fix: 'Use another card',
+      detail: 'The issuer refused the charge',
     },
   });
 
   using project = openAnalysisProject(dir.tsconfig);
-  const spec = await analyze(project, {
-    responseAnalyzer: { ...responseAnalyzer, ...evlogErrors },
-  });
+  const spec = await analyze(project, { responseAnalyzer });
   const responses = spec.paths['/pay']?.post?.responses;
 
-  for (const [mode, code] of [
-    ['declined', 'billing.PAYMENT_DECLINED'],
-    ['quota', 'billing.QUOTA'],
-    ['unknown', 'billing.UNKNOWN'],
-    ['override', 'billing.PAYMENT_DECLINED'],
-  ] as const) {
-    const { status, body } = wire[mode];
-    const schema = jsonSchema(responses, String(status));
-    assert.deepEqual(schema.properties?.status, {
-      type: 'number',
-      enum: [status],
-    });
-    const data = schema.properties?.data;
-    assert.ok(data && isSchemaObject(data), `${mode}: data is a schema`);
-    assert.deepEqual(data.properties?.code, { type: 'string', enum: [code] });
-    for (const key of Object.keys(body)) {
-      assert.ok(
-        key in (schema.properties ?? {}),
-        `${mode}: ${key} is documented`,
-      );
-    }
-    for (const key of schema.required ?? []) {
-      assert.ok(key in body, `${mode}: required ${key} is on the wire`);
-    }
-  }
+  const declined: SchemaObject = {
+    type: 'object',
+    properties: {
+      cause: {
+        type: 'object',
+        properties: {
+          code: { enum: ['billing.PAYMENT_DECLINED'], type: 'string' },
+          detail: { enum: ['The issuer refused the charge'], type: 'string' },
+        },
+        required: ['code', 'detail'],
+        additionalProperties: false,
+      },
+      error: { enum: ['Card declined'], type: 'string' },
+    },
+    required: ['cause', 'error'],
+    additionalProperties: false,
+  };
+  assert.deepEqual(jsonSchema(responses, '402'), declined);
+  assert.deepEqual(
+    jsonSchema(responses, '409'),
+    declined,
+    "the overridden status keeps the entry's body",
+  );
+  const quota = jsonSchema(responses, '429');
+  assert.deepEqual(
+    quota.properties?.error,
+    { type: 'string' },
+    'the QUOTA message is built from the call',
+  );
+  const cause = quota.properties?.cause;
+  assert.ok(cause && isSchemaObject(cause));
+  assert.deepEqual(cause.properties?.code, {
+    enum: ['billing.QUOTA'],
+    type: 'string',
+  });
+  assert.deepEqual(
+    cause.required,
+    ['code'],
+    'an entry with no why sends no detail, as JSON leaves out undefined',
+  );
 
   const output = join(dir.path, 'client');
   await generate(
@@ -186,10 +225,10 @@ void test("evlogErrors documents each catalog throw at its status with evlog's w
     `import type { BillingEndpoints } from './index.ts';
 type PayError = BillingEndpoints['POST /pay']['error'];
 declare const declined: Extract<PayError, { status: 402 }>;
-const code: 'billing.PAYMENT_DECLINED' = declined.data.data.code;
-const message: string = declined.data.message;
+const code: 'billing.PAYMENT_DECLINED' = declined.data.cause.code;
+const message: 'Card declined' = declined.data.error;
 // @ts-expect-error the 402 body carries only the declined code
-const wrong: 'billing.QUOTA' = declined.data.data.code;
+const wrong: 'billing.QUOTA' = declined.data.cause.code;
 void [code, message, wrong];
 `,
   );
@@ -198,81 +237,56 @@ void [code, message, wrong];
   assert.deepEqual(diagnostics, []);
 });
 
-void test('an app documents its own error body for catalog throws with catalogError', async () => {
+void test("a catalog entry with no status documents app.onError's response at evlog's default 500, since evlog sends status ?? entry.status ?? 500", async () => {
   await using dir = await workspace(
-    '{ error: error.message, cause: { code: error.code, detail: error.why } }',
+    sendsOwnBody,
+    catalog.replace(
+      "UNKNOWN: { status: 500, message: 'Something failed' }",
+      "UNKNOWN: { message: 'Something failed' }",
+    ),
   );
   const { app }: { app: Hono } = await import(
     pathToFileURL(join(dir.path, 'route.ts')).href
   );
-  const response = await app.request('/pay?mode=declined', { method: 'POST' });
-  assert.equal(response.status, 402);
+  const response = await app.request('/pay?mode=unknown', { method: 'POST' });
+  assert.equal(response.status, 500);
   assert.deepEqual(await response.json(), {
-    error: 'Card declined',
-    cause: {
-      code: 'billing.PAYMENT_DECLINED',
-      detail: 'The issuer refused the charge',
-    },
+    error: 'Something failed',
+    cause: { code: 'billing.UNKNOWN' },
   });
-  const custom: NaunceResponseAnalyzer = {
-    'throw.call.EvlogError': (_scope, deriver, node) => {
-      const entry = catalogError(deriver, node);
-      if (!entry) return [];
-      return [
-        {
-          statusCode: String(entry.status),
-          contentType: 'application/json',
-          headers: [],
-          schema: {
-            type: 'object',
-            required: ['error', 'cause'],
-            properties: {
-              error: { type: 'string' },
-              cause: {
-                type: 'object',
-                required: ['code'],
-                properties: {
-                  code: { type: 'string', enum: [entry.code] },
-                  detail: { type: 'string' },
-                },
-              },
-            },
-          },
-        },
-      ];
-    },
-  };
 
   using project = openAnalysisProject(dir.tsconfig);
-  const spec = await analyze(project, {
-    responseAnalyzer: { ...responseAnalyzer, ...custom },
-  });
+  const spec = await analyze(project, { responseAnalyzer });
 
-  assert.deepEqual(jsonSchema(spec.paths['/pay']?.post?.responses, '402'), {
+  assert.deepEqual(jsonSchema(spec.paths['/pay']?.post?.responses, '500'), {
     type: 'object',
-    required: ['error', 'cause'],
     properties: {
-      error: { type: 'string' },
       cause: {
         type: 'object',
-        required: ['code'],
         properties: {
-          code: { type: 'string', enum: ['billing.PAYMENT_DECLINED'] },
+          code: { enum: ['billing.UNKNOWN'], type: 'string' },
           detail: { type: 'string' },
         },
+        required: ['code'],
+        additionalProperties: false,
       },
+      error: { enum: ['Something failed'], type: 'string' },
     },
+    required: ['cause', 'error'],
+    additionalProperties: false,
   });
 });
 
-void test('a thrown call with no registered analyzer documents no response', async () => {
-  await using dir = await workspace('error');
+void test('a catalog throw in an app with no app.onError documents no response, since no analyzer reads it there', async () => {
+  await using dir = await workspace('');
 
   using project = openAnalysisProject(dir.tsconfig);
   const spec = await analyze(project, { responseAnalyzer });
 
   const statuses = Object.keys(spec.paths['/pay']?.post?.responses ?? {});
-  for (const status of ['402', '409', '429', '500']) {
-    assert.ok(!statuses.includes(status), `HTTP ${status} is not documented`);
-  }
+  assert.deepStrictEqual(
+    statuses.toSorted(),
+    ['200', '400', '415'],
+    "only the route's own 200 and validate()'s 400 and 415 are documented; no catalog throw adds a status",
+  );
 });
