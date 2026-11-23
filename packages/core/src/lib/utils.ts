@@ -14,6 +14,7 @@ import {
 
 import type { TypeDeriver } from './deriver.js';
 import type { ResponseItem } from './paths.js';
+import type { ThrownBinding, ThrownErrorReader } from './thrown.js';
 
 export function removeDuplicates<T>(
   data: T[],
@@ -40,10 +41,13 @@ export type FunctionWithBody = FunctionLikeDeclaration & {
 /**
  * The function whose returned and thrown values a response analyzer reads, and
  * its Hono context parameter; a function that declares no parameter has none.
+ * An error handler's scope binds its error parameter to the throw site it
+ * answers.
  */
 export interface ResponseScope {
   readonly handler: FunctionWithBody;
   readonly context: ParameterDeclaration | undefined;
+  readonly binding?: ThrownBinding;
 }
 
 export type NaunceResponseAnalyzerFn = (
@@ -51,7 +55,15 @@ export type NaunceResponseAnalyzerFn = (
   deriver: TypeDeriver,
   node: Node,
 ) => ResponseItem[];
-export type NaunceResponseAnalyzer = Record<string, NaunceResponseAnalyzerFn>;
+/** The key under which a response analyzer lists the readers of the error classes its framework defines. */
+export const thrownErrorReaders = Symbol('thrownErrorReaders');
+
+export type NaunceResponseAnalyzer = Record<
+  string,
+  NaunceResponseAnalyzerFn
+> & {
+  readonly [thrownErrorReaders]?: readonly ThrownErrorReader[];
+};
 
 export type ResponseAnalyzerFn = (
   scope: ResponseScope,

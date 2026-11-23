@@ -3,6 +3,7 @@ import {
   type Expression,
   type Node,
   NodeFlags,
+  type ObjectLiteralExpression,
   type SatisfiesExpression,
   type ShorthandPropertyAssignment,
   SyntaxKind,
@@ -54,6 +55,7 @@ import { hash } from 'node:crypto';
 import type { SchemaObject } from 'openapi3-ts/oas31';
 
 import { $types, deriveSymbol } from './derived-type.js';
+import type { ThrownBinding } from './thrown.js';
 import { sortObjectKeys } from './utils.js';
 
 type Collector = Record<string, any>;
@@ -116,7 +118,8 @@ export function nodeLocation(node: Node): string | undefined {
   }
 }
 
-function skipParentheses(node: Expression): Expression {
+/** `node` without the parentheses around it. */
+export function skipParentheses(node: Expression): Expression {
   let expression = node;
   while (isParenthesizedExpression(expression)) {
     expression = expression.expression;
@@ -814,9 +817,17 @@ export class TypeDeriver {
       : this.checker.getTypeAtLocation(node.name);
   }
 
-  serializeNode(node: Node): any {
+  /**
+   * The schema of what `node` sends. With a binding, `node` is in an error
+   * handler and a read of a member off its error parameter stands for what the
+   * bound throw site gives that member; only the parts that read the error
+   * parameter are read by node, so everything else serializes as without one.
+   */
+  serializeNode(node: Node, binding?: ThrownBinding): any {
     try {
-      return this.serializeNodeType(node);
+      return binding?.readsError(node)
+        ? this.serializeBound(node, binding)
+        : this.serializeNodeType(node);
     } catch (error) {
       // The innermost node whose type does not resolve names the place.
       if (error instanceof UnresolvedTypeError && !error.location) {
@@ -829,58 +840,200 @@ export class TypeDeriver {
     }
   }
 
+  private serializeBound(node: Node, binding: ThrownBinding): any {
+    const name = binding.memberRead(node);
+    if (name !== undefined) {
+      const member = binding.member(name);
+      if (!member) {
+        return this.serializeNodeType(node);
+      }
+      return member.kind === 'type'
+        ? this.serializeType(member.type)
+        : this.serializeNode(member.expression);
+    }
+    if (isParenthesizedExpression(node)) {
+      return this.serializeNode(node.expression, binding);
+    }
+    if (isConditionalExpression(node)) {
+      const taken = binding.decide(node.condition);
+      if (taken !== undefined) {
+        return this.serializeNode(
+          taken ? node.whenTrue : node.whenFalse,
+          binding,
+        );
+      }
+    }
+    if (isObjectLiteralExpression(node)) {
+      return this.serializeObjectLiteral(node, binding);
+    }
+    return this.serializeNodeType(node);
+  }
+
+  /**
+   * What a property's value serializes from: its type, or, for an object
+   * literal that reads the bound error, its serialized form.
+   */
+  private propertyValue(
+    initializer: Expression,
+    binding: ThrownBinding | undefined,
+  ): { type: Type } | { serialized: unknown } {
+    if (!binding?.readsError(initializer)) {
+      return { type: this.typeOfExpression(initializer) };
+    }
+    const expression = skipParentheses(initializer);
+    const name = binding.memberRead(expression);
+    if (name !== undefined) {
+      const member = binding.member(name);
+      if (member?.kind === 'type') {
+        return { type: member.type };
+      }
+      return {
+        type: this.typeOfExpression(member ? member.expression : expression),
+      };
+    }
+    if (isConditionalExpression(expression)) {
+      const taken = binding.decide(expression.condition);
+      if (taken !== undefined) {
+        return this.propertyValue(
+          taken ? expression.whenTrue : expression.whenFalse,
+          binding,
+        );
+      }
+    }
+    if (isObjectLiteralExpression(expression)) {
+      return {
+        serialized: {
+          [deriveSymbol]: true,
+          kind: 'object',
+          optional: false,
+          [$types]: [this.serializeObjectLiteral(expression, binding)],
+        },
+      };
+    }
+    return { type: this.typeOfExpression(initializer) };
+  }
+
+  /**
+   * The properties a spread that reads the bound error adds, and the names a
+   * spread the site does not take leaves out: `...(cond && { … })`.
+   */
+  private boundSpread(
+    expression: Expression,
+    binding: ThrownBinding,
+  ): { props: Record<string, unknown>; dropped: string[] } | undefined {
+    const spread = skipParentheses(expression);
+    if (isObjectLiteralExpression(spread)) {
+      return {
+        props: this.serializeObjectLiteral(spread, binding),
+        dropped: [],
+      };
+    }
+    if (isConditionalExpression(spread)) {
+      const taken = binding.decide(spread.condition);
+      return taken === undefined
+        ? undefined
+        : this.boundSpread(taken ? spread.whenTrue : spread.whenFalse, binding);
+    }
+    if (
+      isBinaryExpression(spread) &&
+      spread.operatorToken.kind === SyntaxKind.AmpersandAmpersandToken
+    ) {
+      const taken = binding.decide(spread.left);
+      if (taken === true) {
+        return this.boundSpread(spread.right, binding);
+      }
+      if (taken === false) {
+        return {
+          props: {},
+          dropped: this.checker
+            .getPropertiesOfType(this.checker.getTypeAtLocation(spread.right))
+            .map(({ name }) => name),
+        };
+      }
+    }
+    return undefined;
+  }
+
+  private serializeObjectLiteral(
+    node: ObjectLiteralExpression,
+    binding?: ThrownBinding,
+  ): Record<string, any> {
+    const symbolType = this.checker.getTypeAtLocation(node);
+    const props: Record<string, any> = {};
+
+    const dropped = new Set<string>();
+    const assign = (
+      name: string,
+      value: { type: Type } | { serialized: unknown },
+    ) => {
+      if ('serialized' in value) {
+        props[name] = value.serialized;
+      } else if (this.hasNoJsonForm(value.type)) {
+        dropped.add(name);
+      } else {
+        props[name] = this.serializeType(value.type);
+      }
+    };
+    for (const prop of node.properties) {
+      if (isPropertyAssignment(prop)) {
+        assign(
+          prop.name.getText(),
+          this.propertyValue(prop.initializer, binding),
+        );
+      } else if (isShorthandPropertyAssignment(prop)) {
+        const type = this.typeOfShorthand(prop);
+        if (type) {
+          assign(prop.name.getText(), { type });
+        }
+      } else if (prop.kind === SyntaxKind.SpreadAssignment) {
+        const bound = binding?.readsError(prop.expression)
+          ? this.boundSpread(prop.expression, binding)
+          : undefined;
+        if (bound) {
+          for (const name of bound.dropped) {
+            if (!Object.hasOwn(props, name)) {
+              dropped.add(name);
+            }
+          }
+          for (const [name, value] of Object.entries(bound.props)) {
+            dropped.delete(name);
+            props[name] = value;
+          }
+          continue;
+        }
+        // A spread reads its source as a variable does, so a const object's
+        // literals survive the copy; a later property still overrides them.
+        const source = this.serializeType(
+          this.typeOfExpression(prop.expression),
+        );
+        if (source?.kind === 'object') {
+          for (const [name, value] of Object.entries(source[$types][0])) {
+            dropped.delete(name);
+            props[name] = value;
+          }
+        }
+      }
+    }
+
+    for (const symbol of symbolType.getProperties()) {
+      if (
+        !this.keyedBySymbol(symbol) &&
+        !Object.hasOwn(props, symbol.name) &&
+        !dropped.has(symbol.name)
+      ) {
+        const type = this.checker.getTypeOfSymbol(symbol);
+        if (!this.hasNoJsonForm(type)) {
+          props[symbol.name] = this.serializeType(type);
+        }
+      }
+    }
+
+    return sortObjectKeys(props);
+  }
+
   private serializeNodeType(node: Node): any {
     if (isObjectLiteralExpression(node)) {
-      const symbolType = this.checker.getTypeAtLocation(node);
-      const props: Record<string, any> = {};
-
-      const dropped = new Set<string>();
-      for (const prop of node.properties) {
-        if (isPropertyAssignment(prop)) {
-          const type = this.typeOfExpression(prop.initializer);
-          if (this.hasNoJsonForm(type)) {
-            dropped.add(prop.name.getText());
-          } else {
-            props[prop.name.getText()] = this.serializeType(type);
-          }
-        } else if (isShorthandPropertyAssignment(prop)) {
-          const type = this.typeOfShorthand(prop);
-          if (type) {
-            if (this.hasNoJsonForm(type)) {
-              dropped.add(prop.name.getText());
-            } else {
-              props[prop.name.getText()] = this.serializeType(type);
-            }
-          }
-        } else if (prop.kind === SyntaxKind.SpreadAssignment) {
-          // A spread reads its source as a variable does, so a const object's
-          // literals survive the copy; a later property still overrides them.
-          const source = this.serializeType(
-            this.typeOfExpression(prop.expression),
-          );
-          if (source?.kind === 'object') {
-            for (const [name, value] of Object.entries(source[$types][0])) {
-              dropped.delete(name);
-              props[name] = value;
-            }
-          }
-        }
-      }
-
-      for (const symbol of symbolType.getProperties()) {
-        if (
-          !this.keyedBySymbol(symbol) &&
-          !Object.hasOwn(props, symbol.name) &&
-          !dropped.has(symbol.name)
-        ) {
-          const type = this.checker.getTypeOfSymbol(symbol);
-          if (!this.hasNoJsonForm(type)) {
-            props[symbol.name] = this.serializeType(type);
-          }
-        }
-      }
-
-      return sortObjectKeys(props);
+      return this.serializeObjectLiteral(node);
     }
     if (isPropertyAccessExpression(node) || isPropertyDeclaration(node)) {
       const symbol = this.checker.getSymbolAtLocation(node.name);
