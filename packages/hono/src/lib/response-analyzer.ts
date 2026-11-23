@@ -30,17 +30,17 @@ import type { Checker } from '@typescript/native/sync';
 
 import {
   $types,
-  type NaunceResponseAnalyzer,
-  type NaunceResponseAnalyzerFn,
+  ResponseAnalyzer,
   type ResponseItem,
   type ResponseScope,
-  thrownErrorReaders,
+  type ReturnedValueAnalyzer,
 } from '@sdk-it/core';
 import type { TypeDeriver } from '@sdk-it/core/deriver.js';
 import type { ThrownBinding } from '@sdk-it/core/thrown.js';
 
 import { getConstantValue } from './constant-value.js';
 import { EvlogErrorMembers } from './evlog.js';
+import { HonoDefaultErrorHandler } from './hono-default-error-handler.js';
 import { HTTPExceptionMembers } from './http-exception-members.js';
 import { StatusResolver } from './status-resolver.js';
 
@@ -242,7 +242,7 @@ function getHeaderKeys(headersNode: Node | undefined, checker: Checker) {
   return checker.getPropertiesOfType(type).map((prop) => prop.name);
 }
 
-export const newResponse: NaunceResponseAnalyzerFn = (scope, deriver, node) => {
+export const newResponse: ReturnedValueAnalyzer = (scope, deriver, node) => {
   if (!isNewExpression(node)) {
     return [];
   }
@@ -434,33 +434,16 @@ export function streamSSE(
   ];
 }
 
-export const httpException: NaunceResponseAnalyzerFn = (
-  _scope,
-  deriver,
-  node,
-) => {
-  if (isNewExpression(node)) {
-    const [status, options] = node.arguments ?? [];
-    return [
-      {
-        contentType: 'application/json',
-        headers: [],
-        statusCode: resolveStatusCode(status),
-        response: options ? deriver.serializeNode(options) : undefined,
-      },
-    ];
-  }
-  return [];
-};
-
-export const responseAnalyzer = {
-  default: defaultResponseAnalyzer,
-  streamText,
-  stream,
-  streamSSE,
-  'new.Response': newResponse,
-  'throw.new.HTTPException': httpException,
-  [thrownErrorReaders]: [new HTTPExceptionMembers(), new EvlogErrorMembers()],
-} satisfies NaunceResponseAnalyzer;
+export const responseAnalyzer = new ResponseAnalyzer({
+  returns: {
+    default: defaultResponseAnalyzer,
+    streamText,
+    stream,
+    streamSSE,
+    'new.Response': newResponse,
+  },
+  errors: [new HTTPExceptionMembers(), new EvlogErrorMembers()],
+  unhandled: new HonoDefaultErrorHandler(),
+});
 
 export default responseAnalyzer;

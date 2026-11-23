@@ -277,16 +277,33 @@ void test("a catalog entry with no status documents app.onError's response at ev
   });
 });
 
-void test('a catalog throw in an app with no app.onError documents no response, since no analyzer reads it there', async () => {
+void test("each catalog throw in an app with no app.onError documents Hono's default 500 text/plain, since an EvlogError has no getResponse", async () => {
   await using dir = await workspace('');
+  const { app }: { app: Hono } = await import(
+    pathToFileURL(join(dir.path, 'route.ts')).href
+  );
+  const sent = [];
+  for (const mode of ['declined', 'quota', 'override', 'plain']) {
+    const response = await app.request(`/pay?mode=${mode}`, { method: 'POST' });
+    sent.push([response.status, await response.text()]);
+  }
+  assert.deepStrictEqual(
+    sent,
+    Array.from({ length: 4 }, () => [500, 'Internal Server Error']),
+  );
 
   using project = openAnalysisProject(dir.tsconfig);
   const spec = await analyze(project, { responseAnalyzer });
+  const responses = spec.paths['/pay']?.post?.responses ?? {};
 
-  const statuses = Object.keys(spec.paths['/pay']?.post?.responses ?? {});
   assert.deepStrictEqual(
-    statuses.toSorted(),
-    ['200', '400', '415'],
-    "only the route's own 200 and validate()'s 400 and 415 are documented; no catalog throw adds a status",
+    Object.keys(responses).toSorted(),
+    ['200', '400', '415', '500'],
+    "no entry's own status (402, 409, 429) is documented, since Hono never sends it",
   );
+  assert.deepStrictEqual(responses['500']?.content, {
+    'text/plain': {
+      schema: { type: 'string', enum: ['Internal Server Error'] },
+    },
+  });
 });

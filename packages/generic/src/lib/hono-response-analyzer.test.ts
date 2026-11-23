@@ -978,12 +978,6 @@ app.get('/old-runs', validate(() => ({})), (c) => {
     });
   });
 
-  describe('httpException analyzer', () => {
-    void test.todo('extracts status code from HTTPException');
-    void test.todo('extracts response body from HTTPException options');
-    void test.todo('handles HTTPException with 409 conflict');
-  });
-
   describe('real-world route patterns', () => {
     void test.todo('extracts from GET route with c.json({ data })');
     void test.todo('extracts from POST route with c.json(data, 201)');

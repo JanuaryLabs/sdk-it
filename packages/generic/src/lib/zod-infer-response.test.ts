@@ -43,10 +43,15 @@ export function execute(): ExecuteResult[] {
 }
 `,
     'route.ts': `import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { validate } from '@sdk-it/hono/runtime';
 import { execute, readChatUsage } from './usage.ts';
 
 export const app = new Hono();
+app.onError((error, c) => {
+  if (error instanceof HTTPException) return c.json({ message: error.message, cause: error.cause }, error.status);
+  throw error;
+});
 
 /** @openapi listMessages */
 app.get('/messages', validate(() => ({})), (c) => {

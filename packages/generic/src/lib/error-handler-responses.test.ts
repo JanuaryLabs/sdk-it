@@ -1,5 +1,8 @@
 import { test } from '@zukhruf/testing/node';
+import type { Hono } from 'hono';
 import assert from 'node:assert/strict';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
@@ -897,5 +900,136 @@ app.onError((error, c) => {
   assert.deepStrictEqual(body.properties.error.properties, {
     code: { enum: ['billing.PAYMENT_DECLINED'], type: 'string' },
     message: { enum: ['Card declined'], type: 'string' },
+  });
+});
+
+const evlogCatalog = `import { defineErrorCatalog } from 'evlog';
+export const billingErrors = defineErrorCatalog('billing', {
+  PAYMENT_DECLINED: { status: 402, message: 'Card declined' },
+});
+`;
+
+/** Requests `path` from the app in `route.ts`, then analyzes it, with no app.onError. */
+async function sentAndDocumented(
+  route: string,
+  path: string,
+  files: Record<string, string> = {},
+) {
+  await using workspace = await analysisWorkspace('unhandled-errors-', {
+    'route.ts': route,
+    ...files,
+  });
+  const { app }: { app: Hono } = await import(
+    pathToFileURL(join(workspace.path, 'route.ts')).href
+  );
+  const response = await app.request(path);
+  const sent = {
+    status: response.status,
+    mediaType: response.headers.get('content-type')?.split(';')[0],
+    body: await response.text(),
+  };
+  using project = openAnalysisProject(workspace.tsconfig);
+  const { paths } = await analyze(project, { responseAnalyzer });
+  return {
+    sent,
+    responses: JSON.parse(JSON.stringify(paths))[path].get.responses,
+  };
+}
+
+test("an HTTPException thrown in an app with no app.onError documents Hono's default: its message as text/plain at its status", async () => {
+  const { sent, responses } = await sentAndDocumented(
+    `import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+/** @openapi getItem */
+app.get('/item', validate(() => ({})), () => {
+  throw new HTTPException(422, { message: 'Bad id' });
+});
+`,
+    '/item',
+  );
+
+  assert.deepStrictEqual(sent, {
+    status: 422,
+    mediaType: 'text/plain',
+    body: 'Bad id',
+  });
+  assert.deepStrictEqual(responses['422'].content, {
+    'text/plain': { schema: { type: 'string', enum: ['Bad id'] } },
+  });
+});
+
+test('an HTTPException whose status is not one literal, thrown in an app with no app.onError, fails analyze naming the throw', async () => {
+  await assert.rejects(
+    documented(`import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+function refuse(code: 400 | 404): never {
+  throw new HTTPException(code, { message: 'Refused' });
+}
+/** @openapi getItem */
+app.get('/item', validate(() => ({})), () => refuse(404));
+`),
+    /Hono's default error handler sends the HTTPException thrown at \S*route\.ts:6:\d+/,
+  );
+});
+
+test("an error that is no HTTPException, thrown in an app with no app.onError, documents Hono's default 500 text/plain", async () => {
+  const { sent, responses } = await sentAndDocumented(
+    `import { Hono } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+class QuotaError extends Error {}
+export const app = new Hono();
+/** @openapi getQuota */
+app.get('/quota', validate(() => ({})), () => {
+  throw new QuotaError('x');
+});
+`,
+    '/quota',
+  );
+
+  assert.deepStrictEqual(sent, {
+    status: 500,
+    mediaType: 'text/plain',
+    body: 'Internal Server Error',
+  });
+  assert.deepStrictEqual(responses['500'].content, {
+    'text/plain': {
+      schema: { type: 'string', enum: ['Internal Server Error'] },
+    },
+  });
+});
+
+test("an evlog catalog throw in an app with no app.onError documents Hono's default 500 text/plain, not the catalog entry's status", async () => {
+  const { sent, responses } = await sentAndDocumented(
+    `import { Hono } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+import { billingErrors } from './catalog.ts';
+export const app = new Hono();
+/** @openapi pay */
+app.get('/pay', validate(() => ({})), () => {
+  throw billingErrors.PAYMENT_DECLINED();
+});
+`,
+    '/pay',
+    { 'catalog.ts': evlogCatalog },
+  );
+
+  assert.deepStrictEqual(sent, {
+    status: 500,
+    mediaType: 'text/plain',
+    body: 'Internal Server Error',
+  });
+  assert.equal(
+    responses['402'],
+    undefined,
+    'Hono never sends the entry status',
+  );
+  assert.deepStrictEqual(responses['500'].content, {
+    'text/plain': {
+      schema: { type: 'string', enum: ['Internal Server Error'] },
+    },
   });
 });

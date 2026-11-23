@@ -20,11 +20,19 @@ async function documented(route: string) {
   return JSON.parse(JSON.stringify({ paths, components }));
 }
 
+/** An app.onError that sends an HTTPException's message and cause as JSON at its status, and re-throws any other error. */
+const sendsHttpException = `app.onError((error, c) => {
+  if (error instanceof HTTPException) return c.json({ message: error.message, cause: error.cause }, error.status);
+  throw error;
+});`;
+
 test("every route using validate() points at one 400 component that lists each of validate()'s bodies once", async () => {
   const { paths, components } = await documented(`import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import { validate } from '@sdk-it/hono/runtime';
 export const app = new Hono();
+${sendsHttpException}
 /** @openapi createItem */
 app.post('/items', validate('application/json', (payload) => ({
   name: { select: payload.body.name, against: z.string() },
@@ -51,9 +59,11 @@ app.post('/others', validate('application/json', (payload) => ({
 
 test("validate()'s 400 component documents its invalid-JSON, invalid-body and validation-failed bodies, the last with its field issues", async () => {
   const { components } = await documented(`import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import { validate } from '@sdk-it/hono/runtime';
 export const app = new Hono();
+${sendsHttpException}
 /** @openapi createItem */
 app.post('/items', validate('application/json', (payload) => ({
   name: { select: payload.body.name, against: z.string() },
@@ -82,10 +92,7 @@ import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import { validate } from '@sdk-it/hono/runtime';
 export const app = new Hono();
-app.onError((error, c) => {
-  if (error instanceof HTTPException) return c.json({ message: error.message, cause: error.cause }, error.status);
-  throw error;
-});
+${sendsHttpException}
 /** @openapi listItems */
 app.get('/items', validate(() => ({})), (c) => c.json({ items: [] }));
 /** @openapi createItem */
@@ -167,11 +174,15 @@ const authenticate = (): MiddlewareHandler => async (c, next) => {
 app.get('/account', authenticate(), validate(() => ({})), (c) => c.json({ id: 'a1' }));
 `);
 
-  const [ct] = Object.keys(paths['/account'].get.responses['401'].content);
-  const shared =
-    components.schemas[`authenticate401_${ct.replace(/\//g, '_')}`];
   assert.deepStrictEqual(
-    shared.oneOf.flatMap((body: any) => body.properties.message.enum).sort(),
+    paths['/account'].get.responses['401'].content['text/plain'].schema,
+    { $ref: '#/components/schemas/authenticate401_text_plain' },
+    "with no app.onError, Hono's default handler sends each HTTPException's message as text",
+  );
+  assert.deepStrictEqual(
+    components.schemas.authenticate401_text_plain.oneOf
+      .flatMap((body: any) => body.enum)
+      .sort(),
     ['Expired token', 'Missing token'],
   );
 });
@@ -194,20 +205,16 @@ app.get('/account', authenticate(), validate(() => ({})), (c) => c.json({ id: 'a
 app.get('/profile', authenticate(), validate(() => ({})), (c) => c.json({ id: 'p1' }));
 `);
 
-  const [ct] = Object.keys(paths['/account'].get.responses['401'].content);
-  const name = `authenticate401_${ct.replace(/\//g, '_')}`;
   for (const path of ['/account', '/profile']) {
     assert.deepStrictEqual(
-      paths[path].get.responses['401'].content[ct].schema,
-      {
-        $ref: `#/components/schemas/${name}`,
-      },
+      paths[path].get.responses['401'].content['text/plain'].schema,
+      { $ref: '#/components/schemas/authenticate401_text_plain' },
     );
   }
-  assert.equal(components.schemas[name].oneOf, undefined);
-  assert.deepStrictEqual(components.schemas[name].properties.message.enum, [
-    'Missing token',
-  ]);
+  assert.deepStrictEqual(components.schemas.authenticate401_text_plain, {
+    type: 'string',
+    enum: ['Missing token'],
+  });
 });
 
 test('each 400 body the app sends for a rejected request is a body validate() documents', async () => {
@@ -217,10 +224,7 @@ import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import { validate } from '@sdk-it/hono/runtime';
 export const app = new Hono();
-app.onError((error, c) => {
-  if (error instanceof HTTPException) return c.json({ message: error.message, cause: error.cause }, error.status);
-  throw error;
-});
+${sendsHttpException}
 /** @openapi createItem */
 app.post('/items', validate('application/json', (payload) => ({
   name: { select: payload.body.name, against: z.string() },

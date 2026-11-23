@@ -1,53 +1,26 @@
-import type { CallExpression, Expression, Node } from '@typescript/native/ast';
+import type { CallExpression, Expression } from '@typescript/native/ast';
 import {
-  isCallExpression,
   isIdentifier,
   isObjectLiteralExpression,
   isPropertyAssignment,
   isShorthandPropertyAssignment,
 } from '@typescript/native/ast/is';
-import type { Checker, Type } from '@typescript/native/sync';
-import type { SchemaObject } from 'openapi3-ts/oas31';
+import type { Checker } from '@typescript/native/sync';
 
-import type { NaunceResponseAnalyzer } from '@sdk-it/core';
-import { type TypeDeriver, skipParentheses } from '@sdk-it/core/deriver.js';
+import { skipParentheses } from '@sdk-it/core/deriver.js';
 import type {
   FactoryErrorReader,
   ThrownMember,
   ThrownMembers,
 } from '@sdk-it/core/thrown.js';
 
-import { getConstantValue } from './constant-value.js';
-
-/** What an evlog error catalog entry tells a client about the error a factory throws. */
-export interface CatalogError {
-  code: string;
-  status: number;
-  /** Undefined when the entry builds its message from call-site params. */
-  message: string | undefined;
-  why: string | undefined;
-  fix: string | undefined;
-  link: string | undefined;
-}
-
-function literal(type: Type): unknown {
-  return 'value' in type ? type.value : undefined;
-}
-
-function text(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
-}
-
 /**
- * The code and entry types of an evlog `DefinedError` factory that `node`
+ * The code and entry types of the evlog `DefinedError` factory that `node`
  * calls, such as `billingErrors.PAYMENT_DECLINED(...)`. The literals live in
  * the factory's type arguments, because evlog widens the factory's own
  * `status` to `number`.
  */
-function catalogEntry(checker: Checker, node: Node) {
-  if (!isCallExpression(node)) {
-    return undefined;
-  }
+function catalogEntry(checker: Checker, node: CallExpression) {
   const factory = checker.getTypeAtLocation(node.expression);
   if (factory.getAliasSymbol()?.name !== 'DefinedError') {
     return undefined;
@@ -60,39 +33,7 @@ function catalogEntry(checker: Checker, node: Node) {
     const property = checker.getPropertyOfType(entry, name);
     return property ? checker.getTypeOfSymbol(property) : undefined;
   };
-  return { call: node, code, field };
-}
-
-/**
- * The catalog entry behind a thrown evlog factory call such as
- * `billingErrors.PAYMENT_DECLINED(...)`, or undefined when the call is not an
- * evlog `DefinedError`.
- */
-export function catalogError(
-  deriver: TypeDeriver,
-  node: Node,
-): CatalogError | undefined {
-  const checker = deriver.checker;
-  const thrown = catalogEntry(checker, node);
-  if (!thrown) {
-    return undefined;
-  }
-  const field = (name: string) => {
-    const type = thrown.field(name);
-    return type ? literal(type) : undefined;
-  };
-  const status = field('status');
-  return {
-    code: thrown.code.value,
-    // evlog's EvlogError constructor: `this.status = opts.status ?? 500`.
-    status:
-      statusOverride(checker, thrown.call) ??
-      (typeof status === 'number' ? status : 500),
-    message: text(field('message')),
-    why: text(field('why')),
-    fix: text(field('fix')),
-    link: text(field('link')),
-  };
+  return { code, field };
 }
 
 /** The members a catalog entry gives an EvlogError, and the call's options override (evlog's `buildEvlogError`). */
@@ -139,12 +80,6 @@ export class EvlogErrorMembers implements FactoryErrorReader {
   }
 }
 
-function statusOverride(checker: Checker, call: CallExpression) {
-  const status = callOverrides(call).get('status');
-  const value = status && getConstantValue(checker, status);
-  return typeof value === 'number' ? value : undefined;
-}
-
 /** Each property the factory call's options object literal gives, by name. */
 function callOverrides(call: CallExpression): Map<string, Expression> {
   const overrides = new Map<string, Expression>();
@@ -165,55 +100,3 @@ function callOverrides(call: CallExpression): Map<string, Expression> {
   }
   return overrides;
 }
-
-/** The JSON evlog writes for an `EvlogError` (`EvlogError#toJSON`). */
-function evlogErrorBody(error: CatalogError): SchemaObject {
-  const string: SchemaObject = { type: 'string' };
-  return {
-    type: 'object',
-    required: ['name', 'message', 'status', 'data'],
-    properties: {
-      name: { type: 'string', enum: ['EvlogError'] },
-      message: string,
-      status: { type: 'number', enum: [error.status] },
-      data: {
-        type: 'object',
-        required: ['code'],
-        properties: {
-          code: { type: 'string', enum: [error.code] },
-          why: string,
-          fix: string,
-          link: string,
-        },
-      },
-      cause: {
-        type: 'object',
-        required: ['name', 'message'],
-        properties: { name: string, message: string },
-      },
-    },
-  };
-}
-
-/**
- * Documents `throw catalog.KEY(...)` from an evlog `defineErrorCatalog` with
- * evlog's own JSON body, for apps whose error handler returns the error as is.
- * Spread it beside `responseAnalyzer`; for another body, write a
- * `throw.call.EvlogError` entry with {@link catalogError}.
- */
-export const evlogErrors: NaunceResponseAnalyzer = {
-  'throw.call.EvlogError': (_scope, deriver, node) => {
-    const error = catalogError(deriver, node);
-    if (!error) {
-      return [];
-    }
-    return [
-      {
-        statusCode: String(error.status),
-        contentType: 'application/json',
-        headers: [],
-        schema: evlogErrorBody(error),
-      },
-    ];
-  },
-};

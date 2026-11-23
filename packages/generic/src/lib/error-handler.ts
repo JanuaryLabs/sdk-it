@@ -1,12 +1,13 @@
 import type {
+  CallExpression,
   Expression,
+  NewExpression,
   Node,
   ParameterDeclaration,
   Statement,
 } from '@typescript/native/ast';
 import {
   isBlock,
-  isCallExpression,
   isConditionalExpression,
   isIdentifier,
   isIfStatement,
@@ -48,18 +49,14 @@ export type Respond = (
 ) => ResponseItem[];
 
 /**
- * The error a route throws, with the members the readers know it carries: a
- * construction always, with no members when no reader knows its class, and a
- * factory call only when a reader reads it, such as an evlog catalog entry.
+ * The error a route throws, with the members the first reader that knows its
+ * construction or factory call reads, or no members when none does.
  */
 export function throwSite(
-  thrown: Node,
+  thrown: NewExpression | CallExpression,
   checker: Checker,
   readers: readonly ThrownErrorReader[],
-): ThrowSite | undefined {
-  if (!isNewExpression(thrown) && !isCallExpression(thrown)) {
-    return undefined;
-  }
+): ThrowSite {
   const type = checker.getTypeAtLocation(thrown);
   const chain = classChain(type, checker);
   const [errorClass] = chain;
@@ -76,9 +73,6 @@ export function throwSite(
     if (members) {
       break;
     }
-  }
-  if (!members && isCallExpression(thrown)) {
-    return undefined;
   }
   return { thrown, type, chain, members: members ?? new Map() };
 }

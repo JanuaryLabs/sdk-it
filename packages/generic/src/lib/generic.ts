@@ -3,6 +3,7 @@ import {
   type Expression,
   type Identifier,
   type LeftHandSideExpression,
+  type NewExpression,
   type Node,
   NodeFlags,
   type PropertyAccessExpression,
@@ -69,17 +70,15 @@ import { camelcase } from 'stringcase';
 
 import {
   type FunctionWithBody,
-  type NaunceResponseAnalyzer,
   type OpenAPIComponentsObject,
   Paths,
-  type ResponseAnalyzerFn,
+  type ResponseAnalyzer,
   type ResponseItem,
   type ResponseScope,
   type Selector,
   ZodEvaluator,
   isHttpMethod,
   isSemanticSource,
-  thrownErrorReaders,
   toSchema,
 } from '@sdk-it/core';
 import {
@@ -941,9 +940,10 @@ function notFoundResponses(
   }
   return handlers.flatMap((handler) => {
     const scope = responseScope(handler);
-    return returnTokens(handler, checker).flatMap(({ token, node }) =>
-      respond(scope, token, node),
-    );
+    // What the app sends for an error the not-found handler throws is not read yet.
+    return returnTokens(handler, checker)
+      .filter(({ token }) => !token.startsWith('throw.'))
+      .flatMap(({ token, node }) => respond(scope, token, node));
   });
 }
 
@@ -1122,7 +1122,7 @@ export interface AnalyzeOptions {
   allowedNamedImports?: readonly string[];
   /** A TypeScript type name and the JSON Schema written in its place, added onto the defaults. */
   types?: Readonly<Record<string, SchemaObject>>;
-  responseAnalyzer: ResponseAnalyzerFn | NaunceResponseAnalyzer;
+  responseAnalyzer: ResponseAnalyzer;
   middlewareSecurity?: readonly MiddlewareSecurityRule[];
 }
 
@@ -1159,29 +1159,12 @@ export async function analyze(
     matched: new Set(),
   };
 
+  const analyzer = config.responseAnalyzer;
   const respond = (
     scope: ResponseScope,
     token: string,
     node: Node,
-  ): ResponseItem[] => {
-    const responseAnalyzer = config.responseAnalyzer;
-    if (typeof responseAnalyzer !== 'function') {
-      const naunce = responseAnalyzer[token];
-      if (naunce) {
-        return naunce(scope, typeDeriver, node);
-      }
-      // A thrown value that no analyzer claims is not a documented response.
-      if (token.startsWith('throw.')) {
-        return [];
-      }
-      const fallback = responseAnalyzer['default'];
-      if (!fallback) {
-        throw new Error(`No response analyzer for token ${token}`);
-      }
-      return fallback(scope, typeDeriver, node);
-    }
-    return responseAnalyzer(scope, typeDeriver);
-  };
+  ): ResponseItem[] => analyzer.returned(scope, typeDeriver, token, node);
   const notFound = notFoundResponses(project.program, typeChecker, respond);
   const dispatch = (
     scope: ResponseScope,
@@ -1192,10 +1175,6 @@ export async function analyze(
       ? notFound.map((item) => ({ ...item }))
       : respond(scope, token, node);
   const errorHandler = errorHandlerOf(project.program, typeChecker);
-  const readers =
-    typeof config.responseAnalyzer === 'function'
-      ? []
-      : (config.responseAnalyzer[thrownErrorReaders] ?? []);
 
   for (const sourceFile of sourceFiles(project.program)) {
     logger(`Visiting ${sourceFile.fileName}`);
@@ -1203,13 +1182,13 @@ export async function analyze(
       visit(
         sourceFile,
         (scope, token, node) => {
-          const site =
-            errorHandler && token.startsWith('throw.')
-              ? throwSite(node, typeChecker, readers)
-              : undefined;
-          return errorHandler && site
+          if (!isThrownToken(token, node)) {
+            return dispatch(scope, token, node);
+          }
+          const site = throwSite(node, typeChecker, analyzer.errors);
+          return errorHandler
             ? errorHandler.responsesFor(site, dispatch)
-            : dispatch(scope, token, node);
+            : analyzer.unhandled.responsesFor(site, typeDeriver);
         },
         paths,
         typeChecker,
@@ -1278,6 +1257,14 @@ function unresolvedReferences(program: AnalysisProgram) {
 }
 
 export type Serialized = ReturnType<typeof analyze>;
+
+/** Whether a token is an error the function throws: a construction or a call, such as an error catalog entry. */
+function isThrownToken(
+  token: string,
+  node: Node,
+): node is NewExpression | CallExpression {
+  return token.startsWith('throw.') && (isNewExpression(node) || isCall(node));
+}
 
 function enclosingFunction(node: Node): FunctionWithBody | undefined {
   let current: Node | undefined = node.parent;

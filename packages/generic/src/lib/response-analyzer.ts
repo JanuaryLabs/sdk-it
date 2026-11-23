@@ -10,12 +10,14 @@ import {
   isPropertyAssignment,
 } from '@typescript/native/ast/is';
 
-import type {
-  NaunceResponseAnalyzer,
-  ResponseItem,
-  ResponseScope,
+import {
+  type ErrorResponder,
+  ResponseAnalyzer,
+  type ResponseItem,
+  type ResponseScope,
 } from '@sdk-it/core';
 import type { TypeDeriver } from '@sdk-it/core/deriver.js';
+import type { ThrowSite } from '@sdk-it/core/thrown.js';
 
 function resolveStatusCode(node: Node) {
   if (isNumericLiteral(node)) {
@@ -66,39 +68,55 @@ export function defaultResponseAnalyzer(
   }
 }
 
-export const responseAnalyzer: NaunceResponseAnalyzer = {
-  'throw.new.ProblemDetailsException': (_scope, deriver, node) => {
-    if (isNewExpression(node)) {
-      const [problem] = node.arguments ?? [];
-      if (!isObjectLiteralExpression(problem)) {
-        return [];
-      }
-      const properties = problem.properties.reduce<Record<string, string>>(
-        (acc, prop) => {
-          if (isPropertyAssignment(prop)) {
-            const key = prop.name.getText();
-            if (isLiteralExpression(prop.initializer)) {
-              acc[key] = prop.initializer.text;
-            } else {
-              acc[key] = prop.initializer.getText();
-            }
-          }
-          return acc;
-        },
-        {},
-      );
-      return [
-        {
-          contentType: 'application/problem+json',
-          headers: [],
-          statusCode: properties.status,
-          response: deriver.serializeNode(problem),
-        },
-      ];
+/**
+ * What a route sends for an error it throws: a `ProblemDetailsException` is
+ * the problem details it is constructed with, as `application/problem+json` at
+ * their status; any other error is not documented.
+ */
+class ProblemDetailsResponder implements ErrorResponder {
+  responsesFor(
+    { thrown, chain }: ThrowSite,
+    deriver: TypeDeriver,
+  ): ResponseItem[] {
+    if (
+      !isNewExpression(thrown) ||
+      chain[0]?.name !== 'ProblemDetailsException'
+    ) {
+      return [];
     }
-    return [];
-  },
-  default: defaultResponseAnalyzer,
-};
+    const [problem] = thrown.arguments ?? [];
+    if (!problem || !isObjectLiteralExpression(problem)) {
+      return [];
+    }
+    const properties = problem.properties.reduce<Record<string, string>>(
+      (acc, prop) => {
+        if (isPropertyAssignment(prop)) {
+          const key = prop.name.getText();
+          if (isLiteralExpression(prop.initializer)) {
+            acc[key] = prop.initializer.text;
+          } else {
+            acc[key] = prop.initializer.getText();
+          }
+        }
+        return acc;
+      },
+      {},
+    );
+    return [
+      {
+        contentType: 'application/problem+json',
+        headers: [],
+        statusCode: properties.status,
+        response: deriver.serializeNode(problem),
+      },
+    ];
+  }
+}
+
+export const responseAnalyzer = new ResponseAnalyzer({
+  returns: { default: defaultResponseAnalyzer },
+  errors: [],
+  unhandled: new ProblemDetailsResponder(),
+});
 
 export default responseAnalyzer;

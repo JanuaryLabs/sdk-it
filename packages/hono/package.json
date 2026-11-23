@@ -31,11 +31,6 @@
       },
       "import": "./dist/lib/runtime/index.js",
       "default": "./dist/lib/runtime/index.js"
-    },
-    "./evlog": {
-      "types": "./dist/lib/evlog.d.ts",
-      "import": "./dist/lib/evlog.js",
-      "default": "./dist/lib/evlog.js"
     }
   },
   "files": [

@@ -2,7 +2,6 @@ import type {
   Block,
   Expression,
   FunctionLikeDeclaration,
-  Node,
   ParameterDeclaration,
 } from '@typescript/native/ast';
 import {
@@ -12,9 +11,7 @@ import {
   spinalcase as _spinalcase,
 } from 'stringcase';
 
-import type { TypeDeriver } from './deriver.js';
-import type { ResponseItem } from './paths.js';
-import type { ThrownBinding, ThrownErrorReader } from './thrown.js';
+import type { ThrownBinding } from './thrown.js';
 
 export function removeDuplicates<T>(
   data: T[],
@@ -49,26 +46,6 @@ export interface ResponseScope {
   readonly context: ParameterDeclaration | undefined;
   readonly binding?: ThrownBinding;
 }
-
-export type NaunceResponseAnalyzerFn = (
-  scope: ResponseScope,
-  deriver: TypeDeriver,
-  node: Node,
-) => ResponseItem[];
-/** The key under which a response analyzer lists the readers of the error classes its framework defines. */
-export const thrownErrorReaders = Symbol('thrownErrorReaders');
-
-export type NaunceResponseAnalyzer = Record<
-  string,
-  NaunceResponseAnalyzerFn
-> & {
-  readonly [thrownErrorReaders]?: readonly ThrownErrorReader[];
-};
-
-export type ResponseAnalyzerFn = (
-  scope: ResponseScope,
-  deriver: TypeDeriver,
-) => ResponseItem[];
 
 export function isEmpty(value: unknown): value is null | undefined | '' {
   if (value === null || value === undefined || value === '') {

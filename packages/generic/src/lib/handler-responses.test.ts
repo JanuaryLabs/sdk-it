@@ -325,14 +325,10 @@ export {};
   test('a throw two discarded helpers deep is documented', async () => {
     const paths = await analyzeWorkspace({
       'index.ts': `${routing}${helpers}
-class HTTPException extends Error {
-  constructor(public status: number, options?: { message: string }) {
-    super(options?.message);
-  }
-}
+class RunNotFound extends Error {}
 function ensure(found: boolean) {
   if (!found) {
-    throw new HTTPException(404, { message: 'Run not found' });
+    throw new RunNotFound('Run not found');
   }
   return summarize('x');
 }
@@ -350,8 +346,13 @@ export {};
 
     assert.deepStrictEqual(contentTypes(paths['/sql-agent'].post.responses), {
       '200': ['application/json'],
-      '404': ['application/json'],
+      '500': ['text/plain'],
     });
+    assert.deepStrictEqual(
+      paths['/sql-agent'].post.responses['500'].content['text/plain'].schema,
+      { type: 'string', enum: ['Internal Server Error'] },
+      "the RunNotFound two helpers deep is Hono's default 500 text",
+    );
   });
 });
 
@@ -510,14 +511,10 @@ async function analyzeWithReference(
 
 describe('analyze() reads the source of a referenced workspace package', () => {
   const library = `
-export class HTTPException extends Error {
-  constructor(public status: number, options?: { message: string }) {
-    super(options?.message);
-  }
-}
+export class RunNotFound extends Error {}
 export function ensureRun(found: boolean): void {
   if (!found) {
-    throw new HTTPException(404, { message: 'Run not found' });
+    throw new RunNotFound('Run not found');
   }
 }
 function streamText(options: { prompt: string }) {
@@ -563,7 +560,7 @@ app.delete('/runs/:id', validate(() => ({})), (c: Ctx) => {
 
     assert.deepStrictEqual(contentTypes(paths['/runs/{id}'].delete.responses), {
       '200': ['application/json'],
-      '404': ['application/json'],
+      '500': ['text/plain'],
     });
   });
 
@@ -581,7 +578,7 @@ app.delete('/runs/:id', validate(() => ({})), (c: Ctx) => {
 
     assert.deepStrictEqual(contentTypes(paths['/runs/{id}'].delete.responses), {
       '200': ['application/json'],
-      '404': ['application/json'],
+      '500': ['text/plain'],
     });
   });
 
