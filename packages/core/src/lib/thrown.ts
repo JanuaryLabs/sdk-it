@@ -24,9 +24,18 @@ import {
 import { skipParentheses } from './deriver.js';
 
 /**
+ * What a member read gives: a type, or a literal value that a library's run
+ * time sets and no type spells (evlog's and Hono's default status 500; the
+ * TypeScript 7.1 checker has no factory for a number literal type).
+ */
+export type ThrownValue =
+  | { readonly kind: 'type'; readonly type: Type }
+  | { readonly kind: 'literal'; readonly value: string | number };
+
+/**
  * What a thrown error carries in one member: the expression its throw site
  * gives the member, read in `scope` (the construction or call it is written
- * in), or a type when no expression gives it.
+ * in), else its type or literal value.
  */
 export type ThrownMember =
   | {
@@ -34,7 +43,20 @@ export type ThrownMember =
       readonly expression: Expression;
       readonly scope: Node;
     }
-  | { readonly kind: 'type'; readonly type: Type };
+  | ThrownValue;
+
+/** The string or number literal a value is, if it is one. */
+export function literalOf(value: ThrownValue): string | number | undefined {
+  switch (value.kind) {
+    case 'literal':
+      return value.value;
+    case 'type':
+      return value.type.isStringLiteralType() ||
+        value.type.isNumberLiteralType()
+        ? value.type.value
+        : undefined;
+  }
+}
 
 /** Each member a thrown error carries, by name. */
 export type ThrownMembers = ReadonlyMap<string, ThrownMember>;
@@ -246,14 +268,23 @@ export class ThrownBinding {
     return found;
   }
 
-  /** The type a member read has: its bound expression's, its bound type, else its own at the read. */
-  typeOfRead(read: Expression): Type {
+  /** What a member read gives: its bound expression's type, its bound type or literal, else its own type at the read. */
+  valueOfRead(read: Expression): ThrownValue {
     const name = this.memberRead(read);
     const member = name === undefined ? undefined : this.member(name);
-    if (member?.kind === 'type') {
-      return member.type;
+    if (!member) {
+      return { kind: 'type', type: this.#checker.getTypeAtLocation(read) };
     }
-    return this.#checker.getTypeAtLocation(member ? member.expression : read);
+    switch (member.kind) {
+      case 'expression':
+        return {
+          kind: 'type',
+          type: this.#checker.getTypeAtLocation(member.expression),
+        };
+      case 'type':
+      case 'literal':
+        return member;
+    }
   }
 
   /**
@@ -281,8 +312,11 @@ export class ThrownBinding {
     }
     let bindings: ThrownBinding[] = [this];
     for (const [name, read] of reads) {
-      const type = this.typeOfRead(read);
-      const literals = type.isUnionType() ? type.getTypes() : [];
+      const value = this.valueOfRead(read);
+      const literals =
+        value.kind === 'type' && value.type.isUnionType()
+          ? value.type.getTypes()
+          : [];
       if (
         literals.length === 0 ||
         !literals.every((literal) => literal.isLiteralType())
@@ -335,19 +369,10 @@ export class ThrownBinding {
     ) {
       return undefined;
     }
-    const [a, b] = [this.#literalOf(left), this.#literalOf(right)];
+    const [a, b] = [left, right].map((side) =>
+      literalOf(this.valueOfRead(skipParentheses(side))),
+    );
     return a === undefined || b === undefined ? undefined : a === b;
-  }
-
-  #literalOf(expression: Expression): string | number | undefined {
-    const value = skipParentheses(expression);
-    const type =
-      this.memberRead(value) === undefined
-        ? this.#checker.getTypeAtLocation(value)
-        : this.typeOfRead(value);
-    return type.isStringLiteralType() || type.isNumberLiteralType()
-      ? type.value
-      : undefined;
   }
 
   #collectReads(node: Node, reads: Map<string, Expression>): void {

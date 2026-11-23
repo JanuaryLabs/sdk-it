@@ -127,6 +127,17 @@ export function skipParentheses(node: Expression): Expression {
   return expression;
 }
 
+/** A literal value, serialized as a literal type of it serializes. */
+function serializeLiteral(value: string | number) {
+  return {
+    [deriveSymbol]: true,
+    optional: false,
+    kind: 'literal',
+    value,
+    [$types]: [typeof value],
+  };
+}
+
 function isConstTypeReference(node: TypeNode): boolean {
   return (
     isTypeReferenceNode(node) &&
@@ -847,9 +858,14 @@ export class TypeDeriver {
       if (!member) {
         return this.serializeNodeType(node);
       }
-      return member.kind === 'type'
-        ? this.serializeType(member.type)
-        : this.serializeNode(member.expression);
+      switch (member.kind) {
+        case 'type':
+          return this.serializeType(member.type);
+        case 'literal':
+          return serializeLiteral(member.value);
+        case 'expression':
+          return this.serializeNode(member.expression);
+      }
     }
     if (isParenthesizedExpression(node)) {
       return this.serializeNode(node.expression, binding);
@@ -884,12 +900,17 @@ export class TypeDeriver {
     const name = binding.memberRead(expression);
     if (name !== undefined) {
       const member = binding.member(name);
-      if (member?.kind === 'type') {
-        return { type: member.type };
+      if (!member) {
+        return { type: this.typeOfExpression(expression) };
       }
-      return {
-        type: this.typeOfExpression(member ? member.expression : expression),
-      };
+      switch (member.kind) {
+        case 'type':
+          return { type: member.type };
+        case 'literal':
+          return { serialized: serializeLiteral(member.value) };
+        case 'expression':
+          return { type: this.typeOfExpression(member.expression) };
+      }
     }
     if (isConditionalExpression(expression)) {
       const taken = binding.decide(expression.condition);
