@@ -1581,6 +1581,15 @@ export const app = new Hono();
 class QuotaError extends Error {
   readonly plan = 'free';
 }
+const marker = Symbol('MarkedError');
+class MarkedError extends Error {
+  readonly plan = 'pro';
+  [marker]: true;
+  constructor(message: string) {
+    super(message);
+    this[marker] = true;
+  }
+}
 /** @openapi getQuota */
 app.get('/quota', validate(() => ({})), (c) => {
   if (Math.random() > 0.5) {
@@ -1630,6 +1639,19 @@ test("an Error subclass that app.onError sends as a member documents the subclas
   assert.deepStrictEqual(routeCause(document), {
     type: 'object',
     properties: { plan: { type: 'string', enum: ['free'] } },
+    required: ['plan'],
+    additionalProperties: false,
+  });
+});
+
+test('an error class field keyed by a symbol is not documented when app.onError sends the error, since JSON.stringify skips symbol keys', async () => {
+  const document = await documented(
+    sendsErrorAsCause("new MarkedError('Marked')"),
+  );
+
+  assert.deepStrictEqual(routeCause(document), {
+    type: 'object',
+    properties: { plan: { type: 'string', enum: ['pro'] } },
     required: ['plan'],
     additionalProperties: false,
   });

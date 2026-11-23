@@ -1134,10 +1134,7 @@ export class TypeDeriver {
         const members: Record<string, unknown> = {};
         for (const member of node.members.filter(isPropertyDeclaration)) {
           const symbol = this.checker.getSymbolAtLocation(member.name);
-          if (
-            symbol &&
-            this.hasNoJsonForm(this.checker.getTypeOfSymbol(symbol))
-          ) {
+          if (symbol && !this.writesMember(symbol)) {
             continue;
           }
           members[member.name!.getText()] = this.serializeNode(member);
