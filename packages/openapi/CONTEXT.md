@@ -4,7 +4,7 @@
 
 **Base document.** The part of an OpenAPI document that code cannot know: `openapi`, `info`, `servers`, `security`, `externalDocs`, tag objects and security schemes. It holds no paths, schemas or responses; those come from the analysis.
 
-**Error handler.** The app's `app.onError` and `app.notFound`. The analysis documents what each one sends for each error a route can throw.
+**Error handler.** The app's `app.onError` and `app.notFound`. The analysis documents what `app.onError` sends for each error a route can throw, bound to its throw site, and what `app.notFound` sends on a route that returns `c.notFound()`. An app with none gets Hono's default handlers.
 
 **Definition.** An `OpenApiDefinition`: the backend tsconfig, the base document, the type mappings, the middleware security rules and the transformers. A backend default-exports one from a module, by convention `openapi.ts` beside its tsconfig.
 
