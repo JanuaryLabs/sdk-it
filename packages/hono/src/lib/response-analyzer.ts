@@ -30,19 +30,45 @@ import type { Checker } from '@typescript/native/sync';
 
 import {
   $types,
+  type NaunceResponseAnalyzer,
   type NaunceResponseAnalyzerFn,
   type ResponseItem,
   type ResponseScope,
+  thrownErrorReaders,
 } from '@sdk-it/core';
 import type { TypeDeriver } from '@sdk-it/core/deriver.js';
+import type { ThrownBinding } from '@sdk-it/core/thrown.js';
 
 import { getConstantValue } from './constant-value.js';
+import { HTTPExceptionMembers } from './http-exception-members.js';
+import { StatusResolver } from './status-resolver.js';
 
 function resolveStatusCode(node: Node) {
   if (isNumericLiteral(node)) {
     return node.text;
   }
   throw new Error(`Could not resolve status code`);
+}
+
+/** The status `node` gives: in an error handler, the one the bound throw site gives. */
+function statusOf(
+  { handler }: ResponseScope,
+  deriver: TypeDeriver,
+  node: Expression,
+  binding: ThrownBinding | undefined,
+) {
+  return binding
+    ? new StatusResolver(deriver.checker, handler, binding).resolve(node)
+    : resolveStatusCode(node);
+}
+
+/** One binding per value the members read in the body and the status can hold, or none outside an error handler. */
+function variantsOf(
+  binding: ThrownBinding | undefined,
+  body: Expression | undefined,
+  status: Expression | undefined,
+) {
+  return binding ? binding.distribute(body, status) : [binding];
 }
 
 function normalizeContentType(value: string | undefined) {
@@ -215,11 +241,7 @@ function getHeaderKeys(headersNode: Node | undefined, checker: Checker) {
   return checker.getPropertiesOfType(type).map((prop) => prop.name);
 }
 
-export const newResponse: NaunceResponseAnalyzerFn = (
-  _scope,
-  deriver,
-  node,
-) => {
+export const newResponse: NaunceResponseAnalyzerFn = (scope, deriver, node) => {
   if (!isNewExpression(node)) {
     return [];
   }
@@ -230,7 +252,7 @@ export const newResponse: NaunceResponseAnalyzerFn = (
   const [argument, init] = node.arguments ?? [];
   // A body of null sends nothing, as for c.body(null) in defaultResponseAnalyzer.
   const body = argument && isNullLiteral(argument) ? undefined : argument;
-  let statusNode: Node | undefined;
+  let statusNode: Expression | undefined;
   let headersNode: Node | undefined;
   if (init && isObjectLiteralExpression(init)) {
     for (const prop of init.properties) {
@@ -267,14 +289,16 @@ export const newResponse: NaunceResponseAnalyzerFn = (
     !!body &&
     (isJsonContentType(normalized) || isTextContentTypeValue(normalized));
 
-  return [
-    {
-      headers: getHeaderKeys(headersNode, deriver.checker),
-      contentType,
-      statusCode: statusNode ? resolveStatusCode(statusNode) : '200',
-      response: shouldSerialize ? deriver.serializeNode(body) : undefined,
-    },
-  ];
+  return variantsOf(scope.binding, body, statusNode).map((binding) => ({
+    headers: getHeaderKeys(headersNode, deriver.checker),
+    contentType,
+    statusCode: statusNode
+      ? statusOf(scope, deriver, statusNode, binding)
+      : '200',
+    response: shouldSerialize
+      ? deriver.serializeNode(body, binding)
+      : undefined,
+  }));
 };
 
 /** The context methods that send their first argument as the raw body. */
@@ -289,10 +313,11 @@ const defaultMediaTypes = new Map([
 
 /** The response `returned`, a value the handler returns, sends when it is a call on the handler's context, such as `c.json(body, 201)`. */
 export function defaultResponseAnalyzer(
-  { context }: ResponseScope,
+  scope: ResponseScope,
   deriver: TypeDeriver,
   returned: Node,
 ): ResponseItem[] {
+  const { context } = scope;
   if (
     !context ||
     !isCallExpression(returned) ||
@@ -326,7 +351,9 @@ export function defaultResponseAnalyzer(
       {
         headers: ['Location'],
         contentType: 'empty',
-        statusCode: statusCode ? resolveStatusCode(statusCode) : '302',
+        statusCode: statusCode
+          ? statusOf(scope, deriver, statusCode, scope.binding)
+          : '302',
         response: undefined,
       },
     ];
@@ -342,14 +369,14 @@ export function defaultResponseAnalyzer(
   } else if (rawBody) {
     sentAs = 'application/octet-stream';
   }
-  return [
-    {
-      headers: getHeaderKeys(headers, deriver.checker),
-      contentType: inferContentType(body, headers, sentAs, deriver.checker),
-      statusCode: statusCode ? resolveStatusCode(statusCode) : '200',
-      response: body ? deriver.serializeNode(body) : undefined,
-    },
-  ];
+  return variantsOf(scope.binding, body, statusCode).map((binding) => ({
+    headers: getHeaderKeys(headers, deriver.checker),
+    contentType: inferContentType(body, headers, sentAs, deriver.checker),
+    statusCode: statusCode
+      ? statusOf(scope, deriver, statusCode, binding)
+      : '200',
+    response: body ? deriver.serializeNode(body, binding) : undefined,
+  }));
 }
 
 export function streamText(
@@ -432,6 +459,7 @@ export const responseAnalyzer = {
   streamSSE,
   'new.Response': newResponse,
   'throw.new.HTTPException': httpException,
-};
+  [thrownErrorReaders]: [new HTTPExceptionMembers()],
+} satisfies NaunceResponseAnalyzer;
 
 export default responseAnalyzer;
