@@ -3,6 +3,7 @@ import type {
   Expression,
   FunctionLikeDeclaration,
   Node,
+  ParameterDeclaration,
 } from '@typescript/native/ast';
 import {
   camelcase as _camelcase,
@@ -36,15 +37,24 @@ export type FunctionWithBody = FunctionLikeDeclaration & {
   body: Block | Expression;
 };
 
+/**
+ * The function whose returned and thrown values a response analyzer reads, and
+ * its Hono context parameter; a function that declares no parameter has none.
+ */
+export interface ResponseScope {
+  readonly handler: FunctionWithBody;
+  readonly context: ParameterDeclaration | undefined;
+}
+
 export type NaunceResponseAnalyzerFn = (
-  handler: FunctionWithBody,
+  scope: ResponseScope,
   deriver: TypeDeriver,
   node: Node,
 ) => ResponseItem[];
 export type NaunceResponseAnalyzer = Record<string, NaunceResponseAnalyzerFn>;
 
 export type ResponseAnalyzerFn = (
-  handler: FunctionWithBody,
+  scope: ResponseScope,
   deriver: TypeDeriver,
 ) => ResponseItem[];
 

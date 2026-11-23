@@ -215,7 +215,7 @@ void test('an app documents its own error body for catalog throws with catalogEr
     },
   });
   const custom: NaunceResponseAnalyzer = {
-    'throw.call.EvlogError': (_handler, deriver, node) => {
+    'throw.call.EvlogError': (_scope, deriver, node) => {
       const entry = catalogError(deriver, node);
       if (!entry) return [];
       return [

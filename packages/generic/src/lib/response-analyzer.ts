@@ -11,9 +11,9 @@ import {
 } from '@typescript/native/ast/is';
 
 import type {
-  FunctionWithBody,
   NaunceResponseAnalyzer,
   ResponseItem,
+  ResponseScope,
 } from '@sdk-it/core';
 import type { TypeDeriver } from '@sdk-it/core/deriver.js';
 
@@ -26,7 +26,7 @@ function resolveStatusCode(node: Node) {
 
 /** The response `returned`, a value the handler returns, sends when it is an `output` call, such as `output.json(body, 201)`. */
 export function defaultResponseAnalyzer(
-  handler: FunctionWithBody,
+  { handler }: ResponseScope,
   deriver: TypeDeriver,
   returned: Node,
 ): ResponseItem[] {
@@ -67,7 +67,7 @@ export function defaultResponseAnalyzer(
 }
 
 export const responseAnalyzer: NaunceResponseAnalyzer = {
-  'throw.new.ProblemDetailsException': (handler, deriver, node) => {
+  'throw.new.ProblemDetailsException': (_scope, deriver, node) => {
     if (isNewExpression(node)) {
       const [problem] = node.arguments ?? [];
       if (!isObjectLiteralExpression(problem)) {

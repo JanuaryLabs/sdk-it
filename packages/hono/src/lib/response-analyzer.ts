@@ -30,9 +30,9 @@ import type { Checker } from '@typescript/native/sync';
 
 import {
   $types,
-  type FunctionWithBody,
   type NaunceResponseAnalyzerFn,
   type ResponseItem,
+  type ResponseScope,
 } from '@sdk-it/core';
 import type { TypeDeriver } from '@sdk-it/core/deriver.js';
 
@@ -216,7 +216,7 @@ function getHeaderKeys(headersNode: Node | undefined, checker: Checker) {
 }
 
 export const newResponse: NaunceResponseAnalyzerFn = (
-  _handler,
+  _scope,
   deriver,
   node,
 ) => {
@@ -289,11 +289,10 @@ const defaultMediaTypes = new Map([
 
 /** The response `returned`, a value the handler returns, sends when it is a call on the handler's context, such as `c.json(body, 201)`. */
 export function defaultResponseAnalyzer(
-  handler: FunctionWithBody,
+  { context }: ResponseScope,
   deriver: TypeDeriver,
   returned: Node,
 ): ResponseItem[] {
-  const [context] = handler.parameters;
   if (
     !context ||
     !isCallExpression(returned) ||
@@ -354,7 +353,7 @@ export function defaultResponseAnalyzer(
 }
 
 export function streamText(
-  _handler: FunctionWithBody,
+  _scope: ResponseScope,
   _deriver: TypeDeriver,
 ): ResponseItem[] {
   return [
@@ -372,7 +371,7 @@ export function streamText(
 }
 
 export function stream(
-  _handler: FunctionWithBody,
+  _scope: ResponseScope,
   _deriver: TypeDeriver,
 ): ResponseItem[] {
   return [
@@ -390,7 +389,7 @@ export function stream(
 }
 
 export function streamSSE(
-  _handler: FunctionWithBody,
+  _scope: ResponseScope,
   _deriver: TypeDeriver,
 ): ResponseItem[] {
   return [
@@ -408,7 +407,7 @@ export function streamSSE(
 }
 
 export const httpException: NaunceResponseAnalyzerFn = (
-  _handler,
+  _scope,
   deriver,
   node,
 ) => {

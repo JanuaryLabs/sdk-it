@@ -125,7 +125,7 @@ function evlogErrorBody(error: CatalogError): SchemaObject {
  * `throw.call.EvlogError` entry with {@link catalogError}.
  */
 export const evlogErrors: NaunceResponseAnalyzer = {
-  'throw.call.EvlogError': (_handler, deriver, node) => {
+  'throw.call.EvlogError': (_scope, deriver, node) => {
     const error = catalogError(deriver, node);
     if (!error) {
       return [];

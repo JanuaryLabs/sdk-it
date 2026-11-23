@@ -70,6 +70,7 @@ import {
   Paths,
   type ResponseAnalyzerFn,
   type ResponseItem,
+  type ResponseScope,
   type Selector,
   ZodEvaluator,
   isHttpMethod,
@@ -613,7 +614,7 @@ function parseJSDocComment(node: Node) {
 function visit(
   node: Node,
   responseAnalyzer: (
-    handler: FunctionWithBody,
+    scope: ResponseScope,
     token: string,
     node: Node,
   ) => ResponseItem[],
@@ -741,8 +742,9 @@ function visit(
 
   // Analyze all middlewares for potential responses
   for (const middleware of middlewareDeclarations) {
+    const scope = responseScope(middleware.node);
     for (const { token, node } of returnTokens(middleware.node, typeChecker)) {
-      const items = responseAnalyzer(middleware.node, token, node);
+      const items = responseAnalyzer(scope, token, node);
       if (middleware.name) {
         for (const item of items) {
           item.middlewareName = middleware.name;
@@ -753,8 +755,9 @@ function visit(
   }
 
   // Analyze the main handler for responses
+  const scope = responseScope(handler);
   for (const { token, node } of returnTokens(handler, typeChecker)) {
-    responses.push(...responseAnalyzer(handler, token, node));
+    responses.push(...responseAnalyzer(scope, token, node));
   }
 
   paths.addPath(
@@ -892,11 +895,7 @@ function memberName(node: Expression): string | undefined {
 function notFoundResponses(
   program: AnalysisProject['program'],
   checker: Checker,
-  respond: (
-    handler: FunctionWithBody,
-    token: string,
-    node: Node,
-  ) => ResponseItem[],
+  respond: (scope: ResponseScope, token: string, node: Node) => ResponseItem[],
 ): ResponseItem[] | undefined {
   const handlers: FunctionWithBody[] = [];
   const find = (node: Node): void => {
@@ -919,16 +918,22 @@ function notFoundResponses(
   if (handlers.length === 0) {
     return undefined;
   }
-  return handlers.flatMap((handler) =>
-    returnTokens(handler, checker).flatMap(({ token, node }) =>
-      respond(handler, token, node),
-    ),
-  );
+  return handlers.flatMap((handler) => {
+    const scope = responseScope(handler);
+    return returnTokens(handler, checker).flatMap(({ token, node }) =>
+      respond(scope, token, node),
+    );
+  });
 }
 
-/** Whether `node`, a value `handler` returns, is `c.notFound()` on the handler's own context. */
-function returnsNotFound(handler: FunctionWithBody, node: Node): boolean {
+/** A route handler or middleware, whose first parameter is its Hono context. */
+function responseScope(handler: FunctionWithBody): ResponseScope {
   const [context] = handler.parameters;
+  return { handler, context };
+}
+
+/** Whether `node`, a value the scope's handler returns, is `c.notFound()` on the handler's own context. */
+function returnsNotFound({ context }: ResponseScope, node: Node): boolean {
   return (
     context !== undefined &&
     isCall(node) &&
@@ -1021,7 +1026,7 @@ export async function analyze(
   };
 
   const respond = (
-    handler: FunctionWithBody,
+    scope: ResponseScope,
     token: string,
     node: Node,
   ): ResponseItem[] => {
@@ -1029,7 +1034,7 @@ export async function analyze(
     if (typeof responseAnalyzer !== 'function') {
       const naunce = responseAnalyzer[token];
       if (naunce) {
-        return naunce(handler, typeDeriver, node);
+        return naunce(scope, typeDeriver, node);
       }
       // A thrown value that no analyzer claims is not a documented response.
       if (token.startsWith('throw.')) {
@@ -1039,9 +1044,9 @@ export async function analyze(
       if (!fallback) {
         throw new Error(`No response analyzer for token ${token}`);
       }
-      return fallback(handler, typeDeriver, node);
+      return fallback(scope, typeDeriver, node);
     }
-    return responseAnalyzer(handler, typeDeriver);
+    return responseAnalyzer(scope, typeDeriver);
   };
   const notFound = notFoundResponses(project.program, typeChecker, respond);
 
@@ -1050,10 +1055,10 @@ export async function analyze(
     try {
       visit(
         sourceFile,
-        (handler, token, node) =>
-          notFound && returnsNotFound(handler, node)
+        (scope, token, node) =>
+          notFound && returnsNotFound(scope, node)
             ? notFound.map((item) => ({ ...item }))
-            : respond(handler, token, node),
+            : respond(scope, token, node),
         paths,
         typeChecker,
         typeDeriver,
