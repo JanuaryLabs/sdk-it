@@ -1572,3 +1572,65 @@ for (const [form, body, causeOf] of [
     );
   });
 }
+
+/** A route that throws `thrown`, under an app.onError that sends the error itself as the cause of its 500, as deepagents' evals-web-runner does. */
+function sendsErrorAsCause(thrown: string) {
+  return `import { Hono } from 'hono';
+import { validate } from '@sdk-it/hono/runtime';
+export const app = new Hono();
+class QuotaError extends Error {
+  readonly plan = 'free';
+}
+/** @openapi getQuota */
+app.get('/quota', validate(() => ({})), (c) => {
+  if (Math.random() > 0.5) {
+    throw ${thrown};
+  }
+  return c.json({ used: 1 });
+});
+app.onError((error, c) => {
+  return c.json({ error: 'Internal Server Error', cause: error }, 500);
+});
+`;
+}
+
+/** The schema of the cause the route's own throw sends in its 500, through a `$ref` into components. */
+function routeCause(document: { paths: any; components: any }) {
+  const route = bodyOf(
+    document.paths['/quota'].get.responses,
+    '500',
+  ).oneOf.find(
+    (branch: any) =>
+      branch.$ref !== '#/components/schemas/validate500_application_json',
+  );
+  const cause = route.properties.cause;
+  return cause.$ref
+    ? document.components.schemas[
+        cause.$ref.replace('#/components/schemas/', '')
+      ]
+    : cause;
+}
+
+test("an Error that app.onError sends as a member documents the empty object JSON.stringify writes for it, since Error's name, message, stack and cause are not enumerable", async () => {
+  const document = await documented(sendsErrorAsCause("new Error('x')"));
+
+  assert.deepStrictEqual(routeCause(document), {
+    type: 'object',
+    properties: {},
+    required: [],
+    additionalProperties: false,
+  });
+});
+
+test("an Error subclass that app.onError sends as a member documents the subclass's own fields and none of Error's", async () => {
+  const document = await documented(
+    sendsErrorAsCause("new QuotaError('Over quota')"),
+  );
+
+  assert.deepStrictEqual(routeCause(document), {
+    type: 'object',
+    properties: { plan: { type: 'string', enum: ['free'] } },
+    required: ['plan'],
+    additionalProperties: false,
+  });
+});

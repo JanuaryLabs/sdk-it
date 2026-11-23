@@ -271,6 +271,14 @@ export class ThrownBinding {
       : undefined;
   }
 
+  /** Whether `node` is the error parameter itself, which stands for the value the site throws. */
+  isError(node: Node): boolean {
+    return (
+      isIdentifier(node) &&
+      this.#checker.getSymbolAtLocation(node)?.id === this.#error.id
+    );
+  }
+
   member(name: string): ThrownMember | undefined {
     return this.#members.get(name);
   }

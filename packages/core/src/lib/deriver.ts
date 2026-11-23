@@ -172,6 +172,8 @@ export class TypeDeriver {
   private readonly activeAliases = new Map<Type, boolean>();
   /** The component name of each generic interface instantiation, by type id. */
   private readonly instantiationNames = new Map<number, string>();
+  /** The ids of the members the global Error declares (name, message, stack, cause). */
+  readonly #errorMembers: ReadonlySet<number>;
   /** `types`: a TypeScript type name and the JSON Schema written in its place, added onto the defaults. */
   constructor(
     checker: Checker,
@@ -179,6 +181,19 @@ export class TypeDeriver {
   ) {
     this.checker = checker;
     this.#types = { ...defaultTypes, ...types };
+    const error = checker.resolveName(
+      'Error',
+      SymbolFlags.Type,
+      undefined,
+      false,
+    );
+    this.#errorMembers = new Set(
+      error
+        ? checker
+            .getPropertiesOfType(checker.getDeclaredTypeOfSymbol(error))
+            .map(({ id }) => id)
+        : [],
+    );
   }
 
   /** The derived form of a mapped type: its schema, written as given. */
@@ -223,6 +238,26 @@ export class TypeDeriver {
    */
   private keyedBySymbol(property: TsSymbol): boolean {
     return property.escapedName.startsWith('__@');
+  }
+
+  /**
+   * A member the global Error declares (name, message, stack, cause), which
+   * JSON.stringify never writes: the Error constructor defines message and
+   * cause as non-enumerable own properties, and name and stack are not own
+   * enumerable ones either. A subclass that declares such a member again
+   * gets its own symbol, and its field is written.
+   */
+  private declaredByError(property: TsSymbol): boolean {
+    return this.#errorMembers.has(property.id);
+  }
+
+  /** Whether JSON.stringify writes a member: not one keyed by a symbol, holding a function, or declared by Error. */
+  private writesMember(property: TsSymbol): boolean {
+    return (
+      !this.keyedBySymbol(property) &&
+      !this.declaredByError(property) &&
+      !this.hasNoJsonForm(this.checker.getTypeOfSymbol(property))
+    );
   }
 
   /**
@@ -624,12 +659,10 @@ export class TypeDeriver {
         this.collector[name] = {};
         const properties: Record<string, unknown> = {};
         for (const property of this.checker.getPropertiesOfType(type)) {
-          const propertyType = this.checker.getTypeOfSymbol(property);
-          if (
-            !this.keyedBySymbol(property) &&
-            !this.hasNoJsonForm(propertyType)
-          ) {
-            properties[property.name] = this.serializeType(propertyType);
+          if (this.writesMember(property)) {
+            properties[property.name] = this.serializeType(
+              this.checker.getTypeOfSymbol(property),
+            );
           }
         }
         this.collector[name] = sortObjectKeys(properties);
@@ -647,11 +680,7 @@ export class TypeDeriver {
       }
       const properties = this.checker
         .getPropertiesOfType(type)
-        .filter(
-          (prop) =>
-            !this.keyedBySymbol(prop) &&
-            !this.hasNoJsonForm(this.checker.getTypeOfSymbol(prop)),
-        );
+        .filter((prop) => this.writesMember(prop));
       if (properties.length > 0) {
         const serializedProps: Record<string, any> = {};
         for (const prop of properties) {
@@ -856,6 +885,9 @@ export class TypeDeriver {
     if (local) {
       return this.serializeNode(local.initializer, local.binding);
     }
+    if (binding.isError(node)) {
+      return this.serializeType(binding.site.type);
+    }
     const name = binding.memberRead(node);
     if (name !== undefined) {
       const member = binding.member(name);
@@ -904,6 +936,9 @@ export class TypeDeriver {
     const local = binding.localConst(expression);
     if (local) {
       return this.propertyValue(local.initializer, local.binding);
+    }
+    if (binding.isError(expression)) {
+      return { type: binding.site.type };
     }
     const name = binding.memberRead(expression);
     if (name !== undefined) {
