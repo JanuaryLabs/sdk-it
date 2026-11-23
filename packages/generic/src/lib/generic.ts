@@ -5,6 +5,7 @@ import {
   type LeftHandSideExpression,
   type Node,
   NodeFlags,
+  type PropertyAccessExpression,
   type PropertyAssignment,
   getJSDocTags,
   getTextOfJSDocComment,
@@ -20,6 +21,7 @@ import {
   isConstructorDeclaration,
   isElementAccessExpression,
   isEnumMember,
+  isExpression,
   isFunctionDeclaration,
   isFunctionExpression,
   isGetAccessorDeclaration,
@@ -54,8 +56,10 @@ import {
   type Symbol as TsSymbol,
   formatDiagnostics,
 } from '@typescript/native/sync';
-import { realpathSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, realpathSync } from 'node:fs';
+import { findPackageJSON } from 'node:module';
+import { dirname, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { debuglog } from 'node:util';
 import type {
   SchemaObject,
@@ -75,6 +79,7 @@ import {
   ZodEvaluator,
   isHttpMethod,
   isSemanticSource,
+  thrownErrorReaders,
   toSchema,
 } from '@sdk-it/core';
 import {
@@ -90,6 +95,7 @@ import {
 } from '@sdk-it/core/program.js';
 
 import { AgainstBindings } from './against-bindings.ts';
+import { ErrorHandler, throwSite } from './error-handler.ts';
 
 export interface MiddlewareSecurityRule {
   middleware: {
@@ -366,9 +372,10 @@ function returnedCalls(expression: Expression): CallExpression[] {
  * return statement is a response; in discarded mode only throws are, because
  * the caller drops the value. A call is followed in returned mode only when
  * its value is returned, so a helper that the handler calls for its side
- * effects adds its throws but never its returns.
+ * effects adds its throws but never its returns. With `value`, `node` is an
+ * expression the function returns.
  */
-function returnTokens(node: Node, typeChecker: Checker) {
+function returnTokens(node: Node, typeChecker: Checker, value = false) {
   const tokens: { token: string; node: Expression }[] = [];
   const maxDepth = 5;
   // A function is read once per mode: a discarded visit skips its returns,
@@ -542,7 +549,11 @@ function returnTokens(node: Node, typeChecker: Checker) {
     }
   };
 
-  visitor(node, 0, true);
+  if (value && isExpression(node)) {
+    visitReturned(node, 0, true);
+  } else {
+    visitor(node, 0, true);
+  }
   return tokens;
 }
 
@@ -683,15 +694,18 @@ function visit(
   }
 
   // Collect all middleware declarations for analysis
-  const middlewareDeclarations: { node: FunctionWithBody; name?: string }[] =
-    [];
+  const middlewareDeclarations: {
+    node: FunctionWithBody;
+    name?: string;
+    factory?: true;
+  }[] = [];
 
   // slice(1, -1) to skip first (path) and last (handler) arguments
   // and skip the validate middleware - it's handled separately
   for (const arg of node.arguments.slice(1, -1)) {
     // A middleware passed by reference: `app.get(path, signedIn, …)`.
     if (isIdentifier(arg)) {
-      const declaration = middlewareFunction(arg, typeChecker);
+      const declaration = referencedFunction(arg, typeChecker);
       if (declaration) {
         middlewareDeclarations.push({ node: declaration, name: arg.text });
       }
@@ -700,11 +714,12 @@ function visit(
     if (isCall(arg)) {
       // A middleware factory: `app.get(path, authenticate(), …)`.
       if (isIdentifier(arg.expression)) {
-        const declaration = middlewareFunction(arg.expression, typeChecker);
+        const declaration = referencedFunction(arg.expression, typeChecker);
         if (declaration) {
           middlewareDeclarations.push({
             node: declaration,
             name: arg.expression.text,
+            factory: true,
           });
         }
       }
@@ -744,6 +759,14 @@ function visit(
   for (const middleware of middlewareDeclarations) {
     const scope = responseScope(middleware.node);
     for (const { token, node } of returnTokens(middleware.node, typeChecker)) {
+      // A factory's own throw runs while the app is built, not per request.
+      if (
+        middleware.factory &&
+        token.startsWith('throw.') &&
+        enclosingFunction(node) === middleware.node
+      ) {
+        continue;
+      }
       const items = responseAnalyzer(scope, token, node);
       if (middleware.name) {
         for (const item of items) {
@@ -903,12 +926,10 @@ function notFoundResponses(
       isCall(node) &&
       isPropertyAccessExpression(node.expression) &&
       node.expression.name.text === 'notFound' &&
-      node.arguments.length === 1
+      node.arguments.length === 1 &&
+      callsHonoMethod(node, checker)
     ) {
-      const [handler] = node.arguments;
-      if (handler && isFunctionWithBody(handler)) {
-        handlers.push(handler);
-      }
+      handlers.push(registeredHandler(node, checker));
     }
     node.forEachChild(find);
   };
@@ -924,6 +945,46 @@ function notFoundResponses(
       respond(scope, token, node),
     );
   });
+}
+
+/**
+ * The app's error handler (`app.onError(handler)`), when the program registers
+ * one: an inline function, or a reference to a function's declaration. A
+ * handler that resolves to no function with a body fails, naming the call. A
+ * sub-app's handler cannot be told apart from the app's yet, so a program that
+ * registers more than one fails, naming each.
+ */
+function errorHandlerOf(
+  program: AnalysisProject['program'],
+  checker: Checker,
+): ErrorHandler | undefined {
+  const handlers: FunctionWithBody[] = [];
+  const find = (node: Node): void => {
+    if (
+      isCall(node) &&
+      isPropertyAccessExpression(node.expression) &&
+      node.expression.name.text === 'onError' &&
+      node.arguments.length === 1 &&
+      callsHonoMethod(node, checker)
+    ) {
+      handlers.push(registeredHandler(node, checker));
+    }
+    node.forEachChild(find);
+  };
+  for (const sourceFile of sourceFiles(program)) {
+    find(sourceFile);
+  }
+  if (handlers.length > 1) {
+    throw new Error(
+      `analyze reads one app.onError, and the program registers ${handlers.length}: ${handlers.map((handler) => nodeLocation(handler)).join(', ')}. A sub-app's onError is not read yet.`,
+    );
+  }
+  const [handler] = handlers;
+  return handler
+    ? new ErrorHandler(handler, checker, (node, value) =>
+        returnTokens(node, checker, value),
+      )
+    : undefined;
 }
 
 /** A route handler or middleware, whose first parameter is its Hono context. */
@@ -949,14 +1010,78 @@ function returnsNotFound({ context }: ResponseScope, node: Node): boolean {
  * The function a middleware name refers to: a function declaration, or a
  * variable initialized with a function, through any import alias.
  */
-function middlewareFunction(
-  name: Identifier,
+/**
+ * Whether `call` calls a method that the `hono` package declares, such as
+ * `app.onError`, and not a method of that name on another object.
+ */
+function callsHonoMethod(call: CallExpression, checker: Checker): boolean {
+  const declaration = checker.getResolvedSignature(call).declaration?.resolve();
+  return (
+    declaration !== undefined &&
+    packageOf(declaration.getSourceFile().fileName) === 'hono'
+  );
+}
+
+/** The name in the nearest package.json above `fileName` that has one. */
+function packageOf(fileName: string): string | undefined {
+  let manifest = findPackageJSON(pathToFileURL(fileName));
+  while (manifest) {
+    const json: unknown = JSON.parse(readFileSync(manifest, 'utf8'));
+    if (
+      typeof json === 'object' &&
+      json !== null &&
+      'name' in json &&
+      typeof json.name === 'string'
+    ) {
+      return json.name;
+    }
+    const folder = dirname(manifest);
+    if (dirname(folder) === folder) {
+      return undefined;
+    }
+    manifest = findPackageJSON(pathToFileURL(folder));
+  }
+  return undefined;
+}
+
+/**
+ * The function an app handler registration (`app.onError(handler)`,
+ * `app.notFound(handler)`) passes: inline, or by reference. One that resolves
+ * to no function with a body fails, naming the call.
+ */
+function registeredHandler(
+  call: CallExpression,
+  checker: Checker,
+): FunctionWithBody {
+  const [argument] = call.arguments;
+  const handler =
+    argument && (isIdentifier(argument) || isPropertyAccessExpression(argument))
+      ? referencedFunction(argument, checker)
+      : argument;
+  if (!isFunctionWithBody(handler)) {
+    throw new Error(
+      `${call.expression.getText()} at ${nodeLocation(call)} registers ${argument?.getText()}, which analyze cannot resolve to a function with a body, so the responses it sends cannot be documented. Register an inline function, or a function declaration, a variable or an object property initialized with a function, that the program reads as source.`,
+    );
+  }
+  return handler;
+}
+
+/**
+ * The function a reference names, through import aliases: a function or
+ * method declaration, or a variable or object property initialized with a
+ * function (`{ handleError: (error, c) => … }`, `{ handleError }`).
+ */
+function referencedFunction(
+  reference: Identifier | PropertyAccessExpression,
   checker: Checker,
 ): FunctionWithBody | undefined {
-  let symbol = checker.getSymbolAtLocation(name);
-  if (symbol && symbol.flags & SymbolFlags.Alias) {
-    symbol = checker.getAliasedSymbol(symbol);
-  }
+  return symbolFunction(resolvedSymbol(reference, checker), checker);
+}
+
+function symbolFunction(
+  symbol: TsSymbol | undefined,
+  checker: Checker,
+): FunctionWithBody | undefined {
   const declarations = [
     symbol?.valueDeclaration,
     ...(symbol?.declarations ?? []),
@@ -969,11 +1094,20 @@ function middlewareFunction(
   }
   for (const declaration of declarations) {
     if (
-      isVariableDeclaration(declaration) &&
-      declaration.initializer &&
+      (isVariableDeclaration(declaration) ||
+        isPropertyAssignment(declaration)) &&
       isFunctionWithBody(declaration.initializer)
     ) {
       return declaration.initializer;
+    }
+    if (isShorthandPropertyAssignment(declaration)) {
+      const value = symbolFunction(
+        checker.getShorthandAssignmentValueSymbol(declaration),
+        checker,
+      );
+      if (value) {
+        return value;
+      }
     }
   }
   return undefined;
@@ -1049,6 +1183,19 @@ export async function analyze(
     return responseAnalyzer(scope, typeDeriver);
   };
   const notFound = notFoundResponses(project.program, typeChecker, respond);
+  const dispatch = (
+    scope: ResponseScope,
+    token: string,
+    node: Node,
+  ): ResponseItem[] =>
+    notFound && returnsNotFound(scope, node)
+      ? notFound.map((item) => ({ ...item }))
+      : respond(scope, token, node);
+  const errorHandler = errorHandlerOf(project.program, typeChecker);
+  const readers =
+    typeof config.responseAnalyzer === 'function'
+      ? []
+      : (config.responseAnalyzer[thrownErrorReaders] ?? []);
 
   for (const sourceFile of sourceFiles(project.program)) {
     logger(`Visiting ${sourceFile.fileName}`);
@@ -1056,9 +1203,12 @@ export async function analyze(
       visit(
         sourceFile,
         (scope, token, node) =>
-          notFound && returnsNotFound(scope, node)
-            ? notFound.map((item) => ({ ...item }))
-            : respond(scope, token, node),
+          errorHandler && isNewExpression(node) && token.startsWith('throw.')
+            ? errorHandler.responsesFor(
+                throwSite(node, typeChecker, readers),
+                dispatch,
+              )
+            : dispatch(scope, token, node),
         paths,
         typeChecker,
         typeDeriver,
@@ -1126,6 +1276,14 @@ function unresolvedReferences(program: AnalysisProgram) {
 }
 
 export type Serialized = ReturnType<typeof analyze>;
+
+function enclosingFunction(node: Node): FunctionWithBody | undefined {
+  let current: Node | undefined = node.parent;
+  while (current && !isFunctionWithBody(current)) {
+    current = current.parent;
+  }
+  return current;
+}
 
 function isFunctionWithBody(node: Node | undefined): node is FunctionWithBody {
   if (!node) {
