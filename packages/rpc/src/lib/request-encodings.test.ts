@@ -1,5 +1,5 @@
 import { TemporaryFiles } from '@zukhruf/fs';
-import { test } from '@zukhruf/testing/node';
+import { test } from '@zukhruf/parameterized-test';
 import { type Tool, asSchema } from 'ai';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';

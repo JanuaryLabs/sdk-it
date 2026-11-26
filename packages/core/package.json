@@ -51,5 +51,8 @@
     "openapi3-ts": {
       "optional": true
     }
+  },
+  "devDependencies": {
+    "@zukhruf/parameterized-test": "^0.8.138"
   }
 }

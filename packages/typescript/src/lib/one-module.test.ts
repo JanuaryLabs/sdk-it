@@ -5,7 +5,7 @@ import {
 } from '@typescript/native/ast/is';
 import { API, SymbolFlags } from '@typescript/native/sync';
 import { TemporaryFiles } from '@zukhruf/fs';
-import { test } from '@zukhruf/testing/node';
+import { test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { registerHooks } from 'node:module';

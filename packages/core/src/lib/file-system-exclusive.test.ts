@@ -1,5 +1,5 @@
 import { TemporaryFiles } from '@zukhruf/fs';
-import { test } from '@zukhruf/testing/node';
+import { test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { readFile, readlink, symlink, writeFile } from 'node:fs/promises';

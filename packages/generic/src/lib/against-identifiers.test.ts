@@ -1,4 +1,4 @@
-import { test } from '@zukhruf/testing/node';
+import { test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 
 import { openAnalysisProject } from '@sdk-it/core/program.js';

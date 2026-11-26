@@ -1,4 +1,4 @@
-import { describe, test } from '@zukhruf/testing/node';
+import { describe, test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { ZodObject } from 'zod';
 

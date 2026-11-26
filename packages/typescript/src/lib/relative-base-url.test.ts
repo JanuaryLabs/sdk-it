@@ -1,4 +1,4 @@
-import { test } from '@zukhruf/testing/node';
+import { test } from '@zukhruf/parameterized-test';
 import { build, stop } from 'esbuild';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';

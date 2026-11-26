@@ -1,6 +1,6 @@
 import { API } from '@typescript/native/sync';
 import { TemporaryFiles } from '@zukhruf/fs';
-import { describe, test } from '@zukhruf/testing/node';
+import { describe, test } from '@zukhruf/parameterized-test';
 import { build as esbuild } from 'esbuild';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
