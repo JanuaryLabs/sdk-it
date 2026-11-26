@@ -1,4 +1,4 @@
-import { atomicWrite, createExclusive } from '@zukhruf/fs';
+import { atomicWrite, createExclusive, isErrno } from '@zukhruf/fs';
 import { mkdir, readFile, readdir, stat } from 'node:fs/promises';
 import {
   dirname,
@@ -16,10 +16,17 @@ export async function getFile(filePath: string) {
   return null;
 }
 
+/** The stat failures that mean no file is at the path. */
+const absent = ['ENOENT', 'ENOTDIR', 'ENAMETOOLONG', 'ERR_INVALID_ARG_VALUE'];
+
 export async function exist(file: string): Promise<boolean> {
-  return stat(file)
-    .then(() => true)
-    .catch(() => false);
+  try {
+    await stat(file);
+    return true;
+  } catch (error) {
+    if (absent.some((code) => isErrno(error, code))) return false;
+    throw error;
+  }
 }
 
 export async function readFolder(

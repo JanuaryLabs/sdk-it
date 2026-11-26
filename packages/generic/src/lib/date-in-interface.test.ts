@@ -1,7 +1,7 @@
+import { describe, test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
 
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
@@ -64,7 +64,7 @@ function filesOf(variant: Record<string, string>) {
 }
 
 describe('a Date field inside a named response type', () => {
-  for (const [name, variant] of Object.entries(variants)) {
+  void test.each(Object.entries(variants), ([name, variant]) =>
     test(`generated client types createdAt as string (${name})`, async () => {
       await using workspace = await analysisWorkspace(
         'date-in-interface-',
@@ -110,6 +110,6 @@ void [id, at];
 
       assert.ok(files.includes(consumerPath));
       assert.deepStrictEqual(diagnostics, []);
-    });
-  }
+    }),
+  );
 });

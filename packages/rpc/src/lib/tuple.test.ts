@@ -84,26 +84,33 @@ const valid = {
   named: [{ name: 'n' }],
 };
 
-void test('rpc validates a prefixItems tuple as its schema allows', async () => {
-  // Arrange
-  await using directory = await new TemporaryFiles().directory('rpc-tuple-');
-  const file = join(directory.path, 'openapi.yaml');
-  await writeFile(file, document);
-  const client = await rpc(file, {
-    fetch: async () => new Response(null, { status: 204 }),
-  });
-
-  // Act and assert
-  for (const accepted of [
+void test.each(
+  [
     valid,
     { ...valid, closed: [] },
     { ...valid, head: ['a'] },
     { ...valid, open: ['a'] },
     { ...valid, open: ['a', 5, { any: true }] },
-  ]) {
-    await assert.doesNotReject(client.request('POST /pairs', accepted));
-  }
-  for (const [field, wrong] of [
+  ],
+  (accepted) =>
+    test(`rpc validates a prefixItems tuple as its schema allows: accepts ${JSON.stringify(accepted)}`, async () => {
+      // Arrange
+      await using directory = await new TemporaryFiles().directory(
+        'rpc-tuple-',
+      );
+      const file = join(directory.path, 'openapi.yaml');
+      await writeFile(file, document);
+      const client = await rpc(file, {
+        fetch: async () => new Response(null, { status: 204 }),
+      });
+
+      // Act and assert
+      await assert.doesNotReject(client.request('POST /pairs', accepted));
+    }),
+);
+
+void test.each(
+  [
     ['pair', ['a']],
     ['pair', ['a', 1, 2]],
     ['pair', [1, 'a']],
@@ -113,14 +120,27 @@ void test('rpc validates a prefixItems tuple as its schema allows', async () => 
     ['open', [5]],
     ['open', ['a', 'b']],
     ['named', [{}]],
-  ] as const) {
-    await assert.rejects(
-      client.request('POST /pairs', { ...valid, [field]: wrong }),
-      parseErrorFor(field),
-      `${field}: ${JSON.stringify(wrong)}`,
-    );
-  }
-});
+  ] as const,
+  ([field, wrong]) =>
+    test(`rpc validates a prefixItems tuple as its schema allows: refuses ${field} ${JSON.stringify(wrong)}`, async () => {
+      // Arrange
+      await using directory = await new TemporaryFiles().directory(
+        'rpc-tuple-',
+      );
+      const file = join(directory.path, 'openapi.yaml');
+      await writeFile(file, document);
+      const client = await rpc(file, {
+        fetch: async () => new Response(null, { status: 204 }),
+      });
+
+      // Act and assert
+      await assert.rejects(
+        client.request('POST /pairs', { ...valid, [field]: wrong }),
+        parseErrorFor(field),
+        `${field}: ${JSON.stringify(wrong)}`,
+      );
+    }),
+);
 
 void test('rpc agents get no tool for an input whose tuple holds a file', async () => {
   // Arrange

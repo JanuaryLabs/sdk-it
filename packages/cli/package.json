@@ -44,11 +44,11 @@
     "@sdk-it/python": "0.51.10",
     "@sdk-it/readme": "0.51.10",
     "zod": "^4.6.7",
-    "@zukhruf/fs": "^0.8.33"
+    "@zukhruf/fs": "^0.8.144"
   },
   "devDependencies": {
     "@sdk-it/testing": "*",
-    "@zukhruf/parameterized-test": "^0.8.138"
+    "@zukhruf/parameterized-test": "^0.8.144"
   },
   "publishConfig": {
     "access": "public"

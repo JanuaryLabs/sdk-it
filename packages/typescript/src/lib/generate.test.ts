@@ -2392,16 +2392,6 @@ describe('generate — model names', () => {
     const runtimeNames = rootExports(plain.path).filter(
       (name) => /^[A-Z]/.test(name) && name !== 'Widget',
     );
-    for (const name of [
-      'ShopEndpoints',
-      'NotFound',
-      'Ok',
-      'ShopServers',
-      'ShopClient',
-    ]) {
-      assert.ok(runtimeNames.includes(name), `root exports ${name}`);
-    }
-
     await generate(specWithModels(runtimeNames), {
       output: directory.path,
       name: 'Shop',
@@ -2431,6 +2421,26 @@ describe('generate — model names', () => {
       [],
     );
   });
+
+  void test.each(
+    ['ShopEndpoints', 'NotFound', 'Ok', 'ShopServers', 'ShopClient'],
+    (name) =>
+      test(`the root of a generated SDK exports the runtime name ${name}`, async () => {
+        await using plain = await workspaceDirectory('generate-root-exports-');
+        await generate(specWithModels(['Widget']), {
+          output: plain.path,
+          name: 'Shop',
+          packageName: '@acme/sdk',
+          readme: false,
+          mode: 'full',
+        });
+
+        assert.ok(
+          rootExports(plain.path).includes(name),
+          `root exports ${name}`,
+        );
+      }),
+  );
 
   test('lowercase and snake_case schema names that pascalcase into a runtime export or the client class are renamed', async () => {
     await using directory = await workspaceDirectory(

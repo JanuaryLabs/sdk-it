@@ -1,6 +1,6 @@
+import { describe, test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 import type { SchemaObject } from 'openapi3-ts/oas31';
 
@@ -393,8 +393,8 @@ describe('ZodEmitter date handling', () => {
   });
 
   describe('a format with the pattern zod writes for it', () => {
-    test('reports one issue for a refused value, as the pattern restates the format', async () => {
-      const cases = [
+    void test.each(
+      [
         {
           format: 'uuid',
           pattern:
@@ -415,23 +415,23 @@ describe('ZodEmitter date handling', () => {
           pattern:
             '^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$',
         },
-      ];
+      ],
+      ({ format, pattern }) =>
+        test(`reports one issue for a refused value, as the pattern restates the format (${format})`, async () => {
+          const row = await rowInput({
+            value: { type: 'string', format, pattern },
+            required: true,
+          });
 
-      for (const { format, pattern } of cases) {
-        const row = await rowInput({
-          value: { type: 'string', format, pattern },
-          required: true,
-        });
-
-        assert.deepEqual(
-          row
-            .safeParse({ value: 'nope' })
-            .error.issues.map((issue: { format: string }) => issue.format),
-          [format === 'date-time' ? 'datetime' : format],
-          format,
-        );
-      }
-    });
+          assert.deepEqual(
+            row
+              .safeParse({ value: 'nope' })
+              .error.issues.map((issue: { format: string }) => issue.format),
+            [format === 'date-time' ? 'datetime' : format],
+            format,
+          );
+        }),
+    );
 
     test("refuses a zone offset when the pattern is z.iso.datetime()'s", async () => {
       const row = await rowInput({

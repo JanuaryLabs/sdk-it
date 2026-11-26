@@ -1,8 +1,8 @@
 import { TemporaryFiles } from '@zukhruf/fs';
+import { test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { test } from 'node:test';
 
 import { rpc } from '@sdk-it/rpc';
 import { parseErrorFor } from '@sdk-it/testing';
@@ -137,7 +137,7 @@ test('a const false property refuses true and accepts false', async () => {
   );
 });
 
-test('an object const accepts exactly its JSON value and refuses any other', async () => {
+test('an object const accepts exactly its JSON value', async () => {
   await using dir = await new TemporaryFiles().directory('rpc-const-object-');
   const client = await clientOf(
     dir,
@@ -147,14 +147,27 @@ test('an object const accepts exactly its JSON value and refuses any other', asy
   await assert.doesNotReject(
     client.request('POST /answers', { answer: { x: 1, tags: ['a'] } }),
   );
-  for (const wrong of [
+});
+
+void test.each(
+  [
     { x: 2, tags: ['a'] },
     { x: 1, tags: ['a'], y: 0 },
     { x: 1, tags: ['b'] },
-  ]) {
-    await assert.rejects(
-      client.request('POST /answers', { answer: wrong }),
-      parseErrorFor('answer'),
-    );
-  }
-});
+  ],
+  (wrong) =>
+    test(`an object const refuses ${JSON.stringify(wrong)}`, async () => {
+      await using dir = await new TemporaryFiles().directory(
+        'rpc-const-object-',
+      );
+      const client = await clientOf(
+        dir,
+        answers({ const: { x: 1, tags: ['a'] } }, ['answer']),
+      );
+
+      await assert.rejects(
+        client.request('POST /answers', { answer: wrong }),
+        parseErrorFor('answer'),
+      );
+    }),
+);

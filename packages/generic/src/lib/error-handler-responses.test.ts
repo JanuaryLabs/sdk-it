@@ -556,31 +556,33 @@ app.onError((error, c) => {
 `;
 }
 
-for (const [reads, body] of [
-  ['', '{ error: error.message }'],
+void test.each(
   [
-    ', also when the body reads the status',
-    '{ error: error.message, status: error.status }',
+    ['', '{ error: error.message }'],
+    [
+      ', also when the body reads the status',
+      '{ error: error.message, status: error.status }',
+    ],
   ],
-]) {
-  test(`an HTTPException whose status is a helper's ContentfulStatusCode parameter fails analyze, naming the throw site and asking for a literal status there${reads}`, async () => {
-    await using workspace = await analysisWorkspace('error-handler-status-', {
-      'route.ts': helperStatus(body),
-    });
-    using project = openAnalysisProject(workspace.tsconfig);
+  ([reads, body]) =>
+    test(`an HTTPException whose status is a helper's ContentfulStatusCode parameter fails analyze, naming the throw site and asking for a literal status there${reads}`, async () => {
+      await using workspace = await analysisWorkspace('error-handler-status-', {
+        'route.ts': helperStatus(body),
+      });
+      using project = openAnalysisProject(workspace.tsconfig);
 
-    await assert.rejects(analyze(project, { responseAnalyzer }), (error) => {
-      assert.ok(Error.isError(error));
-      assert.match(error.message, /thrown at \S*route\.ts:7:\d+/);
-      assert.match(error.message, /the status error\.status, whose type is /);
-      assert.match(
-        error.message,
-        /Pass a number literal as the status where the error is constructed, at \S*route\.ts:7:\d+/,
-      );
-      return true;
-    });
-  });
-}
+      await assert.rejects(analyze(project, { responseAnalyzer }), (error) => {
+        assert.ok(Error.isError(error));
+        assert.match(error.message, /thrown at \S*route\.ts:7:\d+/);
+        assert.match(error.message, /the status error\.status, whose type is /);
+        assert.match(
+          error.message,
+          /Pass a number literal as the status where the error is constructed, at \S*route\.ts:7:\d+/,
+        );
+        return true;
+      });
+    }),
+);
 
 test('an app.onError handler passed by reference to its function declaration documents its branch for the class a route throws', async () => {
   const document = await documented(`import { Hono, type Context } from 'hono';
@@ -789,23 +791,25 @@ app.onError((error, c) =>
 const branch =
   "error instanceof LlmError ? c.json({ error: error.message }, 502) : c.json({ fault: 'internal' }, 500)";
 
-for (const [form, handlers] of [
+void test.each(
   [
-    'a property whose value is an arrow function',
-    `const handlers = { handleError: (error: Error, c: Context) => ${branch} };`,
+    [
+      'a property whose value is an arrow function',
+      `const handlers = { handleError: (error: Error, c: Context) => ${branch} };`,
+    ],
+    [
+      'a shorthand property',
+      `const handleError = (error: Error, c: Context) => ${branch};\nconst handlers = { handleError };`,
+    ],
+    [
+      'a method',
+      `const handlers = {\n  handleError(error: Error, c: Context) {\n    return ${branch};\n  },\n};`,
+    ],
   ],
-  [
-    'a shorthand property',
-    `const handleError = (error: Error, c: Context) => ${branch};\nconst handlers = { handleError };`,
-  ],
-  [
-    'a method',
-    `const handlers = {\n  handleError(error: Error, c: Context) {\n    return ${branch};\n  },\n};`,
-  ],
-]) {
-  test(`an app.onError handler held in an object as ${form} documents its branch for the class a route throws`, async () => {
-    const document =
-      await documented(`import { Hono, type Context } from 'hono';
+  ([form, handlers]) =>
+    test(`an app.onError handler held in an object as ${form} documents its branch for the class a route throws`, async () => {
+      const document =
+        await documented(`import { Hono, type Context } from 'hono';
 import { validate } from '@sdk-it/hono/runtime';
 export const app = new Hono();
 class LlmError extends Error {}
@@ -820,14 +824,14 @@ ${handlers}
 app.onError(handlers.handleError);
 `);
 
-    const responses = document.paths['/providers/models'].get.responses;
-    assert.deepStrictEqual(
-      Object.keys(resolvedBody(document, responses, '502')?.properties ?? {}),
-      ['error'],
-      'the route documents the 502 the held handler sends for its LlmError',
-    );
-  });
-}
+      const responses = document.paths['/providers/models'].get.responses;
+      assert.deepStrictEqual(
+        Object.keys(resolvedBody(document, responses, '502')?.properties ?? {}),
+        ['error'],
+        'the route documents the 502 the held handler sends for its LlmError',
+      );
+    }),
+);
 
 test("validate()'s 400 and 415 document the body app.onError sends for each HTTPException validate() throws, with that throw's message as a const", async () => {
   // validate() throws HTTPException (validator.ts:160, 180, 221, 263-272, 290, 306, 316) and
@@ -1282,21 +1286,23 @@ app.get('/booking', validate(() => ({})), () => {
   });
 });
 
-for (const [shape, declaration, construction] of [
+void test.each(
   [
-    'with no constructor of its own',
-    'class Conflict extends HTTPException {}',
-    "new Conflict(409, { message: 'b1' })",
+    [
+      'with no constructor of its own',
+      'class Conflict extends HTTPException {}',
+      "new Conflict(409, { message: 'b1' })",
+    ],
+    [
+      'whose constructor passes a status to super',
+      'class Conflict extends HTTPException {\n  constructor(id: string) {\n    super(409, { message: id });\n  }\n}',
+      "new Conflict('b1')",
+    ],
   ],
-  [
-    'whose constructor passes a status to super',
-    'class Conflict extends HTTPException {\n  constructor(id: string) {\n    super(409, { message: id });\n  }\n}',
-    "new Conflict('b1')",
-  ],
-]) {
-  test(`a thrown subclass of HTTPException ${shape} documents Hono's default at the status its construction gives HTTPException`, async () => {
-    const { sent, responses } = await sentAndDocumented(
-      `import { Hono } from 'hono';
+  ([shape, declaration, construction]) =>
+    test(`a thrown subclass of HTTPException ${shape} documents Hono's default at the status its construction gives HTTPException`, async () => {
+      const { sent, responses } = await sentAndDocumented(
+        `import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { validate } from '@sdk-it/hono/runtime';
 export const app = new Hono();
@@ -1306,19 +1312,19 @@ app.get('/booking', validate(() => ({})), () => {
   throw ${construction};
 });
 `,
-      '/booking',
-    );
+        '/booking',
+      );
 
-    assert.deepStrictEqual(sent, {
-      status: 409,
-      mediaType: 'text/plain',
-      body: 'b1',
-    });
-    assert.deepStrictEqual(responses['409'].content, {
-      'text/plain': { schema: { type: 'string', enum: ['b1'] } },
-    });
-  });
-}
+      assert.deepStrictEqual(sent, {
+        status: 409,
+        mediaType: 'text/plain',
+        body: 'b1',
+      });
+      assert.deepStrictEqual(responses['409'].content, {
+        'text/plain': { schema: { type: 'string', enum: ['b1'] } },
+      });
+    }),
+);
 
 test("an HTTPException thrown with no message documents Hono's default body as the empty text it sends", async () => {
   const { sent, responses } = await sentAndDocumented(
@@ -1547,31 +1553,41 @@ test("a const that app.onError's branch declares from the error and names inside
   );
 });
 
-for (const [form, body, causeOf] of [
+void test.each(
   [
-    'as a property value',
-    'return c.json({ cause: cause }, 409);',
-    (branch: any) => branch.properties.cause,
-  ],
-  ['as the whole body', 'return c.json(cause, 409);', (branch: any) => branch],
-  ['as a spread', 'return c.json({ ...cause }, 409);', (branch: any) => branch],
-] as const) {
-  test(`a const that app.onError's branch declares from the error and sends ${form} documents one body for each code the throw may give`, async () => {
-    const document = await documented(
-      refusalOf(`const cause = { code: error.code };
+    [
+      'as a property value',
+      'return c.json({ cause: cause }, 409);',
+      (branch: any) => branch.properties.cause,
+    ],
+    [
+      'as the whole body',
+      'return c.json(cause, 409);',
+      (branch: any) => branch,
+    ],
+    [
+      'as a spread',
+      'return c.json({ ...cause }, 409);',
+      (branch: any) => branch,
+    ],
+  ] as const,
+  ([form, body, causeOf]) =>
+    test(`a const that app.onError's branch declares from the error and sends ${form} documents one body for each code the throw may give`, async () => {
+      const document = await documented(
+        refusalOf(`const cause = { code: error.code };
     ${body}`),
-    );
+      );
 
-    const sent = bodyOf(document.paths['/slots'].post.responses, '409');
-    assert.deepStrictEqual(
-      sent.oneOf.map((branch: any) => causeOf(branch).properties.code),
-      [
-        { type: 'string', enum: ['slot_closed'] },
-        { type: 'string', enum: ['slot_taken'] },
-      ],
-    );
-  });
-}
+      const sent = bodyOf(document.paths['/slots'].post.responses, '409');
+      assert.deepStrictEqual(
+        sent.oneOf.map((branch: any) => causeOf(branch).properties.code),
+        [
+          { type: 'string', enum: ['slot_closed'] },
+          { type: 'string', enum: ['slot_taken'] },
+        ],
+      );
+    }),
+);
 
 /** A route that throws `thrown`, under an app.onError that sends the error itself as the cause of its 500, as deepagents' evals-web-runner does. */
 function sendsErrorAsCause(thrown: string) {

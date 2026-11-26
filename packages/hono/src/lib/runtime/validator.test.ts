@@ -1,7 +1,7 @@
+import { describe, test } from '@zukhruf/parameterized-test';
 import { Hono, type MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
 import z from 'zod';
 
 import {
@@ -45,6 +45,87 @@ async function postJson(app: Hono, body: unknown) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
+}
+
+const entrypoints: { name: string; middleware: () => MiddlewareHandler }[] = [
+  { name: 'validate()', middleware: () => validate(() => ({})) },
+  {
+    name: "validate('application/json')",
+    middleware: () => validate('application/json', () => ({})),
+  },
+  { name: 'openapi()', middleware: () => openapi(() => ({})) },
+  {
+    name: "openapi('application/json')",
+    middleware: () => openapi('application/json', () => ({})),
+  },
+  {
+    name: "consume('application/json')",
+    middleware: () => consume('application/json'),
+  },
+  {
+    name: 'verifyContentType',
+    middleware: () => async (c, next) => {
+      verifyContentType(c.req.header('content-type'), 'application/json');
+      await next();
+    },
+  },
+];
+
+function mediaTypeApp(middleware: MiddlewareHandler) {
+  const app = new Hono();
+  app.onError((error, c) => {
+    if (error instanceof HTTPException) {
+      return c.json({ cause: error.cause }, error.status);
+    }
+    return c.json({ message: error.message }, 500);
+  });
+  app.post('/', middleware, (c) => c.json({ reached: true }));
+  return app;
+}
+
+function selectionApp(fallback: () => string) {
+  const app = new Hono();
+  app.onError((error, c) => {
+    if (error instanceof HTTPException)
+      return c.json({ cause: error.cause }, error.status);
+    return c.json({ message: error.message }, 500);
+  });
+  app.post(
+    '/field',
+    validate((payload) => ({
+      name: {
+        select: payload.body.name,
+        against: z.string().default(fallback()),
+      },
+    })),
+    (c) => c.json(c.var.input),
+  );
+  app.post(
+    '/whole',
+    validate((payload) => ({
+      body: { select: payload.body, against: z.unknown() },
+    })),
+    (c) => c.json(c.var.input),
+  );
+  return app;
+}
+
+function wholeBodyApp() {
+  return new Hono().post(
+    '/body',
+    validate('application/json', (payload) => ({
+      body: {
+        select: payload.body,
+        against: z.union([
+          z.strictObject({ name: z.string() }),
+          z.array(z.string()),
+          z.string(),
+          z.null(),
+        ]),
+      },
+    })),
+    (c) => c.json(c.var.input.body),
+  );
 }
 
 describe('hono validator: body validation', () => {
@@ -175,31 +256,16 @@ describe('hono validator: body validation', () => {
 });
 
 describe('hono validator: content-type handling', () => {
-  test('malformed media types have a distinct client error through every public entrypoint', async () => {
-    const entrypoints: MiddlewareHandler[] = [
-      validate(() => ({})),
-      validate('application/json', () => ({})),
-      openapi(() => ({})),
-      openapi('application/json', () => ({})),
-      consume('application/json'),
-      async (c, next) => {
-        verifyContentType(c.req.header('content-type'), 'application/json');
-        await next();
-      },
-    ];
-    for (const middleware of entrypoints) {
-      const app = new Hono();
-      app.onError((error, c) => {
-        if (error instanceof HTTPException) {
-          return c.json({ cause: error.cause }, error.status);
-        }
-        return c.json({ message: error.message }, 500);
-      });
-      app.post('/', middleware, (c) => c.json({ reached: true }));
-      for (const contentType of [
-        'not-a-media-type',
-        'application/json; charset',
-      ]) {
+  void test.each(
+    entrypoints.flatMap((entrypoint) =>
+      ['not-a-media-type', 'application/json; charset'].map((contentType) => ({
+        ...entrypoint,
+        contentType,
+      })),
+    ),
+    ({ name, middleware, contentType }) =>
+      test(`a malformed media type ${JSON.stringify(contentType)} has a distinct client error through ${name}`, async () => {
+        const app = mediaTypeApp(middleware());
         const rejected = await app.request('/', {
           method: 'POST',
           headers: { 'content-type': contentType },
@@ -212,7 +278,12 @@ describe('hono validator: content-type handling', () => {
             detail: 'Invalid content type header',
           },
         });
-      }
+      }),
+  );
+
+  void test.each(entrypoints, ({ name, middleware }) =>
+    test(`a media type in another case with a charset reaches the handler through ${name}`, async () => {
+      const app = mediaTypeApp(middleware());
       const accepted = await app.request('/', {
         method: 'POST',
         headers: { 'content-type': 'Application/JSON; charset=utf-8' },
@@ -220,12 +291,21 @@ describe('hono validator: content-type handling', () => {
       });
       assert.equal(accepted.status, 200);
       assert.deepEqual(await accepted.json(), { reached: true });
-      // RFC 9110 §8.3.1 allows an empty parameter and whitespace around ";".
-      for (const contentType of [
+    }),
+  );
+
+  // RFC 9110 §8.3.1 allows an empty parameter and whitespace around ";".
+  void test.each(
+    entrypoints.flatMap((entrypoint) =>
+      [
         'application/json;',
         'application/json; ;charset=utf-8',
         'application/json\t;\tcharset=utf-8',
-      ]) {
+      ].map((contentType) => ({ ...entrypoint, contentType })),
+    ),
+    ({ name, middleware, contentType }) =>
+      test(`an empty parameter or whitespace around ";" in ${JSON.stringify(contentType)} reaches the handler through ${name}`, async () => {
+        const app = mediaTypeApp(middleware());
         const valid = await app.request('/', {
           method: 'POST',
           headers: { 'content-type': contentType },
@@ -233,29 +313,33 @@ describe('hono validator: content-type handling', () => {
         });
         assert.equal(valid.status, 200, contentType);
         assert.deepEqual(await valid.json(), { reached: true });
-      }
-    }
-    for (const [actual, detail] of [
+      }),
+  );
+
+  void test.each(
+    [
       [undefined, 'Missing content type header'],
       [
         'text/plain',
         'Expected content type: application/json, but got: text/plain',
       ],
-    ] as const) {
-      assert.throws(
-        () => verifyContentType(actual, 'application/json'),
-        (error) => {
-          assert.ok(error instanceof HTTPException);
-          assert.equal(error.status, 415);
-          assert.deepEqual(error.cause, {
-            code: 'api/unsupported-media-type',
-            detail,
-          });
-          return true;
-        },
-      );
-    }
-  });
+    ] as const,
+    ([actual, detail]) =>
+      test(`verifyContentType refuses ${JSON.stringify(actual)} with a 415`, () => {
+        assert.throws(
+          () => verifyContentType(actual, 'application/json'),
+          (error) => {
+            assert.ok(error instanceof HTTPException);
+            assert.equal(error.status, 415);
+            assert.deepEqual(error.cause, {
+              code: 'api/unsupported-media-type',
+              detail,
+            });
+            return true;
+          },
+        );
+      }),
+  );
 
   test('GET with content-type header is rejected with 415', async () => {
     const middleware = validate((payload) => ({
@@ -339,33 +423,9 @@ describe('hono validator: content-type handling', () => {
 });
 
 describe('hono validator: canonical request handling', () => {
-  test('non-object field selections fail without changing whole-body values or per-request schemas', async () => {
-    let fallback = 'first';
-    const app = new Hono();
-    app.onError((error, c) => {
-      if (error instanceof HTTPException)
-        return c.json({ cause: error.cause }, error.status);
-      return c.json({ message: error.message }, 500);
-    });
-    app.post(
-      '/field',
-      validate((payload) => ({
-        name: {
-          select: payload.body.name,
-          against: z.string().default(fallback),
-        },
-      })),
-      (c) => c.json(c.var.input),
-    );
-    app.post(
-      '/whole',
-      validate((payload) => ({
-        body: { select: payload.body, against: z.unknown() },
-      })),
-      (c) => c.json(c.var.input),
-    );
-
-    for (const value of [null, [], ['value'], 'text', 42, false]) {
+  void test.each([null, [], ['value'], 'text', 42, false], (value) =>
+    test(`a field selection over the non-object body ${JSON.stringify(value)} fails without changing the whole-body value`, async () => {
+      const app = selectionApp(() => 'first');
       const init = {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -382,12 +442,13 @@ describe('hono validator: canonical request handling', () => {
       const whole = await app.request('/whole', init);
       assert.equal(whole.status, 200);
       assert.deepEqual(await whole.json(), { body: value });
-    }
-    for (const [value, expected] of [
-      [{ name: 'alice' }, 'alice'],
-      [{}, 'first'],
-      [{}, 'second'],
-    ] as const) {
+    }),
+  );
+
+  test('a field selection builds its schema per request', async () => {
+    let fallback = 'first';
+    const app = selectionApp(() => fallback);
+    const step = async (value: Record<string, string>, expected: string) => {
       const response = await app.request('/field', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -395,8 +456,12 @@ describe('hono validator: canonical request handling', () => {
       });
       assert.equal(response.status, 200);
       assert.deepEqual(await response.json(), { name: expected });
-      if (expected === 'first') fallback = 'second';
-    }
+    };
+
+    await step({ name: 'alice' }, 'alice');
+    await step({}, 'first');
+    fallback = 'second';
+    await step({}, 'second');
   });
 
   test('malformed JSON returns a structured 400 without running the handler', async () => {
@@ -583,23 +648,9 @@ describe('hono validator: canonical request handling', () => {
     });
   });
 
-  test('whole-body schemas receive objects, arrays, scalars, and null unchanged', async () => {
-    const app = new Hono().post(
-      '/body',
-      validate('application/json', (payload) => ({
-        body: {
-          select: payload.body,
-          against: z.union([
-            z.strictObject({ name: z.string() }),
-            z.array(z.string()),
-            z.string(),
-            z.null(),
-          ]),
-        },
-      })),
-      (c) => c.json(c.var.input.body),
-    );
-    for (const value of [{ name: 'alice' }, ['a', 'b'], 'text', null]) {
+  void test.each([{ name: 'alice' }, ['a', 'b'], 'text', null], (value) =>
+    test(`whole-body schemas receive ${JSON.stringify(value)} unchanged`, async () => {
+      const app = wholeBodyApp();
       const response = await app.request('/body', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -607,7 +658,11 @@ describe('hono validator: canonical request handling', () => {
       });
       assert.equal(response.status, 200);
       assert.deepEqual(await response.json(), value);
-    }
+    }),
+  );
+
+  test('a whole-body strict object schema rejects an unexpected key', async () => {
+    const app = wholeBodyApp();
     const rejected = await app.request('/body', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

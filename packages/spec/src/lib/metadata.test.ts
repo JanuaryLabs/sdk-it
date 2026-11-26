@@ -1,9 +1,9 @@
 import { TemporaryFiles } from '@zukhruf/fs';
+import { describe, it } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, it } from 'node:test';
 
 import { writeFiles } from '@sdk-it/core/file-system.js';
 import { cleanFiles, readWriteMetadata } from '@sdk-it/spec';
@@ -11,24 +11,26 @@ import { runNode } from '@sdk-it/testing';
 
 describe('Metadata File Management - Error-First Testing', () => {
   describe('readWriteMetadata - Attack Phase: Unreadable metadata.json', () => {
-    for (const [name, content] of [
-      ['malformed JSON', '{ invalid json }'],
-      ['binary content', Buffer.from([0x00, 0x01, 0xff, 0xfe])],
-      ['an empty file', ''],
-    ] as const) {
-      it(`should reject a metadata.json holding ${name}`, async () => {
-        await using workspace = await new TemporaryFiles().directory(
-          'metadata-unreadable-',
-        );
-        const dir = workspace.path;
-        await writeFile(join(dir, 'metadata.json'), content);
+    void it.each(
+      [
+        ['malformed JSON', '{ invalid json }'],
+        ['binary content', Buffer.from([0x00, 0x01, 0xff, 0xfe])],
+        ['an empty file', ''],
+      ] as const,
+      ([name, content]) =>
+        it(`should reject a metadata.json holding ${name}`, async () => {
+          await using workspace = await new TemporaryFiles().directory(
+            'metadata-unreadable-',
+          );
+          const dir = workspace.path;
+          await writeFile(join(dir, 'metadata.json'), content);
 
-        await assert.rejects(
-          () => readWriteMetadata(dir, ['a.ts'], writeFiles),
-          { name: 'SyntaxError' },
-        );
-      });
-    }
+          await assert.rejects(
+            () => readWriteMetadata(dir, ['a.ts'], writeFiles),
+            { name: 'SyntaxError' },
+          );
+        }),
+    );
 
     it('should reject when the writer cannot write metadata.json', async () => {
       await using workspace = await new TemporaryFiles().directory(

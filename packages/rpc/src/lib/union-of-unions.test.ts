@@ -74,17 +74,8 @@ const valid = {
   name: 'n',
 };
 
-void test('rpc validates a union whose only branch is a union by that union', async () => {
-  // Arrange
-  await using directory = await new TemporaryFiles().directory('rpc-unions-');
-  const file = join(directory.path, 'openapi.yaml');
-  await writeFile(file, document);
-  const client = await rpc(file, {
-    fetch: async () => new Response(null, { status: 204 }),
-  });
-
-  // Act and assert
-  for (const body of [
+void test.each(
+  [
     valid,
     { ...valid, maybe: true, exclusive: false, mixed: true, either: false },
     {
@@ -96,13 +87,29 @@ void test('rpc validates a union whose only branch is a union by that union', as
       pet: null,
       name: null,
     },
-  ]) {
-    await assert.doesNotReject(
-      client.request('POST /flags', body),
-      JSON.stringify(body),
-    );
-  }
-  for (const [field, wrong] of [
+  ],
+  (body) =>
+    test(`rpc validates a union whose only branch is a union by that union: accepts ${JSON.stringify(body)}`, async () => {
+      // Arrange
+      await using directory = await new TemporaryFiles().directory(
+        'rpc-unions-',
+      );
+      const file = join(directory.path, 'openapi.yaml');
+      await writeFile(file, document);
+      const client = await rpc(file, {
+        fetch: async () => new Response(null, { status: 204 }),
+      });
+
+      // Act and assert
+      await assert.doesNotReject(
+        client.request('POST /flags', body),
+        JSON.stringify(body),
+      );
+    }),
+);
+
+void test.each(
+  [
     ['maybe', 1],
     ['exclusive', 1],
     ['mixed', 1],
@@ -111,11 +118,24 @@ void test('rpc validates a union whose only branch is a union by that union', as
     ['either', null],
     ['pet', 1],
     ['name', 1],
-  ] as const) {
-    await assert.rejects(
-      client.request('POST /flags', { ...valid, [field]: wrong }),
-      parseErrorFor(field),
-      `${field}: ${JSON.stringify(wrong)}`,
-    );
-  }
-});
+  ] as const,
+  ([field, wrong]) =>
+    test(`rpc validates a union whose only branch is a union by that union: refuses ${field} ${JSON.stringify(wrong)}`, async () => {
+      // Arrange
+      await using directory = await new TemporaryFiles().directory(
+        'rpc-unions-',
+      );
+      const file = join(directory.path, 'openapi.yaml');
+      await writeFile(file, document);
+      const client = await rpc(file, {
+        fetch: async () => new Response(null, { status: 204 }),
+      });
+
+      // Act and assert
+      await assert.rejects(
+        client.request('POST /flags', { ...valid, [field]: wrong }),
+        parseErrorFor(field),
+        `${field}: ${JSON.stringify(wrong)}`,
+      );
+    }),
+);

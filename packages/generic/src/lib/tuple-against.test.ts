@@ -1,7 +1,7 @@
+import { describe, test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 
 import { openAnalysisProject } from '@sdk-it/core/program.js';
@@ -50,7 +50,7 @@ async function generated(workspace: Workspace) {
 }
 
 describe('a z.tuple against', () => {
-  test('the generated client accepts the arrays the tuple allows and refuses the rest', async () => {
+  test('the generated client accepts the arrays the tuple allows', async () => {
     // Arrange
     await using workspace = await analysisWorkspace('tuple-against-runtime-', {
       'route.ts': route,
@@ -70,20 +70,41 @@ describe('a z.tuple against', () => {
     await assert.doesNotReject(
       client.request('POST /pairs', { ...valid, head: ['a'] }),
     );
-    for (const [field, wrong] of [
+  });
+
+  void test.each(
+    [
       ['pair', ['a']],
       ['pair', ['a', 1, 2]],
       ['pair', [1, 'a']],
       ['head', []],
       ['head', ['a', 'b']],
-    ] as const) {
-      await assert.rejects(
-        client.request('POST /pairs', { ...valid, [field]: wrong }),
-        parseErrorFor(field),
-        `${field}: ${JSON.stringify(wrong)}`,
-      );
-    }
-  });
+    ] as const,
+    ([field, wrong]) =>
+      test(`the generated client refuses ${field} ${JSON.stringify(wrong)}`, async () => {
+        // Arrange
+        await using workspace = await analysisWorkspace(
+          'tuple-against-runtime-',
+          { 'route.ts': route },
+        );
+        const output = await generated(workspace);
+        const { createPairs } = await import(
+          pathToFileURL(join(output, 'src/index.ts')).href
+        );
+        const client = createPairs({
+          baseUrl: 'https://api.test',
+          fetch: async () => new Response(null, { status: 204 }),
+        });
+        const valid = { pair: ['a', 1], head: ['a', 1, 2] };
+
+        // Act and assert
+        await assert.rejects(
+          client.request('POST /pairs', { ...valid, [field]: wrong }),
+          parseErrorFor(field),
+          `${field}: ${JSON.stringify(wrong)}`,
+        );
+      }),
+  );
 
   test('the generated client types the tuple by its elements and its rest', async () => {
     // Arrange

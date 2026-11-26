@@ -1,5 +1,5 @@
+import { describe, test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
 import type { ParameterObject } from 'openapi3-ts/oas31';
 
 import type { TunedOperationObject } from '@sdk-it/spec';
@@ -159,10 +159,15 @@ describe('Offset Pagination Detection', () => {
     'COUNT',
   ];
 
-  for (const offsetKey of testOffsetKeywords) {
-    for (const limitKey of testLimitKeywords) {
-      if (offsetKey.toLowerCase() === limitKey.toLowerCase()) continue;
-
+  void test.each(
+    testOffsetKeywords.flatMap((offsetKey) =>
+      testLimitKeywords
+        .filter(
+          (limitKey) => offsetKey.toLowerCase() !== limitKey.toLowerCase(),
+        )
+        .map((limitKey) => [offsetKey, limitKey] as const),
+    ),
+    ([offsetKey, limitKey]) =>
       test(`should detect offset with "${offsetKey}" and "${limitKey}"`, () => {
         const op = createOperation([qParam(offsetKey), qParam(limitKey)]);
         const result = guessPagination(op, void 0, minimalResponse());
@@ -182,9 +187,8 @@ describe('Offset Pagination Detection', () => {
           },
           `Failed for ${offsetKey}, ${limitKey}`,
         );
-      });
-    }
-  }
+      }),
+  );
 
   test('should not detect offset if one param is not in query', () => {
     const op = createOperation([hParam('offset'), qParam('limit')]);
@@ -255,10 +259,13 @@ describe('Page Pagination Detection', () => {
     'LIMIT',
   ];
 
-  for (const pageKey of testPageNumKeywords) {
-    for (const sizeKey of testPageSizeKeywords) {
-      if (pageKey.toLowerCase() === sizeKey.toLowerCase()) continue;
-
+  void test.each(
+    testPageNumKeywords.flatMap((pageKey) =>
+      testPageSizeKeywords
+        .filter((sizeKey) => pageKey.toLowerCase() !== sizeKey.toLowerCase())
+        .map((sizeKey) => [pageKey, sizeKey] as const),
+    ),
+    ([pageKey, sizeKey]) =>
       test(`should detect page with "${pageKey}" and "${sizeKey}"`, () => {
         const op = createOperation([qParam(pageKey), qParam(sizeKey)]);
         const result = guessPagination(op, void 0, minimalResponse());
@@ -275,9 +282,8 @@ describe('Page Pagination Detection', () => {
           },
           `Failed for ${pageKey}, ${sizeKey}`,
         );
-      });
-    }
-  }
+      }),
+  );
   test('should not detect with two page-number-like params and no size', () => {
     const op = createOperation([qParam('page'), qParam('page_number')]);
     const result = guessPagination(op, void 0, minimalResponse());
@@ -309,10 +315,15 @@ describe('Cursor Pagination Detection', () => {
     'LAST',
   ];
 
-  for (const cursorKey of testCursorKeywords) {
-    for (const limitKey of testCursorLimitKeywords) {
-      if (cursorKey.toLowerCase() === limitKey.toLowerCase()) continue;
-
+  void test.each(
+    testCursorKeywords.flatMap((cursorKey) =>
+      testCursorLimitKeywords
+        .filter(
+          (limitKey) => cursorKey.toLowerCase() !== limitKey.toLowerCase(),
+        )
+        .map((limitKey) => [cursorKey, limitKey] as const),
+    ),
+    ([cursorKey, limitKey]) =>
       test(`should detect cursor with "${cursorKey}" and "${limitKey}"`, () => {
         const op = createOperation([
           qParam(cursorKey, 'string'),
@@ -332,9 +343,8 @@ describe('Cursor Pagination Detection', () => {
           },
           `Failed for ${cursorKey}, ${limitKey}`,
         );
-      });
-    }
-  }
+      }),
+  );
 
   test('should not detect with two cursor-like params and no limit', () => {
     const op = createOperation([

@@ -1,7 +1,7 @@
 import { TemporaryFiles } from '@zukhruf/fs';
+import { test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { readdir } from 'node:fs/promises';
-import { test } from 'node:test';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { generate } from '@sdk-it/typescript';
@@ -20,8 +20,8 @@ const spec: OpenAPIObject = {
   },
 };
 
-for (const packageName of ['', '  ']) {
-  void test(`generate refuses the package name ${JSON.stringify(packageName)}, naming packageName, and writes nothing`, async () => {
+void test.each(['', '  '], (packageName) =>
+  test(`generate refuses the package name ${JSON.stringify(packageName)}, naming packageName, and writes nothing`, async () => {
     await using output = await new TemporaryFiles().directory(
       'sdk-it-package-name-',
     );
@@ -37,5 +37,5 @@ for (const packageName of ['', '  ']) {
     );
 
     assert.deepEqual(await readdir(output.path), []);
-  });
-}
+  }),
+);

@@ -37,8 +37,8 @@
   ],
   "dependencies": {
     "@sdk-it/core": "0.51.10",
-    "@zukhruf/async": "^0.8.33",
-    "@zukhruf/fs": "^0.8.33",
+    "@zukhruf/async": "^0.8.144",
+    "@zukhruf/fs": "^0.8.144",
     "lodash-es": "^4.17.21",
     "micromatch": "4.0.8",
     "openapi3-ts": "4.6.2",
@@ -50,6 +50,6 @@
   },
   "devDependencies": {
     "@sdk-it/testing": "*",
-    "@zukhruf/parameterized-test": "^0.8.138"
+    "@zukhruf/parameterized-test": "^0.8.144"
   }
 }

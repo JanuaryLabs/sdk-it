@@ -43,7 +43,7 @@
     "@sdk-it/openapi": "0.51.10",
     "@sdk-it/spec": "0.51.10",
     "@sdk-it/typescript": "0.51.10",
-    "@zukhruf/fs": "^0.8.33",
+    "@zukhruf/fs": "^0.8.144",
     "ts-content-mapper": "^0.1.1",
     "yaml": "^2.9.1"
   },

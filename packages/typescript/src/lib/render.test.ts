@@ -129,7 +129,7 @@ test('render reads and writes nothing outside the code it loads', async () => {
   assert.ok(Number(result.stdout) > 0, result.stdout);
 });
 
-for (const agentTools of ['ai-sdk', 'openai-agents'] as const) {
+void test.each(['ai-sdk', 'openai-agents'] as const, (agentTools) =>
   test(`render output without .ts extensions compiles where .ts imports are not allowed (${agentTools})`, async () => {
     await using directory = await workspaceDirectory('render-no-ts-extension-');
     const files = await render(petStore(['Pet', 'Tag']), {
@@ -156,8 +156,8 @@ for (const agentTools of ['ai-sdk', 'openai-agents'] as const) {
 
     assert.ok(checked.files.some((file) => file.startsWith(directory.path)));
     assert.deepStrictEqual(checked.diagnostics, []);
-  });
-}
+  }),
+);
 
 test('generate writes metadata.json through a writer that keeps files in memory', async () => {
   await using directory = await new TemporaryFiles().directory(
@@ -270,34 +270,36 @@ test('without cleanup, a model removed from the spec stays exported', async () =
   );
 });
 
-for (const [agentTools, useTsExtension] of [
-  ['ai-sdk', true],
-  ['openai-agents', false],
-] as const) {
-  test(`render returns the source files generate writes (${agentTools}, useTsExtension ${useTsExtension})`, async () => {
-    await using directory = await new TemporaryFiles().directory(
-      'render-parity-',
-    );
-    await generate(petStore(['Pet', 'Tag']), {
-      output: directory.path,
-      name: 'Pets',
-      packageName: '@acme/sdk',
-      readme: false,
-      agentTools,
-      useTsExtension,
-      mode: 'full',
-    });
+void test.each(
+  [
+    ['ai-sdk', true],
+    ['openai-agents', false],
+  ] as const,
+  ([agentTools, useTsExtension]) =>
+    test(`render returns the source files generate writes (${agentTools}, useTsExtension ${useTsExtension})`, async () => {
+      await using directory = await new TemporaryFiles().directory(
+        'render-parity-',
+      );
+      await generate(petStore(['Pet', 'Tag']), {
+        output: directory.path,
+        name: 'Pets',
+        packageName: '@acme/sdk',
+        readme: false,
+        agentTools,
+        useTsExtension,
+        mode: 'full',
+      });
 
-    const files = await render(petStore(['Pet', 'Tag']), {
-      name: 'Pets',
-      useTsExtension,
-      agentTools,
-    });
+      const files = await render(petStore(['Pet', 'Tag']), {
+        name: 'Pets',
+        useTsExtension,
+        agentTools,
+      });
 
-    assert.ok(
-      files['index.ts'] && files['agents.ts'] && files['http/security.ts'],
-      Object.keys(files).join(),
-    );
-    assert.deepStrictEqual(files, sourceFiles(join(directory.path, 'src')));
-  });
-}
+      assert.ok(
+        files['index.ts'] && files['agents.ts'] && files['http/security.ts'],
+        Object.keys(files).join(),
+      );
+      assert.deepStrictEqual(files, sourceFiles(join(directory.path, 'src')));
+    }),
+);

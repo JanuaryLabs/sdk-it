@@ -1,8 +1,8 @@
 import { TemporaryFiles } from '@zukhruf/fs';
+import { test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { test } from 'node:test';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
 import { openAnalysisProject } from '@sdk-it/core/program.js';
@@ -179,10 +179,8 @@ app.post('/spaces', validate((payload) => ({
   );
 });
 
-test('one id given to the same schema in two routes is one component both point at', async () => {
-  const shared = `z.record(z.string(), z.json().meta({ id: 'JsonValue' }))`;
-  const spec = await analyzeFiles({
-    'route.ts': `import { Hono } from 'hono';
+const shared = `z.record(z.string(), z.json().meta({ id: 'JsonValue' }))`;
+const twoRoutesSharingOneId = `import { Hono } from 'hono';
 import { z } from 'zod';
 import { validate } from '@sdk-it/hono/runtime';
 
@@ -197,17 +195,19 @@ app.post('/shortcuts', validate((payload) => ({
 app.patch('/shortcuts', validate((payload) => ({
   integrations: { select: payload.body.integrations, against: ${shared} },
 })), (c) => c.json({ ok: true }));
-`,
-  });
+`;
 
-  assert.ok(spec.components.schemas?.JsonValue);
-  for (const method of ['post', 'patch'] as const) {
+void test.each(['post', 'patch'] as const, (method) =>
+  test(`one id given to the same schema in two routes is one component the ${method} route points at`, async () => {
+    const spec = await analyzeFiles({ 'route.ts': twoRoutesSharingOneId });
+
+    assert.ok(spec.components.schemas?.JsonValue);
     assert.deepStrictEqual(
       refs(spec.paths['/shortcuts']?.[method]?.requestBody),
       ['#/components/schemas/JsonValue'],
     );
-  }
-});
+  }),
+);
 
 test('a $ref that points at no component fails generation with a message naming it', async () => {
   const spec: OpenAPIObject = {

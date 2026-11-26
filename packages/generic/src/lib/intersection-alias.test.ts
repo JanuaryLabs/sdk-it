@@ -1,7 +1,7 @@
+import { describe, test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
 
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
@@ -61,42 +61,44 @@ function workspace(files: Record<string, string>) {
 }
 
 describe('an inherited response type returned as JSON', () => {
-  for (const [kind, summary] of [
-    ['intersection alias', intersectionSummary],
-    ['extending interface', extendsSummary],
-  ] as const) {
-    for (const imported of [false, true]) {
-      test(`generated client types every AppSummary field as required (${kind}, WorkspaceApp ${imported ? 'imported' : 'local'})`, async () => {
-        await using dir = await workspace({
-          'route.ts': route(summary, imported),
-          ...(imported ? { 'workspace.ts': workspaceApp } : {}),
-        });
-        using project = openAnalysisProject(dir.tsconfig);
-        const spec = await analyze(project, { responseAnalyzer });
-        const output = join(dir.path, 'client');
-        await generate(
-          {
-            openapi: '3.1.0',
-            info: { title: 'Apps', version: '1.0.0' },
-            paths: spec.paths,
-            components: spec.components,
-          },
-          {
-            output,
-            name: 'Apps',
-            packageName: '@acme/sdk',
-            readme: false,
-            mode: 'full',
-          },
-        );
-        const configPath = join(output, 'tsconfig.json');
-        const config = JSON.parse(await readFile(configPath, 'utf8'));
-        config.compilerOptions.strict = true;
-        await writeFile(configPath, JSON.stringify(config));
-        const consumerPath = join(output, 'src', 'consumer.ts');
-        await writeFile(
-          consumerPath,
-          `import { createApps } from './index.ts';
+  void test.each(
+    [
+      ['intersection alias', intersectionSummary],
+      ['extending interface', extendsSummary],
+    ] as const,
+    ([kind, summary]) =>
+      test.each([false, true], (imported) =>
+        test(`generated client types every AppSummary field as required (${kind}, WorkspaceApp ${imported ? 'imported' : 'local'})`, async () => {
+          await using dir = await workspace({
+            'route.ts': route(summary, imported),
+            ...(imported ? { 'workspace.ts': workspaceApp } : {}),
+          });
+          using project = openAnalysisProject(dir.tsconfig);
+          const spec = await analyze(project, { responseAnalyzer });
+          const output = join(dir.path, 'client');
+          await generate(
+            {
+              openapi: '3.1.0',
+              info: { title: 'Apps', version: '1.0.0' },
+              paths: spec.paths,
+              components: spec.components,
+            },
+            {
+              output,
+              name: 'Apps',
+              packageName: '@acme/sdk',
+              readme: false,
+              mode: 'full',
+            },
+          );
+          const configPath = join(output, 'tsconfig.json');
+          const config = JSON.parse(await readFile(configPath, 'utf8'));
+          config.compilerOptions.strict = true;
+          await writeFile(configPath, JSON.stringify(config));
+          const consumerPath = join(output, 'src', 'consumer.ts');
+          await writeFile(
+            consumerPath,
+            `import { createApps } from './index.ts';
 const client = createApps({ baseUrl: 'https://example.test' });
 const summary = await client.request('GET /apps/current', {});
 const name: string = summary.name;
@@ -110,13 +112,13 @@ const url: string = summary.url;
 const notNumber: number = summary.name;
 void [name, projectName, root, createdAt, activeJobId, status, url, notNumber];
 `,
-        );
+          );
 
-        const { files, diagnostics } = typecheck(configPath);
+          const { files, diagnostics } = typecheck(configPath);
 
-        assert.ok(files.includes(consumerPath));
-        assert.deepStrictEqual(diagnostics, []);
-      });
-    }
-  }
+          assert.ok(files.includes(consumerPath));
+          assert.deepStrictEqual(diagnostics, []);
+        }),
+      ),
+  );
 });

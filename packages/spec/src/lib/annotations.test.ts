@@ -1,5 +1,5 @@
+import { describe, it } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
 import type { SchemaObject } from 'openapi3-ts/oas31';
 
 import { annotationsOf, requiredOn, toIR } from '@sdk-it/spec';
@@ -132,42 +132,44 @@ describe('annotationsOf', () => {
     assert.equal(annotations.default, 'open');
   });
 
-  for (const flag of ['deprecated', 'readOnly', 'writeOnly'] as const) {
-    for (const layer of [
-      'beside the $ref',
-      'on the middle link',
-      'on the last target',
-    ] as const) {
-      it(`reads ${flag} ${layer} of a $ref chain`, async () => {
-        const ir = await irOf({
-          Inner: {
-            type: 'string',
-            ...(layer === 'on the last target' ? { [flag]: true } : {}),
-          },
-          Outer: {
-            $ref: '#/components/schemas/Inner',
-            ...(layer === 'on the middle link' ? { [flag]: true } : {}),
-          },
-          Payload: {
-            type: 'object',
-            properties: {
-              field: {
-                $ref: '#/components/schemas/Outer',
-                ...(layer === 'beside the $ref' ? { [flag]: true } : {}),
+  void it.each(['deprecated', 'readOnly', 'writeOnly'] as const, (flag) =>
+    it.each(
+      ['beside the $ref', 'on the middle link', 'on the last target'] as const,
+      (layer) =>
+        it(`reads ${flag} ${layer} of a $ref chain`, async () => {
+          const ir = await irOf({
+            Inner: {
+              type: 'string',
+              ...(layer === 'on the last target' ? { [flag]: true } : {}),
+            },
+            Outer: {
+              $ref: '#/components/schemas/Inner',
+              ...(layer === 'on the middle link' ? { [flag]: true } : {}),
+            },
+            Payload: {
+              type: 'object',
+              properties: {
+                field: {
+                  $ref: '#/components/schemas/Outer',
+                  ...(layer === 'beside the $ref' ? { [flag]: true } : {}),
+                },
               },
             },
-          },
-        });
+          });
 
-        const annotations = annotationsOf(propertyOf(ir, 'field'), ir);
+          const annotations = annotationsOf(propertyOf(ir, 'field'), ir);
 
-        assert.equal(annotations[flag], true);
-        for (const other of ['deprecated', 'readOnly', 'writeOnly'] as const) {
-          if (other !== flag) assert.equal(annotations[other], false);
-        }
-      });
-    }
-  }
+          assert.equal(annotations[flag], true);
+          for (const other of [
+            'deprecated',
+            'readOnly',
+            'writeOnly',
+          ] as const) {
+            if (other !== flag) assert.equal(annotations[other], false);
+          }
+        }),
+    ),
+  );
 
   it('flattens the examples beside a $ref and of its target, reading example as one example', async () => {
     const ir = await irOf({
@@ -374,57 +376,59 @@ describe('requiredOn', () => {
     assert.deepEqual(payload.required, ['id', 'createdAt', 'password', 'name']);
   });
 
-  it('keeps every required name of a schema with no readOnly or writeOnly property', async () => {
-    const ir = await irOf({
-      Payload: {
-        type: 'object',
-        properties: { name: { type: 'string' }, age: { type: 'integer' } },
-        required: ['name', 'age'],
-      },
-    });
+  void it.each(['request', 'response'] as const, (side) =>
+    it(`keeps every required name of a schema with no readOnly or writeOnly property in a ${side}`, async () => {
+      const ir = await irOf({
+        Payload: {
+          type: 'object',
+          properties: { name: { type: 'string' }, age: { type: 'integer' } },
+          required: ['name', 'age'],
+        },
+      });
 
-    for (const side of ['request', 'response'] as const) {
       assert.deepEqual(
         requiredOn({ $ref: '#/components/schemas/Payload' }, ir, side),
         ['name', 'age'],
       );
-    }
-  });
+    }),
+  );
 
-  for (const [flag, dropped, kept] of [
-    ['readOnly', 'request', 'response'],
-    ['writeOnly', 'response', 'request'],
-  ] as const) {
-    for (const link of ['the $ref target', 'the middle link'] as const) {
-      it(`leaves a required ${flag} property out of a ${dropped} and keeps it in a ${kept} when ${link} of its $ref chain is ${flag}`, async () => {
-        const ir = await irOf({
-          Id: {
-            type: 'string',
-            ...(link === 'the $ref target' ? { [flag]: true } : {}),
-          },
-          RecordId: {
-            $ref: '#/components/schemas/Id',
-            ...(link === 'the middle link' ? { [flag]: true } : {}),
-          },
-          Payload: {
-            type: 'object',
-            properties: {
-              id: { $ref: '#/components/schemas/RecordId' },
-              name: { type: 'string' },
+  void it.each(
+    [
+      ['readOnly', 'request', 'response'],
+      ['writeOnly', 'response', 'request'],
+    ] as const,
+    ([flag, dropped, kept]) =>
+      it.each(['the $ref target', 'the middle link'] as const, (link) =>
+        it(`leaves a required ${flag} property out of a ${dropped} and keeps it in a ${kept} when ${link} of its $ref chain is ${flag}`, async () => {
+          const ir = await irOf({
+            Id: {
+              type: 'string',
+              ...(link === 'the $ref target' ? { [flag]: true } : {}),
             },
-            required: ['id', 'name'],
-          },
-        });
-        const payload = { $ref: '#/components/schemas/Payload' };
+            RecordId: {
+              $ref: '#/components/schemas/Id',
+              ...(link === 'the middle link' ? { [flag]: true } : {}),
+            },
+            Payload: {
+              type: 'object',
+              properties: {
+                id: { $ref: '#/components/schemas/RecordId' },
+                name: { type: 'string' },
+              },
+              required: ['id', 'name'],
+            },
+          });
+          const payload = { $ref: '#/components/schemas/Payload' };
 
-        const droppedRequired = requiredOn(payload, ir, dropped);
-        const keptRequired = requiredOn(payload, ir, kept);
+          const droppedRequired = requiredOn(payload, ir, dropped);
+          const keptRequired = requiredOn(payload, ir, kept);
 
-        assert.deepEqual(droppedRequired, ['name']);
-        assert.deepEqual(keptRequired, ['id', 'name']);
-      });
-    }
-  }
+          assert.deepEqual(droppedRequired, ['name']);
+          assert.deepEqual(keptRequired, ['id', 'name']);
+        }),
+      ),
+  );
 
   it('keeps the readOnly names required in a response and the writeOnly names required in a request', async () => {
     const ir = await irOf({

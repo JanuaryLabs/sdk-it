@@ -7,10 +7,10 @@ import {
   isVariableDeclaration,
 } from '@typescript/native/ast/is';
 import { TemporaryFiles } from '@zukhruf/fs';
+import { describe, test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
 import type { SchemaObject } from 'openapi3-ts/oas31';
 
 import { $types, deriveSymbol, toSchema } from '@sdk-it/core';
@@ -708,10 +708,8 @@ describe('Type Derivation', () => {
       assert.equal(warn.mock.callCount(), 0);
     });
 
-    test('recovers empty-array satisfies annotations through identifier responses', async () => {
-      const variants = ['messages', 'alias', '[...messages]'];
-
-      for (const response of variants) {
+    void test.each(['messages', 'alias', '[...messages]'], (response) =>
+      test(`recovers empty-array satisfies annotations through identifier responses (${response})`, async () => {
         const result = toSchema(
           await deriveExpressionFromCode(
             `
@@ -729,8 +727,8 @@ describe('Type Derivation', () => {
           type: 'array',
           items: { $ref: '#/components/schemas/JsonObject' },
         });
-      }
-    });
+      }),
+    );
 
     test('keeps the inferred empty-array type for non-array satisfies targets', async () => {
       const result = toSchema(

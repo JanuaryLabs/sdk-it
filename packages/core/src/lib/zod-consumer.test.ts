@@ -1,14 +1,14 @@
 import { TemporaryFiles } from '@zukhruf/fs';
+import { test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { cp, mkdir, readFile } from 'node:fs/promises';
 import { findPackageJSON } from 'node:module';
 import { dirname, join } from 'node:path';
-import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 
 import { ZodEvaluator } from '@sdk-it/core';
 
-test('Zod consumers receive an explicit version contract and incompatible-schema diagnostics', async () => {
+test('Zod consumers receive an explicit version contract', async () => {
   const coreManifest = findPackageJSON('@sdk-it/core', import.meta.url);
   const zodManifest = findPackageJSON('zod', import.meta.url);
   assert.ok(coreManifest && zodManifest, '@sdk-it/core and zod resolve');
@@ -61,23 +61,28 @@ test('Zod consumers receive an explicit version contract and incompatible-schema
     assert.equal(imported.schema.type, 'string');
   }
 
-  using evaluator = new ZodEvaluator({ conditions: [] });
-  for (const schema of [
-    'legacy.string()',
-    'z.object({ name: legacy.string() })',
-    'z.array(legacy.string())',
-    'z.lazy(() => legacy.string())',
-    'z.union([z.string(), legacy.number()])',
-  ]) {
-    await assert.rejects(
-      evaluator.evaluate(schema, [
-        { import: 'legacy', from: import.meta.resolve('zod/v3') },
-      ]),
-      /@sdk-it\/core requires Zod 4 schemas.*migrate.*Zod 3/,
-    );
-  }
   const manifest = JSON.parse(
     await readFile(join(coreRoot, 'package.json'), 'utf8'),
   );
   assert.equal(manifest.peerDependencies.zod, '^4.6.7');
 });
+
+void test.each(
+  [
+    'legacy.string()',
+    'z.object({ name: legacy.string() })',
+    'z.array(legacy.string())',
+    'z.lazy(() => legacy.string())',
+    'z.union([z.string(), legacy.number()])',
+  ],
+  (schema) =>
+    test(`a Zod 3 schema gets an incompatible-schema diagnostic (${schema})`, async () => {
+      using evaluator = new ZodEvaluator({ conditions: [] });
+      await assert.rejects(
+        evaluator.evaluate(schema, [
+          { import: 'legacy', from: import.meta.resolve('zod/v3') },
+        ]),
+        /@sdk-it\/core requires Zod 4 schemas.*migrate.*Zod 3/,
+      );
+    }),
+);

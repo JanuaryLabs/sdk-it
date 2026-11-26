@@ -1,10 +1,10 @@
 import { TemporaryFiles } from '@zukhruf/fs';
+import { describe, test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdir, symlink, writeFile } from 'node:fs/promises';
 import { findPackageJSON } from 'node:module';
 import { dirname, join } from 'node:path';
-import { describe, test } from 'node:test';
 import { promisify } from 'node:util';
 
 import { openAnalysisProject } from '@sdk-it/core/program.js';
@@ -208,7 +208,7 @@ describe('analyze() documents a null raw body as no body', () => {
     { call: 'c.body(null)', status: '200' },
     { call: 'c.body()', status: '200' },
   ];
-  for (const { call, status } of forms) {
+  void test.each(forms, ({ call, status }) =>
     test(`return ${call} documents ${status} without content`, async () => {
       const paths = await analyzeWorkspace({
         'index.ts': `${routing}
@@ -222,8 +222,8 @@ export {};
       assert.deepStrictEqual(paths['/runs/{id}'].delete.responses, {
         [status]: { description: `Response for ${status}` },
       });
-    });
-  }
+    }),
+  );
 
   test('return new Response(null, { status: 204 }) documents 204 without content', async () => {
     const paths = await analyzeWorkspace({
@@ -275,7 +275,7 @@ describe('analyze() ignores what a discarded helper call returns', () => {
     { position: 'initializer', body: `const stream = summarize('x');` },
     { position: 'argument', body: `send(summarize('x'));` },
   ];
-  for (const { position, body } of positions) {
+  void test.each(positions, ({ position, body }) =>
     test(`a helper called as ${position} adds no text/plain response`, async () => {
       const paths = await analyzeWorkspace({
         'index.ts': `${routing}${helpers}
@@ -290,8 +290,8 @@ export {};
       assert.deepStrictEqual(contentTypes(paths['/sql-agent'].post.responses), {
         '200': ['application/json'],
       });
-    });
-  }
+    }),
+  );
 
   const nested = [
     {
@@ -303,7 +303,7 @@ export {};
       code: `function prepare() { summarize('x'); return 1; }`,
     },
   ];
-  for (const { helper, code } of nested) {
+  void test.each(nested, ({ helper, code }) =>
     test(`a discarded helper that ${helper} adds no text/plain response`, async () => {
       const paths = await analyzeWorkspace({
         'index.ts': `${routing}${helpers}
@@ -319,8 +319,8 @@ export {};
       assert.deepStrictEqual(contentTypes(paths['/sql-agent'].post.responses), {
         '200': ['application/json'],
       });
-    });
-  }
+    }),
+  );
 
   test('a throw two discarded helpers deep is documented', async () => {
     const paths = await analyzeWorkspace({
@@ -367,7 +367,7 @@ describe('analyze() documents what a returned helper call returns', () => {
     `return <Response>(<unknown>summarize('x'));`,
     `return flag() ? summarize('x') : summarize('y');`,
   ];
-  for (const form of forms) {
+  void test.each(forms, (form) =>
     test(`${form} documents the helper's text/plain response`, async () => {
       const paths = await analyzeWorkspace({
         'index.ts': `${routing}${helpers}
@@ -381,8 +381,8 @@ export {};
       assert.deepStrictEqual(contentTypes(paths['/summary'].post.responses), {
         '200': ['text/plain'],
       });
-    });
-  }
+    }),
+  );
 
   test('a helper first called for its side effects and then returned documents its text/plain response', async () => {
     const paths = await analyzeWorkspace({

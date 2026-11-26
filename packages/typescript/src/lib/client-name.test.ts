@@ -1,8 +1,8 @@
 import { TemporaryFiles } from '@zukhruf/fs';
+import { test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 
@@ -87,8 +87,8 @@ const clashes = [
   { name: 'Z', identifier: 'z' },
 ];
 
-void test('generate, render and renderModule refuse a client name whose default instance is a name the SDK already declares or exports, naming that name', async () => {
-  for (const { name, identifier } of clashes) {
+void test.each(clashes, ({ name, identifier }) =>
+  test(`generate, render and renderModule refuse a client name whose default instance is a name the SDK already declares or exports, naming that name (${name})`, async () => {
     await using output = await new TemporaryFiles().directory(
       'sdk-it-client-name-',
     );
@@ -114,8 +114,8 @@ void test('generate, render and renderModule refuse a client name whose default 
     );
     await assert.rejects(renderModule(spec, { name }), refusal);
     assert.deepEqual(await readdir(output.path), []);
-  }
-});
+  }),
+);
 
 void test('a client name close to an SDK name gives a module that loads and builds requests with its default instance', async () => {
   const { text } = await renderModule(spec, { name: 'Requests' });
@@ -135,35 +135,35 @@ const inputClashes = [
   { name: 'ItemSchema', identifier: 'createItemSchema' },
 ];
 
-void test('generate, render and renderModule refuse a client name that makes the name of an operation input schema, naming that name, and generate writes nothing', async () => {
-  const withCreate: OpenAPIObject = {
-    ...spec,
-    paths: {
-      '/items': {
-        get: {
-          operationId: 'listItems',
-          tags: ['items'],
-          responses: { '204': { description: 'No Content' } },
-        },
-        post: {
-          operationId: 'createItem',
-          tags: ['items'],
-          requestBody: {
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: { title: { type: 'string' } },
+void test.each(inputClashes, ({ name, identifier }) =>
+  test(`generate, render and renderModule refuse a client name that makes the name of an operation input schema, naming that name, and generate writes nothing (${name})`, async () => {
+    const withCreate: OpenAPIObject = {
+      ...spec,
+      paths: {
+        '/items': {
+          get: {
+            operationId: 'listItems',
+            tags: ['items'],
+            responses: { '204': { description: 'No Content' } },
+          },
+          post: {
+            operationId: 'createItem',
+            tags: ['items'],
+            requestBody: {
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: { title: { type: 'string' } },
+                  },
                 },
               },
             },
+            responses: { '204': { description: 'No Content' } },
           },
-          responses: { '204': { description: 'No Content' } },
         },
       },
-    },
-  };
-  for (const { name, identifier } of inputClashes) {
+    };
     await using output = await new TemporaryFiles().directory(
       'sdk-it-client-name-',
     );
@@ -186,5 +186,5 @@ void test('generate, render and renderModule refuse a client name that makes the
     );
     await assert.rejects(renderModule(withCreate, { name }), refusal);
     assert.deepEqual(await readdir(output.path), []);
-  }
-});
+  }),
+);

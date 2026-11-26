@@ -11,13 +11,23 @@ const ir: OpenAPIDocument = {
 };
 
 describe('schemaToZod — impossible schemas', () => {
-  test('empty not rejects every value', () => {
-    const schema = schemaToZod({ not: {} }, ir, { required: true });
+  void test.each(
+    [
+      { name: 'undefined', value: undefined },
+      { name: 'null', value: null },
+      { name: 'false', value: false },
+      { name: '0', value: 0 },
+      { name: 'an empty string', value: '' },
+      { name: 'an empty object', value: {} },
+      { name: 'an empty array', value: [] },
+    ],
+    ({ name, value }) =>
+      test(`empty not rejects ${name}`, () => {
+        const schema = schemaToZod({ not: {} }, ir, { required: true });
 
-    for (const value of [undefined, null, false, 0, '', {}, []]) {
-      assert.equal(schema.safeParse(value).success, false);
-    }
-  });
+        assert.equal(schema.safeParse(value).success, false);
+      }),
+  );
 });
 
 describe('schemaToZod — v3→v4 characterization (string formats)', () => {
@@ -106,8 +116,8 @@ describe('schemaToZod — v3→v4 characterization (string formats)', () => {
     assert.equal(schema.safeParse('not-a-guid').success, false);
   });
 
-  test('a format with the pattern zod writes for it reports one issue for a refused value', () => {
-    const cases = [
+  void test.each(
+    [
       {
         format: 'uuid',
         pattern:
@@ -128,24 +138,24 @@ describe('schemaToZod — v3→v4 characterization (string formats)', () => {
         pattern:
           '^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$',
       },
-    ];
+    ],
+    ({ format, pattern }) =>
+      test(`a format with the pattern zod writes for it reports one issue for a refused value (${format})`, () => {
+        const schema = schemaToZod({ type: 'string', format, pattern }, ir, {
+          required: true,
+        });
 
-    for (const { format, pattern } of cases) {
-      const schema = schemaToZod({ type: 'string', format, pattern }, ir, {
-        required: true,
-      });
-
-      assert.deepEqual(
-        schema
-          .safeParse('nope')
-          .error?.issues.map((issue) =>
-            'format' in issue ? issue.format : issue.code,
-          ),
-        [format === 'date-time' ? 'datetime' : format],
-        format,
-      );
-    }
-  });
+        assert.deepEqual(
+          schema
+            .safeParse('nope')
+            .error?.issues.map((issue) =>
+              'format' in issue ? issue.format : issue.code,
+            ),
+          [format === 'date-time' ? 'datetime' : format],
+          format,
+        );
+      }),
+  );
 
   test("format: date-time refuses a zone offset when the pattern is z.iso.datetime()'s", () => {
     const schema = schemaToZod(

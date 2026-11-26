@@ -1,5 +1,5 @@
+import { test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 import type { ResponseObject } from 'openapi3-ts/oas31';
 
 import { toIR } from '@sdk-it/spec';
@@ -75,7 +75,7 @@ const cases: [string, ResponseObject, string][] = [
   ['no content', { description: 'Created' }, 'empty'],
 ];
 
-for (const [shape, response, expected] of cases) {
+void test.each(cases, ([shape, response, expected]) =>
   test(`a response with ${shape} has body kind ${expected}`, async () => {
     const ir = await toIR({
       spec: {
@@ -100,8 +100,8 @@ for (const [shape, response, expected] of cases) {
     assert.ok(created);
 
     assert.equal(created['x-body'], expected);
-  });
-}
+  }),
+);
 
 test('a response with no content gets no fabricated body or output', async () => {
   const ir = await toIR({

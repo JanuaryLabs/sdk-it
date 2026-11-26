@@ -51,7 +51,7 @@ export const sharedConfig = [
   ...zukhruf.configs['tests'],
   ...zukhruf.configs['diagnostics'],
   ...zukhruf.configs['env'],
-  ...zukhruf.configs['react'],
+  ...zukhruf.configs['shadcn'],
   ...zukhruf.configs['nx-project-json'],
   ...zukhruf.configs['github-actions'],
   ...manifest.configs.recommended,

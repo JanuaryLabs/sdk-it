@@ -9,7 +9,7 @@
       "executor": "nx:run-commands",
       "dependsOn": ["build"],
       "options": {
-        "command": "node --test",
+        "command": "node --test --test-timeout=300000",
         "cwd": "{projectRoot}"
       }
     },

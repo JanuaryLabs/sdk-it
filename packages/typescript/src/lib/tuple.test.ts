@@ -87,28 +87,33 @@ async function generated(prefix: string) {
   return workspace;
 }
 
-void test('a prefixItems tuple accepts the arrays its schema allows and refuses the rest', async () => {
-  // Arrange
-  await using workspace = await generated('tuple-runtime-');
-  const { createPairs } = await import(
-    pathToFileURL(join(workspace.path, 'src/index.ts')).href
-  );
-  const client = createPairs({
-    baseUrl: 'https://api.test',
-    fetch: async () => Response.json(valid),
-  });
-
-  // Act and assert
-  for (const accepted of [
+void test.each(
+  [
     valid,
     { ...valid, closed: [] },
     { ...valid, head: ['a'] },
     { ...valid, open: ['a'] },
     { ...valid, open: ['a', 5, { any: true }] },
-  ]) {
-    await assert.doesNotReject(client.request('POST /pairs', accepted));
-  }
-  for (const [field, wrong] of [
+  ],
+  (accepted) =>
+    test(`a prefixItems tuple accepts ${JSON.stringify(accepted)}`, async () => {
+      // Arrange
+      await using workspace = await generated('tuple-runtime-');
+      const { createPairs } = await import(
+        pathToFileURL(join(workspace.path, 'src/index.ts')).href
+      );
+      const client = createPairs({
+        baseUrl: 'https://api.test',
+        fetch: async () => Response.json(valid),
+      });
+
+      // Act and assert
+      await assert.doesNotReject(client.request('POST /pairs', accepted));
+    }),
+);
+
+void test.each(
+  [
     ['pair', ['a']],
     ['pair', ['a', 1, 2]],
     ['pair', [1, 'a']],
@@ -118,14 +123,27 @@ void test('a prefixItems tuple accepts the arrays its schema allows and refuses 
     ['open', [5]],
     ['open', ['a', 'b']],
     ['named', [{}]],
-  ] as const) {
-    await assert.rejects(
-      client.request('POST /pairs', { ...valid, [field]: wrong }),
-      parseErrorFor(field),
-      `${field}: ${JSON.stringify(wrong)}`,
-    );
-  }
-});
+  ] as const,
+  ([field, wrong]) =>
+    test(`a prefixItems tuple refuses ${field} ${JSON.stringify(wrong)}`, async () => {
+      // Arrange
+      await using workspace = await generated('tuple-runtime-');
+      const { createPairs } = await import(
+        pathToFileURL(join(workspace.path, 'src/index.ts')).href
+      );
+      const client = createPairs({
+        baseUrl: 'https://api.test',
+        fetch: async () => Response.json(valid),
+      });
+
+      // Act and assert
+      await assert.rejects(
+        client.request('POST /pairs', { ...valid, [field]: wrong }),
+        parseErrorFor(field),
+        `${field}: ${JSON.stringify(wrong)}`,
+      );
+    }),
+);
 
 void test('a prefixItems tuple is typed by its elements and what follows them, in the input and the output', async () => {
   // Arrange

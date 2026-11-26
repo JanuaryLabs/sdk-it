@@ -38,8 +38,8 @@
   "devDependencies": {
     "@sdk-it/core": "0.51.10",
     "@sdk-it/testing": "*",
-    "@zukhruf/fs": "^0.8.33",
-    "@zukhruf/parameterized-test": "^0.8.138"
+    "@zukhruf/fs": "^0.8.144",
+    "@zukhruf/parameterized-test": "^0.8.144"
   },
   "peerDependencies": {
     "@sdk-it/cli": "0.51.10",
@@ -55,7 +55,7 @@
     }
   },
   "dependencies": {
-    "@zukhruf/mutex": "^0.8.43",
-    "@zukhruf/async": "^0.8.33"
+    "@zukhruf/mutex": "^0.8.144",
+    "@zukhruf/async": "^0.8.144"
   }
 }

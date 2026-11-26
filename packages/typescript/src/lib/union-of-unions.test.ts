@@ -91,19 +91,8 @@ async function generated(prefix: string) {
   return workspace;
 }
 
-void test('a generated client validates a union whose only branch is a union by that union', async () => {
-  // Arrange
-  await using workspace = await generated('union-of-unions-runtime-');
-  const { createFlags } = await import(
-    pathToFileURL(join(workspace.path, 'src/index.ts')).href
-  );
-  const client = createFlags({
-    baseUrl: 'https://api.test',
-    fetch: async () => new Response(null, { status: 204 }),
-  });
-
-  // Act and assert
-  for (const body of [
+void test.each(
+  [
     valid,
     { ...valid, maybe: true, exclusive: false, mixed: true, either: false },
     {
@@ -115,13 +104,29 @@ void test('a generated client validates a union whose only branch is a union by 
       pet: null,
       name: null,
     },
-  ]) {
-    await assert.doesNotReject(
-      client.request('POST /flags', body),
-      JSON.stringify(body),
-    );
-  }
-  for (const [field, wrong] of [
+  ],
+  (body) =>
+    test(`a generated client validates a union whose only branch is a union by that union: accepts ${JSON.stringify(body)}`, async () => {
+      // Arrange
+      await using workspace = await generated('union-of-unions-runtime-');
+      const { createFlags } = await import(
+        pathToFileURL(join(workspace.path, 'src/index.ts')).href
+      );
+      const client = createFlags({
+        baseUrl: 'https://api.test',
+        fetch: async () => new Response(null, { status: 204 }),
+      });
+
+      // Act and assert
+      await assert.doesNotReject(
+        client.request('POST /flags', body),
+        JSON.stringify(body),
+      );
+    }),
+);
+
+void test.each(
+  [
     ['maybe', 1],
     ['exclusive', 1],
     ['mixed', 1],
@@ -130,14 +135,27 @@ void test('a generated client validates a union whose only branch is a union by 
     ['either', null],
     ['pet', 1],
     ['name', 1],
-  ] as const) {
-    await assert.rejects(
-      client.request('POST /flags', { ...valid, [field]: wrong }),
-      parseErrorFor(field),
-      `${field}: ${JSON.stringify(wrong)}`,
-    );
-  }
-});
+  ] as const,
+  ([field, wrong]) =>
+    test(`a generated client validates a union whose only branch is a union by that union: refuses ${field} ${JSON.stringify(wrong)}`, async () => {
+      // Arrange
+      await using workspace = await generated('union-of-unions-runtime-');
+      const { createFlags } = await import(
+        pathToFileURL(join(workspace.path, 'src/index.ts')).href
+      );
+      const client = createFlags({
+        baseUrl: 'https://api.test',
+        fetch: async () => new Response(null, { status: 204 }),
+      });
+
+      // Act and assert
+      await assert.rejects(
+        client.request('POST /flags', { ...valid, [field]: wrong }),
+        parseErrorFor(field),
+        `${field}: ${JSON.stringify(wrong)}`,
+      );
+    }),
+);
 
 void test('a generated client types a union whose only branch is a union by that union', async () => {
   // Arrange

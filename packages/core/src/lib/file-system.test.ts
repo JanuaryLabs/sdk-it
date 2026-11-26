@@ -1,8 +1,8 @@
 import { TemporaryFiles } from '@zukhruf/fs';
+import { describe, it } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { describe, it } from 'node:test';
 
 import {
   type WriteContent,
@@ -52,18 +52,18 @@ describe('File System Utilities - Error-First Testing', () => {
       }
     });
 
-    it('should handle malformed paths', async () => {
-      const malformedPaths = [
-        '\0invalid',
-        'file\nwith\nnewlines',
-        'file\twith\ttabs',
-      ];
-
-      for (const path of malformedPaths) {
-        const result = await getFile(path);
-        assert.strictEqual(result, null, `Failed for path: ${path}`);
-      }
-    });
+    void it.each(
+      [
+        { name: 'a null byte', path: '\0invalid' },
+        { name: 'newlines', path: 'file\nwith\nnewlines' },
+        { name: 'tabs', path: 'file\twith\ttabs' },
+      ],
+      ({ name, path }) =>
+        it(`should handle malformed paths (${name})`, async () => {
+          const result = await getFile(path);
+          assert.strictEqual(result, null, `Failed for path: ${path}`);
+        }),
+    );
   });
 
   describe('exist - Attack Phase: Edge Cases & Invalid Paths', () => {

@@ -1,7 +1,7 @@
+import { describe, test } from '@zukhruf/parameterized-test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
 
 import { openAnalysisProject } from '@sdk-it/core/program.js';
 import { analyze } from '@sdk-it/generic';
@@ -71,7 +71,7 @@ function branches(schema: any): any[] {
 }
 
 describe('nullable response types keep null', () => {
-  for (const [label, compilerOptions] of Object.entries(strictness)) {
+  void test.each(Object.entries(strictness), ([label, compilerOptions]) =>
     test(`a handler returning AuthSession | null documents a nullable body (${label})`, async () => {
       await using dir = await workspace(compilerOptions);
       using project = openAnalysisProject(dir.tsconfig);
@@ -94,8 +94,10 @@ describe('nullable response types keep null', () => {
         required: ['userId'],
         additionalProperties: false,
       });
-    });
+    }),
+  );
 
+  void test.each(Object.entries(strictness), ([label, compilerOptions]) =>
     test(`string | null fields stay required and nullable (${label})`, async () => {
       await using dir = await workspace(compilerOptions);
       using project = openAnalysisProject(dir.tsconfig);
@@ -122,8 +124,8 @@ describe('nullable response types keep null', () => {
           `${field}: ${JSON.stringify(message.properties[field])}`,
         );
       }
-    });
-  }
+    }),
+  );
 
   test('generated client forces a null check on the session and types nullable fields as string | null', async () => {
     await using dir = await workspace({ strict: true });
