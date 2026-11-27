@@ -534,7 +534,11 @@ function arrayLimits(schema: SchemaObject) {
   return limits;
 }
 
-/** JSON Schema's string length and pattern keywords, mapped as zod's own `z.fromJSONSchema` maps them. */
+/**
+ * JSON Schema's string length and pattern keywords, mapped as zod's own
+ * `z.fromJSONSchema` maps them, except that a pattern has the `u` flag, which
+ * zod 4.6 leaves out.
+ */
 function stringLimits(schema: SchemaObject) {
   let limits = '';
   if (typeof schema.minLength === 'number') {
@@ -551,13 +555,15 @@ function stringLimits(schema: SchemaObject) {
 
 /**
  * A regular expression literal for a JSON Schema `pattern`, which is an
- * ECMA-262 regular expression that is not anchored. Compiling it here fails
- * generation on a pattern that JavaScript rejects, instead of the SDK failing
- * when it is imported. The literal names no global that a spec name can hide.
+ * ECMA-262 regular expression that is not anchored and has the `u` flag
+ * (JSON Schema 2020-12 Core §6.4), so it matches code points, not UTF-16 code
+ * units. Compiling it here fails generation on a pattern that JavaScript
+ * rejects, instead of the SDK failing when it is imported. The literal names
+ * no global that a spec name can hide.
  */
 function regexLiteral(pattern: string) {
   try {
-    return `/${new RegExp(pattern).source}/`;
+    return `/${new RegExp(pattern, 'u').source}/u`;
   } catch (error) {
     if (error instanceof SyntaxError) {
       throw new SyntaxError(

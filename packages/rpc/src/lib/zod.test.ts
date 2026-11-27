@@ -299,6 +299,34 @@ describe('RuntimeZodConverter string limits', () => {
     assert.equal(schema.safeParse('abcd').success, false);
   });
 
+  test('a pattern matches code points, as JSON Schema patterns have the u flag', () => {
+    const schema = converter.handle({ type: 'string', pattern: '^.$' }, true);
+
+    assert.equal(schema.parse('😀'), '😀');
+  });
+
+  test('a pattern with a range of supplementary characters refuses a character in the range', () => {
+    const schema = converter.handle(
+      { type: 'string', pattern: '^[^\u{E0000}-\u{E007F}]*$' },
+      true,
+    );
+
+    assert.equal(schema.parse('plain text'), 'plain text');
+    assert.equal(schema.safeParse('a\u{E0041}b').success, false);
+  });
+
+  test('a surrogate escape names a lone surrogate code point, not half of a character', () => {
+    const schema = converter.handle(
+      {
+        type: 'string',
+        pattern: '^(?:[^\\uDB40]|\\uDB40(?![\\uDC00-\\uDC7F]))*$',
+      },
+      true,
+    );
+
+    assert.equal(schema.parse('a\u{E0041}b'), 'a\u{E0041}b');
+  });
+
   test('limits apply to a string format', () => {
     const schema = converter.handle(
       { type: 'string', format: 'email', maxLength: 8 },

@@ -481,7 +481,11 @@ function arrayLimits(schema: SchemaObject): z.core.$ZodCheck<unknown[]>[] {
   return limits;
 }
 
-/** JSON Schema's string length and pattern keywords, as the checks that zod's own `z.fromJSONSchema` adds. */
+/**
+ * JSON Schema's string length and pattern keywords, as the checks that zod's
+ * own `z.fromJSONSchema` adds, except that a pattern has the `u` flag, which
+ * zod 4.6 leaves out.
+ */
 function stringLimits(schema: SchemaObject): z.core.$ZodCheck<string>[] {
   const limits: z.core.$ZodCheck<string>[] = [];
   if (typeof schema.minLength === 'number') {
@@ -491,8 +495,9 @@ function stringLimits(schema: SchemaObject): z.core.$ZodCheck<string>[] {
     limits.push(z.maxLength(schema.maxLength));
   }
   if (typeof schema.pattern === 'string') {
-    // A JSON Schema pattern is an ECMA-262 regular expression that is not anchored.
-    limits.push(z.regex(new RegExp(schema.pattern)));
+    // A JSON Schema pattern is an ECMA-262 regular expression that is not
+    // anchored and has the u flag (JSON Schema 2020-12 Core §6.4).
+    limits.push(z.regex(new RegExp(schema.pattern, 'u')));
   }
   return limits;
 }

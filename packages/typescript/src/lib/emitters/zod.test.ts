@@ -861,6 +861,41 @@ describe('ZodEmitter string limits', () => {
     assert.equal(row.safeParse({ value: 'ab' }).success, false);
   });
 
+  test('a pattern matches code points, as JSON Schema patterns have the u flag', async () => {
+    const row = await rowInput({
+      value: { type: 'string', pattern: '^.$' },
+      required: true,
+    });
+
+    assert.deepStrictEqual(row.parse({ value: '😀' }), { value: '😀' });
+  });
+
+  test('a pattern with a range of supplementary characters refuses a character in the range', async () => {
+    const row = await rowInput({
+      value: { type: 'string', pattern: '^[^\u{E0000}-\u{E007F}]*$' },
+      required: true,
+    });
+
+    assert.deepStrictEqual(row.parse({ value: 'plain text' }), {
+      value: 'plain text',
+    });
+    assert.equal(row.safeParse({ value: 'a\u{E0041}b' }).success, false);
+  });
+
+  test('a surrogate escape names a lone surrogate code point, not half of a character', async () => {
+    const row = await rowInput({
+      value: {
+        type: 'string',
+        pattern: '^(?:[^\\uDB40]|\\uDB40(?![\\uDC00-\\uDC7F]))*$',
+      },
+      required: true,
+    });
+
+    assert.deepStrictEqual(row.parse({ value: 'a\u{E0041}b' }), {
+      value: 'a\u{E0041}b',
+    });
+  });
+
   test('a pattern that is not an ECMA-262 regular expression fails generation', async () => {
     await assert.rejects(
       rowInput({
